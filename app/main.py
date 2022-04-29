@@ -95,30 +95,29 @@ async def test_return_autocorrelation(input_name: str, input_adjusted: bool | No
                     missing=input_missing, alpha=input_alpha,
                     nlags=input_nlags)
 
-            # print("RETURNING VALUES")
-            # print(type(z))
-            # print(z)
             to_return = {}
 
             # Parsing the results of acf into a single object
             # Results will change depending on our input
             if input_qstat and input_alpha:
                 to_return['values_autocorrelation'] = z[0].tolist()
-                to_return['something'] = z[1].tolist()
-                to_return['alpha'] = z[2].tolist()
-                to_return['qstat'] = z[3].tolist()
-                to_return['confint'] = z[2].tolist()
+                to_return['confint'] = z[1].tolist()
+                to_return['qstat'] = z[2].tolist()
+                to_return['pvalues'] = z[3].tolist()
+                # to_return['confint'] = z[2].tolist()
             elif input_qstat:
                 to_return['values_autocorrelation'] = z[0].tolist()
                 to_return['qstat'] = z[1].tolist()
-                to_return['confint'] = z[2].tolist()
+                to_return['pvalues'] = z[2].tolist()
             elif input_alpha:
                 to_return['values_autocorrelation'] = z[0].tolist()
-                to_return['something'] = z[1].tolist()
-                to_return['alpha'] = z[2].tolist()
+                to_return['confint'] = z[1].tolist()
+                # to_return['alpha'] = z[2].tolist()
             else:
                 to_return['values_autocorrelation'] = z.tolist()
 
+            print("RETURNING VALUES")
+            print(to_return)
             return to_return
     return {'Channel not found'}
 
