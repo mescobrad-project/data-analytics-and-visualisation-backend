@@ -17,7 +17,7 @@ from yasa import plot_spectrogram, spindles_detect, sw_detect, SleepStaging
 from scipy.signal import butter, lfilter, freqz
 
 app = FastAPI()
-data = mne.io.read_raw_edf("trial_av.edf", infer_types = True)
+data = mne.io.read_raw_edf("example_data/trial_av.edf", infer_types = True)
 
 def butter_lowpass(cutoff, fs, type_filter, order=5):
     if type_filter != 'bandpass':
