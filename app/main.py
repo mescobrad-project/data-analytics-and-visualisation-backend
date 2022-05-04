@@ -1,7 +1,7 @@
 import mne
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
-from statsmodels.graphics.tsaplots import acf
+from statsmodels.graphics.tsaplots import acf, pacf
 
 tags_metadata = [
     {
@@ -115,6 +115,34 @@ async def test_return_autocorrelation(input_name: str, input_adjusted: bool | No
                 # to_return['alpha'] = z[2].tolist()
             else:
                 to_return['values_autocorrelation'] = z.tolist()
+
+            print("RETURNING VALUES")
+            print(to_return)
+            return to_return
+    return {'Channel not found'}
+
+
+@app.get("/return_partial_autocorrelation", tags=["test_return_partial_autocorrelation"])
+# Validation is done inline in the input of the function
+async def return_partial_autocorrelation(input_name: str,
+                                         input_method: str | None = Query("none",
+                                                                    regex="^(none)$|^(yw)$|^(ywadjusted)$|^(ywm)$|^(ywmle)$|^(ols)$|^(ols-inefficient)$|^(ols-adjusted)$|^(ld)$|^(ldadjusted)$|^(ldb)$|^(ldbiased)$|^(burg)$"),
+                                         input_alpha: float | None = None, input_nlags: int | None = None) -> dict:
+    # print("Starting AutoCorellation")
+    raw_data = data.get_data()
+    channels = data.ch_names
+    for i in range(len(channels)):
+        if input_name == channels[i]:
+            z = pacf(raw_data[i], method=input_method, alpha=input_alpha, nlags=input_nlags)
+            to_return = {}
+            # Parsing the results of acf into a single object
+            # Results will change depending on our input
+            if input_alpha:
+                to_return['values_partial_autocorrelation'] = z[0].tolist()
+                to_return['confint'] = z[1].tolist()
+                # to_return['alpha'] = z[2].tolist()
+            else:
+                to_return['values_partial_autocorrelation'] = z.tolist()
 
             print("RETURNING VALUES")
             print(to_return)
