@@ -1,23 +1,29 @@
-import mne
-from fastapi import FastAPI, Query
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from statsmodels.graphics.tsaplots import acf, pacf
 from .routers import routers_eeg
 
 tags_metadata = [
     {
-        "name": "test_return_autocorrelation",
-        "description": "Test of the test_return_autocorrelation function with visual representation.",
+        "name": "return_autocorrelation",
+        "description": "return_autocorrelation function with visual representation.",
         "externalDocs": {
-            "description": "Test",
+            "description": "-",
             "url": "https://www.google.com/",
         }
     },
     {
-        "name": "test_list_channels",
-        "description": "Test of the test_list_channels function with visual representation.",
+        "name": "return_partial_autocorrelation",
+        "description": "return_partial_autocorrelation function with visual representation.",
         "externalDocs": {
-            "description": "Test",
+            "description": "-",
+            "url": "https://www.google.com/",
+        }
+    },
+    {
+        "name": "list_channels",
+        "description": "test_list_channels function with visual representation.",
+        "externalDocs": {
+            "description": "-",
             "url": "https://www.google.com/",
         }
     }
@@ -45,17 +51,11 @@ app.add_middleware(
 # endregion
 
 
-# region TEST EEG example data import and handling
-data = mne.io.read_raw_edf("example_data/trial_av.edf", infer_types=True)
-
-
-# end region
-
-
 # region Routes of the application
 @app.get("/", tags=["root"])
 async def root():
     return {"message": "Hello World"}
+
 
 # Include routers from other folders
 app.include_router(routers_eeg.router)
