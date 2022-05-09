@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Query
+from scipy.signal import butter, lfilter
 from statsmodels.graphics.tsaplots import acf, pacf
 import mne
 
@@ -8,6 +9,23 @@ router = APIRouter()
 data = mne.io.read_raw_edf("example_data/trial_av.edf", infer_types=True)
 # endregion
 
+def butter_lowpass(cutoff, fs, type_filter, order=5):
+    if type_filter != 'bandpass':
+        nyq = 0.5 * fs
+        normal_cutoff = cutoff / nyq
+        b, a = butter(order, normal_cutoff, btype=type_filter, analog=False)
+        return b, a
+    else:
+        nyq = 0.5 * fs
+        low = cutoff[0]/nyq
+        high = cutoff[1]/nyq
+        b, a = butter(order, [low, high], btype=type_filter, analog=False)
+        return b, a
+
+def butter_lowpass_filter(data, cutoff, fs, type_filter, order=5):
+    b, a = butter_lowpass(cutoff, fs, type_filter, order=order)
+    y = lfilter(b, a, data)
+    return y
 
 @router.get("/list/channels", tags=["list_channels"])
 async def list_channels() -> dict:
@@ -59,10 +77,48 @@ async def return_autocorrelation(input_name: str, input_adjusted: bool | None = 
 
 @router.get("/return_partial_autocorrelation", tags=["return_partial_autocorrelation"])
 # Validation is done inline in the input of the function
-async def partial_autocorrelation(input_name: str,
+async def return_partial_autocorrelation(input_name: str,
                                   input_method: str | None = Query("none",
                                                                    regex="^(none)$|^(yw)$|^(ywadjusted)$|^(ywm)$|^(ywmle)$|^(ols)$|^(ols-inefficient)$|^(ols-adjusted)$|^(ld)$|^(ldadjusted)$|^(ldb)$|^(ldbiased)$|^(burg)$"),
                                   input_alpha: float | None = None, input_nlags: int | None = None) -> dict:
+    raw_data = data.get_data()
+    channels = data.ch_names
+    for i in range(len(channels)):
+        if input_name == channels[i]:
+            z = pacf(raw_data[i], method=input_method, alpha=input_alpha, nlags=input_nlags)
+
+            to_return = {}
+            # Parsing the results of acf into a single object
+            # Results will change depending on our input
+            if input_alpha:
+                to_return['values_partial_autocorrelation'] = z[0].tolist()
+                to_return['confint'] = z[1].tolist()
+            else:
+                to_return['values_partial_autocorrelation'] = z.tolist()
+
+            print("RETURNING VALUES")
+            print(to_return)
+            return to_return
+    return {'Channel not found'}
+
+@router.get("/return_filters", tags=["return_filters"])
+# Validation is done inline in the input of the function
+async def return_filters (input_name: str, input_cutoff, input_order) -> dict:
+    # Getting data from file
+    # This should chnge in the future to use received data
+    raw_data = data.get_data()
+    # Get channgel of the eeg
+    channels = data.ch_names
+    info = data.info
+    for i in range(len(channels)):
+        if input_name == channels[i]:
+            data_1 = raw_data[i]
+            y = butter_lowpass_filter(data_1, input_cutoff, info['sfreq'], filter, input_order)
+            return {'filtered signal': y.tolist()}
+    return {'Channel not found'}
+
+
+
     raw_data = data.get_data()
     channels = data.ch_names
     for i in range(len(channels)):
