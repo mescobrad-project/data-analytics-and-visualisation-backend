@@ -20,6 +20,14 @@ tags_metadata = [
         }
     },
     {
+        "name": "return_filters",
+        "description": "return_filters function with visual representation.",
+        "externalDocs": {
+            "description": "-",
+            "url": "https://www.google.com/",
+        }
+    },
+    {
         "name": "list_channels",
         "description": "test_list_channels function with visual representation.",
         "externalDocs": {
