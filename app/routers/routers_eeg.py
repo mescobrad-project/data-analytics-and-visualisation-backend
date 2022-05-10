@@ -1,11 +1,14 @@
 from fastapi import APIRouter, Query
 from statsmodels.graphics.tsaplots import acf, pacf
+from scipy import signal
 import mne
 
 router = APIRouter()
 
 # region EEG Function pre-processing and functions
 data = mne.io.read_raw_edf("example_data/trial_av.edf", infer_types=True)
+
+
 # endregion
 
 
@@ -81,4 +84,40 @@ async def partial_autocorrelation(input_name: str,
             print("RETURNING VALUES")
             print(to_return)
             return to_return
+    return {'Channel not found'}
+
+
+# Estimate welch
+@router.get("/return_welch", tags=["return_welch"])
+# Validation is done inline in the input of the function
+async def estimate_welch(input_name: str,
+                         input_window: str | None = Query("hann",
+                                                          regex="^(boxcar)$|^(triang)$|^(blackman)$|^(hamming)$|^(hann)$|^(bartlett)$|^(flattop)$|^(parzen)$|^(bohman)$|^(blackmanharris)$|^(nuttall)$|^(barthann)$|^(cosine)$|^(exponential)$|^(tukey)$|^(taylor)$"),
+                         input_nperseg: int | None = 512,
+                         input_noverlap: int | None = None,
+                         input_nfft: int | None = 512,
+                         input_return_onesided: bool | None = True,
+                         input_scaling: str | None = Query("density", regex="^(density)$|^(spectrum)$"),
+                         input_axis: int | None = -1,
+                         input_average: str | None = Query("mean", regex="^(mean)$|^(median)$")) -> dict:
+    raw_data = data.get_data()
+    info = data.info
+    channels = data.ch_names
+    for i in range(len(channels)):
+        if input_name == channels[i]:
+            if input_nfft >= input_nperseg:
+                if input_window == "hann":
+                    f, pxx_den = signal.welch(raw_data[i], info['sfreq'], window=input_window,
+                                              noverlap=input_noverlap, nperseg=input_nperseg, nfft=input_nfft,
+                                              return_onesided=input_return_onesided, scaling=input_scaling,
+                                              axis=input_axis, average=input_average)
+                else:
+                    f, pxx_den = signal.welch(raw_data[i], info['sfreq'],
+                                              window=signal.get_window(input_window, input_nperseg),
+                                              noverlap=input_noverlap, nfft=input_nfft,
+                                              return_onesided=input_return_onesided, scaling=input_scaling,
+                                              axis=input_axis, average=input_average)
+                return {'frequencies': f.tolist(), 'power spectral density': pxx_den.tolist()}
+            else:
+                return {'nfft must be equal or higher than nperseg'}
     return {'Channel not found'}
