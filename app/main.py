@@ -26,6 +26,14 @@ tags_metadata = [
             "description": "-",
             "url": "https://www.google.com/",
         }
+    },
+    {
+        "name": "return_welch",
+        "description": "return_welch function with visual representation.",
+        "externalDocs": {
+            "description": "-",
+            "url": "https://www.google.com/",
+        }
     }
 ]
 
@@ -48,6 +56,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"]
 )
+
+
 # endregion
 
 
