@@ -1,74 +1,83 @@
-# Project Title
-
-Choose and leave only one of the following badge
+# MES-CoBraD Analytics and Visualisation Backend Module
 
 ![REPO-TYPE](https://img.shields.io/badge/repo--type-backend-critical?style=for-the-badge&logo=github)
-![REPO-TYPE](https://img.shields.io/badge/repo--type-frontend-green?style=for-the-badge&logo=github)
-![REPO-TYPE](https://img.shields.io/badge/repo--type-automation-9cf?style=for-the-badge&logo=github)
 
-
-One Paragraph of project description goes here.
-
-More detailed infos here.
+This is the backend of the MES-CoBraD Data Analytics and Visualisation Module
 
 ## Getting Started
 
 These instructions will get you a copy of the project up and running on your local machine for development and testing purposes. See deployment for notes on how to deploy the project on a live system.
 
 ### Prerequisites
-
-What things you need to install the software and how to install them
-
 ```
-Give examples
+Python 3.10 https://www.python.org/downloads/
+```
+#### Optional but recommended
+```
+Pycharm IDE
 ```
 
 ### Installing
 
-A step by step series of examples that tell you how to get a development env running
+- Install Python3.10
+- (Optional) Install Pycharm
+- Clone this repository
+  - Pycharm IDE 
+    ```
+    - Get from VCS
+    - Github
+    - Select this repository
+    ```
+  - cmd
+    ```
+    git clone https://github.com/mescobrad-project/data-analytics-and-visualisation-backend.git
+    ```
+- Create VENV 
+    - Pycharm IDE
+    -   ```
+        Follow pop-up 
+        ```
+- Install requirements
+    - Pycharm IDE
+        ```
+        Navigate to requirements.txt and follow pop-up 
+        ```
 
-Say what the step will be
+### Running 
+    - Pycharm IDE
+        ```
+           Edit configuraiton -> main.py
+        ```
+     - CMD
+        ```
+            uvicorn main:app --reload
+        ```
 
+## Running the tests (WIP)
 ```
-Give the example
+WIP
 ```
 
-And repeat
-
+### Break down into end to end tests (WIP)
 ```
-until finished
-```
-
-End with an example of getting some data out of the system or using it for a little demo
-
-## Running the tests
-
-Explain how to run the automated tests for this system
-
-### Break down into end to end tests
-
-Explain what these tests test and why
-
-```
-Give an example
+WIP
 ```
 
-### And coding style tests
-
-Explain what these tests test and why
-
+### And coding style tests (WIP)
 ```
-Give an example
+WIP
 ```
 
-## Deployment
-
-Add additional notes about how to deploy this on a live system
+## Deployment (WIP)
+WIP
 
 ## Built With
+WIP 
 
-* [SpringBoot](http://springboot.io) - The Java framework used
-* [Maven](https://maven.apache.org/) - Dependency Management
+[//]: # ()
+[//]: # (* [SpringBoot]&#40;http://springboot.io&#41; - The Java framework used)
+
+[//]: # (* [Maven]&#40;https://maven.apache.org/&#41; - Dependency Management)
 
 ## Contributing
 
@@ -80,7 +89,10 @@ We use [SemVer](http://semver.org/) for versioning. For the versions available, 
 
 ## Authors
 
-* **Name Surname** - *Role* - [githubnickname](github_profile_url)
+* **George Doukas** - *Role* - [gd180](https://github.com/gd180)
+* **Loukas Ilias** - *Role* - [loukasilias](https://github.com/loukasilias)
+* **Michael Kontoulis** - *Role* - [Mikailo](https://github.com/Mikailo)
+* **Christodoulos Santorinaios** - *Role* - [csantor](https://github.com/csantor)
 
 See also the list of [contributors](contributors) who participated in this project.
 
@@ -89,12 +101,3 @@ See also the list of [contributors](contributors) who participated in this proje
 This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details
 
 ## Acknowledgments
-
-* Hat tip to anyone whose code was used
-* Inspiration
-* etc
-# Analytics and Visualisations
-
-Steps to run the API:
-1. pip install requirements.txt
-2. uvicorn main:app --reload
