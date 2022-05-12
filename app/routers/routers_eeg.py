@@ -118,3 +118,24 @@ async def estimate_welch(input_name: str,
                                           axis=input_axis, average=input_average)
             return {'frequencies': f.tolist(), 'power spectral density': pxx_den.tolist()}
     return {'Channel not found'}
+
+# Estimate welch
+@router.get("/return_periodogram", tags=["return_periodogram"])
+# Validation is done inline in the input of the function
+async def estimate_periodogram(input_name: str,
+                               input_window: str | None = Query("hann",
+                                                              regex="^(boxcar)$|^(triang)$|^(blackman)$|^(hamming)$|^(hann)$|^(bartlett)$|^(flattop)$|^(parzen)$|^(bohman)$|^(blackmanharris)$|^(nuttall)$|^(barthann)$|^(cosine)$|^(exponential)$|^(tukey)$|^(taylor)$"),
+                               input_nfft: int | None = 256,
+                               input_return_onesided: bool | None = True,
+                               input_scaling: str | None = Query("density", regex="^(density)$|^(spectrum)$"),
+                               input_axis: int | None = -1) -> dict:
+    raw_data = data.get_data()
+    info = data.info
+    channels = data.ch_names
+    for i in range(len(channels)):
+        if input_name == channels[i]:
+            f, pxx_den = signal.periodogram(raw_data[i], info['sfreq'], window=input_window,
+                                            nfft=input_nfft, return_onesided=input_return_onesided, scaling=input_scaling,
+                                            axis=input_axis)
+            return {'frequencies': f.tolist(), 'power spectral density': pxx_den.tolist()}
+    return {'Channel not found'}
