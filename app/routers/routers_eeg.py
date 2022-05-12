@@ -116,7 +116,8 @@ async def return_filters(input_name: str,
                          input_fs: float,
                          input_cutoff_2: int | None = None,
                          input_analog: bool | None = False,
-                         input_btype: str | None = Query("lowpass", regex="^(lowpass)$|^(highpass)$|^(bandpass)$|^(bandstop)$"),
+                         input_btype: str | None = Query("lowpass",
+                                                         regex="^(lowpass)$|^(highpass)$|^(bandpass)$|^(bandstop)$"),
                          input_output: str | None = Query("ba", regex="^(ba)$|^(zpk)$|^(sos)$"),
                          input_worn: int | None = 512,
                          input_whole: bool | None = False,
@@ -131,9 +132,11 @@ async def return_filters(input_name: str,
     for i in range(len(channels)):
         if input_name == channels[i]:
             print("-------Starting Filters---------")
+            print(input_fs_freq)
+            print(input_whole)
             data_1 = raw_data[i]
             wn = None
-            if input_btype != 'bandpass':
+            if input_btype != 'bandpass' and input_btype != 'bandstop':
                 nyq = 0.5 * input_fs
                 wn = input_cutoff_1 / nyq
             else:
@@ -155,32 +158,37 @@ async def return_filters(input_name: str,
                                                       worN=input_worn)
             elif input_output == "sos":
                 # Must be searched and fixed
-                # filter_output = sosfilt(sos = filter_created, x= , axis=-1, zi=None)
-                frequency_response_output = sosfreqz(filter_created, worN=input_worn, whole=input_whole,
-                                                     fs=input_fs_freq)
+                filter_output = sosfilt(sos=filter_created, x=data_1, axis=-1, zi=None)
+                if input_fs_freq:
+                    frequency_response_output = sosfreqz(filter_created, worN=input_worn, whole=input_whole,
+                                                    fs=input_fs_freq)
+                else:
+                    frequency_response_output = sosfreqz(filter_created, worN=input_worn, whole=input_whole )
             else:
                 return {"error"}
 
             # print("-----------------------------------------------------------")
             # print("frequency_response_output is:")
-            # print(frequency_response_output[0].tolist())
-            # print(type(frequency_response_output[1].tolist()))
-            # print(frequency_response_output[1].tolist())
-            #
+            # print(frequency_response_output)
+            # # print(type(frequency_response_output[1].tolist()))
+            # # print(frequency_response_output[1].tolist())
+            # #
             # print("filter_output is: ")
-            # print(filter_output.tolist()[0])
+            # print(filter_output.tolist())
             to_return = {}
             to_return["frequency_w"] = frequency_response_output[0].tolist()
             # Since frequency h numbers are complex we convert them to strings
             temp_complex_freq = frequency_response_output[1].tolist()
             for complex_out_it, complex_out_val in enumerate(temp_complex_freq):
-                temp_complex_freq[complex_out_it]= str(complex_out_val)
+                temp_complex_freq[complex_out_it] = str(complex_out_val)
                 # complex_out_it = str(complex_out_it)
 
             # print("IM HERE")
             to_return["frequency_h"] = temp_complex_freq
 
-            if input_output != "zpk":
+            # zpk doesnt have filter
+            #
+            if input_output == "ba":
                 temp_filter_output = filter_output[0].tolist()
                 for filter_out_it, filter_out_val in enumerate(temp_filter_output):
                     if math.isnan(filter_out_val):
@@ -190,6 +198,8 @@ async def return_filters(input_name: str,
                         temp_filter_output[filter_out_it] = None
 
                 to_return["filter"] = temp_filter_output
+            elif input_output == "sos":
+                to_return["filter"] = filter_output.tolist()
 
             print("RESULTS TO RETURN IS")
             print(to_return)
