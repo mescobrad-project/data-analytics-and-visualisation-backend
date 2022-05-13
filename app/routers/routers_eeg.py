@@ -6,6 +6,8 @@ from statsmodels.graphics.tsaplots import acf, pacf
 from scipy import signal
 import mne
 
+from app.utils.utils_general import validate_and_convert_peaks
+
 router = APIRouter()
 
 # region EEG Function pre-processing and functions
@@ -162,9 +164,9 @@ async def return_filters(input_name: str,
                 filter_output = sosfilt(sos=filter_created, x=data_1, axis=-1, zi=None)
                 if input_fs_freq:
                     frequency_response_output = sosfreqz(filter_created, worN=input_worn, whole=input_whole,
-                                                    fs=input_fs_freq)
+                                                         fs=input_fs_freq)
                 else:
-                    frequency_response_output = sosfreqz(filter_created, worN=input_worn, whole=input_whole )
+                    frequency_response_output = sosfreqz(filter_created, worN=input_worn, whole=input_whole)
             else:
                 return {"error"}
 
@@ -205,7 +207,8 @@ async def return_filters(input_name: str,
             print("RESULTS TO RETURN IS")
             print(to_return)
             return to_return
-          
+
+
 # Estimate welch
 @router.get("/return_welch", tags=["return_welch"])
 # Validation is done inline in the input of the function
@@ -236,4 +239,36 @@ async def estimate_welch(input_name: str,
                                           return_onesided=input_return_onesided, scaling=input_scaling,
                                           axis=input_axis, average=input_average)
             return {'frequencies': f.tolist(), 'power spectral density': pxx_den.tolist()}
+    return {'Channel not found'}
+
+
+# Find peaks
+@router.get("/return_peaks", tags=["return_welch"])
+# Validation is done inline in the input of the function
+async def return_peaks(input_name: str,
+                       input_height=None,
+                       input_threshold=None,
+                       input_distance: int | None = None,
+                       input_prominence=None,
+                       input_width=None,
+                       input_wlen: int | None = None,
+                       input_rel_height: float | None = None,
+                       input_plateau_size=None) -> dict:
+    raw_data = data.get_data()
+    channels = data.ch_names
+
+    validated_data = validate_and_convert_peaks(input_height, input_threshold, input_prominence, input_width,input_plateau_size)
+
+    for i in range(len(channels)):
+        if input_name == channels[i]:
+            find_peaks_result = signal.find_peaks(x=raw_data[i], height=validated_data["height"], threshold=validated_data["threshold"],
+                                                  distance=input_distance, prominence=validated_data["prominence"],
+                                                  width=validated_data["width"], wlen=input_wlen, rel_height=input_rel_height,
+                                                  plateau_size=validated_data["plateau_size"])
+
+            print(find_peaks_result)
+            to_return = {}
+            to_return["peaks"] = find_peaks_result[0].tolist()
+
+            return to_return
     return {'Channel not found'}
