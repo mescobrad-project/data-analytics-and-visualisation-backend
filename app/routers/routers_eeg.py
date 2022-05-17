@@ -11,6 +11,7 @@ from app.utils.utils_general import validate_and_convert_peaks
 import pandas as pd
 import matplotlib.pyplot as plt
 import mpld3
+import numpy as np
 
 router = APIRouter()
 
@@ -270,12 +271,14 @@ async def return_peaks(input_name: str,
     print(validated_data)
     for i in range(len(channels)):
         if input_name == channels[i]:
+
             find_peaks_result = signal.find_peaks(x=raw_data[i], height=validated_data["height"], threshold=validated_data["threshold"],
                                                   distance=input_distance, prominence=validated_data["prominence"],
                                                   width=validated_data["width"], wlen=input_wlen, rel_height=input_rel_height,
                                                   plateau_size=validated_data["plateau_size"])
-
+            print("--------RESULTS----")
             print(find_peaks_result)
+            # print(_)n
             to_return = {}
             to_return["peaks"] = find_peaks_result[0].tolist()
 
@@ -302,14 +305,22 @@ async def return_peaks(input_name: str,
                 to_return["right_edges"] = find_peaks_result[1]["right_edges"].tolist()
 
             fig = plt.figure(figsize=(18, 12))
+            border = np.sin(np.linspace(0, 3 * np.pi, raw_data[i].size))
+            plt.plot( raw_data[i])
+            plt.plot(find_peaks_result[0].tolist(),raw_data[i][find_peaks_result[0].tolist()] , "x")
 
-            plt.plot(raw_data[i])
+            if input_prominence:
+                plt.vlines(x=find_peaks_result[0].tolist(), ymin=raw_data[i][find_peaks_result[0].tolist()] - find_peaks_result[1]["prominences"].tolist(),
+                           ymax=raw_data[i][find_peaks_result[0].tolist()], color="C1")
 
+            if input_width:
+                plt.hlines(y=find_peaks_result[1]["width_heights"].tolist(), xmin=find_peaks_result[1]["left_ips"].tolist(),
+                       xmax=find_peaks_result[1]["right_ips"].tolist(), color="C1")
             # plt.plot(find_peaks_result, "x")
             # plt.plot(find_peaks_result, raw_data[i][find_peaks_result], "x")
 
             # plt.plot(np.zeros_like(x), "--", color="gray")
-
+            plt.plot(np.zeros_like(raw_data[i]), "--", color="red")
             plt.show()
 
             html_str = mpld3.fig_to_html(fig)
