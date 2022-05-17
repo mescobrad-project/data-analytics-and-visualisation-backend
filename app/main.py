@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .routers import routers_eeg
+from starlette.responses import FileResponse
 
 tags_metadata = [
     {
@@ -74,6 +75,9 @@ app.add_middleware(
 async def root():
     return {"message": "Hello World"}
 
+@app.get("/test/chart", tags=["root"])
+async def root():
+    return FileResponse('index.html')
 
 # Include routers from other folders
 app.include_router(routers_eeg.router)

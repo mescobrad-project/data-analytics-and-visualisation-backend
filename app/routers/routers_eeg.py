@@ -8,6 +8,10 @@ import mne
 
 from app.utils.utils_general import validate_and_convert_peaks
 
+import pandas as pd
+import matplotlib.pyplot as plt
+import mpld3
+
 router = APIRouter()
 
 # region EEG Function pre-processing and functions
@@ -257,8 +261,13 @@ async def return_peaks(input_name: str,
     raw_data = data.get_data()
     channels = data.ch_names
 
+    print(input_height)
     validated_data = validate_and_convert_peaks(input_height, input_threshold, input_prominence, input_width,input_plateau_size)
 
+    print("--------VALIDATED----")
+    print(input_height)
+    print(type(validated_data["width"]))
+    print(validated_data)
     for i in range(len(channels)):
         if input_name == channels[i]:
             find_peaks_result = signal.find_peaks(x=raw_data[i], height=validated_data["height"], threshold=validated_data["threshold"],
@@ -269,6 +278,45 @@ async def return_peaks(input_name: str,
             print(find_peaks_result)
             to_return = {}
             to_return["peaks"] = find_peaks_result[0].tolist()
+
+            if input_height:
+                to_return["peak_heights"] = find_peaks_result[1]["peak_heights"].tolist()
+
+            if input_threshold:
+                to_return["left_thresholds"] = find_peaks_result[1]["left_thresholds"].tolist()
+                to_return["right_thresholds"] = find_peaks_result[1]["right_thresholds"].tolist()
+
+            if input_prominence:
+                to_return["prominences"] = find_peaks_result[1]["prominences"].tolist()
+                to_return["right_bases"] = find_peaks_result[1]["right_bases"].tolist()
+                to_return["left_bases"] = find_peaks_result[1]["left_bases"].tolist()
+
+            if input_width:
+                to_return["width_heights"] = find_peaks_result[1]["width_heights"].tolist()
+                to_return["left_ips"] = find_peaks_result[1]["left_ips"].tolist()
+                to_return["right_ips"] = find_peaks_result[1]["right_ips"].tolist()
+
+            if input_plateau_size:
+                to_return["plateau_sizes"] = find_peaks_result[1]["plateau_sizes"].tolist()
+                to_return["left_edges"] = find_peaks_result[1]["left_edges"].tolist()
+                to_return["right_edges"] = find_peaks_result[1]["right_edges"].tolist()
+
+            fig = plt.figure(figsize=(18, 12))
+
+            plt.plot(raw_data[i])
+
+            # plt.plot(find_peaks_result, "x")
+            # plt.plot(find_peaks_result, raw_data[i][find_peaks_result], "x")
+
+            # plt.plot(np.zeros_like(x), "--", color="gray")
+
+            plt.show()
+
+            html_str = mpld3.fig_to_html(fig)
+            to_return["figure"] = html_str
+            # Html_file = open("index.html", "w")
+            # Html_file.write(html_str)
+            # Html_file.close()
 
             return to_return
     return {'Channel not found'}
