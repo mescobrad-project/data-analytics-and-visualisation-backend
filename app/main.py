@@ -59,7 +59,15 @@ tags_metadata = [
             "description": "-",
             "url": "https://www.google.com/",
         }
-    }
+    },
+    {
+        "name": "return_periodogram",
+        "description": "return_periodogram function with visual representation.",
+        "externalDocs": {
+            "description": "-",
+            "url": "https://www.google.com/",
+        }
+    },
 ]
 
 app = FastAPI(openapi_tags=tags_metadata)
