@@ -359,3 +359,46 @@ async def estimate_periodogram(input_name: str,
                                             axis=input_axis)
             return {'frequencies': f.tolist(), 'power spectral density': pxx_den.tolist()}
     return {'Channel not found'}
+
+# Return power_spectral_density
+@router.get("/return_power_spectral_density", tags=["return_power_spectral_density"])
+# Validation is done inline in the input of the function
+async def return_power_spectral_density(input_name: str,
+                                        input_fmin: float | None = 0,
+                                        input_fmax: float | None = float("inf"),
+                                        input_bandwidth: float | None = None,
+                                        input_adaptive: bool | None = False,
+                                        input_low_bias: bool | None = True,
+                                        input_normalization: str| None = "length",
+                                        input_output: str| None = "power",
+                                        input_n_jobs: int| None = 1,
+                                        input_verbose: int | None = None
+                                        ) -> dict:
+    raw_data = data.get_data()
+    info = data.info
+
+    channels = data.ch_names
+    # print(input_height)
+    validated_input_verbose = validate_and_convert_power_spectral_density(input_verbose)
+
+    print("--------VALIDATED----")
+    print(validated_input_verbose)
+
+    for i in range(len(channels)):
+        if input_name == channels[i]:
+            psd_results = psd_array_multitaper(x=raw_data[i],
+                                               sfreq=info['sfreq'],
+                                               fmin=input_fmin,
+                                               fmax=input_fmax,
+                                               bandwidth=input_bandwidth,
+                                               adaptive=input_adaptive,
+                                               low_bias=input_low_bias,
+                                               normalization=input_normalization,
+                                               output=input_output,
+                                               n_jobs=input_n_jobs,
+                                               verbose=input_verbose
+                                               )
+            print(psd_results)
+            to_return = {psd_results}
+            return to_return
+    return {'Channel not found'}
