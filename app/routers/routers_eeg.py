@@ -1,17 +1,19 @@
 import math
 
 from fastapi import APIRouter, Query
+from mne.time_frequency import psd_array_multitaper
 from scipy.signal import butter, lfilter, sosfilt, freqs, freqs_zpk, sosfreqz
 from statsmodels.graphics.tsaplots import acf, pacf
 from scipy import signal
 import mne
 
-from app.utils.utils_general import validate_and_convert_peaks
+from app.utils.utils_general import validate_and_convert_peaks, validate_and_convert_power_spectral_density
 
 import pandas as pd
 import matplotlib.pyplot as plt
 import mpld3
 import numpy as np
+import mne
 
 router = APIRouter()
 
@@ -248,7 +250,7 @@ async def estimate_welch(input_name: str,
 
 
 # Find peaks
-@router.get("/return_peaks", tags=["return_welch"])
+@router.get("/return_peaks", tags=["return_peaks"])
 # Validation is done inline in the input of the function
 async def return_peaks(input_name: str,
                        input_height=None,
@@ -263,7 +265,8 @@ async def return_peaks(input_name: str,
     channels = data.ch_names
 
     print(input_height)
-    validated_data = validate_and_convert_peaks(input_height, input_threshold, input_prominence, input_width,input_plateau_size)
+    validated_data = validate_and_convert_peaks(input_height, input_threshold, input_prominence, input_width,
+                                                input_plateau_size)
 
     print("--------VALIDATED----")
     print(input_height)
@@ -272,9 +275,11 @@ async def return_peaks(input_name: str,
     for i in range(len(channels)):
         if input_name == channels[i]:
 
-            find_peaks_result = signal.find_peaks(x=raw_data[i], height=validated_data["height"], threshold=validated_data["threshold"],
+            find_peaks_result = signal.find_peaks(x=raw_data[i], height=validated_data["height"],
+                                                  threshold=validated_data["threshold"],
                                                   distance=input_distance, prominence=validated_data["prominence"],
-                                                  width=validated_data["width"], wlen=input_wlen, rel_height=input_rel_height,
+                                                  width=validated_data["width"], wlen=input_wlen,
+                                                  rel_height=input_rel_height,
                                                   plateau_size=validated_data["plateau_size"])
             print("--------RESULTS----")
             print(find_peaks_result)
@@ -306,16 +311,19 @@ async def return_peaks(input_name: str,
 
             fig = plt.figure(figsize=(18, 12))
             border = np.sin(np.linspace(0, 3 * np.pi, raw_data[i].size))
-            plt.plot( raw_data[i])
-            plt.plot(find_peaks_result[0].tolist(),raw_data[i][find_peaks_result[0].tolist()] , "x")
+            plt.plot(raw_data[i])
+            plt.plot(find_peaks_result[0].tolist(), raw_data[i][find_peaks_result[0].tolist()], "x")
 
             if input_prominence:
-                plt.vlines(x=find_peaks_result[0].tolist(), ymin=raw_data[i][find_peaks_result[0].tolist()] - find_peaks_result[1]["prominences"].tolist(),
+                plt.vlines(x=find_peaks_result[0].tolist(),
+                           ymin=raw_data[i][find_peaks_result[0].tolist()] - find_peaks_result[1][
+                               "prominences"].tolist(),
                            ymax=raw_data[i][find_peaks_result[0].tolist()], color="C1")
 
             if input_width:
-                plt.hlines(y=find_peaks_result[1]["width_heights"].tolist(), xmin=find_peaks_result[1]["left_ips"].tolist(),
-                       xmax=find_peaks_result[1]["right_ips"].tolist(), color="C1")
+                plt.hlines(y=find_peaks_result[1]["width_heights"].tolist(),
+                           xmin=find_peaks_result[1]["left_ips"].tolist(),
+                           xmax=find_peaks_result[1]["right_ips"].tolist(), color="C1")
             # plt.plot(find_peaks_result, "x")
             # plt.plot(find_peaks_result, raw_data[i][find_peaks_result], "x")
 
@@ -331,3 +339,4 @@ async def return_peaks(input_name: str,
 
             return to_return
     return {'Channel not found'}
+

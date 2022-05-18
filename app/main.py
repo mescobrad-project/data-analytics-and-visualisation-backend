@@ -43,6 +43,22 @@ tags_metadata = [
             "description": "-",
             "url": "https://www.google.com/",
         }
+    },
+    {
+        "name": "return_peaks",
+        "description": "return_peaks function with visual representation.",
+        "externalDocs": {
+            "description": "-",
+            "url": "https://www.google.com/",
+        }
+    },
+    {
+        "name": "return_power_spectral_density",
+        "description": "return_power_spectral_density function with visual representation.",
+        "externalDocs": {
+            "description": "-",
+            "url": "https://www.google.com/",
+        }
     }
 ]
 
