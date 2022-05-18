@@ -1,9 +1,18 @@
 import math
 
 from fastapi import APIRouter, Query
+from mne.time_frequency import psd_array_multitaper
 from scipy.signal import butter, lfilter, sosfilt, freqs, freqs_zpk, sosfreqz
 from statsmodels.graphics.tsaplots import acf, pacf
 from scipy import signal
+import mne
+
+from app.utils.utils_general import validate_and_convert_peaks, validate_and_convert_power_spectral_density
+
+import pandas as pd
+import matplotlib.pyplot as plt
+import mpld3
+import numpy as np
 import mne
 
 router = APIRouter()
@@ -162,9 +171,9 @@ async def return_filters(input_name: str,
                 filter_output = sosfilt(sos=filter_created, x=data_1, axis=-1, zi=None)
                 if input_fs_freq:
                     frequency_response_output = sosfreqz(filter_created, worN=input_worn, whole=input_whole,
-                                                    fs=input_fs_freq)
+                                                         fs=input_fs_freq)
                 else:
-                    frequency_response_output = sosfreqz(filter_created, worN=input_worn, whole=input_whole )
+                    frequency_response_output = sosfreqz(filter_created, worN=input_worn, whole=input_whole)
             else:
                 return {"error"}
 
@@ -205,7 +214,8 @@ async def return_filters(input_name: str,
             print("RESULTS TO RETURN IS")
             print(to_return)
             return to_return
-          
+
+
 # Estimate welch
 @router.get("/return_welch", tags=["return_welch"])
 # Validation is done inline in the input of the function
@@ -236,6 +246,97 @@ async def estimate_welch(input_name: str,
                                           return_onesided=input_return_onesided, scaling=input_scaling,
                                           axis=input_axis, average=input_average)
             return {'frequencies': f.tolist(), 'power spectral density': pxx_den.tolist()}
+    return {'Channel not found'}
+
+# Find peaks
+@router.get("/return_peaks", tags=["return_peaks"])
+# Validation is done inline in the input of the function
+async def return_peaks(input_name: str,
+                       input_height=None,
+                       input_threshold=None,
+                       input_distance: int | None = None,
+                       input_prominence=None,
+                       input_width=None,
+                       input_wlen: int | None = None,
+                       input_rel_height: float | None = None,
+                       input_plateau_size=None) -> dict:
+    raw_data = data.get_data()
+    channels = data.ch_names
+
+    print(input_height)
+    validated_data = validate_and_convert_peaks(input_height, input_threshold, input_prominence, input_width,
+                                                input_plateau_size)
+
+    print("--------VALIDATED----")
+    print(input_height)
+    print(type(validated_data["width"]))
+    print(validated_data)
+    for i in range(len(channels)):
+        if input_name == channels[i]:
+
+            find_peaks_result = signal.find_peaks(x=raw_data[i], height=validated_data["height"],
+                                                  threshold=validated_data["threshold"],
+                                                  distance=input_distance, prominence=validated_data["prominence"],
+                                                  width=validated_data["width"], wlen=input_wlen,
+                                                  rel_height=input_rel_height,
+                                                  plateau_size=validated_data["plateau_size"])
+            print("--------RESULTS----")
+            print(find_peaks_result)
+            # print(_)n
+            to_return = {}
+            to_return["peaks"] = find_peaks_result[0].tolist()
+
+            if input_height:
+                to_return["peak_heights"] = find_peaks_result[1]["peak_heights"].tolist()
+
+            if input_threshold:
+                to_return["left_thresholds"] = find_peaks_result[1]["left_thresholds"].tolist()
+                to_return["right_thresholds"] = find_peaks_result[1]["right_thresholds"].tolist()
+
+            if input_prominence:
+                to_return["prominences"] = find_peaks_result[1]["prominences"].tolist()
+                to_return["right_bases"] = find_peaks_result[1]["right_bases"].tolist()
+                to_return["left_bases"] = find_peaks_result[1]["left_bases"].tolist()
+
+            if input_width:
+                to_return["width_heights"] = find_peaks_result[1]["width_heights"].tolist()
+                to_return["left_ips"] = find_peaks_result[1]["left_ips"].tolist()
+                to_return["right_ips"] = find_peaks_result[1]["right_ips"].tolist()
+
+            if input_plateau_size:
+                to_return["plateau_sizes"] = find_peaks_result[1]["plateau_sizes"].tolist()
+                to_return["left_edges"] = find_peaks_result[1]["left_edges"].tolist()
+                to_return["right_edges"] = find_peaks_result[1]["right_edges"].tolist()
+
+            fig = plt.figure(figsize=(18, 12))
+            border = np.sin(np.linspace(0, 3 * np.pi, raw_data[i].size))
+            plt.plot(raw_data[i])
+            plt.plot(find_peaks_result[0].tolist(), raw_data[i][find_peaks_result[0].tolist()], "x")
+
+            if input_prominence:
+                plt.vlines(x=find_peaks_result[0].tolist(),
+                           ymin=raw_data[i][find_peaks_result[0].tolist()] - find_peaks_result[1][
+                               "prominences"].tolist(),
+                           ymax=raw_data[i][find_peaks_result[0].tolist()], color="C1")
+
+            if input_width:
+                plt.hlines(y=find_peaks_result[1]["width_heights"].tolist(),
+                           xmin=find_peaks_result[1]["left_ips"].tolist(),
+                           xmax=find_peaks_result[1]["right_ips"].tolist(), color="C1")
+            # plt.plot(find_peaks_result, "x")
+            # plt.plot(find_peaks_result, raw_data[i][find_peaks_result], "x")
+
+            # plt.plot(np.zeros_like(x), "--", color="gray")
+            plt.plot(np.zeros_like(raw_data[i]), "--", color="red")
+            plt.show()
+
+            html_str = mpld3.fig_to_html(fig)
+            to_return["figure"] = html_str
+            # Html_file = open("index.html", "w")
+            # Html_file.write(html_str)
+            # Html_file.close()
+
+            return to_return
     return {'Channel not found'}
 
 # Estimate welch

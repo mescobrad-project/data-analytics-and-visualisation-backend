@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .routers import routers_eeg
+from starlette.responses import FileResponse
 
 tags_metadata = [
     {
@@ -44,13 +45,29 @@ tags_metadata = [
         }
     },
     {
+        "name": "return_peaks",
+        "description": "return_peaks function with visual representation.",
+        "externalDocs": {
+            "description": "-",
+            "url": "https://www.google.com/",
+        }
+    },
+    {
+        "name": "return_power_spectral_density",
+        "description": "return_power_spectral_density function with visual representation.",
+        "externalDocs": {
+            "description": "-",
+            "url": "https://www.google.com/",
+        }
+    },
+    {
         "name": "return_periodogram",
         "description": "return_periodogram function with visual representation.",
         "externalDocs": {
             "description": "-",
             "url": "https://www.google.com/",
         }
-    }
+    },
 ]
 
 app = FastAPI(openapi_tags=tags_metadata)
@@ -82,6 +99,9 @@ app.add_middleware(
 async def root():
     return {"message": "Hello World"}
 
+@app.get("/test/chart", tags=["root"])
+async def root():
+    return FileResponse('index.html')
 
 # Include routers from other folders
 app.include_router(routers_eeg.router)
