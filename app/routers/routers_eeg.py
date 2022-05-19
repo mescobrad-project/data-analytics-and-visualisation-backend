@@ -372,7 +372,7 @@ async def return_power_spectral_density(input_name: str,
                                         input_normalization: str| None = "length",
                                         input_output: str| None = "power",
                                         input_n_jobs: int| None = 1,
-                                        input_verbose: int | None = None
+                                        input_verbose: str | None = None
                                         ) -> dict:
     raw_data = data.get_data()
     info = data.info
@@ -386,7 +386,9 @@ async def return_power_spectral_density(input_name: str,
 
     for i in range(len(channels)):
         if input_name == channels[i]:
-            psd_results = psd_array_multitaper(x=raw_data[i],
+            # Verbose is always none cause it might not be needed
+            # Output is always power because alternative might not be needed
+            psd_results, freqs  = psd_array_multitaper(x=raw_data[i],
                                                sfreq=info['sfreq'],
                                                fmin=input_fmin,
                                                fmax=input_fmax,
@@ -396,9 +398,8 @@ async def return_power_spectral_density(input_name: str,
                                                normalization=input_normalization,
                                                output=input_output,
                                                n_jobs=input_n_jobs,
-                                               verbose=input_verbose
+                                               verbose=None
                                                )
-            print(psd_results)
-            to_return = {psd_results}
+            to_return = {'frequencies': freqs.tolist(), 'power spectral density': psd_results.tolist()}
             return to_return
     return {'Channel not found'}
