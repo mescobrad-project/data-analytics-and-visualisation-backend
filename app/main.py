@@ -68,6 +68,14 @@ tags_metadata = [
             "url": "https://www.google.com/",
         }
     },
+    {
+        "name": "return_spindles_detection",
+        "description": "return_spindles_detection function with visual representation.",
+        "externalDocs": {
+            "description": "-",
+            "url": "https://www.google.com/",
+        }
+    },
 ]
 
 app = FastAPI(openapi_tags=tags_metadata)
