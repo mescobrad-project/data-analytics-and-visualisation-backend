@@ -42,6 +42,14 @@ tags_metadata = [
             "description": "-",
             "url": "https://www.google.com/",
         }
+    },
+    {
+        "name": "return_stft",
+        "description": "return_stft function with visual representation.",
+        "externalDocs": {
+            "description": "-",
+            "url": "https://www.google.com/",
+        }
     }
 ]
 

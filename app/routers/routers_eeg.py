@@ -237,3 +237,38 @@ async def estimate_welch(input_name: str,
                                           axis=input_axis, average=input_average)
             return {'frequencies': f.tolist(), 'power spectral density': pxx_den.tolist()}
     return {'Channel not found'}
+
+@router.get("/return_stft", tags=["return_stft"])
+# Validation is done inline in the input of the function
+async def estimate_stft(input_name: str,
+                         input_window: str | None = Query("hann",
+                                                          regex="^(boxcar)$|^(triang)$|^(blackman)$|^(hamming)$|^(hann)$|^(bartlett)$|^(flattop)$|^(parzen)$|^(bohman)$|^(blackmanharris)$|^(nuttall)$|^(barthann)$|^(cosine)$|^(exponential)$|^(tukey)$|^(taylor)$"),
+                         input_nperseg: int | None = 256,
+                         input_noverlap: int | None = None,
+                         input_nfft: int | None = 256,
+                         input_return_onesided: bool | None = True,
+                         input_boundary: str | None = Query("zeros",
+                                                          regex="^(zeros)$|^(even)$|^(odd)$|^(constant)$|^(None)$"),
+                         input_padded: bool | None = True,
+                         input_axis: int | None = -1) -> dict:
+    raw_data = data.get_data()
+    info = data.info
+    channels = data.ch_names
+    if input_boundary == "None":
+        input_boundary = None
+    for i in range(len(channels)):
+        if input_name == channels[i]:
+            f, t, zxx_den = signal.stft(raw_data[i], info['sfreq'],
+                                          window=input_window, nperseg=input_nperseg,
+                                          noverlap=input_noverlap, nfft=input_nfft,
+                                          return_onesided=input_return_onesided, boundary=input_boundary, padded=input_padded,
+                                          axis=input_axis)
+            print(f'len zxx: {len(zxx_den.tolist())}')
+            print(f'len f:{len(f.tolist())}')
+            print(f'len t:{len(t.tolist())}')
+            for zxx_it, zxx in enumerate(zxx_den.tolist()):
+                print(f'len {zxx_it} zxx: {len(zxx)}')
+            print(zxx)
+            return {'frequencies': f.tolist(), 'array of segment times': t.tolist()}
+    return {'Channel not found'}
+
