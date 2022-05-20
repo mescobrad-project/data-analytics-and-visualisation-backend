@@ -5,6 +5,9 @@ from scipy.signal import butter, lfilter, sosfilt, freqs, freqs_zpk, sosfreqz
 from statsmodels.graphics.tsaplots import acf, pacf
 from scipy import signal
 import mne
+import matplotlib.pyplot as plt
+import mpld3
+import numpy as np
 
 router = APIRouter()
 
@@ -258,17 +261,27 @@ async def estimate_stft(input_name: str,
         input_boundary = None
     for i in range(len(channels)):
         if input_name == channels[i]:
+            to_return = {}
             f, t, zxx_den = signal.stft(raw_data[i], info['sfreq'],
                                           window=input_window, nperseg=input_nperseg,
                                           noverlap=input_noverlap, nfft=input_nfft,
                                           return_onesided=input_return_onesided, boundary=input_boundary, padded=input_padded,
                                           axis=input_axis)
-            print(f'len zxx: {len(zxx_den.tolist())}')
-            print(f'len f:{len(f.tolist())}')
-            print(f'len t:{len(t.tolist())}')
-            for zxx_it, zxx in enumerate(zxx_den.tolist()):
-                print(f'len {zxx_it} zxx: {len(zxx)}')
-            print(zxx)
-            return {'frequencies': f.tolist(), 'array of segment times': t.tolist()}
+            # print(f'len zxx: {len(zxx_den.tolist())}')
+            # print(f'len f:{len(f.tolist())}')
+            # print(f'len t:{len(t.tolist())}')
+            # for zxx_it, zxx in enumerate(zxx_den.tolist()):
+            #     print(f'len {zxx_it} zxx: {len(zxx)}')
+            # print(zxx)
+            fig = plt.figure(figsize=(18, 12))
+            amp = 2 * np.sqrt(2)
+            plt.pcolormesh(t, f, np.abs(zxx_den), shading='gouraud')
+            plt.title('STFT Magnitude')
+            plt.ylabel('Frequency [Hz]')
+            plt.xlabel('Time [sec]')
+            plt.show()
+            html_str = mpld3.fig_to_html(fig)
+            to_return["figure"] = html_str
+            return to_return
     return {'Channel not found'}
 
