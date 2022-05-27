@@ -1,0 +1,25 @@
+version: '3.7'
+
+services:
+  free-surfer:
+      hostname: free-surfer
+      container_name: free-surfer
+      restart: always
+      build:
+        context: "."
+        dockerfile: Dockerfile
+  #    depends_on:
+  #      - tamarin
+      ports:
+        - "20:20"
+#        - 3005:3005
+#      environment:
+#        MLFLOW_TRACKING_URI: http://mlflow_server:5000
+#        MLFLOW_S3_ENDPOINT_URL: http://minio:9000
+#        AWS_ACCESS_KEY_ID: 'minio-id'
+##        AWS_SECRET_ACCESS_KEY: 'minio-key'
+#      command: bash -c "chmod +x ./docker/launch.sh && ./docker/launch.sh"
+#  #    command: bash -c " flask run --host=0.0.0.0 --no-reload"
+#      networks:
+#        - backend
+#        - frontend
