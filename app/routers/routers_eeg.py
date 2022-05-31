@@ -417,7 +417,7 @@ async def estimate_periodogram(input_name: str,
 # Validation is done inline in the input of the function
 async def return_power_spectral_density(input_name: str,
                                         input_fmin: float | None = 0,
-                                        input_fmax: float | None = float("inf"),
+                                        input_fmax: float | None = None,
                                         input_bandwidth: float | None = None,
                                         input_adaptive: bool | None = False,
                                         input_low_bias: bool | None = True,

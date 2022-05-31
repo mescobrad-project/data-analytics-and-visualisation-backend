@@ -1,0 +1,12 @@
+version: '3.4'
+
+services:
+  analytics-backend:
+    build:
+      context: ".."
+      dockerfile: ./docker/Dockerfile
+    hostname: analytics_backend
+    container_name: analytics_backend
+    restart: always
+    ports:
+      - "8000:8000"
