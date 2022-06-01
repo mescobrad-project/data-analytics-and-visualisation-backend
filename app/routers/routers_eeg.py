@@ -455,3 +455,4 @@ async def return_power_spectral_density(input_name: str,
             to_return = {'frequencies': freqs.tolist(), 'power spectral density': psd_results.tolist()}
             return to_return
     return {'Channel not found'}
+
