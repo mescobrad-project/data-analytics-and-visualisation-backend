@@ -17,21 +17,16 @@ services:
 #            target: /opt/freesurfer/static
 #            target: /opt/freesurfer/subjects/vistalab/freesurfer
       volumes:
-        - type: bind
-          source: ../../example_data
-          target: /opt/freesurfer/static
+#        - type: bind
+#          source: ../../example_data
+#          target: /opt/freesurfer/static
         - mri-freesurfer-volume:/opt/freesurfer/static
-#          target: /opt/freesurfer/subjects/vistalab/freesurfer
       environment:
         SUBJECTS_DIR: /opt/freesurfer/static/practise_with_data
-#        MLFLOW_S3_ENDPOINT_URL: http://minio:9000
-#        AWS_ACCESS_KEY_ID: 'minio-id'
-##        AWS_SECRET_ACCESS_KEY: 'minio-key'+
-#      command: bash -c "chmod +x ./docker/launch.sh && ./docker/launch.sh"
-#  #    command: bash -c " flask run --host=0.0.0.0 --no-reload"
+
       networks:
         -  mri-freesurfer-network
-#        - frontend
+
 networks:
     mri-freesurfer-network:
         name: mri-freesurfer-network
