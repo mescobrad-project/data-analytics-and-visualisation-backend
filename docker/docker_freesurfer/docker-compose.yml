@@ -9,7 +9,7 @@ services:
         context: "."
         dockerfile: Dockerfile
       ports:
-        - "20:20"
+        - "22:22"
 #      volumes:
 #        - mri-freesurfer-volume:/opt/freesurfer/static
 #        - type: bind

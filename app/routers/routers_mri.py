@@ -19,6 +19,8 @@ import numpy as np
 import mne
 from yasa import spindles_detect
 
+import paramiko
+
 router = APIRouter()
 
 
@@ -74,9 +76,14 @@ if input isn't recognized
 async def return_free_surfer_recon(input_test_name: str, input_slices: str,
                                    ) -> dict:
     # CONNECT THROUGH SSH TO DOCKER WITH FREESURFER
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect("free-surfer", 22)
+
 
     # Start recon COMMAND
-
+    ssh.exec_command("ls > ls.txt")
+    # ssh.exec_command("recon-all -subject subjectname -i /path/to/input_volume -T2 /path/to/T2_volume -T2pial -all")
     # Redirect output to log.txt in output folder that has been created
 
     # If everything ok return Sucess
