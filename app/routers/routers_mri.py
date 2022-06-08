@@ -78,7 +78,7 @@ async def return_free_surfer_recon(input_test_name: str, input_slices: str,
     # CONNECT THROUGH SSH TO DOCKER WITH FREESURFER
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect("free-surfer", 22)
+    ssh.connect("free-surfer", 22, username ="root" , password="freesurferpwd")
 
 
     # Start recon COMMAND
