@@ -1,0 +1,50 @@
+version: '3.7'
+
+services:
+  neurodesktop:
+    privileged: true
+    container_name: neurodesktop
+    volumes:
+      - 'C:/neurodesktop-storage:/neurodesktop-storage'
+    ports:
+      - '8080:8080'
+    image: 'vnmd/neurodesktop:20220329'
+    networks:
+      - mri-freesurfer-network
+
+#  neurodesktop:
+#      hostname: neurodesktop
+#      privileged: true
+#      container_name: neurodesktop
+#      restart: always
+#      build:
+#        context: "."
+#        dockerfile: Dockerfile
+#      ports:
+#        - "8080:8080"
+##      volumes:
+##        - mri-freesurfer-volume:/opt/freesurfer/static
+##        - type: bind
+##            source: ../../example_data
+##            target: /opt/freesurfer/static
+##            target: /opt/freesurfer/subjects/vistalab/freesurfer
+#      volumes:
+##        - type: bind
+##          source: ../../example_data
+##          target: /opt/freesurfer/static
+#        - mri-freesurfer-volume:/opt/freesurfer/static
+#      environment:
+#        SUBJECTS_DIR: /opt/freesurfer/static/practise_with_data
+#      command: bash -c "/usr/sbin/sshd -D"
+#      networks:
+#        -  mri-freesurfer-network
+
+networks:
+    mri-freesurfer-network:
+        name: mri-freesurfer-network
+        driver: bridge
+
+#volumes:
+#  mri-freesurfer-volume:
+#    driver: local
+#    name: mri-freesurfer-volume
