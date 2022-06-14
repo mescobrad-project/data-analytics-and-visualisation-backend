@@ -5,6 +5,7 @@ services:
     privileged: true
     container_name: neurodesktop
     volumes:
+      - neurodesk-volume:/MES-CoBraD Input
       - 'C:/neurodesktop-storage:/neurodesktop-storage'
     ports:
       - '8080:8080'
@@ -40,11 +41,11 @@ services:
 #        -  mri-freesurfer-network
 
 networks:
-    mri-freesurfer-network:
-        name: mri-freesurfer-network
-        driver: bridge
+  mri-freesurfer-network:
+    name: mri-freesurfer-network
+    driver: bridge
 
-#volumes:
-#  mri-freesurfer-volume:
-#    driver: local
-#    name: mri-freesurfer-volume
+volumes:
+  neurodesk-volume:
+    driver: local
+    name: neurodesk-volume

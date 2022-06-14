@@ -17,10 +17,10 @@ services:
 #            target: /opt/freesurfer/static
 #            target: /opt/freesurfer/subjects/vistalab/freesurfer
       volumes:
-#        - type: bind
-#          source: ../../example_data
-#          target: /opt/freesurfer/static
-        - mri-freesurfer-volume:/opt/freesurfer/static
+        - type: bind
+          source: ../../example_data
+          target: /opt/freesurfer/local/static
+        - mri-freesurfer-volume:/opt/freesurfer/volume/static
       environment:
         SUBJECTS_DIR: /opt/freesurfer/static/practise_with_data
       command: bash -c "/usr/sbin/sshd -D"
