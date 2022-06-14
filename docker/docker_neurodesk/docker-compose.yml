@@ -4,12 +4,15 @@ services:
   neurodesktop:
     privileged: true
     container_name: neurodesktop
+    build:
+      context: "."
+      dockerfile: Dockerfile
     volumes:
       - neurodesk-volume:/MES-CoBraD Input
       - 'C:/neurodesktop-storage:/neurodesktop-storage'
     ports:
       - '8080:8080'
-    image: 'vnmd/neurodesktop:20220329'
+#    image: 'vnmd/neurodesktop:20220329'
     networks:
       - mri-freesurfer-network
 
