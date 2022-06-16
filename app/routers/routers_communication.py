@@ -1,6 +1,9 @@
-from fastapi import APIRouter , Request
-import requests
 import os
+
+import requests
+from fastapi import APIRouter, Request
+from pydantic import BaseModel
+from fastapi.responses import RedirectResponse
 
 router = APIRouter()
 
@@ -14,21 +17,31 @@ TestStepId = os.environ.get('TestStepId') if os.environ.get(
     'WFAddress') else "db4a0c7d-0e09-49b2-ba80-7c5e4e3f0768"
 
 ExistingFunctions = [
-    "auto-correlation",
-    "partial-auto-correlation",
+    "auto_correlation",
+    "partial_auto_correlation",
     "filters",
     "welch",
-    "find-peaks",
+    "find_peaks",
+    "stft",
     "periodogram",
+    "power_spectral_density",
     "spindle",
-    "recon-all",
+    "recon",
     "samseg"
 ]
+
+
+class FunctionNavigationItem(BaseModel):
+    run_id: str
+    step_id: str
+    metadata: list
+
+
 @router.get("/test/task/ping", tags=["test_task_ping"])
 async def test_task_ping() -> dict:
     # channels = data.ch_names
     print(WFAddress)
-    url = WFAddress + "/run/"+TestRunId + "/step/" + TestStepId + "/ping"
+    url = WFAddress + "/run/" + TestRunId + "/step/" + TestStepId + "/ping"
     print(url)
     response = requests.get(url)
     print("Test Response: Task Ping")
@@ -54,25 +67,44 @@ async def test_task_complete() -> dict:
     return {'test': "test"}
 
 
-@router.post("/function/handling", tags=["function_handling"], status_code=200)
-async def function_handling(request: Request) -> dict:
+@router.put("/function/navigation/", tags=["function_navigation"])
+async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
     # channels = data.ch_names
-    print(request.json())
-    return
+    # print("----RERERE----")
+    # print(type(navigation_item))
+    # print(navigation_item)
 
-@router.post("/function/existing", tags=["function_existing"], status_code=200)
+    url_to_redirect = "http://localhost:3000"
+    if navigation_item.metadata[0]["function"]:
+        match navigation_item.metadata[0]["function"]:
+            case "auto_correlation":
+                url_to_redirect += "/auto_correlation"
+            case "partial_auto_correlation":
+                url_to_redirect += "/partial_auto_correlation"
+            case "filters":
+                url_to_redirect += "/filters"
+            case "welch":
+                url_to_redirect += "/welch"
+            case "find_peaks":
+                url_to_redirect += "/find_peaks"
+            case "stft":
+                url_to_redirect += "/stft"
+            case "periodogram":
+                url_to_redirect += "/periodogram"
+            case "power_spectral_density":
+                url_to_redirect += "/power_spectral_density"
+            case "spindle":
+                url_to_redirect += "/spindle"
+            case "recon":
+                url_to_redirect += "/freesurfer/recon"
+            case "samseg":
+                url_to_redirect += "/freesurfer/samseg"
+    url_to_redirect += "?run_id="+ navigation_item.run_id+"&step_id=" + navigation_item.step_id
+    return RedirectResponse(url=url_to_redirect, status_code=303)
+
+
+@router.get("/function/existing", tags=["function_existing"], status_code=200)
 async def task_existing(request: Request) -> dict:
-    # channels = data.ch_names
-    print(WFAddress)
-    headers = {"Content-Type": "application/json"}
-    data = {
-        "functions": ExistingFunctions,
+    return {
+        "analytics-functions": ExistingFunctions,
     }
-    url = WFAddress + "/existing/functions" #Need to discuss this with EVOL
-    print(url)
-    response = requests.put(url=url, data=data, headers=headers)
-    print("Test Response: Task Existing Sent INformation")
-    print(response)
-
-    print(request.json())
-    return
