@@ -90,6 +90,7 @@ async def return_free_surfer_recon(input_test_name: str, input_slices: str,
     to_return = "Success"
     return to_return
 
+
 @router.get("free_surfer/recon/check", tags=["return_free_surfer_recon"])
 # Validation is done inline in the input of the function
 # Check status of freesurfer function run
@@ -117,5 +118,59 @@ async def return_free_surfer_samseg(input_test_name: str, input_slices: str,
 
     # CREATE OUTPUT FOLDER SOMEHWERE BASED ON TEST NAME
 
+    to_return = "Success"
+    return to_return
+
+@router.get("/free_view/", tags=["return_free_view"])
+# Validation is done inline in the input of the function
+# Slices are send in a single string and then de
+async def return_free_view(input_test_name: str, input_slices: str,
+                                   ) -> dict:
+    # CONNECT THROUGH SSH TO DOCKER WITH FREESURFER
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect("neurodesktop", 22, username ="user" , password="password")
+
+
+    # Start recon COMMAND
+    ssh.exec_command("ls > ls.txt")
+    # ssh.exec_command("recon-all -subject subjectname -i /path/to/input_volume -T2 /path/to/T2_volume -T2pial -all")
+    # Redirect output to log.txt in output folder that has been created
+
+    # If everything ok return Sucess
+    to_return = "Success"
+    return to_return
+
+@router.get("/free_surfer/", tags=["return_free_surfer"])
+# Validation is done inline in the input of the function
+# Slices are send in a single string and then de
+async def return_free_surfer(input_test_name: str, input_slices: str,
+                                   ) -> dict:
+    # CONNECT THROUGH SSH TO DOCKER WITH FREESURFER
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect("neurodesktop", 22, username ="user" , password="password")
+
+
+    # Start recon COMMAND
+    # ssh.exec_command("ls > ls.txt")
+    ssh.exec_command("cd /neurocommand/local/bin/")
+    ssh.exec_command("./freesurfer-7_1_1.sh")
+    ssh.exec_command("echo \"mkontoulis @ epu.ntua.gr")
+    ssh.exec_command("60631")
+    ssh.exec_command(" *CctUNyzfwSSs")
+    ssh.exec_command(" FSNy4xe75KyK.\" >> ~/.license")
+    ssh.exec_command("export FS_LICENSE=~/.license")
+
+    ssh.exec_command("mkdir /neurodesktop-storage/freesurfer-output")
+    ssh.exec_command("source /opt/freesurfer-7.1.1/SetUpFreeSurfer.sh")
+    ssh.exec_command("export SUBJECTS_DIR=/neurodesktop-storage/freesurfer-output")
+
+    ssh.exec_command("recon-all -subject " + input_test_name + " -i " + input_slices + " -all")
+
+    # ssh.exec_command("recon-all -subject subjectname -i /path/to/input_volume -T2 /path/to/T2_volume -T2pial -all")
+    # Redirect output to log.txt in output folder that has been created
+
+    # If everything ok return Sucess
     to_return = "Success"
     return to_return
