@@ -1,4 +1,5 @@
 import math
+import time
 
 from fastapi import APIRouter, Query
 from mne.time_frequency import psd_array_multitaper
@@ -10,7 +11,8 @@ import matplotlib.pyplot as plt
 import mpld3
 import numpy as np
 
-from app.utils.utils_general import validate_and_convert_peaks, validate_and_convert_power_spectral_density
+from app.utils.utils_general import validate_and_convert_peaks, validate_and_convert_power_spectral_density, \
+    create_notebook_mne_plot
 
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -151,22 +153,62 @@ async def return_free_surfer(input_test_name: str, input_slices: str,
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect("neurodesktop", 22, username ="user" , password="password")
 
+    channel = ssh.invoke_shell()
+    response = channel.recv(9999)
+    print(channel)
+    print(channel.send_ready())
 
     # Start recon COMMAND
     # ssh.exec_command("ls > ls.txt")
-    ssh.exec_command("cd /neurocommand/local/bin/")
-    ssh.exec_command("./freesurfer-7_1_1.sh")
-    ssh.exec_command("echo \"mkontoulis @ epu.ntua.gr")
-    ssh.exec_command("60631")
-    ssh.exec_command(" *CctUNyzfwSSs")
-    ssh.exec_command(" FSNy4xe75KyK.\" >> ~/.license")
-    ssh.exec_command("export FS_LICENSE=~/.license")
+    # ssh.exec_command("cd /neurocommand/local/bin/")
+    # ssh.exec_command("./freesurfer-7_1_1.sh")
+    # ssh.exec_command("echo \"mkontoulis @ epu.ntua.gr")
+    # ssh.exec_command("60631")
+    # ssh.exec_command(" *CctUNyzfwSSs")
+    # ssh.exec_command(" FSNy4xe75KyK.\" >> ~/.license")
+    # ssh.exec_command("export FS_LICENSE=~/.license")
+    channel.send("ls > ls.txt\n")
+    channel.send("cd /neurocommand/local/bin/\n")
+    channel.send("./freesurfer-7_1_1.sh\n")
+    channel.send("echo \"mkontoulis @ epu.ntua.gr\n")
+    channel.send("60631\n")
+    channel.send(" *CctUNyzfwSSs\n")
+    channel.send(" FSNy4xe75KyK.\" >> ~/.license\n")
+    channel.send("export FS_LICENSE=~/.license\n")
+    #
+    # ssh.exec_command("mkdir /neurodesktop-storage/freesurfer-output")
+    # ssh.exec_command("source /opt/freesurfer-7.1.1/SetUpFreeSurfer.sh")
+    # ssh.exec_command("export SUBJECTS_DIR=/neurodesktop-storage/freesurfer-output")
+    channel.send("mkdir /neurodesktop-storage/freesurfer-output\n")
+    channel.send("source /opt/freesurfer-7.1.1/SetUpFreeSurfer.sh\n")
+    channel.send("export SUBJECTS_DIR=/neurodesktop-storage/freesurfer-output\n")
+    channel.send("freeview\n")
 
-    ssh.exec_command("mkdir /neurodesktop-storage/freesurfer-output")
-    ssh.exec_command("source /opt/freesurfer-7.1.1/SetUpFreeSurfer.sh")
-    ssh.exec_command("export SUBJECTS_DIR=/neurodesktop-storage/freesurfer-output")
-
-    ssh.exec_command("recon-all -subject " + input_test_name + " -i " + input_slices + " -all")
+    # channel.send("mkdir /neurodesktop-storage/freesurfer-output\n")
+    # channel.send("cd /neurocommand/local/bin/" + ";"
+    #                  + "./freesurfer-7_1_1.sh" + ";"
+    #                  + "echo \"mkontoulis @ epu.ntua.gr" + ";"
+    #                  + "60631" + ";"
+    #                  + " *CctUNyzfwSSs" + ";"
+    #                  + " FSNy4xe75KyK.\" >> ~/.license" + ";"
+    #                  + "mkdir /neurodesktop-storage/freesurfer-output" + ";"
+    #                  + "source /opt/freesurfer-7.1.1/SetUpFreeSurfer.sh" + ";"
+    #                  + "freeview\n")
+    time.sleep(3)
+    resp = channel.recv(9999)
+    print(resp)
+    # ssh.exec_command("cd /neurocommand/local/bin/" + ";"
+    #                  + "./freesurfer-7_1_1.sh" + ";"
+    #                  + "echo \"mkontoulis @ epu.ntua.gr" + ";"
+    #                  + "60631" + ";"
+    #                  + " *CctUNyzfwSSs" + ";"
+    #                  + " FSNy4xe75KyK.\" >> ~/.license" + ";"
+    #                  + "mkdir /neurodesktop-storage/freesurfer-output" + ";"
+    #                  + "source /opt/freesurfer-7.1.1/SetUpFreeSurfer.sh" + ";"
+    #                  + "freeview"
+    #                  )
+    # ssh.exec_command("recon-all -subject " + input_test_name + " -i " + input_slices + " -all")
+    # ssh.exec_command("freeview")
 
     # ssh.exec_command("recon-all -subject subjectname -i /path/to/input_volume -T2 /path/to/T2_volume -T2pial -all")
     # Redirect output to log.txt in output folder that has been created
@@ -174,3 +216,11 @@ async def return_free_surfer(input_test_name: str, input_slices: str,
     # If everything ok return Sucess
     to_return = "Success"
     return to_return
+
+
+@router.get("/test/notebook", tags=["test_notebook"])
+# Validation is done inline in the input of the function
+# Slices are send in a single string and then de
+async def test_notebook(input_test_name: str, input_slices: str,
+                                   ) -> dict:
+    create_notebook_mne_plot("hello", "again")
