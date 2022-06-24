@@ -154,23 +154,47 @@ async def return_free_surfer(input_test_name: str, input_slices: str,
 
     # Start recon COMMAND
     # ssh.exec_command("ls > ls.txt")
-    ssh.exec_command("cd /neurocommand/local/bin/")
-    ssh.exec_command("./freesurfer-7_1_1.sh")
-    ssh.exec_command("echo \"mkontoulis @ epu.ntua.gr")
-    ssh.exec_command("60631")
-    ssh.exec_command(" *CctUNyzfwSSs")
-    ssh.exec_command(" FSNy4xe75KyK.\" >> ~/.license")
-    ssh.exec_command("export FS_LICENSE=~/.license")
+    # channel = ssh.invoke_shell()
+    # stdin = channel.makefile('wb')
+    # stdout = channel.makefile('rb')
 
-    ssh.exec_command("mkdir /neurodesktop-storage/freesurfer-output")
-    ssh.exec_command("source /opt/freesurfer-7.1.1/SetUpFreeSurfer.sh")
-    ssh.exec_command("export SUBJECTS_DIR=/neurodesktop-storage/freesurfer-output")
+    stdin, stdout, stderr = ssh.exec_command("cd /neurocommand/local/bin/;./freesurfer-7_1_1.sh;echo \"mkontoulis @ epu.ntua.gr;60631; *CctUNyzfwSSs;  FSNy4xe75KyK.\" >> ~/.license;export FS_LICENSE=~/.license;mkdir /neurodesktop-storage/freesurfer-output;source /opt/freesurfer-7.1.1/SetUpFreeSurfer.sh;export SUBJECTS_DIR=/neurodesktop-storage/freesurfer-output;recon-all -subject " + input_test_name + " -i " + input_slices + " -all &>> log.txt")
 
-    ssh.exec_command("recon-all -subject " + input_test_name + " -i " + input_slices + " -all")
+    # stdin.write('''
+    # cd /neurocommand/local/bin/
+    # ./freesurfer-7_1_1.sh
+    # echo \"mkontoulis @ epu.ntua.gr
+    # 60631
+    #  *CctUNyzfwSSs
+    #   FSNy4xe75KyK.\" >> ~/.license
+    # export FS_LICENSE=~/.license
+    # mkdir /neurodesktop-storage/freesurfer-output
+    # source /opt/freesurfer-7.1.1/SetUpFreeSurfer.sh
+    # export SUBJECTS_DIR=/neurodesktop-storage/freesurfer-output
+    # recon-all -subject ''' + input_test_name + " -i " + input_slices + " -all &>> log.txt")
+    # print(stdout.read())
+    #
+    # stdout.close()
+    # stdin.close()
+    # ssh.close()
+
+    # ssh.exec_command("cd /neurocommand/local/bin/")
+    # ssh.exec_command("./freesurfer-7_1_1.sh")
+    # ssh.exec_command("echo \"mkontoulis @ epu.ntua.gr")
+    # ssh.exec_command("60631")
+    # ssh.exec_command(" *CctUNyzfwSSs")
+    # ssh.exec_command(" FSNy4xe75KyK.\" >> ~/.license")
+    # ssh.exec_command("export FS_LICENSE=~/.license")
+    #
+    # ssh.exec_command("mkdir /neurodesktop-storage/freesurfer-output")
+    # ssh.exec_command("source /opt/freesurfer-7.1.1/SetUpFreeSurfer.sh")
+    # ssh.exec_command("export SUBJECTS_DIR=/neurodesktop-storage/freesurfer-output")
+    #
+    # ssh.exec_command("recon-all -subject " + input_test_name + " -i " + input_slices + " -all &>> log.txt")
 
     # ssh.exec_command("recon-all -subject subjectname -i /path/to/input_volume -T2 /path/to/T2_volume -T2pial -all")
     # Redirect output to log.txt in output folder that has been created
 
-    # If everything ok return Sucess
+    # If everything ok return Success
     to_return = "Success"
     return to_return
