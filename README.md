@@ -56,6 +56,7 @@ Pycharm IDE
 ## Running the tests (WIP)
 ### Integration Testing
 ```
+Current branch: 'feat/communication'
 Run tests from postman
 ```
 
@@ -74,6 +75,8 @@ WIP
         ```
         Docker
         ```
+    - Clone current branch: 'feat/communication'
+    - Change env variables in /docker/docker-compose.yml
     - Create Image and Container
         ```
         cd docker
