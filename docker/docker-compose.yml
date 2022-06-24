@@ -14,9 +14,13 @@ services:
       - "8000:8000"
     networks:
       - mri-freesurfer-network
+      - analytics-network
 
 
 networks:
+  analytics-network:
+    name: analytics-network
+    driver: bridge
   mri-freesurfer-network:
     name: mri-freesurfer-network
     driver: bridge
