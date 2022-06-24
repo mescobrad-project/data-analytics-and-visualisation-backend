@@ -9,6 +9,6 @@ services:
     container_name: analytics_backend
     restart: always
     environment:
-      WFAddress: 127.0.0.1:8000
+      WFAddress: expertsystem_web_1
     ports:
       - "8000:8000"
