@@ -1,4 +1,4 @@
-version: '3.4'
+version: '3.7'
 
 services:
   analytics-backend:
@@ -12,3 +12,11 @@ services:
       WFAddress: expertsystem_web_1
     ports:
       - "8000:8000"
+    networks:
+      - mri-freesurfer-network
+
+
+networks:
+  mri-freesurfer-network:
+    name: mri-freesurfer-network
+    driver: bridge
