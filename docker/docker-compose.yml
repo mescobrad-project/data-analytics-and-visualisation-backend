@@ -8,6 +8,8 @@ services:
     hostname: analytics_backend
     container_name: analytics_backend
     restart: always
+    volumes:
+      - 'C:/neurodesktop-storage:/neurodesktop-storage'
     ports:
       - "8000:8000"
     networks:
