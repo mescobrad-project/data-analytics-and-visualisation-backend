@@ -119,6 +119,15 @@ async def root():
 async def root():
     return FileResponse('index.html')
 
+@app.get("/test/add/user", tags=["root"])
+async def test_add_user():
+    # Must add user both at ubuntu and at file of guacamole
+    # 1 - Adding  at apache guacamole - needs sudo privileges
+    # file etc/guacamole/user
+    # 2 - Adding user at ubuntu
+    # Done with ssh
+    return FileResponse('index.html')
+
 # Include routers from other folders
 app.include_router(routers_eeg.router)
 app.include_router(routers_mri.router)

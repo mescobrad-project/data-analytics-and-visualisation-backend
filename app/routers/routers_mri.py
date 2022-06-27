@@ -140,7 +140,6 @@ async def return_free_view(input_test_name: str, input_slices: str,
 
     channel.send("export DISPLAY=:11.0\n")
     # channel.send("nohup firefox &\n")
-
     channel.send("ls > ls.txt\n")
     channel.send("cd /neurocommand/local/bin/\n")
     channel.send("./freesurfer-7_1_1.sh\n")
@@ -150,6 +149,43 @@ async def return_free_view(input_test_name: str, input_slices: str,
     channel.send(" FSNy4xe75KyK.\" >> ~/.license\n")
     channel.send("export FS_LICENSE=~/.license\n")
     channel.send("mkdir /neurodesktop-storage/freesurfer-output\n")
+    channel.send("mkdir /neurodesktop-storage/freesurfer-output/test2\n")
+    channel.send("source /opt/freesurfer-7.1.1/SetUpFreeSurfer.sh\n")
+    channel.send("export SUBJECTS_DIR=/neurodesktop-storage/freesurfer-output\n")
+    channel.send("nohup freeview &\n")
+
+    # If everything ok return Success
+    to_return = "Success"
+    return to_return
+
+
+@router.get("/free_view/1/", tags=["return_free_view"])
+# Validation is done inline in the input of the function
+# Slices are send in a single string and then de
+async def return_free_view_1(input_test_name: str, input_slices: str,
+                                   ) -> dict:
+    # CONNECT THROUGH SSH TO DOCKER WITH FREESURFER
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect("neurodesktop", 22, username="user1", password="password1")
+
+    channel = ssh.invoke_shell()
+    response = channel.recv(9999)
+    print(channel)
+    print(channel.send_ready())
+
+    channel.send("export DISPLAY=:11.0\n")
+    # channel.send("nohup firefox &\n")
+    channel.send("ls > ls1.txt\n")
+    channel.send("cd /neurocommand/local/bin/\n")
+    channel.send("./freesurfer-7_1_1.sh\n")
+    channel.send("echo \"mkontoulis @ epu.ntua.gr\n")
+    channel.send("60631\n")
+    channel.send(" *CctUNyzfwSSs\n")
+    channel.send(" FSNy4xe75KyK.\" >> ~/.license\n")
+    channel.send("export FS_LICENSE=~/.license\n")
+    channel.send("mkdir /neurodesktop-storage/freesurfer-output\n")
+    channel.send("mkdir /neurodesktop-storage/freesurfer-output/test1\n")
     channel.send("source /opt/freesurfer-7.1.1/SetUpFreeSurfer.sh\n")
     channel.send("export SUBJECTS_DIR=/neurodesktop-storage/freesurfer-output\n")
     channel.send("nohup freeview &\n")
@@ -175,7 +211,7 @@ async def return_free_surfer(input_test_name: str, input_file: str,
     print(channel.send_ready())
 
     channel.send("export DISPLAY=:11.0\n")
-    channel.send("ls > ls.txt\n")
+    channel.send("ls > ls2.txt\n")
     channel.send("cd /neurocommand/local/bin/\n")
     channel.send("./freesurfer-7_1_1.sh\n")
     channel.send("echo \"mkontoulis @ epu.ntua.gr\n")
