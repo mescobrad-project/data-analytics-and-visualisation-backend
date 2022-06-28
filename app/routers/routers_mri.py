@@ -138,7 +138,7 @@ async def return_free_view(input_test_name: str, input_slices: str,
     print(channel)
     print(channel.send_ready())
 
-    channel.send("export DISPLAY=:11.0\n")
+    channel.send("export DISPLAY=:10.0\n")
     # channel.send("nohup firefox &\n")
     channel.send("ls > ls.txt\n")
     channel.send("cd /neurocommand/local/bin/\n")
@@ -152,7 +152,10 @@ async def return_free_view(input_test_name: str, input_slices: str,
     channel.send("mkdir /neurodesktop-storage/freesurfer-output/test2\n")
     channel.send("source /opt/freesurfer-7.1.1/SetUpFreeSurfer.sh\n")
     channel.send("export SUBJECTS_DIR=/neurodesktop-storage/freesurfer-output\n")
-    channel.send("nohup freeview &\n")
+    # channel.send("nohup freeview &\n")
+    channel.send("mkdir neurodesktop-storage/screenshots\n")
+    channel.send("cd neurodesktop-storage/screenshots\n")
+    channel.send("nohup freeview -cmd ../commands.txt &\n")
 
     # If everything ok return Success
     to_return = "Success"
