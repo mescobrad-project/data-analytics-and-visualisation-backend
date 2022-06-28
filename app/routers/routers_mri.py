@@ -138,7 +138,13 @@ async def return_free_view(input_test_name: str, input_slices: str,
     print(channel)
     print(channel.send_ready())
 
-    channel.send("export DISPLAY=:10.0\n")
+    channel.send("cd /home/user/neurodesktop-storage\n")
+    channel.send("nohup bash get_display.sh &\n")
+    # channel.send(" ps aux| grep Xorg > dispplay.txt\n")
+    # channel.send(" ps aux| grep Xorg > dispplay.txt\n")
+    # channel.send("whoami > whoami.txt\n")
+    # channel.send("declare -xp > env.txt\n")
+    channel.send("export DISPLAY=:12.0\n")
     # channel.send("nohup firefox &\n")
     channel.send("ls > ls.txt\n")
     channel.send("cd /neurocommand/local/bin/\n")
@@ -177,7 +183,7 @@ async def return_free_view_1(input_test_name: str, input_slices: str,
     print(channel)
     print(channel.send_ready())
 
-    channel.send("export DISPLAY=:11.0\n")
+    channel.send("export DISPLAY=:12.0\n")
     # channel.send("nohup firefox &\n")
     channel.send("ls > ls1.txt\n")
     channel.send("cd /neurocommand/local/bin/\n")
@@ -213,7 +219,7 @@ async def return_free_surfer(input_test_name: str, input_file: str,
     print(channel)
     print(channel.send_ready())
 
-    channel.send("export DISPLAY=:11.0\n")
+    channel.send("export DISPLAY=:12.0\n")
     channel.send("ls > ls2.txt\n")
     channel.send("cd /neurocommand/local/bin/\n")
     channel.send("./freesurfer-7_1_1.sh\n")
