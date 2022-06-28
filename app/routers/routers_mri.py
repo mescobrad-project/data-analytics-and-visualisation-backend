@@ -138,7 +138,12 @@ async def return_free_view(input_test_name: str, input_slices: str,
     print(channel)
     print(channel.send_ready())
 
-    channel.send("echo  $DISPLAY > dispplay.txt\n")
+    channel.send("cd /home/user/neurodesktop-storage\n")
+    channel.send("nohup bash get_display.sh &\n")
+    # channel.send(" ps aux| grep Xorg > dispplay.txt\n")
+    # channel.send(" ps aux| grep Xorg > dispplay.txt\n")
+    # channel.send("whoami > whoami.txt\n")
+    # channel.send("declare -xp > env.txt\n")
     channel.send("export DISPLAY=:12.0\n")
     # channel.send("nohup firefox &\n")
     channel.send("ls > ls.txt\n")
