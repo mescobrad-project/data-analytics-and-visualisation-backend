@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .routers import routers_eeg, routers_mri
 from starlette.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 tags_metadata = [
     {
@@ -106,6 +107,7 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
+app.mount("/static", StaticFiles(directory="/neurodesktop-storage"), name="static")
 
 # endregion
 
