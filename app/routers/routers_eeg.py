@@ -18,6 +18,7 @@ import mpld3
 import numpy as np
 import mne
 from yasa import spindles_detect
+from pyedflib import highlevel
 
 router = APIRouter()
 
@@ -454,4 +455,19 @@ async def return_power_spectral_density(input_name: str,
                                                       )
             to_return = {'frequencies': freqs.tolist(), 'power spectral density': psd_results.tolist()}
             return to_return
+    return {'Channel not found'}
+
+@router.get("/calculate_SpO2")
+async def SpO2_Hypothesis():
+    signals, signal_headers, header = highlevel.read_edf('NIA test.edf')
+    for i in range(len(signal_headers)):
+        if "SpO2" in signal_headers[i]['label']:
+            modified_array = np.delete(signals[i], np.where(signals[i] == 0))
+            if modified_array != []:
+                minimum_SpO2 = np.min(modified_array)
+                number_of_samples = np.shape(np.where(modified_array < 92))[1]
+                time_in_seconds = number_of_samples / signal_headers[i]['sample_frequency']
+                return {'minimumSpO2': minimum_SpO2, 'time':time_in_seconds}
+            else:
+                return {"All values are 0"}
     return {'Channel not found'}
