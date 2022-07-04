@@ -69,35 +69,48 @@ def create_notebook_mne_plot_annotate(run_id, step_id):
     nbf.write(nb, "/neurodesktop-storage/" + run_id + "_" + step_id + '.ipynb')
 
 
-def create_newrodesk_user(user_name, user_password):
+def write_neurodesk_user(user_name, user_password):
+    file = open("app_data/neurodesk_users.txt", "a")
+    file.write(user_name + ":" + user_password)
+    file.close()
+
+def create_neurodesk_user(user_name, user_password):
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect("neurodesktop", 22, username="user", password="password")
 
     channel = ssh.invoke_shell()
     # Create a user in ubuntu
-    channel.send("sudo useradd -p $(openssl passwd -1 " + user_password + ") " + user_name + "\n")
-    # Add user in apache guacamole file
-    channel.send("cd /etc/guacamole/\n")
-    channel.send("sudo sed -i '$ d' user-mapping.xml")
-    channel.send(""" 
-    <authorize
-            username=\"""" + user_name + """\"
-            password=\"""" + user_password + """\"
-            >
-        <!-- Second authorized connection -->
-        <connection name="Desktop Auto-Resolution (RDP)">
-            <protocol>rdp</protocol>
-            <param name="hostname">localhost</param>
-            <param name="username">""" + user_name + """</param>
-            <param name="password">""" + user_password + """</param>
-            <param name="port">3389</param>
-            <param name="security">any</param>
-            <param name="ignore-cert">true</param>
-            <param name="resize-method">reconnect</param>
-            <param name="enable-drive">true</param>
-            <param name="drive-oath">/home/user/Desktop</param>
-        </connection>
+    channel.send("sudo -s\n")
+    channel.send("sudo adduser "+ user_name +" --gecos \"First Last,RoomNumber,WorkPhone,HomePhone\" --disabled-password" + "\n")
+    channel.send("echo \"" + user_name + ":" + user_password + "\" | sudo chpasswd" + "\n")
 
-    </authorize>
-    """)
+    # Add user in apache guacamole file
+    channel.send("sudo sed -i '$ d' /etc/guacamole/user-mapping.xml\n")
+
+    channel.send("""sudo tee -a /etc/guacamole/user-mapping.xml <<EOF
+<authorize username=\"""" + user_name + """\" password=\"""" + user_password + """\" >
+<connection name="Command Line """ + user_name + """ (SSH)">
+<protocol>ssh</protocol>
+<param name="hostname">localhost</param>
+<param name="username">""" + user_name + """</param>
+<param name="password">""" + user_password + """</param>
+<param name="port">22</param>
+<param name="enable-sftp">true</param>
+<param name="sftp-root-directory">/home/""" + user_name + """/Desktop</param>
+</connection>
+<connection name="Desktop Auto-Resolution """ + user_name + """ (RDP)">
+<protocol>rdp</protocol>
+<param name="hostname">localhost</param>
+<param name="username">""" + user_name + """</param>
+<param name="password">""" + user_password + """</param>
+<param name="port">3389</param>
+<param name="security">any</param>
+<param name="ignore-cert">true</param>
+<param name="resize-method">reconnect</param>
+<param name="enable-drive">true</param>
+<param name="drive-path">/home/""" + user_name + """/Desktop</param>
+</connection>
+</authorize>
+</user-mapping> 
+EOF\n""")

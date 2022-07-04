@@ -231,7 +231,7 @@ async def return_free_surfer(input_test_name: str, input_file: str,
     channel.send("mkdir /neurodesktop-storage/freesurfer-output\n")
     channel.send("source /opt/freesurfer-7.1.1/SetUpFreeSurfer.sh\n")
     channel.send("export SUBJECTS_DIR=/neurodesktop-storage/freesurfer-output\n")
-    channel.send("nohup recon-all -subject " + input_test_name + " -i " + input_file + " -all &\n")
+    channel.send("nohup recon-all -subject " + input_test_name + " -i " + input_file + " -all > freesurfer_log.txtr &\n")
 
     # Start recon COMMAND
     # ssh.exec_command("ls > ls.txt")

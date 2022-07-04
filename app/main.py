@@ -4,6 +4,8 @@ from .routers import routers_eeg, routers_mri
 from starlette.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+from .utils.utils_general import create_neurodesk_user, write_neurodesk_user
+
 tags_metadata = [
     {
         "name": "return_autocorrelation",
@@ -121,17 +123,27 @@ async def root():
 async def root():
     return FileResponse('index.html')
 
+@app.get("/test/write/user", tags=["root"])
+async def test_write_user(name, password):
+    # Test write user in local storage
+
+    write_neurodesk_user(name, password)
+    return "Success"
+
 @app.get("/test/add/user", tags=["root"])
-async def test_add_user():
+async def test_add_user(name, password):
     # Must add user both at ubuntu and at file of guacamole
     # 1 - Adding  at apache guacamole - needs sudo privileges
     # file etc/guacamole/user
     # 2 - Adding user at ubuntu
     # Done with ssh
-    return FileResponse('index.html')
+
+    create_neurodesk_user(name, password)
+    return "Success"
 
 # Include routers from other folders
 app.include_router(routers_eeg.router)
 app.include_router(routers_mri.router)
+
 
 # endregion
