@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .routers import routers_eeg
+from .routers import routers_datalake
 from starlette.responses import FileResponse
 
 tags_metadata = [
@@ -121,5 +122,6 @@ async def root():
 
 # Include routers from other folders
 app.include_router(routers_eeg.router)
+app.include_router(routers_datalake.router)
 
 # endregion
