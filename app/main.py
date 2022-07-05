@@ -4,7 +4,8 @@ from .routers import routers_eeg, routers_mri
 from starlette.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from .utils.utils_general import create_neurodesk_user, write_neurodesk_user
+from .utils.utils_general import create_neurodesk_user, read_all_neurodesk_users, \
+    save_neurodesk_user
 
 tags_metadata = [
     {
@@ -119,15 +120,24 @@ app.mount("/static", StaticFiles(directory="/neurodesktop-storage"), name="stati
 async def root():
     return {"message": "Hello World"}
 
+
 @app.get("/test/chart", tags=["root"])
 async def root():
     return FileResponse('index.html')
+
+
+@app.get("/test/read/users", tags=["root"])
+async def test_read_users():
+    # Test write user in local storage
+
+    read_all_neurodesk_users()
+    return "Success"
 
 @app.get("/test/write/user", tags=["root"])
 async def test_write_user(name, password):
     # Test write user in local storage
 
-    write_neurodesk_user(name, password)
+    save_neurodesk_user(name, password)
     return "Success"
 
 @app.get("/test/add/user", tags=["root"])

@@ -69,17 +69,38 @@ def create_notebook_mne_plot_annotate(run_id, step_id):
     nbf.write(nb, "/neurodesktop-storage/" + run_id + "_" + step_id + '.ipynb')
 
 
-def write_neurodesk_user(user_name, user_password):
+def save_neurodesk_user(user_name, user_password):
+    """This function save a new user in the local storage file, by appending a new line in the format
+    'username:password \n'  """
     file = open("app_data/neurodesk_users.txt", "a")
-    file.write(user_name + ":" + user_password)
+    file.write(user_name + ":" + user_password+"\n")
     file.close()
 
+
+def read_all_neurodesk_users():
+    """ This function reads all users from the local storage and returns an array of array
+    in the following format [[username,password]]"""
+    with open("app_data/neurodesk_users.txt", "r") as file:
+        # Save lines in an array
+        lines = file.read().splitlines()
+        for line_it, line in enumerate(lines):
+            # Convert lines from string to array
+            lines[line_it] = line.split(":")
+        return lines
+
+
 def create_neurodesk_user(user_name, user_password):
+    """ This function creates a single new neurodesk user
+    1) in the Ubuntu os running inside the docker
+    2) in the apache guacamole server handling its interface allowing multiple concurrent users to access the vms
+    3) in the local storage file in app_data/neurodesk_users.txt with format 'username:password \n'
+    """
+    # Initiate ssh connection with neurodesk container
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect("neurodesktop", 22, username="user", password="password")
-
     channel = ssh.invoke_shell()
+
     # Create a user in ubuntu
     channel.send("sudo -s\n")
     channel.send("sudo adduser "+ user_name +" --gecos \"First Last,RoomNumber,WorkPhone,HomePhone\" --disabled-password" + "\n")
@@ -114,3 +135,15 @@ def create_neurodesk_user(user_name, user_password):
 </authorize>
 </user-mapping> 
 EOF\n""")
+
+    # Add user in local folder
+    save_neurodesk_user(user_name,user_password)
+    return
+
+
+def re_create_all_neurodesk_users():
+    """ This function recreates all users in neurodesk in case the neurodesk container/pod is restarted since it
+     doesnt store by itself any data"""
+    saved_users = read_all_neurodesk_users()
+    for saved_user in saved_users:
+        create_neurodesk_user(saved_user[0], saved_user[1])
