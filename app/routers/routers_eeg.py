@@ -471,11 +471,15 @@ async def mne_open_eeg(input_run_id: str, input_step_id: str) -> dict:
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect("neurodesktop", 22, username="user", password="password")
     channel = ssh.invoke_shell()
-    channel.send("export DISPLAY=:12.0\n")
-    channel.send("./neurocommand/local/bin/freesurfer-7_1_1.sh\n")
-    channel.send("source /opt/freesurfer-7.1.1/SetUpFreeSurfer.sh\n")
-    channel.send(
-        "nohup recon-all -subject " + input_test_name + " -i " + input_file + " -all > freesurfer_log.txtr &\n")
+    channel.send("export DISPLAY=:10.0\n")
+    channel.send("ls > ls2.txt\n")
+    channel.send("/neurocommand/local/bin/mne-1_0_0.sh\n")
+    # channel.send("nohup code &\n")
+    channel.send("nohup /usr/bin/code -n /home/user/neurodesktop-storage/TestEEG.ipynb --extensions-dir=/opt/vscode-extensions &\n")
+    channel.send("nohup code &\n")
+    # channel.send("nohup code /home/user/neurodesktop-storage/TestEEG.ipynb --extensions-dir=/opt/vscode-extensions &\n")
+    # channel.send(
+    #     "nohup recon-all -subject " + input_test_name + " -i " + input_file + " -all > freesurfer_log.txtr &\n")
     #
 
 
