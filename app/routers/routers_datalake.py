@@ -2,6 +2,8 @@ import os
 from os.path import realpath, exists, join
 
 import glob, pandas
+
+import pandas as pd
 from freesurfer_stats import CorticalParcellationStats
 from fastapi import APIRouter, Query
 from pip._internal.utils.misc import tabulate
@@ -32,7 +34,7 @@ async def list_datalakeendpoints() -> dict:
 
 @router.get("/return_samseg_stats/whole_brain_measurements", tags=["return_samseg_stats/whole_brain_measurements"])
 # Validation is done inline in the input of the function
-async def return_samseg_stats(fs_dir: str = None, subject_id: str = None) -> pandas.DataFrame:
+async def return_samseg_stats(fs_dir: str = None, subject_id: str = None):
     #TODO 1: check DataLake if report from FreeSurfer based on mriId exists
     #TODO 2: read the file "samseg.stats"
     # for testing I use the sample file from example_data folder
@@ -57,7 +59,18 @@ async def return_samseg_stats(fs_dir: str = None, subject_id: str = None) -> pan
     #     for line in X:
     #         print(line)
 
-    return whole_brain_measurements
+    row_count = whole_brain_measurements.shape[0]
+    column_count = whole_brain_measurements.shape[1]
+    column_names = whole_brain_measurements.columns.tolist()
+    final_row_data = []
+    result_data = []
+    for index, rows in whole_brain_measurements.iterrows():
+        final_row_data.append(rows.to_dict())
+
+    json_result = {'rows': row_count, 'cols': column_count, 'columns': column_names, 'rowData': final_row_data}
+    result_data.append(json_result)
+
+    return result_data
 
 
 @router.get("/return_samseg_stats/structural_measurements", tags=["return_samseg_stats"])
