@@ -50,7 +50,7 @@ def create_notebook_mne_plot(run_id, step_id):
     data = mne.io.read_raw_edf('trial raw.edf', infer_types=True, preload = True)
     data = data.notch_filter(freqs = 70)
     fig = data.plot(n_channels=50)"""))
-    nbf.write(nb, "/neurodesktop-storage/" + run_id + "_" + step_id + '.ipynb')
+    nbf.write(nb, "/neurodesktop-storage/mne/" + run_id + "_" + step_id + '.ipynb')
 
 
 def create_notebook_mne_plot_annotate(run_id, step_id):

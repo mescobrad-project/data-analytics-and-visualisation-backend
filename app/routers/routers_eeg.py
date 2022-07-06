@@ -1,5 +1,6 @@
 import math
 
+import paramiko
 from fastapi import APIRouter, Query
 from mne.time_frequency import psd_array_multitaper
 from scipy.signal import butter, lfilter, sosfilt, freqs, freqs_zpk, sosfreqz
@@ -10,7 +11,8 @@ import matplotlib.pyplot as plt
 import mpld3
 import numpy as np
 
-from app.utils.utils_general import validate_and_convert_peaks, validate_and_convert_power_spectral_density
+from app.utils.utils_general import validate_and_convert_peaks, validate_and_convert_power_spectral_density, \
+    create_notebook_mne_plot
 
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -456,3 +458,30 @@ async def return_power_spectral_density(input_name: str,
             return to_return
     return {'Channel not found'}
 
+
+@router.get("/mne/open/eeg", tags=["mne_open_eeg"])
+# Validation is done inline in the input of the function
+# Slices are send in a single string and then de
+async def mne_open_eeg(input_run_id: str, input_step_id: str) -> dict:
+    # Create a new jupyter notebook with the id of the run and step for recognition
+    create_notebook_mne_plot(input_run_id, input_step_id)
+
+    # Initiate ssh connection with neurodesk container
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect("neurodesktop", 22, username="user", password="password")
+    channel = ssh.invoke_shell()
+    channel.send("export DISPLAY=:12.0\n")
+    channel.send("./neurocommand/local/bin/freesurfer-7_1_1.sh\n")
+    channel.send("source /opt/freesurfer-7.1.1/SetUpFreeSurfer.sh\n")
+    channel.send(
+        "nohup recon-all -subject " + input_test_name + " -i " + input_file + " -all > freesurfer_log.txtr &\n")
+    #
+
+
+@router.get("/test/notebook", tags=["test_notebook"])
+# Validation is done inline in the input of the function
+# Slices are send in a single string and then de
+async def test_notebook(input_test_name: str, input_slices: str,
+                        ) -> dict:
+    create_notebook_mne_plot("hello", "again")

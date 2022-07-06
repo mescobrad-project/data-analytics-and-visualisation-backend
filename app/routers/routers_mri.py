@@ -279,9 +279,3 @@ async def return_free_surfer(input_test_name: str, input_file: str,
     return to_return
 
 
-@router.get("/test/notebook", tags=["test_notebook"])
-# Validation is done inline in the input of the function
-# Slices are send in a single string and then de
-async def test_notebook(input_test_name: str, input_slices: str,
-                                   ) -> dict:
-    create_notebook_mne_plot("hello", "again")
