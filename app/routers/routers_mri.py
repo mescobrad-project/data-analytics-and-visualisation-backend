@@ -12,7 +12,7 @@ import mpld3
 import numpy as np
 
 from app.utils.utils_general import validate_and_convert_peaks, validate_and_convert_power_spectral_density, \
-    create_notebook_mne_plot
+    create_notebook_mne_plot, get_neurodesk_display_id
 
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -144,7 +144,8 @@ async def return_free_view(input_test_name: str, input_slices: str,
     # channel.send(" ps aux| grep Xorg > dispplay.txt\n")
     # channel.send("whoami > whoami.txt\n")
     # channel.send("declare -xp > env.txt\n")
-    channel.send("export DISPLAY=:12.0\n")
+    display_id = get_neurodesk_display_id()
+    channel.send("export DISPLAY=" + display_id + "\n")
     # channel.send("nohup firefox &\n")
     channel.send("ls > ls.txt\n")
     channel.send("cd /neurocommand/local/bin/\n")
@@ -182,8 +183,8 @@ async def return_free_view_1(input_test_name: str, input_slices: str,
     response = channel.recv(9999)
     print(channel)
     print(channel.send_ready())
-
-    channel.send("export DISPLAY=:12.0\n")
+    display_id = get_neurodesk_display_id()
+    channel.send("export DISPLAY=" + display_id + "\n")
     # channel.send("nohup firefox &\n")
     channel.send("ls > ls1.txt\n")
     channel.send("cd /neurocommand/local/bin/\n")
@@ -219,7 +220,8 @@ async def return_free_surfer(input_test_name: str, input_file: str,
     print(channel)
     print(channel.send_ready())
 
-    channel.send("export DISPLAY=:12.0\n")
+    display_id = get_neurodesk_display_id()
+    channel.send("export DISPLAY=" + display_id + "\n")
     channel.send("ls > ls2.txt\n")
     channel.send("cd /neurocommand/local/bin/\n")
     channel.send("./freesurfer-7_1_1.sh\n")

@@ -147,3 +147,11 @@ def re_create_all_neurodesk_users():
     saved_users = read_all_neurodesk_users()
     for saved_user in saved_users:
         create_neurodesk_user(saved_user[0], saved_user[1])
+
+def get_neurodesk_display_id():
+    """This function gets the id from the volume config folder where it was created when initiating the app"""
+    with open("/neurodesktop-storage/config/actual_display.txt", "r") as file:
+        # Save lines in an array
+        lines = file.read().splitlines()
+        print(lines[0])
+    return lines[0]
