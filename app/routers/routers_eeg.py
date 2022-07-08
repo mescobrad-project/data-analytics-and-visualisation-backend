@@ -1,5 +1,6 @@
 import math
 
+import paramiko
 from fastapi import APIRouter, Query
 from mne.time_frequency import psd_array_multitaper
 from scipy.signal import butter, lfilter, sosfilt, freqs, freqs_zpk, sosfreqz
@@ -10,7 +11,8 @@ import matplotlib.pyplot as plt
 import mpld3
 import numpy as np
 
-from app.utils.utils_general import validate_and_convert_peaks, validate_and_convert_power_spectral_density
+from app.utils.utils_general import validate_and_convert_peaks, validate_and_convert_power_spectral_density, \
+    create_notebook_mne_plot, get_neurodesk_display_id
 
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -471,3 +473,37 @@ async def SpO2_Hypothesis():
             else:
                 return {"All values are 0"}
     return {'Channel not found'}
+
+@router.get("/mne/open/eeg", tags=["mne_open_eeg"])
+# Validation is done inline in the input of the function
+# Slices are send in a single string and then de
+async def mne_open_eeg(input_run_id: str, input_step_id: str, current_user: str | None = None) -> dict:
+    # Create a new jupyter notebook with the id of the run and step for recognition
+    create_notebook_mne_plot(input_run_id, input_step_id)
+
+    # Initiate ssh connection with neurodesk container
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect("neurodesktop", 22, username="user", password="password")
+    channel = ssh.invoke_shell()
+    display_id = get_neurodesk_display_id()
+    channel.send("export DISPLAY=" + display_id + "\n")
+    # Close previous isntances of code for the user
+    # !!!!!!!!!!!!!!!!!!!!!!!!!!! THIS USER MUST CHANGE TO CURRENTLY USED USER
+    channel.send("pkill code -u user\n")
+
+    channel.send("/neurocommand/local/bin/mne-1_0_0.sh\n")
+    channel.send("nohup /usr/bin/code -n /home/user/neurodesktop-storage/TestEEG.ipynb --extensions-dir=/opt/vscode-extensions &\n")
+    # channel.send("nohup code &\n")
+    # channel.send("nohup code /home/user/neurodesktop-storage/TestEEG.ipynb --extensions-dir=/opt/vscode-extensions &\n")
+    # channel.send(
+    #     "nohup recon-all -subject " + input_test_name + " -i " + input_file + " -all > freesurfer_log.txtr &\n")
+    #
+
+
+@router.get("/test/notebook", tags=["test_notebook"])
+# Validation is done inline in the input of the function
+# Slices are send in a single string and then de
+async def test_notebook(input_test_name: str, input_slices: str,
+                        ) -> dict:
+    create_notebook_mne_plot("hello", "again")

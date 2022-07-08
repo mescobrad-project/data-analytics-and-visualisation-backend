@@ -1,7 +1,16 @@
+import os
+import shutil
+
+import paramiko
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .routers import routers_eeg
+from .routers import routers_eeg, routers_mri, routers_datalake
+
 from starlette.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+
+from .utils.utils_general import create_neurodesk_user, read_all_neurodesk_users, \
+    save_neurodesk_user, get_neurodesk_display_id
 
 tags_metadata = [
     {
@@ -106,20 +115,73 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
+app.mount("/static", StaticFiles(directory="/neurodesktop-storage"), name="static")
 
 # endregion
 
 
 # region Routes of the application
+@app.on_event("startup")
+def initiate_functions():
+    # Create folder in volume if it doesn't exist
+    os.makedirs("/neurodesktop-storage/config", exist_ok=True)
+    # Copy files from local storage to volume
+    # Copy script for getting the current value of
+    shutil.copy("neurodesk_startup_scripts/get_display.sh", "/neurodesktop-storage/config/get_display.sh")
+    # Run the script with ssh from neurodesk
+    # Initiate ssh connection with neurodesk container
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect("neurodesktop", 22, username="user", password="password")
+    channel = ssh.invoke_shell()
+    channel.send("cd /home/user/neurodesktop-storage\n")
+    channel.send("sudo chmod 777 config\n")
+    channel.send("cd /home/user/neurodesktop-storage/config\n")
+    channel.send("sudo bash get_display.sh\n")
+
 @app.get("/", tags=["root"])
 async def root():
     return {"message": "Hello World"}
+
 
 @app.get("/test/chart", tags=["root"])
 async def root():
     return FileResponse('index.html')
 
+
+@app.get("/test/read/users", tags=["root"])
+async def test_read_users():
+    # Test write user in local storage
+
+    read_all_neurodesk_users()
+    return "Success"
+
+@app.get("/test/write/user", tags=["root"])
+async def test_write_user(name, password):
+    # Test write user in local storage
+
+    save_neurodesk_user(name, password)
+    return "Success"\
+
+@app.get("/test/display/neurodesk", tags=["root"])
+async def test_display_neurodesk():
+    get_neurodesk_display_id()
+    return "Success"
+
+@app.get("/test/add/user", tags=["root"])
+async def test_add_user(name, password):
+    # Must add user both at ubuntu and at file of guacamole
+    # 1 - Adding  at apache guacamole - needs sudo privileges
+    # file etc/guacamole/user
+    # 2 - Adding user at ubuntu
+    # Done with ssh
+
+    create_neurodesk_user(name, password)
+    return "Success"
+
 # Include routers from other folders
 app.include_router(routers_eeg.router)
+app.include_router(routers_mri.router)
+app.include_router(routers_datalake.router)
 
 # endregion
