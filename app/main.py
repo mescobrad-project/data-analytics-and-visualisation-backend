@@ -1,5 +1,6 @@
 import os
 import shutil
+import socket
 
 import paramiko
 from fastapi import FastAPI
@@ -130,14 +131,17 @@ def initiate_functions():
     shutil.copy("neurodesk_startup_scripts/get_display.sh", "/neurodesktop-storage/config/get_display.sh")
     # Run the script with ssh from neurodesk
     # Initiate ssh connection with neurodesk container
-    ssh = paramiko.SSHClient()
-    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect("neurodesktop", 22, username="user", password="password")
-    channel = ssh.invoke_shell()
-    channel.send("cd /home/user/neurodesktop-storage\n")
-    channel.send("sudo chmod 777 config\n")
-    channel.send("cd /home/user/neurodesktop-storage/config\n")
-    channel.send("sudo bash get_display.sh\n")
+    try:
+        ssh = paramiko.SSHClient()
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        ssh.connect("neurodesktop", 22, username="user", password="password")
+        channel = ssh.invoke_shell()
+        channel.send("cd /home/user/neurodesktop-storage\n")
+        channel.send("sudo chmod 777 config\n")
+        channel.send("cd /home/user/neurodesktop-storage/config\n")
+        channel.send("sudo bash get_display.sh\n")
+    except socket.gaierror:
+        pass
 
 @app.get("/", tags=["root"])
 async def root():
