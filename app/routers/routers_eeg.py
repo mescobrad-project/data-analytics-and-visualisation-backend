@@ -12,7 +12,7 @@ import mpld3
 import numpy as np
 
 from app.utils.utils_general import validate_and_convert_peaks, validate_and_convert_power_spectral_density, \
-    create_notebook_mne_plot, get_neurodesk_display_id
+    create_notebook_mne_plot, get_neurodesk_display_id, get_annotations_from_csv
 
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -484,6 +484,13 @@ async def mne_open_eeg(input_run_id: str, input_step_id: str, current_user: str 
     # channel.send(
     #     "nohup recon-all -subject " + input_test_name + " -i " + input_file + " -all > freesurfer_log.txtr &\n")
     #
+
+
+@router.get("/mne/return_annotations", tags=["mne_return_annotations"])
+async def mne_return_annotations(file_name: str | None = "annotation_test.csv") -> dict:
+    # Default value proable isnt needed in final implementation
+    annotations = get_annotations_from_csv(file_name)
+    return annotations
 
 
 @router.get("/test/notebook", tags=["test_notebook"])

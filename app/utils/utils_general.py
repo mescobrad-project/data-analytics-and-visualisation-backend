@@ -1,7 +1,8 @@
 import json
 import nbformat as nbf
 import paramiko
-
+import csv
+import os
 
 def validate_and_convert_peaks(input_height, input_threshold, input_prominence, input_width, input_plateau_size):
     to_return = {
@@ -155,3 +156,37 @@ def get_neurodesk_display_id():
         lines = file.read().splitlines()
         print(lines[0])
     return lines[0]
+
+
+def get_annotations_from_csv(annotation_file="annotation_test.csv"):
+    """This function gets the annotation from the local storage and returns it as list of dicts"""
+    with open("/neurodesktop-storage/"+ annotation_file, newline="") as csvfile:
+        # Check if file exists
+        if not os.path.isfile("/neurodesktop-storage/"+ annotation_file):
+            # if it doesnt return empty list
+            return []
+
+        # If it does read as csv and get contents
+        reader = csv.reader(csvfile, delimiter=',')
+        annotation_array = []
+        first_flag = True
+        for row in reader:
+            if first_flag:
+                # Stop first loop to not add headers
+                first_flag = False
+                continue
+            temp_to_append = {
+                "creator" : "user",
+                "description" : row[2],
+                "onset" : row[0],
+                "duration" : row[1]
+            }
+            annotation_array.append(temp_to_append)
+            # print(row)
+            # print(', '.join(row))
+        print(annotation_array)
+        return annotation_array
+        # Save lines in an array
+        # lines = file.read().splitlines()
+        # print(lines[0])
+    # return lines[0]
