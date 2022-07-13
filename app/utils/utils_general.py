@@ -196,7 +196,7 @@ def get_neurodesk_display_id():
             lines = file.read().splitlines()
             print(lines[0])
     except OSError as e:
-        return 0
+        return "0"
     return lines[0]
 
 
