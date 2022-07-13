@@ -1,3 +1,4 @@
+# DO NOT AUTO FORMAT THIS FILE THE STRINGS ADDED TO MNE NOTEBOOKS ARE TAB AND SPACE SENSITIVE
 import json
 import nbformat as nbf
 import paramiko
@@ -38,7 +39,45 @@ def convert_string_to_number_or_array(input):
     return to_return
 
 
+def create_notebook_mne_modular(file_to_save,
+                                file_to_open,
+                              notch_filter,
+                                annotations,
+                              bipolar_reference,
+                              average_reference):
+    """ Function that creates a mne jupyter notebook modularly
+        Each input designates what should be added to the file
+        The name of the file is currently given by the file_name parameter but that might change
+    """
+    nb = nbf.v4.new_notebook()
+    nb['cells'] = []
+    nb['cells'].append(nbf.v4.new_code_cell("""
+import mne
+import time
+
+%matplotlib qt5
+
+data = mne.io.read_raw_edf('""" + file_to_open + """"', infer_types=True, preload = True)
+"""))
+
+    if annotations:
+        nb['cells'].append(nbf.v4.new_code_cell("""
+while 1:
+data.annotations.save(fname="annotation_test.csv", overwrite=True)
+time.sleep(5)
+        """))
+
+    if bipolar_reference:
+        nb['cells'].append(nbf.v4.new_code_cell("""
+data = mne.set_bipolar_reference(data, anode=['"""+ bipolar_reference[0]+""""'], cathode=['"""+ bipolar_reference[1]+""""'])
+        """))
+
+
+    nbf.write(nb, "/neurodesktop-storage/mne/" + file_to_save + ".ipynb")
+
+
 def create_notebook_mne_plot(run_id, step_id):
+    # Test Function to create sample mne notebook
     nb = nbf.v4.new_notebook()
     nb['cells'] = []
     nb['cells'].append(nbf.v4.new_code_cell("""import mne
@@ -184,7 +223,7 @@ def get_annotations_from_csv(annotation_file="annotation_test.csv"):
             annotation_array.append(temp_to_append)
             # print(row)
             # print(', '.join(row))
-        print(annotation_array)
+        # print(annotation_array)
         return annotation_array
         # Save lines in an array
         # lines = file.read().splitlines()

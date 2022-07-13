@@ -12,7 +12,7 @@ import mpld3
 import numpy as np
 
 from app.utils.utils_general import validate_and_convert_peaks, validate_and_convert_power_spectral_density, \
-    create_notebook_mne_plot, get_neurodesk_display_id, get_annotations_from_csv
+    create_notebook_mne_plot, get_neurodesk_display_id, get_annotations_from_csv, create_notebook_mne_modular
 
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -24,7 +24,7 @@ from yasa import spindles_detect
 router = APIRouter()
 
 # region EEG Function pre-processing and functions
-data = mne.io.read_raw_edf("example_data/trial_av.edf", infer_types=True)
+data = mne.io.read_raw_edf("example_data/psg1 anonym2.edf", infer_types=True)
 
 
 # endregion
@@ -493,9 +493,47 @@ async def mne_return_annotations(file_name: str | None = "annotation_test.csv") 
     return annotations
 
 
+
+@router.get("/mne/create_notebook", tags=["mne_create_notebook"])
+# Validation is done inline in the input of the function
+# Slices are send in a single string and then de
+async def mne_create_notebook(file_name: str,
+                              notch_filter: int,
+                              bipolar_reference: str,
+                              average_reference: str,
+                        ) -> dict:
+    file_to_save = ""
+    file_to_open = ""
+    annotations = ""
+
+    create_notebook_mne_modular(file_to_save,
+                                file_to_open,
+                                notch_filter,
+                                annotations,
+                                bipolar_reference,
+                                average_reference)
+    # create_notebook_mne_plot("hello", "again")
+
+
+@router.get("/test/montage", tags=["test_montage"])
+async def test_montage() -> dict:
+    raw_data = data.get_data()
+    info = data.info
+    print('\nBUILT-IN MONTAGE FILES')
+    print('======================')
+    print(info)
+    print(raw_data)
+    ten_twenty_montage = mne.channels.make_standard_montage('example_data/trial_av')
+    print(ten_twenty_montage)
+
+    # create_notebook_mne_plot("hello", "again")
+
+
+
 @router.get("/test/notebook", tags=["test_notebook"])
 # Validation is done inline in the input of the function
 # Slices are send in a single string and then de
 async def test_notebook(input_test_name: str, input_slices: str,
                         ) -> dict:
     create_notebook_mne_plot("hello", "again")
+
