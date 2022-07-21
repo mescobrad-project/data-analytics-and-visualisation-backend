@@ -1,10 +1,12 @@
 import math
 
+import yasa
 from fastapi import APIRouter, Query
 from mne.time_frequency import psd_array_multitaper
 from scipy.signal import butter, lfilter, sosfilt, freqs, freqs_zpk, sosfreqz
 from statsmodels.graphics.tsaplots import acf, pacf
 from scipy import signal
+from scipy.integrate import simps
 import mne
 import matplotlib.pyplot as plt
 import mpld3
@@ -459,7 +461,7 @@ async def return_power_spectral_density(input_name: str,
 
 @router.get("/calculate_SpO2")
 async def SpO2_Hypothesis():
-    signals, signal_headers, header = highlevel.read_edf('NIA test.edf')
+    signals, signal_headers, header = highlevel.read_edf('example_data/NIA test.edf')
     for i in range(len(signal_headers)):
         if "SpO2" in signal_headers[i]['label']:
             modified_array = np.delete(signals[i], np.where(signals[i] == 0))
@@ -471,3 +473,81 @@ async def SpO2_Hypothesis():
             else:
                 return {"All values are 0"}
     return {'Channel not found'}
+
+@router.get("/alpha_delta_ratio")
+async def compute_alpha_delta_ratio(input_name: str):
+    raw_data = data.get_data(units="uV")
+    sf = data.info['sfreq']
+    chan = data.ch_names
+
+    df = yasa.bandpower(raw_data, sf=sf, ch_names=chan, relative=False)
+    ratio = df.loc[str(input_name)]['Alpha']/df.loc[str(input_name)]['Delta']
+
+    return {'alpha_delta_ratio': ratio}
+
+@router.get("/asymmetry_indices")
+async def calculate_asymmetry_indices(input_name_1: str, input_name_2: str):
+    raw_data = data.get_data(units="uV")
+    sf = data.info['sfreq']
+    chan = data.ch_names
+
+    df = yasa.bandpower(raw_data, sf=sf, ch_names=chan, relative=False)
+    abs_power_1 = df.loc[str(input_name_1)]['TotalAbsPow']
+    abs_power_2 = df.loc[str(input_name_2)]['TotalAbsPow']
+
+    asymmetry_index = (np.log(abs_power_1) - np.log(abs_power_2))/(np.log(abs_power_1) + np.log(abs_power_2))
+
+    return {'asymmetry_indices': asymmetry_index}
+
+@router.get("/alpha_variability")
+async def calculate_alpha_variability(input_name: str,
+                                      input_window: str | None = Query("hann",
+                                                          regex="^(boxcar)$|^(triang)$|^(blackman)$|^(hamming)$|^(hann)$|^(bartlett)$|^(flattop)$|^(parzen)$|^(bohman)$|^(blackmanharris)$|^(nuttall)$|^(barthann)$|^(cosine)$|^(exponential)$|^(tukey)$|^(taylor)$"),
+                                      input_nperseg: int | None = 256,
+                                      input_noverlap: int | None = None,
+                                      input_nfft: int | None = 256,
+                                      input_return_onesided: bool | None = True,
+                                      input_scaling: str | None = Query("density", regex="^(density)$|^(spectrum)$"),
+                                      input_axis: int | None = -1,
+                                      input_average: str | None = Query("mean", regex="^(mean)$|^(median)$")) -> dict:
+    raw_data = data.get_data()
+    info = data.info
+    channels = data.ch_names
+    for i in range(len(channels)):
+        if input_name == channels[i]:
+            if input_window == "hann":
+                freqs, psd = signal.welch(raw_data[i], info['sfreq'], window=input_window,
+                                          noverlap=input_noverlap, nperseg=input_nperseg, nfft=input_nfft,
+                                          return_onesided=input_return_onesided, scaling=input_scaling,
+                                          axis=input_axis, average=input_average)
+            else:
+                freqs, psd = signal.welch(raw_data[i], info['sfreq'],
+                                          window=signal.get_window(input_window, input_nperseg),
+                                          noverlap=input_noverlap, nfft=input_nfft,
+                                          return_onesided=input_return_onesided, scaling=input_scaling,
+                                          axis=input_axis, average=input_average)
+            # Define alpha lower and upper limits
+            low, high = 8, 13
+
+            # Find intersecting values in frequency vector
+            idx_alpha = np.logical_and(freqs >= low, freqs <= high)
+            freq_res = freqs[1] - freqs[0]  # = 1 / 4 = 0.25
+
+            # Compute the absolute power by approximating the area under the curve
+            alpha_power = simps(psd[idx_alpha], dx=freq_res)
+            #################################################
+
+            #
+            low, high = 1, 20
+
+            # Find intersecting values in frequency vector
+            idx_1_20 = np.logical_and(freqs >= low, freqs <= high)
+
+            # Compute the absolute power by approximating the area under the curve
+            total_power = simps(psd[idx_1_20], dx=freq_res)
+
+            return {'alpha_variability': alpha_power/total_power}
+
+
+
+
