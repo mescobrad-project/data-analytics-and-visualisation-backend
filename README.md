@@ -69,8 +69,16 @@ WIP
 ```
 
 ## Deployment (WIP)
-WIP
-
+    - Prerequisites
+        ```
+        Docker
+        ```
+    - Create Image and Container
+        ```
+        cd docker
+        docker compose up -d --build 
+        ```
+    
 ## Built With
 WIP 
 
