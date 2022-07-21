@@ -5,7 +5,7 @@ import socket
 import paramiko
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .routers import routers_eeg, routers_mri, routers_datalake, routers_hypothesis
+from .routers import routers_eeg, routers_mri, routers_datalake
 
 from starlette.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -125,6 +125,7 @@ app.mount("/static", StaticFiles(directory="/neurodesktop-storage"), name="stati
 @app.on_event("startup")
 def initiate_functions():
     # Create folder in volume if it doesn't exist
+    os.makedirs("/neurodesktop-storage", exist_ok=True)
     os.makedirs("/neurodesktop-storage/config", exist_ok=True)
     # Copy files from local storage to volume
     # Copy script for getting the current value of
@@ -194,6 +195,5 @@ async def test_add_user(name, password):
 app.include_router(routers_eeg.router)
 app.include_router(routers_mri.router)
 app.include_router(routers_datalake.router)
-app.include_router(routers_hypothesis.router)
 
 # endregion
