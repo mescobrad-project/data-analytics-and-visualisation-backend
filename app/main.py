@@ -132,7 +132,7 @@ def initiate_functions():
     shutil.copy("neurodesk_startup_scripts/get_display.sh", "/neurodesktop-storage/config/get_display.sh")
     # Run the script with ssh from neurodesk
     # Initiate ssh connection with neurodesk container
-    get_neurodesk_display_id()
+    # get_neurodesk_display_id()
 
     try:
         ssh = paramiko.SSHClient()

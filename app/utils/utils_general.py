@@ -194,7 +194,7 @@ def get_neurodesk_display_id():
         with open("/neurodesktop-storage/config/actual_display.txt", "r") as file:
             # Save lines in an array
             lines = file.read().splitlines()
-            print(lines[0])
+            # print(lines[0])
     except OSError as e:
         return "0"
     return lines[0]
