@@ -1,8 +1,7 @@
-import os
+import os, sys
 from os.path import realpath, exists, join
 
 import glob, pandas
-
 import pandas as pd
 from freesurfer_stats import CorticalParcellationStats
 from fastapi import APIRouter, Query
@@ -28,13 +27,14 @@ def load_structural_measurements(stats_path) -> pandas.DataFrame:
 @router.get("/list/datalakeendpoints", tags=["list_datalakeendpoints"])
 async def list_datalakeendpoints() -> dict:
     endpoints = ["return_samseg_stats/whole_brain_measurements",
-                 "return_samseg_stats/structural_measurements", 3, 4, ".."]
+                 "return_samseg_stats/structural_measurements",
+                "return_samseg_result", 4, ".."]
     # TODO:DataLake connection
     return {'endpoints': endpoints}
 
 @router.get("/return_samseg_stats/whole_brain_measurements", tags=["return_samseg_stats/whole_brain_measurements"])
 # Validation is done inline in the input of the function
-async def return_samseg_stats(fs_dir: str = None, subject_id: str = None):
+async def return_samseg_stats(fs_dir: str = None, subject_id: str = None, hemisphere_requested: str = None):
     #TODO 1: check DataLake if report from FreeSurfer based on mriId exists
     #TODO 2: read the file "samseg.stats"
     # for testing I use the sample file from example_data folder
@@ -45,7 +45,8 @@ async def return_samseg_stats(fs_dir: str = None, subject_id: str = None):
         sort=False)
     whole_brain_measurements.reset_index(drop=True, inplace=True)
     whole_brain_measurements[['subject', 'source_basename', 'hemisphere']]
-
+    if (hemisphere_requested!=None):
+        whole_brain_measurements = whole_brain_measurements.loc[(whole_brain_measurements.hemisphere == "left")]
      # stats = CorticalParcellationStats.read('example_data/lh.aparc.a2009s.stats')
     # stats.headers['subjectname'] = 'fabian'
     # print(stats.structural_measurements[['structure_name', 'surface_area_mm^2', 'gray_matter_volume_mm^3']].head())
@@ -70,10 +71,10 @@ async def return_samseg_stats(fs_dir: str = None, subject_id: str = None):
     json_result = {'rows': row_count, 'cols': column_count, 'columns': column_names, 'rowData': final_row_data}
     result_data.append(json_result)
 
-    return result_data
+    return final_row_data #result_data
 
 
-@router.get("/return_samseg_stats/structural_measurements", tags=["return_samseg_stats"])
+@router.get("/return_samseg_stats/structural_measurements", tags=["return_samseg_stats/structural_measurements"])
 # Validation is done inline in the input of the function
 async def return_samseg_stats(fs_dir: str = None, subject_id: str = None) -> pandas.DataFrame:
     structural_measurements = pandas.concat(
@@ -81,3 +82,18 @@ async def return_samseg_stats(fs_dir: str = None, subject_id: str = None) -> pan
         sort=False)
     structural_measurements.reset_index(drop=True, inplace=True)
     return tabulate(structural_measurements.values)
+
+
+@router.get("/return_samseg_result", tags=["return_samseg_result"])
+async def return_samseg_stats(fs_dir: str = None, subject_id: str = None) -> []:
+    stats = pd.read_csv('example_data/samseg.stats', header=None)
+    stats.set_axis (["measure", "value", "unit"], axis=1, inplace=True)
+    # final_row_data = []
+    result_data = []
+    # for index, rows in stats.:
+    #     final_row_data.append(rows.to_dict())
+
+    # json_result = {'rows': row_count, 'cols': column_count, 'columns': column_names, 'rowData': final_row_data}
+    result_data.append(stats)
+    print(type(result_data))
+    return result_data
