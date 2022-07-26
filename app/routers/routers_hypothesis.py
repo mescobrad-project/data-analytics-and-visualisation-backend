@@ -125,6 +125,8 @@ async def statistical_tests(column1: str,
                                                                  regex="^(auto)$|^(approx)$|^(exact)$"),
                             zero_method: Optional[str] | None = Query("pratt",
                                                                  regex="^(pratt)$|^(wilcox)$|^(zsplit)$")):
+    statistic = None
+    p_value = None
     positive_data = []
     negative_data = []
     for i in range(len(data)):
@@ -132,15 +134,20 @@ async def statistical_tests(column1: str,
             positive_data.append(data.iloc[i][str(column1)])
         else:
             negative_data.append(data.iloc[i][str(column1)])
+
     if statistical_test == "Welch's t-test":
         statistic, p_value = ttest_ind(positive_data, negative_data, equal_var=False, alternative=alternative)
     elif statistical_test == "Independent t-test":
         statistic, p_value = ttest_ind(positive_data, negative_data, alternative=alternative)
     elif statistical_test == "t-test on TWO RELATED samples of scores":
+        if np.shape(positive_data)[0] != np.shape(negative_data)[0]:
+            return {'error': 'Unequal length arrays'}
         statistic, p_value = ttest_rel(positive_data, negative_data, alternative=alternative)
     elif statistical_test == "Mann-Whitney U rank test":
         statistic, p_value = mannwhitneyu(positive_data, negative_data, alternative=alternative, method=method)
     elif statistical_test == "Wilcoxon signed-rank test":
+        if np.shape(positive_data)[0] != np.shape(negative_data)[0]:
+            return {'error': 'Unequal length arrays'}
         statistic, p_value = wilcoxon(positive_data, negative_data, alternative=alternative, correction=correction, zero_method=zero_method, mode=mode)
     return {'mean_positive': np.mean(positive_data), 'standard_deviation_positive': np.std(positive_data),
             'mean_negative': np.mean(negative_data), 'standard_deviation_negative': np.std(negative_data),
