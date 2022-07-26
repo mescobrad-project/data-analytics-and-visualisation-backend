@@ -116,7 +116,7 @@ async def transform_data_anova(column_1: str, column_2: str):
 async def statistical_tests(column1: str,
                             correction: bool,
                             statistical_test: str | None = Query("Independent t-test",
-                                                                 regex="^(Independent t-test)$|^(Welch’s t-test)$|^(Mann-Whitney U rank test)$|^(t-test on TWO RELATED samples of scores)$|^(Wilcoxon signed-rank test)$"),
+                                                                 regex="^(Independent t-test)$|^(Welch t-test)$|^(Mann-Whitney U rank test)$|^(t-test on TWO RELATED samples of scores)$|^(Wilcoxon signed-rank test)$"),
                             alternative: Optional[str] | None = Query("two-sided",
                                                                       regex="^(two-sided)$|^(less)$|^(greater)$"),
                             method: Optional[str] | None = Query("auto",
@@ -125,8 +125,6 @@ async def statistical_tests(column1: str,
                                                                  regex="^(auto)$|^(approx)$|^(exact)$"),
                             zero_method: Optional[str] | None = Query("pratt",
                                                                  regex="^(pratt)$|^(wilcox)$|^(zsplit)$")):
-    statistic = None
-    p_value = None
     positive_data = []
     negative_data = []
     for i in range(len(data)):
@@ -135,7 +133,7 @@ async def statistical_tests(column1: str,
         else:
             negative_data.append(data.iloc[i][str(column1)])
 
-    if statistical_test == "Welch's t-test":
+    if statistical_test == "Welch t-test":
         statistic, p_value = ttest_ind(positive_data, negative_data, equal_var=False, alternative=alternative)
     elif statistical_test == "Independent t-test":
         statistic, p_value = ttest_ind(positive_data, negative_data, alternative=alternative)
