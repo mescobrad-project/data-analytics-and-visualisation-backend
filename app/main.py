@@ -5,8 +5,7 @@ import socket
 import paramiko
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .routers import routers_eeg, routers_mri, routers_datalake
-
+from .routers import routers_eeg, routers_mri, routers_datalake, routers_hypothesis
 from starlette.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -193,7 +192,6 @@ async def test_add_user(name, password):
 
 # Include routers from other folders
 app.include_router(routers_eeg.router)
-app.include_router(routers_mri.router)
-app.include_router(routers_datalake.router)
+app.include_router(routers_hypothesis.router)
 
 # endregion
