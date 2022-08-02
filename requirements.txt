@@ -9,6 +9,7 @@ pmdarima==1.8.5
 python-dotenv==0.19.2
 pyyaml==6.0
 uvicorn==0.17.5
+watchdog==2.1.9
 watchgod==0.7
 websockets==10.1
 yasa==0.6.1

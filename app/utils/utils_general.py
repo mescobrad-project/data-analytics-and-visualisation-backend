@@ -197,7 +197,11 @@ def get_neurodesk_display_id():
             # print(lines[0])
     except OSError as e:
         return "0"
-    return lines[0]
+
+    if len(lines) > 0:
+        return lines[0]
+    else:
+        return "0"
 
 
 def get_annotations_from_csv(annotation_file="annotation_test.csv"):
@@ -232,3 +236,5 @@ def get_annotations_from_csv(annotation_file="annotation_test.csv"):
         # lines = file.read().splitlines()
         # print(lines[0])
     # return lines[0]
+
+
