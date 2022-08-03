@@ -11,7 +11,7 @@ from starlette.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from .utils.utils_general import create_neurodesk_user, read_all_neurodesk_users, \
-    save_neurodesk_user, get_neurodesk_display_id
+    save_neurodesk_user, get_neurodesk_display_id, get_annotations_from_csv
 
 tags_metadata = [
     {
@@ -125,12 +125,15 @@ app.mount("/static", StaticFiles(directory="/neurodesktop-storage"), name="stati
 @app.on_event("startup")
 def initiate_functions():
     # Create folder in volume if it doesn't exist
+    os.makedirs("/neurodesktop-storage", exist_ok=True)
     os.makedirs("/neurodesktop-storage/config", exist_ok=True)
     # Copy files from local storage to volume
     # Copy script for getting the current value of
     shutil.copy("neurodesk_startup_scripts/get_display.sh", "/neurodesktop-storage/config/get_display.sh")
     # Run the script with ssh from neurodesk
     # Initiate ssh connection with neurodesk container
+    # get_neurodesk_display_id()
+
     try:
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -170,6 +173,11 @@ async def test_write_user(name, password):
 @app.get("/test/display/neurodesk", tags=["root"])
 async def test_display_neurodesk():
     get_neurodesk_display_id()
+    return "Success"
+
+@app.get("/test/annotations/", tags=["root"])
+async def test_annotations():
+    get_annotations_from_csv()
     return "Success"
 
 @app.get("/test/add/user", tags=["root"])

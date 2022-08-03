@@ -1,3 +1,4 @@
+import json
 import math
 
 import paramiko
@@ -10,22 +11,25 @@ import mne
 import matplotlib.pyplot as plt
 import mpld3
 import numpy as np
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
 
 from app.utils.utils_general import validate_and_convert_peaks, validate_and_convert_power_spectral_density, \
-    create_notebook_mne_plot, get_neurodesk_display_id
+    create_notebook_mne_plot, get_neurodesk_display_id, get_annotations_from_csv, create_notebook_mne_modular
 
 import pandas as pd
 import matplotlib.pyplot as plt
 import mpld3
 import numpy as np
 import mne
+import requests
 from yasa import spindles_detect
 from pyedflib import highlevel
 
 router = APIRouter()
 
 # region EEG Function pre-processing and functions
-data = mne.io.read_raw_edf("example_data/trial_av.edf", infer_types=True)
+data = mne.io.read_raw_edf("example_data/psg1 anonym2.edf", infer_types=True)
 
 
 # endregion
@@ -239,6 +243,8 @@ async def estimate_welch(input_name: str,
     raw_data = data.get_data()
     info = data.info
     channels = data.ch_names
+    print("--------DATA----")
+    print(raw_data)
     for i in range(len(channels)):
         if input_name == channels[i]:
             if input_window == "hann":
@@ -312,21 +318,27 @@ async def return_peaks(input_name: str,
                        input_wlen: int | None = None,
                        input_rel_height: float | None = None,
                        input_plateau_size=None) -> dict:
-    raw_data = data.get_data()
+    raw_data = data.get_data(return_times=True)
     channels = data.ch_names
 
     print(input_height)
     validated_data = validate_and_convert_peaks(input_height, input_threshold, input_prominence, input_width,
                                                 input_plateau_size)
 
-    print("--------VALIDATED----")
-    print(input_height)
-    print(type(validated_data["width"]))
-    print(validated_data)
+    print("--------DATA INFO----")
+    print(data.ch_names)
+    print(data.info)
+    # print(data.info.meas_date)
+    print(data)
+    print(data.info["meas_date"])
+    # print("--------VALIDATED----")
+    # print(input_height)
+    # print(type(validated_data["width"]))
+    # print(validated_data)
     for i in range(len(channels)):
         if input_name == channels[i]:
 
-            find_peaks_result = signal.find_peaks(x=raw_data[i], height=validated_data["height"],
+            find_peaks_result = signal.find_peaks(x=raw_data[0][i], height=validated_data["height"],
                                                   threshold=validated_data["threshold"],
                                                   distance=input_distance, prominence=validated_data["prominence"],
                                                   width=validated_data["width"], wlen=input_wlen,
@@ -336,6 +348,16 @@ async def return_peaks(input_name: str,
             print(find_peaks_result)
             # print(_)n
             to_return = {}
+            to_return["signal"] = raw_data[0][i].tolist()
+            to_return["signal_time"] = raw_data[1].tolist()
+            to_return["start_date_time"] = data.info["meas_date"].timestamp()
+            # to_return["start_date_time"] = json.dumps(data.info["meas_date"], default=datetime_handler)
+
+            # print("raw data type")
+            # print(type(raw_data[0][i].tolist()))
+            # print("raw data time type")
+            # print(type(raw_data[1].tolist()))
+            # print(raw_data[1].tolist())
             to_return["peaks"] = find_peaks_result[0].tolist()
 
             if input_height:
@@ -361,15 +383,15 @@ async def return_peaks(input_name: str,
                 to_return["right_edges"] = find_peaks_result[1]["right_edges"].tolist()
 
             fig = plt.figure(figsize=(18, 12))
-            border = np.sin(np.linspace(0, 3 * np.pi, raw_data[i].size))
-            plt.plot(raw_data[i])
-            plt.plot(find_peaks_result[0].tolist(), raw_data[i][find_peaks_result[0].tolist()], "x")
+            border = np.sin(np.linspace(0, 3 * np.pi, raw_data[0][i].size))
+            plt.plot(raw_data[0][i])
+            plt.plot(find_peaks_result[0].tolist(), raw_data[0][i][find_peaks_result[0].tolist()], "x")
 
             if input_prominence:
                 plt.vlines(x=find_peaks_result[0].tolist(),
-                           ymin=raw_data[i][find_peaks_result[0].tolist()] - find_peaks_result[1][
+                           ymin=raw_data[0][i][find_peaks_result[0].tolist()] - find_peaks_result[1][
                                "prominences"].tolist(),
-                           ymax=raw_data[i][find_peaks_result[0].tolist()], color="C1")
+                           ymax=raw_data[0][i][find_peaks_result[0].tolist()], color="C1")
 
             if input_width:
                 plt.hlines(y=find_peaks_result[1]["width_heights"].tolist(),
@@ -379,7 +401,7 @@ async def return_peaks(input_name: str,
             # plt.plot(find_peaks_result, raw_data[i][find_peaks_result], "x")
 
             # plt.plot(np.zeros_like(x), "--", color="gray")
-            plt.plot(np.zeros_like(raw_data[i]), "--", color="red")
+            plt.plot(np.zeros_like(raw_data[0][i]), "--", color="red")
             plt.show()
 
             html_str = mpld3.fig_to_html(fig)
@@ -387,7 +409,7 @@ async def return_peaks(input_name: str,
             # Html_file = open("index.html", "w")
             # Html_file.write(html_str)
             # Html_file.close()
-
+            # print(to_return)
             return to_return
     return {'Channel not found'}
 
@@ -501,9 +523,81 @@ async def mne_open_eeg(input_run_id: str, input_step_id: str, current_user: str 
     #
 
 
+@router.get("/mne/return_annotations", tags=["mne_return_annotations"])
+async def mne_return_annotations(file_name: str | None = "annotation_test.csv") -> dict:
+    # Default value proable isnt needed in final implementation
+    annotations = get_annotations_from_csv(file_name)
+    return annotations
+
+
+
+
+
+# @router.get("/mne/return_annotations/watch", tags=["mne_return_annotations_watch"])
+# async def mne_return_annotations_watch(file_name: str | None = "annotation_test.csv") -> dict:
+#     # Default value proable isnt needed in final implementation
+#
+#     class MyHandler(FileSystemEventHandler):
+#         def on_modified(self, event):
+#             print(f'event type: {event.event_type}  path : {event.src_path}')
+#             annotations = get_annotations_from_csv(file_name)
+#             requests.post(url='http://localhost:3000/', data={'annotations': annotations})
+#
+#
+#     event_handler = MyHandler()
+#     observer = Observer()
+#     observer.schedule(event_handler, path='/data/', recursive=False)
+#     observer.start()
+#
+#     # try:
+#     #     while True:
+#     #         time.sleep(1)
+#     # except KeyboardInterrupt:
+#     #     observer.stop()
+#     # observer.join()
+#     return "Success"
+
+
+@router.get("/mne/create_notebook", tags=["mne_create_notebook"])
+# Validation is done inline in the input of the function
+# Slices are send in a single string and then de
+async def mne_create_notebook(file_name: str,
+                              notch_filter: int,
+                              bipolar_reference: str,
+                              average_reference: str,
+                        ) -> dict:
+    file_to_save = ""
+    file_to_open = ""
+    annotations = ""
+
+    create_notebook_mne_modular(file_to_save,
+                                file_to_open,
+                                notch_filter,
+                                annotations,
+                                bipolar_reference,
+                                average_reference)
+    # create_notebook_mne_plot("hello", "again")
+
+
+@router.get("/test/montage", tags=["test_montage"])
+async def test_montage() -> dict:
+    raw_data = data.get_data()
+    info = data.info
+    print('\nBUILT-IN MONTAGE FILES')
+    print('======================')
+    print(info)
+    print(raw_data)
+    ten_twenty_montage = mne.channels.make_standard_montage('example_data/trial_av')
+    print(ten_twenty_montage)
+
+    # create_notebook_mne_plot("hello", "again")
+
+
+
 @router.get("/test/notebook", tags=["test_notebook"])
 # Validation is done inline in the input of the function
 # Slices are send in a single string and then de
 async def test_notebook(input_test_name: str, input_slices: str,
                         ) -> dict:
     create_notebook_mne_plot("hello", "again")
+

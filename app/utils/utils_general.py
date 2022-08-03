@@ -1,7 +1,9 @@
+# DO NOT AUTO FORMAT THIS FILE THE STRINGS ADDED TO MNE NOTEBOOKS ARE TAB AND SPACE SENSITIVE
 import json
 import nbformat as nbf
 import paramiko
-
+import csv
+import os
 
 def validate_and_convert_peaks(input_height, input_threshold, input_prominence, input_width, input_plateau_size):
     to_return = {
@@ -37,7 +39,45 @@ def convert_string_to_number_or_array(input):
     return to_return
 
 
+def create_notebook_mne_modular(file_to_save,
+                                file_to_open,
+                              notch_filter,
+                                annotations,
+                              bipolar_reference,
+                              average_reference):
+    """ Function that creates a mne jupyter notebook modularly
+        Each input designates what should be added to the file
+        The name of the file is currently given by the file_name parameter but that might change
+    """
+    nb = nbf.v4.new_notebook()
+    nb['cells'] = []
+    nb['cells'].append(nbf.v4.new_code_cell("""
+import mne
+import time
+
+%matplotlib qt5
+
+data = mne.io.read_raw_edf('""" + file_to_open + """"', infer_types=True, preload = True)
+"""))
+
+    if annotations:
+        nb['cells'].append(nbf.v4.new_code_cell("""
+while 1:
+data.annotations.save(fname="annotation_test.csv", overwrite=True)
+time.sleep(5)
+        """))
+
+    if bipolar_reference:
+        nb['cells'].append(nbf.v4.new_code_cell("""
+data = mne.set_bipolar_reference(data, anode=['"""+ bipolar_reference[0]+""""'], cathode=['"""+ bipolar_reference[1]+""""'])
+        """))
+
+
+    nbf.write(nb, "/neurodesktop-storage/mne/" + file_to_save + ".ipynb")
+
+
 def create_notebook_mne_plot(run_id, step_id):
+    # Test Function to create sample mne notebook
     nb = nbf.v4.new_notebook()
     nb['cells'] = []
     nb['cells'].append(nbf.v4.new_code_cell("""import mne
@@ -150,8 +190,51 @@ def re_create_all_neurodesk_users():
 
 def get_neurodesk_display_id():
     """This function gets the id from the volume config folder where it was created when initiating the app"""
-    with open("/neurodesktop-storage/config/actual_display.txt", "r") as file:
+    try:
+        with open("/neurodesktop-storage/config/actual_display.txt", "r") as file:
+            # Save lines in an array
+            lines = file.read().splitlines()
+            # print(lines[0])
+    except OSError as e:
+        return "0"
+
+    if len(lines) > 0:
+        return lines[0]
+    else:
+        return "0"
+
+
+def get_annotations_from_csv(annotation_file="annotation_test.csv"):
+    """This function gets the annotation from the local storage and returns it as list of dicts"""
+    with open("/neurodesktop-storage/"+ annotation_file, newline="") as csvfile:
+        # Check if file exists
+        if not os.path.isfile("/neurodesktop-storage/"+ annotation_file):
+            # if it doesnt return empty list
+            return []
+
+        # If it does read as csv and get contents
+        reader = csv.reader(csvfile, delimiter=',')
+        annotation_array = []
+        first_flag = True
+        for row in reader:
+            if first_flag:
+                # Stop first loop to not add headers
+                first_flag = False
+                continue
+            temp_to_append = {
+                "creator" : "user",
+                "description" : row[2],
+                "onset" : row[0],
+                "duration" : row[1]
+            }
+            annotation_array.append(temp_to_append)
+            # print(row)
+            # print(', '.join(row))
+        # print(annotation_array)
+        return annotation_array
         # Save lines in an array
-        lines = file.read().splitlines()
-        print(lines[0])
-    return lines[0]
+        # lines = file.read().splitlines()
+        # print(lines[0])
+    # return lines[0]
+
+
