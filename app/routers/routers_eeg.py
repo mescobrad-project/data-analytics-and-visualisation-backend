@@ -523,14 +523,29 @@ async def mne_open_eeg(input_run_id: str, input_step_id: str, current_user: str 
     #
 
 
+@router.get("/return_signal", tags=["return_signal"])
+# Start date time is returned as miliseconds epoch time
+async def return_signal(input_name: str) -> dict:
+    raw_data = data.get_data(return_times=True)
+    channels = data.ch_names
+
+    for i in range(len(channels)):
+        if input_name == channels[i]:
+
+            to_return = {}
+            to_return["signal"] = raw_data[0][i].tolist()
+            to_return["signal_time"] = raw_data[1].tolist()
+            to_return["start_date_time"] = data.info["meas_date"].timestamp()
+
+            return to_return
+    return {'Channel not found'}
+
+
 @router.get("/mne/return_annotations", tags=["mne_return_annotations"])
 async def mne_return_annotations(file_name: str | None = "annotation_test.csv") -> dict:
     # Default value proable isnt needed in final implementation
     annotations = get_annotations_from_csv(file_name)
     return annotations
-
-
-
 
 
 # @router.get("/mne/return_annotations/watch", tags=["mne_return_annotations_watch"])
