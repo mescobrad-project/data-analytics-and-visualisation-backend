@@ -93,6 +93,23 @@ tags_metadata = [
             "url": "https://www.google.com/",
         }
     },
+    {
+        "name": "return_samseg_stats",
+        "description": "return results of Samseg function from Freesurfer",
+        "externalDocs": {
+            "description": "-",
+            "url": "https://www.google.com/",
+        }
+    },
+    {
+        "name": "return_reconall_stats",
+        "description": "return results of Recon-all function from Freesurfer",
+        "externalDocs": {
+            "description": "-",
+            "url": "https://www.google.com/",
+        }
+    },
+
 ]
 
 app = FastAPI(openapi_tags=tags_metadata)
@@ -193,5 +210,6 @@ async def test_add_user(name, password):
 # Include routers from other folders
 app.include_router(routers_eeg.router)
 app.include_router(routers_hypothesis.router)
+app.include_router(routers_datalake.router)
 
 # endregion

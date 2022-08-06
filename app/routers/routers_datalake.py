@@ -34,7 +34,7 @@ async def list_datalakeendpoints() -> dict:
     # TODO:DataLake connection
     return {'endpoints': endpoints}
 
-@router.get("/return_samseg_stats/whole_brain_measurements", tags=["return_samseg_stats/whole_brain_measurements"])
+@router.get("/return_reconall_stats/whole_brain_measurements", tags=["return_reconall_stats"])
 # Validation is done inline in the input of the function
 async def return_samseg_stats(fs_dir: str = None, subject_id: str = None, hemisphere_requested: str = None):
     #TODO 1: check DataLake if report from FreeSurfer based on mriId exists
@@ -65,27 +65,31 @@ async def return_samseg_stats(fs_dir: str = None, subject_id: str = None, hemisp
     return final_row_data #result_data
 
 
-@router.get("/return_samseg_stats/structural_measurements", tags=["return_samseg_stats/structural_measurements"])
+@router.get("/return_reconall_stats/structural_measurements", tags=["return_reconall_stats"])
 # Validation is done inline in the input of the function
 async def return_samseg_stats(fs_dir: str = None, subject_id: str = None) -> pandas.DataFrame:
     structural_measurements = pandas.concat(
         map(load_structural_measurements, glob.glob('example_data/*h.aparc*.stats')),
         sort=False)
     structural_measurements.reset_index(drop=True, inplace=True)
-    return tabulate(structural_measurements.values)
+    results_array = []
+    file_rows=0
+    for file in structural_measurements['source_basename'].unique():
+        def_only_col = structural_measurements.filter(items=['source_basename', 'structure_name', 'gray_matter_volume_mm^3'])
+        pd = def_only_col.where(def_only_col['source_basename'] == file)
+        pd = pd.dropna(how="all")
+        for i, j in pd.iterrows():
+            temp_to_append = {
+                "id": i,
+                "source_basename": j['source_basename'],
+                "structure_name": j['structure_name'],
+                "Volume": j['gray_matter_volume_mm^3']
+            }
+            results_array.append(temp_to_append)
+    return results_array
 
 
-# @router.get("/return_samseg_result", tags=["return_samseg_result"])
-# async def return_samseg_stats(fs_dir: str = None, subject_id: str = None) -> []:
-#     stats = pd.read_csv('example_data/samseg.stats', header=None)
-#     stats.set_axis (["measure", "value", "unit"], axis=1, inplace=True)
-#     final_row_data = []
-#     stats.insert(0, 'id', "")
-#     for rows in stats.itertuples():
-#         final_row_data.append(rows)
-#     return final_row_data
-
-@router.get("/return_samseg_result", tags=["return_samseg_result"])
+@router.get("/return_samseg_result", tags=["return_samseg_stats"])
 async def return_samseg_stats(fs_dir: str = None, subject_id: str = None) -> []:
     with open('example_data/samseg.stats', newline="") as csvfile:
         if not os.path.isfile('example_data/samseg.stats'):
