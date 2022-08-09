@@ -109,6 +109,14 @@ tags_metadata = [
             "url": "https://www.google.com/",
         }
     },
+{
+        "name": "hypothesis_testing",
+        "description": "return results of functions for Hypothesis testing",
+        "externalDocs": {
+            "description": "-",
+            "url": "https://www.google.com/",
+        }
+    },
 
 ]
 

@@ -16,7 +16,7 @@ async def name_columns():
     return{'columns': list(columns)}
 
 
-@router.get("/normality_tests")
+@router.get("/normality_tests", tags=['hypothesis_testing'])
 async def normal_tests(column: str,
                        name_test: str | None = Query("Shapiro-Wilk",
                                                    regex="^(Shapiro-Wilk)$|^(Kolmogorov-Smirnov)$|^(Anderson-Darling)$|^(D’Agostino’s K\^2)$")) -> dict:
