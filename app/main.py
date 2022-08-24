@@ -5,8 +5,7 @@ import socket
 import paramiko
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .routers import routers_eeg, routers_mri, routers_datalake
-
+from .routers import routers_eeg, routers_mri, routers_datalake, routers_hypothesis
 from starlette.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -94,6 +93,31 @@ tags_metadata = [
             "url": "https://www.google.com/",
         }
     },
+    {
+        "name": "return_samseg_stats",
+        "description": "return results of Samseg function from Freesurfer",
+        "externalDocs": {
+            "description": "-",
+            "url": "https://www.google.com/",
+        }
+    },
+    {
+        "name": "return_reconall_stats",
+        "description": "return results of Recon-all function from Freesurfer",
+        "externalDocs": {
+            "description": "-",
+            "url": "https://www.google.com/",
+        }
+    },
+{
+        "name": "hypothesis_testing",
+        "description": "return results of functions for Hypothesis testing",
+        "externalDocs": {
+            "description": "-",
+            "url": "https://www.google.com/",
+        }
+    },
+
 ]
 
 app = FastAPI(openapi_tags=tags_metadata)
@@ -214,6 +238,7 @@ async def test_add_user(name, password):
 # Include routers from other folders
 app.include_router(routers_eeg.router)
 app.include_router(routers_mri.router)
+app.include_router(routers_hypothesis.router)
 app.include_router(routers_datalake.router)
 
 # endregion
