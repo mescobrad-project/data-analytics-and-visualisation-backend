@@ -236,6 +236,7 @@ async def test_add_user(name, password):
 
 # Include routers from other folders
 app.include_router(routers_eeg.router)
+app.include_router(routers_mri.router)
 app.include_router(routers_hypothesis.router)
 app.include_router(routers_datalake.router)
 
