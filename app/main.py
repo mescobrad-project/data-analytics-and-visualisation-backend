@@ -5,8 +5,7 @@ import socket
 import paramiko
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .routers import routers_eeg, routers_mri, routers_datalake
-
+from .routers import routers_eeg, routers_mri, routers_datalake, routers_hypothesis
 from starlette.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -94,6 +93,31 @@ tags_metadata = [
             "url": "https://www.google.com/",
         }
     },
+    {
+        "name": "return_samseg_stats",
+        "description": "return results of Samseg function from Freesurfer",
+        "externalDocs": {
+            "description": "-",
+            "url": "https://www.google.com/",
+        }
+    },
+    {
+        "name": "return_reconall_stats",
+        "description": "return results of Recon-all function from Freesurfer",
+        "externalDocs": {
+            "description": "-",
+            "url": "https://www.google.com/",
+        }
+    },
+{
+        "name": "hypothesis_testing",
+        "description": "return results of functions for Hypothesis testing",
+        "externalDocs": {
+            "description": "-",
+            "url": "https://www.google.com/",
+        }
+    },
+
 ]
 
 app = FastAPI(openapi_tags=tags_metadata)
@@ -130,6 +154,26 @@ def initiate_functions():
     # Copy files from local storage to volume
     # Copy script for getting the current value of
     shutil.copy("neurodesk_startup_scripts/get_display.sh", "/neurodesktop-storage/config/get_display.sh")
+    shutil.copy("neurodesk_startup_scripts/template_jupyter_notebooks/EDFTEST.ipynb", "/neurodesktop-storage/EDFTEST.ipynb")
+
+    # CONERT WINDOWS ENDINGS TO UBUNTU / MIGHT NEED TO BE REMOVED AFTER VOLUME IS TRANSFERED TO NORMAL VOLUME AND NOT
+    # BINDED
+    # replacement strings
+    WINDOWS_LINE_ENDING = b'\r\n'
+    UNIX_LINE_ENDING = b'\n'
+
+    # relative or absolute file path, e.g.:
+    file_path = r"/neurodesktop-storage/config/get_display.sh"
+
+    with open(file_path, 'rb') as open_file:
+        content = open_file.read()
+
+    # Windows ➡ Unix
+    content = content.replace(WINDOWS_LINE_ENDING, UNIX_LINE_ENDING)
+
+    with open(file_path, 'wb') as open_file:
+        open_file.write(content)
+
     # Run the script with ssh from neurodesk
     # Initiate ssh connection with neurodesk container
     # get_neurodesk_display_id()
@@ -194,6 +238,7 @@ async def test_add_user(name, password):
 # Include routers from other folders
 app.include_router(routers_eeg.router)
 app.include_router(routers_mri.router)
+app.include_router(routers_hypothesis.router)
 app.include_router(routers_datalake.router)
 
 # endregion
