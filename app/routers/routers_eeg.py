@@ -32,7 +32,7 @@ router = APIRouter()
 
 # region EEG Function pre-processing and functions
 data = mne.io.read_raw_edf("example_data/trial_av.edf", infer_types=True)
-
+#data = mne.io.read_raw_edf("example_data/psg1 anonym2.edf", infer_types=True)
 
 # endregion
 
