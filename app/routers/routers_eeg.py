@@ -512,10 +512,10 @@ async def mne_open_eeg(input_run_id: str, input_step_id: str, current_user: str 
     channel.send("export DISPLAY=" + display_id + "\n")
     # Close previous isntances of code for the user
     # !!!!!!!!!!!!!!!!!!!!!!!!!!! THIS USER MUST CHANGE TO CURRENTLY USED USER
-    channel.send("pkill code -u user\n")
+    channel.send("pkill -INT code -u user\n")
 
     channel.send("/neurocommand/local/bin/mne-1_0_0.sh\n")
-    channel.send("nohup /usr/bin/code -n /home/user/neurodesktop-storage/TestEEG.ipynb --extensions-dir=/opt/vscode-extensions &\n")
+    channel.send("nohup /usr/bin/code -n /home/user/neurodesktop-storage/EDFTEST.ipynb --extensions-dir=/opt/vscode-extensions --disable-workspace-trust &\n")
     # channel.send("nohup code &\n")
     # channel.send("nohup code /home/user/neurodesktop-storage/TestEEG.ipynb --extensions-dir=/opt/vscode-extensions &\n")
     # channel.send(

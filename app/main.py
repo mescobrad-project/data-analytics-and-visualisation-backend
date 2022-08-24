@@ -130,6 +130,7 @@ def initiate_functions():
     # Copy files from local storage to volume
     # Copy script for getting the current value of
     shutil.copy("neurodesk_startup_scripts/get_display.sh", "/neurodesktop-storage/config/get_display.sh")
+    shutil.copy("neurodesk_startup_scripts/template_jupyter_notebooks/EDFTEST.ipynb", "/neurodesktop-storage/EDFTEST.ipynb")
 
     # CONERT WINDOWS ENDINGS TO UBUNTU / MIGHT NEED TO BE REMOVED AFTER VOLUME IS TRANSFERED TO NORMAL VOLUME AND NOT
     # BINDED
