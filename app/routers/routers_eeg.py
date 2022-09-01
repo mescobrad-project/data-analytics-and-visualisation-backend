@@ -1,6 +1,5 @@
 import json
 import math
-
 import yasa
 import paramiko
 from fastapi import APIRouter, Query
@@ -27,6 +26,7 @@ import mne
 import requests
 from yasa import spindles_detect
 from pyedflib import highlevel
+from app.pydantic_models import *
 
 router = APIRouter()
 
@@ -709,6 +709,21 @@ async def mne_return_annotations(file_name: str | None = "annotation_test.csv") 
     # Default value proable isnt needed in final implementation
     annotations = get_annotations_from_csv(file_name)
     return annotations
+
+
+
+
+
+@router.post("/receive__notebook_and_selection_configuration", tags=["receive__notebook_and_selection_configuration"])
+async def receive_mne_notebook_configuration(input_notebook_config: ModelMNENotebookConfiguration) -> dict:
+    print(input_notebook_config)
+    return {'Channel not found'}
+
+
+@router.post("/receive_channel_selection", tags=["receive_channel_selection"])
+async def receive_channel_selection(input_selection_channel: ModelSelectionChannelReference) -> dict:
+    print(input_selection_channel)
+    return {'Channel not found'}
 
 
 # @router.get("/mne/return_annotations/watch", tags=["mne_return_annotations_watch"])
