@@ -714,9 +714,16 @@ async def mne_return_annotations(file_name: str | None = "annotation_test.csv") 
 
 
 
-@router.post("/receive__notebook_and_selection_configuration", tags=["receive__notebook_and_selection_configuration"])
-async def receive_mne_notebook_configuration(input_notebook_config: ModelMNENotebookConfiguration) -> dict:
-    print(input_notebook_config)
+@router.post("/receive_notebook_and_selection_configuration", tags=["receive__notebook_and_selection_configuration"])
+async def receive_notebook_and_selection_configuration(input_config: ModelNotebookAndSelectionConfiguration) -> dict:
+    raw_data = data.get_data(return_times=True)
+    print(input_config)
+    # If there is a crop
+    if input_config.selection_channel != "":
+        raw_data.crop()
+    # Produce new notebook
+
+
     return {'Channel not found'}
 
 
