@@ -498,7 +498,7 @@ async def SpO2_Hypothesis():
                 return {"All values are 0"}
     return {'Channel not found'}
 
-@router.get("/alpha_delta_ratio")
+@router.get("/return_alpha_delta_ratio", tags=["return_alpha_delta_ratio"])
 async def calculate_alpha_delta_ratio(input_name: str,
                                       input_window: str | None = Query("hann",
                                                           regex="^(boxcar)$|^(triang)$|^(blackman)$|^(hamming)$|^(hann)$|^(bartlett)$|^(flattop)$|^(parzen)$|^(bohman)$|^(blackmanharris)$|^(nuttall)$|^(barthann)$|^(cosine)$|^(exponential)$|^(tukey)$|^(taylor)$"),

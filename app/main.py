@@ -109,7 +109,7 @@ tags_metadata = [
             "url": "https://www.google.com/",
         }
     },
-{
+    {
         "name": "hypothesis_testing",
         "description": "return results of functions for Hypothesis testing",
         "externalDocs": {
@@ -117,7 +117,14 @@ tags_metadata = [
             "url": "https://www.google.com/",
         }
     },
-
+    {
+        "name": "return_alpha_delta_ratio",
+        "description": "return_alpha_delta_ratio function",
+        "externalDocs": {
+            "description": "-",
+            "url": "https://www.google.com/",
+        }
+    },
 ]
 
 app = FastAPI(openapi_tags=tags_metadata)
