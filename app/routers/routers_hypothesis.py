@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from scipy.stats import kruskal, alexandergovern, kendalltau, f_oneway, shapiro, kstest, anderson, normaltest, boxcox, yeojohnson, bartlett, levene, fligner, obrientransform, pearsonr, spearmanr, pointbiserialr, ttest_ind, mannwhitneyu, wilcoxon,ttest_rel
+from scipy.stats import ranksums, chisquare, kruskal, alexandergovern, kendalltau, f_oneway, shapiro, kstest, anderson, normaltest, boxcox, yeojohnson, bartlett, levene, fligner, obrientransform, pearsonr, spearmanr, pointbiserialr, ttest_ind, mannwhitneyu, wilcoxon,ttest_rel
 from typing import Optional, Union, List
 from statsmodels.stats.multitest import multipletests
 from enum import Enum
@@ -138,7 +138,7 @@ async def statistical_tests(column_1: str,
                             column_2: str,
                             correction: bool,
                             statistical_test: str | None = Query("Independent t-test",
-                                                                 regex="^(Independent t-test)$|^(Welch t-test)$|^(Mann-Whitney U rank test)$|^(t-test on TWO RELATED samples of scores)$|^(Wilcoxon signed-rank test)$|^(Alexander Govern test)$|^(Kruskal-Wallis H-test)$|^(one-way ANOVA)$"),
+                                                                 regex="^(Independent t-test)$|^(Welch t-test)$|^(Mann-Whitney U rank test)$|^(t-test on TWO RELATED samples of scores)$|^(Wilcoxon signed-rank test)$|^(Alexander Govern test)$|^(Kruskal-Wallis H-test)$|^(one-way ANOVA)$|^(Wilcoxon rank-sum statistic)$|^(one-way chi-square test)$"),
                             alternative: Optional[str] | None = Query("two-sided",
                                                                       regex="^(two-sided)$|^(less)$|^(greater)$"),
                             method: Optional[str] | None = Query("auto",
@@ -168,6 +168,10 @@ async def statistical_tests(column_1: str,
         statistic, p_value = kruskal(data[str(column_1)], data[str(column_2)])
     elif statistical_test == "one-way ANOVA":
         statistic, p_value = f_oneway(data[str(column_1)], data[str(column_2)])
+    elif statistical_test == "Wilcoxon rank-sum statistic":
+        statistic, p_value = ranksums(data[str(column_1)], data[str(column_2)])
+    elif statistical_test == "one-way chi-square test":
+        statistic, p_value = chisquare(data[str(column_1)], data[str(column_2)])
     return {'mean_positive': np.mean(data[str(column_1)]), 'standard_deviation_positive': np.std(data[str(column_1)]),
             'mean_negative': np.mean(data[str(column_2)]), 'standard_deviation_negative': np.std(data[str(column_2)]),
             'statistic': statistic, 'p-value': p_value}
