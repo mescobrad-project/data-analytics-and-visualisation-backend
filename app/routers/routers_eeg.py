@@ -1,3 +1,4 @@
+from datetime import datetime
 import json
 import math
 import yasa
@@ -698,8 +699,12 @@ async def return_signal(input_name: str) -> dict:
             to_return = {}
             to_return["signal"] = raw_data[0][i].tolist()
             to_return["signal_time"] = raw_data[1].tolist()
-            to_return["start_date_time"] = data.info["meas_date"].timestamp()
-
+            to_return["start_date_time"] = data.info["meas_date"].timestamp() * 1000
+            to_return["sfreq"] = data.info["sfreq"]
+            to_return["times"] = data.times
+            print(data.times)
+            # print(data.info["meas_date"].timestamp())
+            # print(datetime.fromtimestamp(data.info["meas_date"].timestamp()))
             return to_return
     return {'Channel not found'}
 
@@ -718,11 +723,11 @@ async def mne_return_annotations(file_name: str | None = "annotation_test.csv") 
 async def receive_notebook_and_selection_configuration(input_config: ModelNotebookAndSelectionConfiguration) -> dict:
     raw_data = data.get_data(return_times=True)
     print(input_config)
-    # If there is a crop
+    # If there is a selection channel we need to crop
     if input_config.selection_channel != "":
-        raw_data.crop()
+        data.crop(float(input_config.selection_start_time), float(input_config.selection_end_time))
     # Produce new notebook
-
+    create_notebook_mne_modular()
 
     return {'Channel not found'}
 
