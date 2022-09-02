@@ -9,13 +9,14 @@ from scipy.signal import butter, lfilter, sosfilt, freqs, freqs_zpk, sosfreqz
 from statsmodels.graphics.tsaplots import acf, pacf
 from scipy import signal
 from scipy.integrate import simps
+from pmdarima.arima import auto_arima
 import mne
 import matplotlib.pyplot as plt
 import mpld3
 import numpy as np
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
-
+import lxml
 from app.utils.utils_general import validate_and_convert_peaks, validate_and_convert_power_spectral_density, \
     create_notebook_mne_plot, get_neurodesk_display_id, get_annotations_from_csv, create_notebook_mne_modular
 
@@ -35,6 +36,10 @@ data = mne.io.read_raw_edf("example_data/trial_av.edf", infer_types=True)
 #data = mne.io.read_raw_edf("example_data/psg1 anonym2.edf", infer_types=True)
 
 # endregion
+
+def calcsmape(actual, forecast):
+    return 1/len(actual) * np.sum(2 * np.abs(forecast-actual) / (np.abs(actual) + np.abs(forecast)))
+
 
 def butter_lowpass(cutoff, fs, type_filter, order=5):
     if type_filter != 'bandpass':
@@ -233,6 +238,8 @@ async def return_filters(input_name: str,
 @router.get("/return_welch", tags=["return_welch"])
 # Validation is done inline in the input of the function
 async def estimate_welch(input_name: str,
+                         tmin: float | None = 0,
+                         tmax: float | None = None,
                          input_window: str | None = Query("hann",
                                                           regex="^(boxcar)$|^(triang)$|^(blackman)$|^(hamming)$|^(hann)$|^(bartlett)$|^(flattop)$|^(parzen)$|^(bohman)$|^(blackmanharris)$|^(nuttall)$|^(barthann)$|^(cosine)$|^(exponential)$|^(tukey)$|^(taylor)$"),
                          input_nperseg: int | None = 256,
@@ -242,6 +249,7 @@ async def estimate_welch(input_name: str,
                          input_scaling: str | None = Query("density", regex="^(density)$|^(spectrum)$"),
                          input_axis: int | None = -1,
                          input_average: str | None = Query("mean", regex="^(mean)$|^(median)$")) -> dict:
+    data.crop(tmin=tmin, tmax=tmax)
     raw_data = data.get_data()
     info = data.info
     channels = data.ch_names
@@ -266,6 +274,8 @@ async def estimate_welch(input_name: str,
 @router.get("/return_stft", tags=["return_stft"])
 # Validation is done inline in the input of the function
 async def estimate_stft(input_name: str,
+                         tmin: float | None = 0,
+                         tmax: float | None = None,
                          input_window: str | None = Query("hann",
                                                           regex="^(boxcar)$|^(triang)$|^(blackman)$|^(hamming)$|^(hann)$|^(bartlett)$|^(flattop)$|^(parzen)$|^(bohman)$|^(blackmanharris)$|^(nuttall)$|^(barthann)$|^(cosine)$|^(exponential)$|^(tukey)$|^(taylor)$"),
                          input_nperseg: int | None = 256,
@@ -276,6 +286,7 @@ async def estimate_stft(input_name: str,
                                                           regex="^(zeros)$|^(even)$|^(odd)$|^(constant)$|^(None)$"),
                          input_padded: bool | None = True,
                          input_axis: int | None = -1) -> dict:
+    data.crop(tmin=tmin, tmax=tmax)
     raw_data = data.get_data()
     info = data.info
     channels = data.ch_names
@@ -420,12 +431,15 @@ async def return_peaks(input_name: str,
 @router.get("/return_periodogram", tags=["return_periodogram"])
 # Validation is done inline in the input of the function
 async def estimate_periodogram(input_name: str,
+                               tmin: float | None = 0,
+                               tmax: float | None = None,
                                input_window: str | None = Query("hann",
                                                                 regex="^(boxcar)$|^(triang)$|^(blackman)$|^(hamming)$|^(hann)$|^(bartlett)$|^(flattop)$|^(parzen)$|^(bohman)$|^(blackmanharris)$|^(nuttall)$|^(barthann)$|^(cosine)$|^(exponential)$|^(tukey)$|^(taylor)$"),
                                input_nfft: int | None = 256,
                                input_return_onesided: bool | None = True,
                                input_scaling: str | None = Query("density", regex="^(density)$|^(spectrum)$"),
                                input_axis: int | None = -1) -> dict:
+    data.crop(tmin=tmin, tmax=tmax)
     raw_data = data.get_data()
     info = data.info
     channels = data.ch_names
@@ -443,6 +457,8 @@ async def estimate_periodogram(input_name: str,
 @router.get("/return_power_spectral_density", tags=["return_power_spectral_density"])
 # Validation is done inline in the input of the function
 async def return_power_spectral_density(input_name: str,
+                                        tmin: float | None = None,
+                                        tmax: float | None = None,
                                         input_fmin: float | None = 0,
                                         input_fmax: float | None = None,
                                         input_bandwidth: float | None = None,
@@ -453,6 +469,7 @@ async def return_power_spectral_density(input_name: str,
                                         input_n_jobs: int | None = 1,
                                         input_verbose: str | None = None
                                         ) -> dict:
+    data.crop(tmin=tmin, tmax=tmax)
     raw_data = data.get_data()
     info = data.info
 
@@ -500,6 +517,8 @@ async def SpO2_Hypothesis():
 
 @router.get("/return_alpha_delta_ratio", tags=["return_alpha_delta_ratio"])
 async def calculate_alpha_delta_ratio(input_name: str,
+                                      tmin: float | None = 0,
+                                      tmax: float | None = None,
                                       input_window: str | None = Query("hann",
                                                           regex="^(boxcar)$|^(triang)$|^(blackman)$|^(hamming)$|^(hann)$|^(bartlett)$|^(flattop)$|^(parzen)$|^(bohman)$|^(blackmanharris)$|^(nuttall)$|^(barthann)$|^(cosine)$|^(exponential)$|^(tukey)$|^(taylor)$"),
                                       input_nperseg: int | None = 256,
@@ -509,6 +528,7 @@ async def calculate_alpha_delta_ratio(input_name: str,
                                       input_scaling: str | None = Query("density", regex="^(density)$|^(spectrum)$"),
                                       input_axis: int | None = -1,
                                       input_average: str | None = Query("mean", regex="^(mean)$|^(median)$")) -> dict:
+    data.crop(tmin=tmin, tmax=tmax)
     raw_data = data.get_data()
     info = data.info
     channels = data.ch_names
@@ -608,6 +628,8 @@ async def calculate_asymmetry_indices(input_name_1: str,
 
 @router.get("/alpha_variability")
 async def calculate_alpha_variability(input_name: str,
+                                      tmin: float | None = 0,
+                                      tmax: float | None = None,
                                       input_window: str | None = Query("hann",
                                                           regex="^(boxcar)$|^(triang)$|^(blackman)$|^(hamming)$|^(hann)$|^(bartlett)$|^(flattop)$|^(parzen)$|^(bohman)$|^(blackmanharris)$|^(nuttall)$|^(barthann)$|^(cosine)$|^(exponential)$|^(tukey)$|^(taylor)$"),
                                       input_nperseg: int | None = 256,
@@ -617,6 +639,7 @@ async def calculate_alpha_variability(input_name: str,
                                       input_scaling: str | None = Query("density", regex="^(density)$|^(spectrum)$"),
                                       input_axis: int | None = -1,
                                       input_average: str | None = Query("mean", regex="^(mean)$|^(median)$")) -> dict:
+    data.crop(tmin=tmin, tmax=tmax)
     raw_data = data.get_data()
     info = data.info
     channels = data.ch_names
@@ -655,7 +678,58 @@ async def calculate_alpha_variability(input_name: str,
 
             return {'alpha_variability': alpha_power/total_power}
 
+@router.get("/return_predictions")
+async def return_predictions(name: str,
+                             test_size: int,
+                             future_seconds: int,
+                             start_p: int | None = 1,
+                             start_q: int | None = 1,
+                             max_p: int | None = 5,
+                             max_q: int | None = 5,
+                             method: str | None = Query("lbfgs",
+                                                        regex="^(lbfgs)$|^(newton)$|^(nm)$|^(bfgs)$|^(powell)$|^(cg)$|^(ncg)$|^(basinhopping)$"),
+                             information_criterion: str | None = Query("aic",
+                                                                       regex="^(aic)$|^(bic)$|^(hqic)$|^(oob)$") ):
+    raw_data = data.get_data()
+    channels = data.ch_names
+    info = data.info
+    sampling_frequency = info['sfreq']
+    for i in range(len(channels)):
+        if name == channels[i]:
+            data_channel = raw_data[i]
+            train, test = data_channel[:-test_size], data_channel[-test_size:]
+            #x_train, x_test = np.array(range(train.shape[0])), np.array(range(train.shape[0], data_channel.shape[0]))
+            model = auto_arima(train, start_p=start_p, start_q=start_q,
+                               test='adf',
+                               max_p=max_p, max_q=max_q,
+                               m=1,
+                               d=1,
+                               seasonal=False,
+                               start_P=0,
+                               D=None,
+                               trace=True,
+                               error_action='ignore',
+                               suppress_warnings=True,
+                               stepwise=True,
+                               method=method,
+                               information_criterion=information_criterion)
+            prediction, confint = model.predict(n_periods=test_size, return_conf_int=True)
+            smape = calcsmape(test, prediction)
+            example = model.summary()
+            results_as_html = example.tables[0].as_html()
+            df_0 = pd.read_html(results_as_html, header=0, index_col=0)[0]
 
+            results_as_html = example.tables[1].as_html()
+            df_1 = pd.read_html(results_as_html, header=0, index_col=0)[0]
+
+            results_as_html = example.tables[2].as_html()
+            df_2 = pd.read_html(results_as_html, header=0, index_col=0)[0]
+
+            z = future_seconds*sampling_frequency
+
+            prediction, confint = model.predict(n_periods=int(z), return_conf_int=True)
+            return {'predictions': prediction.tolist(), 'error': smape, 'confint': confint, 'first_table':df_0.to_json(orient="split"), 'second table':df_1.to_json(orient="split"), 'third table':df_2.to_json(orient="split")}
+    return {'Channel not found'}
 
 
 
