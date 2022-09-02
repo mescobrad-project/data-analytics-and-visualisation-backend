@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from scipy.stats import kruskal, alexandergovern, f_oneway, shapiro, kstest, anderson, normaltest, boxcox, yeojohnson, bartlett, levene, fligner, obrientransform, pearsonr, spearmanr, pointbiserialr, ttest_ind, mannwhitneyu, wilcoxon,ttest_rel
+from scipy.stats import kruskal, alexandergovern, kendalltau, f_oneway, shapiro, kstest, anderson, normaltest, boxcox, yeojohnson, bartlett, levene, fligner, obrientransform, pearsonr, spearmanr, pointbiserialr, ttest_ind, mannwhitneyu, wilcoxon,ttest_rel
 from typing import Optional, Union, List
 from statsmodels.stats.multitest import multipletests
 from enum import Enum
