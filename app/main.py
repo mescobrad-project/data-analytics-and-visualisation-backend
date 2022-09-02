@@ -125,6 +125,14 @@ tags_metadata = [
             "url": "https://www.google.com/",
         }
     },
+    {
+        "name": "return_asymmetry_indices",
+        "description": "return_asymmetry_indices function",
+        "externalDocs": {
+            "description": "-",
+            "url": "https://www.google.com/",
+        }
+    },
 ]
 
 app = FastAPI(openapi_tags=tags_metadata)
