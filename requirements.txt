@@ -2,6 +2,7 @@ fastapi==0.74.0
 freesurfer-stats==1.2.1
 httptools==0.3.0
 jupyter==1.0.0
+lxml==4.9.1
 mpld3==0.5.7
 paramiko==2.11.0
 pip-chill==1.0.1

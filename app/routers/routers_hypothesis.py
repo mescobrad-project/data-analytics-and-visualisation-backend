@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from scipy.stats import shapiro, kstest, anderson, normaltest, boxcox, yeojohnson, bartlett, levene, fligner, obrientransform, pearsonr, pointbiserialr, ttest_ind, mannwhitneyu, wilcoxon,ttest_rel
+from scipy.stats import kruskal, alexandergovern, f_oneway, shapiro, kstest, anderson, normaltest, boxcox, yeojohnson, bartlett, levene, fligner, obrientransform, pearsonr, spearmanr, pointbiserialr, ttest_ind, mannwhitneyu, wilcoxon,ttest_rel
 from typing import Optional, Union, List
 from statsmodels.stats.multitest import multipletests
 from enum import Enum
@@ -85,9 +85,30 @@ async def pearson_correlation(column_1: str, column_2: str):
     pearsonr_test = pearsonr(data[str(column_1)], data[str(column_2)])
     return {'Pearson’s correlation coefficient':pearsonr_test[0], 'p-value': pearsonr_test[1]}
 
+@router.get("/compute_spearman_correlation")
+async def spearman_correlation(column_1: str, column_2: str):
+    spearman_test = spearmanr(data[str(column_1)], data[str(column_2)])
+    return {'Spearman correlation coefficient': spearman_test[0], 'p-value': spearman_test[1]}
+
+@router.get("/compute_kendalltau_correlation")
+async def kendalltau_correlation(column_1: str,
+                                 column_2: str,
+                                 alternative: Optional[str] | None = Query("two-sided",
+                                                                           regex="^(two-sided)$|^(less)$|^(greater)$"),
+                                 variant: Optional[str] | None = Query("b",
+                                                                       regex="^(b)$|^(c)$"),
+                                 method: Optional[str] | None = Query("auto",
+                                                                      regex="^(auto)$|^(asymptotic)$|^(exact)$")):
+    kendalltau_test = kendalltau(data[str(column_1)], data[str(column_2)], alternative=alternative, variant=variant, method=method)
+    return {'kendalltau correlation coefficient': kendalltau_test[0], 'p-value': kendalltau_test[1]}
+
 @router.get("/compute_point_biserial_correlation")
-async def pearson_correlation(column_1: str, column_2: str):
-    pointbiserialr_test = pointbiserialr(data[str(column_1)], data[str(column_2)])
+async def point_biserial_correlation(column_1: str, column_2: str):
+    unique_values = np.unique(data[str(column_1)])
+    if len(unique_values) == 2:
+        pointbiserialr_test = pointbiserialr(data[str(column_1)], data[str(column_2)])
+    else:
+        pointbiserialr_test = pointbiserialr(data[str(column_2)], data[str(column_1)])
     return {'correlation':pointbiserialr_test[0], 'p-value': pointbiserialr_test[1]}
 
 #
@@ -113,10 +134,11 @@ async def transform_data_anova(column_1: str, column_2: str):
 
 
 @router.get("/statistical_tests")
-async def statistical_tests(column1: str,
+async def statistical_tests(column_1: str,
+                            column_2: str,
                             correction: bool,
                             statistical_test: str | None = Query("Independent t-test",
-                                                                 regex="^(Independent t-test)$|^(Welch t-test)$|^(Mann-Whitney U rank test)$|^(t-test on TWO RELATED samples of scores)$|^(Wilcoxon signed-rank test)$"),
+                                                                 regex="^(Independent t-test)$|^(Welch t-test)$|^(Mann-Whitney U rank test)$|^(t-test on TWO RELATED samples of scores)$|^(Wilcoxon signed-rank test)$|^(Alexander Govern test)$|^(Kruskal-Wallis H-test)$|^(one-way ANOVA)$"),
                             alternative: Optional[str] | None = Query("two-sided",
                                                                       regex="^(two-sided)$|^(less)$|^(greater)$"),
                             method: Optional[str] | None = Query("auto",
@@ -125,30 +147,29 @@ async def statistical_tests(column1: str,
                                                                  regex="^(auto)$|^(approx)$|^(exact)$"),
                             zero_method: Optional[str] | None = Query("pratt",
                                                                  regex="^(pratt)$|^(wilcox)$|^(zsplit)$")):
-    positive_data = []
-    negative_data = []
-    for i in range(len(data)):
-        if data.iloc[i]['label'] == 1:
-            positive_data.append(data.iloc[i][str(column1)])
-        else:
-            negative_data.append(data.iloc[i][str(column1)])
 
     if statistical_test == "Welch t-test":
-        statistic, p_value = ttest_ind(positive_data, negative_data, equal_var=False, alternative=alternative)
+        statistic, p_value = ttest_ind(data[str(column_1)], data[str(column_2)], equal_var=False, alternative=alternative)
     elif statistical_test == "Independent t-test":
-        statistic, p_value = ttest_ind(positive_data, negative_data, alternative=alternative)
+        statistic, p_value = ttest_ind(data[str(column_1)], data[str(column_2)], alternative=alternative)
     elif statistical_test == "t-test on TWO RELATED samples of scores":
-        if np.shape(positive_data)[0] != np.shape(negative_data)[0]:
+        if np.shape(data[str(column_1)])[0] != np.shape(data[str(column_2)])[0]:
             return {'error': 'Unequal length arrays'}
-        statistic, p_value = ttest_rel(positive_data, negative_data, alternative=alternative)
+        statistic, p_value = ttest_rel(data[str(column_1)], data[str(column_2)], alternative=alternative)
     elif statistical_test == "Mann-Whitney U rank test":
-        statistic, p_value = mannwhitneyu(positive_data, negative_data, alternative=alternative, method=method)
+        statistic, p_value = mannwhitneyu(data[str(column_1)], data[str(column_2)], alternative=alternative, method=method)
     elif statistical_test == "Wilcoxon signed-rank test":
-        if np.shape(positive_data)[0] != np.shape(negative_data)[0]:
+        if np.shape(data[str(column_1)])[0] != np.shape(data[str(column_2)])[0]:
             return {'error': 'Unequal length arrays'}
-        statistic, p_value = wilcoxon(positive_data, negative_data, alternative=alternative, correction=correction, zero_method=zero_method, mode=mode)
-    return {'mean_positive': np.mean(positive_data), 'standard_deviation_positive': np.std(positive_data),
-            'mean_negative': np.mean(negative_data), 'standard_deviation_negative': np.std(negative_data),
+        statistic, p_value = wilcoxon(data[str(column_1)], data[str(column_2)], alternative=alternative, correction=correction, zero_method=zero_method, mode=mode)
+    elif statistical_test == "Alexander Govern test":
+        statistic, p_value = alexandergovern(data[str(column_1)], data[str(column_2)])
+    elif statistical_test == "Kruskal-Wallis H-test":
+        statistic, p_value = kruskal(data[str(column_1)], data[str(column_2)])
+    elif statistical_test == "one-way ANOVA":
+        statistic, p_value = f_oneway(data[str(column_1)], data[str(column_2)])
+    return {'mean_positive': np.mean(data[str(column_1)]), 'standard_deviation_positive': np.std(data[str(column_1)]),
+            'mean_negative': np.mean(data[str(column_2)]), 'standard_deviation_negative': np.std(data[str(column_2)]),
             'statistic': statistic, 'p-value': p_value}
 
 
