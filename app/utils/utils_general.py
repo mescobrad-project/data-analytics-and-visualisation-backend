@@ -41,10 +41,12 @@ def convert_string_to_number_or_array(input):
 
 def create_notebook_mne_modular(file_to_save,
                                 file_to_open,
-                              notch_filter,
+                              notches_enabled,
+                              notches_length,
                                 annotations,
-                              bipolar_reference,
-                              average_reference):
+                              bipolar_references,
+                              reference_type,
+                                reference_channels_list,):
     """ Function that creates a mne jupyter notebook modularly
         Each input designates what should be added to the file
         The name of the file is currently given by the file_name parameter but that might change
@@ -60,17 +62,52 @@ import time
 data = mne.io.read_raw_edf('""" + file_to_open + """"', infer_types=True, preload = True)
 """))
 
+    # If annotations are enabled
     if annotations:
         nb['cells'].append(nbf.v4.new_code_cell("""
 while 1:
-data.annotations.save(fname="annotation_test.csv", overwrite=True)
-time.sleep(5)
-        """))
+    data.annotations.save(fname="annotation_test.csv", overwrite=True)
+    time.sleep(5)
+"""))
 
-    if bipolar_reference:
+    # IF bipolar references exist
+    if bipolar_references:
+        for bipolar_reference in bipolar_references:
+            nb['cells'].append(nbf.v4.new_code_cell("""
+data = mne.set_bipolar_reference(data, anode=['""" + bipolar_reference[0] + """"'], cathode=['""" +
+                                                bipolar_reference[1] + """"'])
+"""))
+
+    if notches_enabled:
         nb['cells'].append(nbf.v4.new_code_cell("""
-data = mne.set_bipolar_reference(data, anode=['"""+ bipolar_reference[0]+""""'], cathode=['"""+ bipolar_reference[1]+""""'])
-        """))
+data = data.notch_filter(freqs = """ + notches_length + """)
+"""))
+
+    if reference_type == "average":
+        nb['cells'].append(nbf.v4.new_code_cell("""
+data = data.copy().set_eeg_reference(ref_channels='average')
+"""))
+    elif reference_type == "channels":
+        nb['cells'].append(nbf.v4.new_code_cell("""
+data.set_eeg_reference(ref_channels=["""+ ''.join(reference_channels_list) +"""])
+"""))
+    elif reference_type == "none" :
+        pass
+    else :
+        pass
+
+    # We show the actual plot always
+    # Can send number of channels to be precise
+    nb['cells'].append(nbf.v4.new_code_cell("""
+fig = data.plot(n_channels=50)
+"""))
+
+    # Run the functions for annotations must always be in the end
+    if annotations:
+        nb['cells'].append(nbf.v4.new_code_cell("""
+autosave_annots()
+"""))
+
 
 
     nbf.write(nb, "/neurodesktop-storage/mne/" + file_to_save + ".ipynb")

@@ -701,8 +701,7 @@ async def return_signal(input_name: str) -> dict:
             to_return["signal_time"] = raw_data[1].tolist()
             to_return["start_date_time"] = data.info["meas_date"].timestamp() * 1000
             to_return["sfreq"] = data.info["sfreq"]
-            to_return["times"] = data.times
-            print(data.times)
+
             # print(data.info["meas_date"].timestamp())
             # print(datetime.fromtimestamp(data.info["meas_date"].timestamp()))
             return to_return
@@ -723,11 +722,13 @@ async def mne_return_annotations(file_name: str | None = "annotation_test.csv") 
 async def receive_notebook_and_selection_configuration(input_config: ModelNotebookAndSelectionConfiguration) -> dict:
     raw_data = data.get_data(return_times=True)
     print(input_config)
+    # Produce new notebook
+    create_notebook_mne_modular(file_to_save= "created_1.ipynb", file_to_open="trial_av.edf", notches_enabled=input_config.notches_enabled, notches_length= input_config.notches_length, annotations=True, bipolar_references=input_config.bipolar_references, reference_type= input_config.type_of_reference,
+                                reference_channels_list=input_config.channels_reference)
+
     # If there is a selection channel we need to crop
     if input_config.selection_channel != "":
         data.crop(float(input_config.selection_start_time), float(input_config.selection_end_time))
-    # Produce new notebook
-    create_notebook_mne_modular()
 
     return {'Channel not found'}
 
