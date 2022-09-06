@@ -151,6 +151,12 @@ def initiate_functions():
     # Create folder in volume if it doesn't exist
     os.makedirs("/neurodesktop-storage", exist_ok=True)
     os.makedirs("/neurodesktop-storage/config", exist_ok=True)
+    os.makedirs("/neurodesktop-storage/mne", exist_ok=True)
+
+    # Create example files
+    with open('annotation_test.csv', 'w') as fp:
+        pass
+
     # Copy files from local storage to volume
     # Copy script for getting the current value of
     shutil.copy("neurodesk_startup_scripts/get_display.sh", "/neurodesktop-storage/config/get_display.sh")

@@ -664,8 +664,8 @@ async def calculate_alpha_variability(input_name: str,
 # Validation is done inline in the input of the function
 # Slices are send in a single string and then de
 async def mne_open_eeg(input_run_id: str, input_step_id: str, current_user: str | None = None) -> dict:
-    # Create a new jupyter notebook with the id of the run and step for recognition
-    create_notebook_mne_plot(input_run_id, input_step_id)
+    # # Create a new jupyter notebook with the id of the run and step for recognition
+    # create_notebook_mne_plot(input_run_id, input_step_id)
 
     # Initiate ssh connection with neurodesk container
     ssh = paramiko.SSHClient()
@@ -679,7 +679,7 @@ async def mne_open_eeg(input_run_id: str, input_step_id: str, current_user: str 
     channel.send("pkill -INT code -u user\n")
 
     channel.send("/neurocommand/local/bin/mne-1_0_0.sh\n")
-    channel.send("nohup /usr/bin/code -n /home/user/neurodesktop-storage/EDFTEST.ipynb --extensions-dir=/opt/vscode-extensions --disable-workspace-trust &\n")
+    channel.send("nohup /usr/bin/code -n /home/user/neurodesktop-storage/created_1.ipynb --extensions-dir=/opt/vscode-extensions --disable-workspace-trust &\n")
     # channel.send("nohup code &\n")
     # channel.send("nohup code /home/user/neurodesktop-storage/TestEEG.ipynb --extensions-dir=/opt/vscode-extensions &\n")
     # channel.send(
@@ -723,8 +723,8 @@ async def receive_notebook_and_selection_configuration(input_config: ModelNotebo
     raw_data = data.get_data(return_times=True)
     print(input_config)
     # Produce new notebook
-    create_notebook_mne_modular(file_to_save= "created_1.ipynb", file_to_open="trial_av.edf", notches_enabled=input_config.notches_enabled, notches_length= input_config.notches_length, annotations=True, bipolar_references=input_config.bipolar_references, reference_type= input_config.type_of_reference,
-                                reference_channels_list=input_config.channels_reference)
+    create_notebook_mne_modular(file_to_save="created_1", file_to_open="trial_av.edf", notches_enabled=input_config.notches_enabled, notches_length= input_config.notches_length, annotations=True, bipolar_references=input_config.bipolar_references, reference_type= input_config.type_of_reference,
+                                reference_channels_list=input_config.channels_reference,selection_start_time= input_config.selection_start_time,selection_end_time= input_config.selection_end_time)
 
     # If there is a selection channel we need to crop
     if input_config.selection_channel != "":
