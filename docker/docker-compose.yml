@@ -10,12 +10,13 @@ services:
     restart: always
     environment:
       WFAddress: expertsystem_web_1
+    volumes:
+      - 'C:/neurodesktop-storage:/neurodesktop-storage'
     ports:
       - "8000:8000"
     networks:
       - mri-freesurfer-network
       - analytics-network
-
 
 networks:
   analytics-network:

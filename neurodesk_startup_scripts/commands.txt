@@ -1,0 +1,8 @@
+freeview -v ../Subj001/mri/T1.mgz -f ../Subj001/surf/lh.pial.T1 ../Subj001/surf/rh.pial.T1 
+-ss %name_127 -noquit
+-slice 120 127 128 -ss %name_120
+-slice 115 127 128 -ss %name_115
+-slice 130 127 128 -ss %name_130
+-slice 135 127 128 -ss %name_135
+-slice 140 127 128 -ss %name_140
+-quit

@@ -82,7 +82,6 @@ WIP
         cd docker
         docker compose up -d --build 
         ```
-
 ## Built With
 WIP 
 
