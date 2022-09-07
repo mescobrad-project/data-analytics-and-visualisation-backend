@@ -33,7 +33,11 @@ from app.pydantic_models import *
 router = APIRouter()
 
 # region EEG Function pre-processing and functions
-data = mne.io.read_raw_edf("example_data/trial_av.edf", infer_types=True)
+# TODO Finalise the use of file dynamically
+# data = mne.io.read_raw_edf("example_data/trial_av.edf", infer_types=True)
+
+data = mne.io.read_raw_fif("/neurodesktop-storage/trial_av_processed.fif")
+
 #data = mne.io.read_raw_edf("example_data/psg1 anonym2.edf", infer_types=True)
 
 # endregion
@@ -794,7 +798,11 @@ async def mne_return_annotations(file_name: str | None = "annotation_test.csv") 
 
 @router.post("/receive_notebook_and_selection_configuration", tags=["receive__notebook_and_selection_configuration"])
 async def receive_notebook_and_selection_configuration(input_config: ModelNotebookAndSelectionConfiguration) -> dict:
+    # TODO TEMP
+    data = mne.io.read_raw_edf("example_data/trial_av.edf", infer_types=True)
+
     raw_data = data.get_data(return_times=True)
+
     print(input_config)
     # Produce new notebook
     create_notebook_mne_modular(file_to_save="created_1", file_to_open="trial_av.edf", notches_enabled=input_config.notches_enabled, notches_length= input_config.notches_length, annotations=True, bipolar_references=input_config.bipolar_references, reference_type= input_config.type_of_reference,
@@ -802,7 +810,12 @@ async def receive_notebook_and_selection_configuration(input_config: ModelNotebo
 
     # If there is a selection channel we need to crop
     if input_config.selection_channel != "":
-        data.crop(float(input_config.selection_start_time), float(input_config.selection_end_time))
+        # data.crop(float(input_config.selection_start_time), float(input_config.selection_end_time))
+
+        # data.save("/neurodesktop-storage/trial_av_processed.fif", "all", float(input_config.selection_start_time), float(input_config.selection_end_time), overwrite = True, buffer_size_sec=24)
+        data.save("/neurodesktop-storage/trial_av_processed.fif", "all", overwrite = True, buffer_size_sec=None)
+    else:
+        data.save("/neurodesktop-storage/trial_av_processed.fif", "all", overwrite = True, buffer_size_sec=None)
 
     return {'Channel not found'}
 

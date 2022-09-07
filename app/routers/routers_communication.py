@@ -37,6 +37,7 @@ class FunctionNavigationItem(BaseModel):
     metadata: list
 
 
+
 @router.get("/test/task/ping", tags=["test_task_ping"])
 async def test_task_ping() -> dict:
     # channels = data.ch_names
@@ -74,23 +75,32 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
     # print(type(navigation_item))
     # print(navigation_item)
 
-    url_to_redirect = "http://localhost:3000"
+    # url_to_redirect = "http://localhost:3000"
+    url_to_redirect = ""
     if navigation_item.metadata[0]["function"]:
         match navigation_item.metadata[0]["function"]:
             case "auto_correlation":
-                url_to_redirect += "/auto_correlation"
+                # url_to_redirect += "/auto_correlation"
+                url_to_redirect += "/eeg"
+                url_to_redirect += "?eeg_function=auto_correlation"
             case "partial_auto_correlation":
-                url_to_redirect += "/partial_auto_correlation"
+                # url_to_redirect += "/partial_auto_correlation"
+                url_to_redirect += "/eeg"
             case "filters":
-                url_to_redirect += "/filters"
+                # url_to_redirect += "/filters"
+                url_to_redirect += "/eeg"
             case "welch":
-                url_to_redirect += "/welch"
+                # url_to_redirect += "/welch"
+                url_to_redirect += "/eeg"
             case "find_peaks":
-                url_to_redirect += "/find_peaks"
+                # url_to_redirect += "/find_peaks"
+                url_to_redirect += "/eeg"
             case "stft":
-                url_to_redirect += "/stft"
+                # url_to_redirect += "/stft"
+                url_to_redirect += "/eeg"
             case "periodogram":
-                url_to_redirect += "/periodogram"
+                # url_to_redirect += "/periodogram"
+                url_to_redirect += "/eeg"
             case "power_spectral_density":
                 url_to_redirect += "/power_spectral_density"
             case "spindle":
@@ -99,8 +109,9 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/freesurfer/recon"
             case "samseg":
                 url_to_redirect += "/freesurfer/samseg"
-    url_to_redirect += "?run_id="+ navigation_item.run_id+"&step_id=" + navigation_item.step_id
-    return RedirectResponse(url=url_to_redirect, status_code=303)
+    url_to_redirect += "&run_id="+ navigation_item.run_id+"&step_id=" + navigation_item.step_id
+    # return RedirectResponse(url=url_to_redirect, status_code=303)
+    return {"url": url_to_redirect}
 
 
 @router.get("/function/existing", tags=["function_existing"], status_code=200)
