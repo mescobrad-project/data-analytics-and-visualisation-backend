@@ -1,6 +1,6 @@
+from datetime import datetime
 import json
 import math
-
 import yasa
 import paramiko
 from fastapi import APIRouter, Query
@@ -28,6 +28,7 @@ import mne
 import requests
 from yasa import spindles_detect
 from pyedflib import highlevel
+from app.pydantic_models import *
 
 router = APIRouter()
 
@@ -737,8 +738,8 @@ async def return_predictions(name: str,
 # Validation is done inline in the input of the function
 # Slices are send in a single string and then de
 async def mne_open_eeg(input_run_id: str, input_step_id: str, current_user: str | None = None) -> dict:
-    # Create a new jupyter notebook with the id of the run and step for recognition
-    create_notebook_mne_plot(input_run_id, input_step_id)
+    # # Create a new jupyter notebook with the id of the run and step for recognition
+    # create_notebook_mne_plot(input_run_id, input_step_id)
 
     # Initiate ssh connection with neurodesk container
     ssh = paramiko.SSHClient()
@@ -752,12 +753,33 @@ async def mne_open_eeg(input_run_id: str, input_step_id: str, current_user: str 
     channel.send("pkill -INT code -u user\n")
 
     channel.send("/neurocommand/local/bin/mne-1_0_0.sh\n")
-    channel.send("nohup /usr/bin/code -n /home/user/neurodesktop-storage/EDFTEST.ipynb --extensions-dir=/opt/vscode-extensions --disable-workspace-trust &\n")
+    channel.send("nohup /usr/bin/code -n /home/user/neurodesktop-storage/created_1.ipynb --extensions-dir=/opt/vscode-extensions --disable-workspace-trust &\n")
     # channel.send("nohup code &\n")
     # channel.send("nohup code /home/user/neurodesktop-storage/TestEEG.ipynb --extensions-dir=/opt/vscode-extensions &\n")
     # channel.send(
     #     "nohup recon-all -subject " + input_test_name + " -i " + input_file + " -all > freesurfer_log.txtr &\n")
     #
+
+
+@router.get("/return_signal", tags=["return_signal"])
+# Start date time is returned as miliseconds epoch time
+async def return_signal(input_name: str) -> dict:
+    raw_data = data.get_data(return_times=True)
+    channels = data.ch_names
+
+    for i in range(len(channels)):
+        if input_name == channels[i]:
+
+            to_return = {}
+            to_return["signal"] = raw_data[0][i].tolist()
+            to_return["signal_time"] = raw_data[1].tolist()
+            to_return["start_date_time"] = data.info["meas_date"].timestamp() * 1000
+            to_return["sfreq"] = data.info["sfreq"]
+
+            # print(data.info["meas_date"].timestamp())
+            # print(datetime.fromtimestamp(data.info["meas_date"].timestamp()))
+            return to_return
+    return {'Channel not found'}
 
 
 @router.get("/mne/return_annotations", tags=["mne_return_annotations"])
@@ -768,6 +790,27 @@ async def mne_return_annotations(file_name: str | None = "annotation_test.csv") 
 
 
 
+
+
+@router.post("/receive_notebook_and_selection_configuration", tags=["receive__notebook_and_selection_configuration"])
+async def receive_notebook_and_selection_configuration(input_config: ModelNotebookAndSelectionConfiguration) -> dict:
+    raw_data = data.get_data(return_times=True)
+    print(input_config)
+    # Produce new notebook
+    create_notebook_mne_modular(file_to_save="created_1", file_to_open="trial_av.edf", notches_enabled=input_config.notches_enabled, notches_length= input_config.notches_length, annotations=True, bipolar_references=input_config.bipolar_references, reference_type= input_config.type_of_reference,
+                                reference_channels_list=input_config.channels_reference,selection_start_time= input_config.selection_start_time,selection_end_time= input_config.selection_end_time)
+
+    # If there is a selection channel we need to crop
+    if input_config.selection_channel != "":
+        data.crop(float(input_config.selection_start_time), float(input_config.selection_end_time))
+
+    return {'Channel not found'}
+
+
+@router.post("/receive_channel_selection", tags=["receive_channel_selection"])
+async def receive_channel_selection(input_selection_channel: ModelSelectionChannelReference) -> dict:
+    print(input_selection_channel)
+    return {'Channel not found'}
 
 
 # @router.get("/mne/return_annotations/watch", tags=["mne_return_annotations_watch"])
