@@ -5,7 +5,7 @@ import socket
 import paramiko
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .routers import routers_eeg, routers_mri, routers_datalake, routers_hypothesis,  routers_communication
+from .routers import routers_eeg, routers_mri, routers_datalake, routers_hypothesis,  routers_communication, routers_actigraphy
 from starlette.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -112,6 +112,14 @@ tags_metadata = [
     {
         "name": "hypothesis_testing",
         "description": "return results of functions for Hypothesis testing",
+        "externalDocs": {
+            "description": "-",
+            "url": "https://www.google.com/",
+        }
+    },
+    {
+        "name": "actigraphy_analysis",
+        "description": "return results of functions for Actigraphy analysis",
         "externalDocs": {
             "description": "-",
             "url": "https://www.google.com/",
@@ -254,5 +262,6 @@ app.include_router(routers_communication.router)
 app.include_router(routers_mri.router)
 app.include_router(routers_hypothesis.router)
 app.include_router(routers_datalake.router)
+app.include_router(routers_actigraphy.router)
 
 # endregion
