@@ -33,11 +33,11 @@ async def return_diary():
 def return_rawObject():
     xx=0
     try:
-        fpath = f"C:/Users/gdoukas/PycharmProjects/data-analytics-and-visualisation-backend/example_data/actigraph/example_data/actigraph/Neurophy_Actigraph.csv"
-        # raw = pyActigraphy.io.read_raw_rpx('example_data/actigraph/Neurophy_Actigraph.csv', 'FR', True, None, None, float, float, ',')
-        raw = pyActigraphy.io.read_raw_rpx(fpath, 'FR')
+        # fpath = f"C:/Users/gdoukas/PycharmProjects/data-analytics-and-visualisation-backend/example_data/actigraph/example_data/actigraph/Neurophy_Actigraph.csv"
+        raw = pyActigraphy.io.read_raw_rpx('example_data/actigraph/test_sample.csv','FR')
+        print(type(raw))
+        # raw = pyActigraphy.io.read_raw_rpx(fpath, 'FR')
         xx = raw.IS()
-        # raw = pyActigraphy.io.read_raw_rpx(fpath + 'raw_sample.csv')
     except:
         print("An exception occurred")
 
