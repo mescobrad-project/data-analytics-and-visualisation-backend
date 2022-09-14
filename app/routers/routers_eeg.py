@@ -2,6 +2,7 @@ from datetime import datetime
 import json
 import math
 import yasa
+from yasa import plot_spectrogram, spindles_detect, sw_detect, SleepStaging
 import paramiko
 from fastapi import APIRouter, Query
 from mne.time_frequency import psd_array_multitaper
@@ -736,6 +737,53 @@ async def return_predictions(name: str,
             return {'predictions': prediction.tolist(), 'error': smape, 'confint': confint, 'first_table':df_0.to_json(orient="split"), 'second table':df_1.to_json(orient="split"), 'third table':df_2.to_json(orient="split")}
     return {'Channel not found'}
 
+# Spindles detection
+@router.get("/spindles_detection")
+async def detect_spindles(name: str):
+    raw_data = data.get_data()
+    info = data.info
+    channels = data.ch_names
+    list_all = []
+    for i in range(len(channels)):
+        if name == channels[i]:
+            sp = spindles_detect(raw_data[i] * 1e6, info['sfreq'])
+            if sp==None:
+                return {'No spindles'}
+            else:
+                df = sp.summary()
+                for i in range(len(df)):
+                    list_start_end = []
+                    start = df.iloc[i]['Start'] * info['sfreq']
+                    end = df.iloc[i]['End'] * info['sfreq']
+                    list_start_end.append(start)
+                    list_start_end.append(end)
+                    list_all.append(list_start_end)
+                return {'detected spindles': list_all}
+    return {'Channel not found'}
+
+# Slow Waves detection
+@router.get("/slow_waves_detection")
+async def detect_slow_waves(name: str):
+    raw_data = data.get_data()
+    info = data.info
+    channels = data.ch_names
+    list_all = []
+    for i in range(len(channels)):
+        if name == channels[i]:
+            sw = sw_detect(raw_data[i] * 1e6, info['sfreq'])
+            if sw==None:
+                return {'No slow waves'}
+            else:
+                df = sw.summary()
+                for i in range(len(df)):
+                    list_start_end = []
+                    start = df.iloc[i]['Start'] * info['sfreq']
+                    end = df.iloc[i]['End'] * info['sfreq']
+                    list_start_end.append(start)
+                    list_start_end.append(end)
+                    list_all.append(list_start_end)
+                return {'detected slow waves': list_all}
+    return {'Channel not found'}
 
 
 @router.get("/mne/open/eeg", tags=["mne_open_eeg"])

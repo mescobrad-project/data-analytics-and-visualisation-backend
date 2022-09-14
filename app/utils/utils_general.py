@@ -4,6 +4,8 @@ import nbformat as nbf
 import paramiko
 import csv
 import os
+import mne
+from mne.preprocessing import ICA
 
 def validate_and_convert_peaks(input_height, input_threshold, input_prominence, input_width, input_plateau_size):
     to_return = {
@@ -48,7 +50,11 @@ def create_notebook_mne_modular(file_to_save,
                               reference_type,
                                 reference_channels_list,
                                 selection_start_time,
-                                selection_end_time):
+                                selection_end_time,
+                                repairing_artifacts_ica,
+                                n_components,
+                                list_exclude_ica,
+                                ica_method):
     """ Function that creates a mne jupyter notebook modularly
         Each input designates what should be added to the file
         The name of the file is currently given by the file_name parameter but that might change
@@ -89,6 +95,26 @@ data = mne.set_bipolar_reference(data, anode=['""" + bipolar_reference["anode"] 
     if notches_enabled:
         nb['cells'].append(nbf.v4.new_code_cell("""
 data = data.notch_filter(freqs = """ + notches_length + """)
+"""))
+
+    if repairing_artifacts_ica:
+        nb['cells'].append(nbf.v4.new_code_cell("""
+data.load_data()
+ica = ICA(n_components=float("""+n_components+"""), max_iter='auto', method=\""""+ica_method+"""\")
+ica.fit(data)
+ica
+"""))
+        nb['cells'].append(nbf.v4.new_code_cell("""
+data.load_data()
+ica.plot_sources(data)
+ica.exclude = [""" + ','.join(list_exclude_ica) + """]
+reconst_raw = data.copy()
+ica.apply(reconst_raw)
+
+data.plot(n_channels=50)
+"""))
+        nb['cells'].append(nbf.v4.new_code_cell("""
+reconst_raw.plot(n_channels=50)
 """))
 
     if reference_type == "average":

@@ -2,12 +2,13 @@ fastapi==0.74.0
 freesurfer-stats==1.2.1
 httptools==0.3.0
 jupyter==1.0.0
-lxml==4.9.1
 mpld3==0.5.7
 paramiko==2.11.0
 pip-chill==1.0.1
 pmdarima==1.8.5
+pyactigraphy==1.0
 pyedflib==0.1.30
+pyreadstat==1.1.9
 python-dotenv==0.19.2
 pyyaml==6.0
 uvicorn==0.17.5
