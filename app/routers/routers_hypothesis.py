@@ -176,7 +176,7 @@ async def statistical_tests(column_1: str,
     elif statistical_test == "one-way ANOVA":
         statistic, p_value = f_oneway(data[str(column_1)], data[str(column_2)])
     elif statistical_test == "Wilcoxon rank-sum statistic":
-        statistic, p_value = ranksums(data[str(column_1)], data[str(column_2)])
+        statistic, p_value = ranksums(data[str(column_1)], data[str(column_2)], nan_policy=nan_policy, alternative=alternative)
     elif statistical_test == "one-way chi-square test":
         statistic, p_value = chisquare(data[str(column_1)], data[str(column_2)])
     return {'mean_positive': np.mean(data[str(column_1)]), 'standard_deviation_positive': np.std(data[str(column_1)]),
