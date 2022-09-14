@@ -9,8 +9,6 @@ from fastapi import FastAPI, Path, Query, APIRouter
 
 router = APIRouter()
 data = pd.read_csv('example_data/mescobrad_dataset.csv')
-z = alexandergovern(data['ALT'], data['ALB'])
-print(z)
 @router.get("/return_columns")
 async def name_columns():
     columns = data.columns
