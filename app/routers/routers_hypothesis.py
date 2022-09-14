@@ -9,7 +9,8 @@ from fastapi import FastAPI, Path, Query, APIRouter
 
 router = APIRouter()
 data = pd.read_csv('example_data/mescobrad_dataset.csv')
-
+z = alexandergovern(data['ALT'], data['ALB'])
+print(z)
 @router.get("/return_columns")
 async def name_columns():
     columns = data.columns
@@ -163,7 +164,10 @@ async def statistical_tests(column_1: str,
             return {'error': 'Unequal length arrays'}
         statistic, p_value = wilcoxon(data[str(column_1)], data[str(column_2)], alternative=alternative, correction=correction, zero_method=zero_method, mode=mode)
     elif statistical_test == "Alexander Govern test":
-        statistic, p_value = alexandergovern(data[str(column_1)], data[str(column_2)])
+        z = alexandergovern(data[str(column_1)], data[str(column_2)])
+        return {'mean_positive': np.mean(data[str(column_1)]), 'standard_deviation_positive': np.std(data[str(column_1)]),
+                'mean_negative': np.mean(data[str(column_2)]), 'standard_deviation_negative': np.std(data[str(column_2)]),
+                'statistic, p_value': z}
     elif statistical_test == "Kruskal-Wallis H-test":
         statistic, p_value = kruskal(data[str(column_1)], data[str(column_2)])
     elif statistical_test == "one-way ANOVA":
