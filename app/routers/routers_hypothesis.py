@@ -51,7 +51,7 @@ async def normal_tests(column: str,
         else:
             return{'statistic': stat, 'p_value': p, 'Description':'Sample does not look Gaussian (reject H0)'}
 
-@router.get("/transform_data")
+@router.get("/transform_data", tags=['hypothesis_testing'])
 async def transform_data(column:str,
                          name_transform:str | None = Query("Box-Cox",
                                                            regex="^(Box-Cox)$|^(Yeo-Johnson)$"),
@@ -80,29 +80,31 @@ async def transform_data(column:str,
             yeojohnson_array = yeojohnson(np.array(data[str(column)]), lmbda=lmbd)
             return {'Yeo-Johnson power transformed array': list(yeojohnson_array)}
 
-@router.get("/compute_pearson_correlation")
+@router.get("/compute_pearson_correlation", tags=['hypothesis_testing'])
 async def pearson_correlation(column_1: str, column_2: str):
     pearsonr_test = pearsonr(data[str(column_1)], data[str(column_2)])
     return {'Pearson’s correlation coefficient':pearsonr_test[0], 'p-value': pearsonr_test[1]}
 
-@router.get("/compute_spearman_correlation")
+@router.get("/compute_spearman_correlation", tags=['hypothesis_testing'])
 async def spearman_correlation(column_1: str, column_2: str):
     spearman_test = spearmanr(data[str(column_1)], data[str(column_2)])
     return {'Spearman correlation coefficient': spearman_test[0], 'p-value': spearman_test[1]}
 
-@router.get("/compute_kendalltau_correlation")
+@router.get("/compute_kendalltau_correlation", tags=['hypothesis_testing'])
 async def kendalltau_correlation(column_1: str,
                                  column_2: str,
+                                 nan_policy: Optional[str] | None = Query("propagate",
+                                                                           regex="^(propagate)$|^(raise)$|^(omit)$"),
                                  alternative: Optional[str] | None = Query("two-sided",
                                                                            regex="^(two-sided)$|^(less)$|^(greater)$"),
                                  variant: Optional[str] | None = Query("b",
                                                                        regex="^(b)$|^(c)$"),
                                  method: Optional[str] | None = Query("auto",
                                                                       regex="^(auto)$|^(asymptotic)$|^(exact)$")):
-    kendalltau_test = kendalltau(data[str(column_1)], data[str(column_2)], alternative=alternative, variant=variant, method=method)
+    kendalltau_test = kendalltau(data[str(column_1)], data[str(column_2)], nan_policy=nan_policy, alternative=alternative, variant=variant, method=method)
     return {'kendalltau correlation coefficient': kendalltau_test[0], 'p-value': kendalltau_test[1]}
 
-@router.get("/compute_point_biserial_correlation")
+@router.get("/compute_point_biserial_correlation", tags=['hypothesis_testing'])
 async def point_biserial_correlation(column_1: str, column_2: str):
     unique_values = np.unique(data[str(column_1)])
     if len(unique_values) == 2:
@@ -112,7 +114,7 @@ async def point_biserial_correlation(column_1: str, column_2: str):
     return {'correlation':pointbiserialr_test[0], 'p-value': pointbiserialr_test[1]}
 
 #
-@router.get("/check_homoscedasticity")
+@router.get("/check_homoscedasticity", tags=['hypothesis_testing'])
 async def check_homoskedasticity(column_1: str,
                            column_2: str,
                            name_of_test: str | None = Query("Levene",
@@ -127,16 +129,18 @@ async def check_homoskedasticity(column_1: str,
         statistic, p_value = levene(data[str(column_1)], data[str(column_2)], center = center)
     return {'statistic': statistic, 'p-value': p_value}
 
-@router.get("/transformed_data_for_use_in_an_ANOVA")
+@router.get("/transformed_data_for_use_in_an_ANOVA", tags=['hypothesis_testing'])
 async def transform_data_anova(column_1: str, column_2: str):
     tx, ty = obrientransform(data[str(column_1)], data[str(column_2)])
     return {'transformed_1': list(tx), 'transformed_2': list(ty)}
 
 
-@router.get("/statistical_tests")
+@router.get("/statistical_tests", tags=['hypothesis_testing'])
 async def statistical_tests(column_1: str,
                             column_2: str,
-                            correction: bool,
+                            correction: bool = True,
+                            nan_policy: Optional[str] | None = Query("propagate",
+                                                                     regex="^(propagate)$|^(raise)$|^(omit)$"),
                             statistical_test: str | None = Query("Independent t-test",
                                                                  regex="^(Independent t-test)$|^(Welch t-test)$|^(Mann-Whitney U rank test)$|^(t-test on TWO RELATED samples of scores)$|^(Wilcoxon signed-rank test)$|^(Alexander Govern test)$|^(Kruskal-Wallis H-test)$|^(one-way ANOVA)$|^(Wilcoxon rank-sum statistic)$|^(one-way chi-square test)$"),
                             alternative: Optional[str] | None = Query("two-sided",
@@ -149,13 +153,13 @@ async def statistical_tests(column_1: str,
                                                                  regex="^(pratt)$|^(wilcox)$|^(zsplit)$")):
 
     if statistical_test == "Welch t-test":
-        statistic, p_value = ttest_ind(data[str(column_1)], data[str(column_2)], equal_var=False, alternative=alternative)
+        statistic, p_value = ttest_ind(data[str(column_1)], data[str(column_2)], nan_policy=nan_policy, equal_var=False, alternative=alternative)
     elif statistical_test == "Independent t-test":
-        statistic, p_value = ttest_ind(data[str(column_1)], data[str(column_2)], alternative=alternative)
+        statistic, p_value = ttest_ind(data[str(column_1)], data[str(column_2)], nan_policy=nan_policy, alternative=alternative)
     elif statistical_test == "t-test on TWO RELATED samples of scores":
         if np.shape(data[str(column_1)])[0] != np.shape(data[str(column_2)])[0]:
             return {'error': 'Unequal length arrays'}
-        statistic, p_value = ttest_rel(data[str(column_1)], data[str(column_2)], alternative=alternative)
+        statistic, p_value = ttest_rel(data[str(column_1)], data[str(column_2)], nan_policy=nan_policy, alternative=alternative)
     elif statistical_test == "Mann-Whitney U rank test":
         statistic, p_value = mannwhitneyu(data[str(column_1)], data[str(column_2)], alternative=alternative, method=method)
     elif statistical_test == "Wilcoxon signed-rank test":
@@ -163,9 +167,14 @@ async def statistical_tests(column_1: str,
             return {'error': 'Unequal length arrays'}
         statistic, p_value = wilcoxon(data[str(column_1)], data[str(column_2)], alternative=alternative, correction=correction, zero_method=zero_method, mode=mode)
     elif statistical_test == "Alexander Govern test":
-        statistic, p_value = alexandergovern(data[str(column_1)], data[str(column_2)])
+        z = alexandergovern(data[str(column_1)], data[str(column_2)])
+        return {'mean_positive': np.mean(data[str(column_1)]),
+                'standard_deviation_positive': np.std(data[str(column_1)]),
+                'mean_negative': np.mean(data[str(column_2)]),
+                'standard_deviation_negative': np.std(data[str(column_2)]),
+                'statistic, p_value': z}
     elif statistical_test == "Kruskal-Wallis H-test":
-        statistic, p_value = kruskal(data[str(column_1)], data[str(column_2)])
+        statistic, p_value = kruskal(data[str(column_1)], data[str(column_2)], nan_policy=nan_policy)
     elif statistical_test == "one-way ANOVA":
         statistic, p_value = f_oneway(data[str(column_1)], data[str(column_2)])
     elif statistical_test == "Wilcoxon rank-sum statistic":
@@ -177,7 +186,7 @@ async def statistical_tests(column_1: str,
             'statistic': statistic, 'p-value': p_value}
 
 
-@router.get("/multiple_comparisons")
+@router.get("/multiple_comparisons", tags=['hypothesis_testing'])
 async def p_value_correction(alpha: float,
                              p_value: list[float] = Query([]),
                              method: str | None = Query("Bonferroni",
