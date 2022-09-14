@@ -1,5 +1,4 @@
 # MES-CoBraD Analytics and Visualisation Backend Module
-DO YOU SEE ME
 ![REPO-TYPE](https://img.shields.io/badge/repo--type-backend-critical?style=for-the-badge&logo=github)
 
 This is the backend of the MES-CoBraD Data Analytics and Visualisation Module
