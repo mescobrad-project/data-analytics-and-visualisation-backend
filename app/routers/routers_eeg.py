@@ -1,7 +1,8 @@
+from datetime import datetime
 import json
 import math
-
 import yasa
+from yasa import plot_spectrogram, spindles_detect, sw_detect, SleepStaging
 import paramiko
 from fastapi import APIRouter, Query
 from mne.time_frequency import psd_array_multitaper
@@ -9,13 +10,14 @@ from scipy.signal import butter, lfilter, sosfilt, freqs, freqs_zpk, sosfreqz
 from statsmodels.graphics.tsaplots import acf, pacf
 from scipy import signal
 from scipy.integrate import simps
+from pmdarima.arima import auto_arima
 import mne
 import matplotlib.pyplot as plt
 import mpld3
 import numpy as np
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
-
+import lxml
 from app.utils.utils_general import validate_and_convert_peaks, validate_and_convert_power_spectral_density, \
     create_notebook_mne_plot, get_neurodesk_display_id, get_annotations_from_csv, create_notebook_mne_modular
 
@@ -27,14 +29,23 @@ import mne
 import requests
 from yasa import spindles_detect
 from pyedflib import highlevel
+from app.pydantic_models import *
 
 router = APIRouter()
 
 # region EEG Function pre-processing and functions
+# TODO Finalise the use of file dynamically
 data = mne.io.read_raw_edf("example_data/trial_av.edf", infer_types=True)
+
+# data = mne.io.read_raw_fif("/neurodesktop-storage/trial_av_processed.fif")
+
 #data = mne.io.read_raw_edf("example_data/psg1 anonym2.edf", infer_types=True)
 
 # endregion
+
+def calcsmape(actual, forecast):
+    return 1/len(actual) * np.sum(2 * np.abs(forecast-actual) / (np.abs(actual) + np.abs(forecast)))
+
 
 def butter_lowpass(cutoff, fs, type_filter, order=5):
     if type_filter != 'bandpass':
@@ -233,6 +244,8 @@ async def return_filters(input_name: str,
 @router.get("/return_welch", tags=["return_welch"])
 # Validation is done inline in the input of the function
 async def estimate_welch(input_name: str,
+                         tmin: float | None = 0,
+                         tmax: float | None = None,
                          input_window: str | None = Query("hann",
                                                           regex="^(boxcar)$|^(triang)$|^(blackman)$|^(hamming)$|^(hann)$|^(bartlett)$|^(flattop)$|^(parzen)$|^(bohman)$|^(blackmanharris)$|^(nuttall)$|^(barthann)$|^(cosine)$|^(exponential)$|^(tukey)$|^(taylor)$"),
                          input_nperseg: int | None = 256,
@@ -242,6 +255,7 @@ async def estimate_welch(input_name: str,
                          input_scaling: str | None = Query("density", regex="^(density)$|^(spectrum)$"),
                          input_axis: int | None = -1,
                          input_average: str | None = Query("mean", regex="^(mean)$|^(median)$")) -> dict:
+    data.crop(tmin=tmin, tmax=tmax)
     raw_data = data.get_data()
     info = data.info
     channels = data.ch_names
@@ -266,6 +280,8 @@ async def estimate_welch(input_name: str,
 @router.get("/return_stft", tags=["return_stft"])
 # Validation is done inline in the input of the function
 async def estimate_stft(input_name: str,
+                         tmin: float | None = 0,
+                         tmax: float | None = None,
                          input_window: str | None = Query("hann",
                                                           regex="^(boxcar)$|^(triang)$|^(blackman)$|^(hamming)$|^(hann)$|^(bartlett)$|^(flattop)$|^(parzen)$|^(bohman)$|^(blackmanharris)$|^(nuttall)$|^(barthann)$|^(cosine)$|^(exponential)$|^(tukey)$|^(taylor)$"),
                          input_nperseg: int | None = 256,
@@ -276,6 +292,7 @@ async def estimate_stft(input_name: str,
                                                           regex="^(zeros)$|^(even)$|^(odd)$|^(constant)$|^(None)$"),
                          input_padded: bool | None = True,
                          input_axis: int | None = -1) -> dict:
+    data.crop(tmin=tmin, tmax=tmax)
     raw_data = data.get_data()
     info = data.info
     channels = data.ch_names
@@ -420,12 +437,15 @@ async def return_peaks(input_name: str,
 @router.get("/return_periodogram", tags=["return_periodogram"])
 # Validation is done inline in the input of the function
 async def estimate_periodogram(input_name: str,
+                               tmin: float | None = 0,
+                               tmax: float | None = None,
                                input_window: str | None = Query("hann",
                                                                 regex="^(boxcar)$|^(triang)$|^(blackman)$|^(hamming)$|^(hann)$|^(bartlett)$|^(flattop)$|^(parzen)$|^(bohman)$|^(blackmanharris)$|^(nuttall)$|^(barthann)$|^(cosine)$|^(exponential)$|^(tukey)$|^(taylor)$"),
                                input_nfft: int | None = 256,
                                input_return_onesided: bool | None = True,
                                input_scaling: str | None = Query("density", regex="^(density)$|^(spectrum)$"),
                                input_axis: int | None = -1) -> dict:
+    data.crop(tmin=tmin, tmax=tmax)
     raw_data = data.get_data()
     info = data.info
     channels = data.ch_names
@@ -443,6 +463,8 @@ async def estimate_periodogram(input_name: str,
 @router.get("/return_power_spectral_density", tags=["return_power_spectral_density"])
 # Validation is done inline in the input of the function
 async def return_power_spectral_density(input_name: str,
+                                        tmin: float | None = None,
+                                        tmax: float | None = None,
                                         input_fmin: float | None = 0,
                                         input_fmax: float | None = None,
                                         input_bandwidth: float | None = None,
@@ -453,6 +475,7 @@ async def return_power_spectral_density(input_name: str,
                                         input_n_jobs: int | None = 1,
                                         input_verbose: str | None = None
                                         ) -> dict:
+    data.crop(tmin=tmin, tmax=tmax)
     raw_data = data.get_data()
     info = data.info
 
@@ -500,6 +523,8 @@ async def SpO2_Hypothesis():
 
 @router.get("/return_alpha_delta_ratio", tags=["return_alpha_delta_ratio"])
 async def calculate_alpha_delta_ratio(input_name: str,
+                                      tmin: float | None = 0,
+                                      tmax: float | None = None,
                                       input_window: str | None = Query("hann",
                                                           regex="^(boxcar)$|^(triang)$|^(blackman)$|^(hamming)$|^(hann)$|^(bartlett)$|^(flattop)$|^(parzen)$|^(bohman)$|^(blackmanharris)$|^(nuttall)$|^(barthann)$|^(cosine)$|^(exponential)$|^(tukey)$|^(taylor)$"),
                                       input_nperseg: int | None = 256,
@@ -509,6 +534,7 @@ async def calculate_alpha_delta_ratio(input_name: str,
                                       input_scaling: str | None = Query("density", regex="^(density)$|^(spectrum)$"),
                                       input_axis: int | None = -1,
                                       input_average: str | None = Query("mean", regex="^(mean)$|^(median)$")) -> dict:
+    data.crop(tmin=tmin, tmax=tmax)
     raw_data = data.get_data()
     info = data.info
     channels = data.ch_names
@@ -606,8 +632,10 @@ async def calculate_asymmetry_indices(input_name_1: str,
 
     return {'asymmetry_indices': asymmetry_index}
 
-@router.get("/alpha_variability")
+@router.get("/return_alpha_variability", tags=["return_alpha_variability"])
 async def calculate_alpha_variability(input_name: str,
+                                      tmin: float | None = 0,
+                                      tmax: float | None = None,
                                       input_window: str | None = Query("hann",
                                                           regex="^(boxcar)$|^(triang)$|^(blackman)$|^(hamming)$|^(hann)$|^(bartlett)$|^(flattop)$|^(parzen)$|^(bohman)$|^(blackmanharris)$|^(nuttall)$|^(barthann)$|^(cosine)$|^(exponential)$|^(tukey)$|^(taylor)$"),
                                       input_nperseg: int | None = 256,
@@ -617,6 +645,7 @@ async def calculate_alpha_variability(input_name: str,
                                       input_scaling: str | None = Query("density", regex="^(density)$|^(spectrum)$"),
                                       input_axis: int | None = -1,
                                       input_average: str | None = Query("mean", regex="^(mean)$|^(median)$")) -> dict:
+    data.crop(tmin=tmin, tmax=tmax)
     raw_data = data.get_data()
     info = data.info
     channels = data.ch_names
@@ -655,16 +684,114 @@ async def calculate_alpha_variability(input_name: str,
 
             return {'alpha_variability': alpha_power/total_power}
 
+@router.get("/return_predictions")
+async def return_predictions(name: str,
+                             test_size: int,
+                             future_seconds: int,
+                             start_p: int | None = 1,
+                             start_q: int | None = 1,
+                             max_p: int | None = 5,
+                             max_q: int | None = 5,
+                             method: str | None = Query("lbfgs",
+                                                        regex="^(lbfgs)$|^(newton)$|^(nm)$|^(bfgs)$|^(powell)$|^(cg)$|^(ncg)$|^(basinhopping)$"),
+                             information_criterion: str | None = Query("aic",
+                                                                       regex="^(aic)$|^(bic)$|^(hqic)$|^(oob)$") ):
+    raw_data = data.get_data()
+    channels = data.ch_names
+    info = data.info
+    sampling_frequency = info['sfreq']
+    for i in range(len(channels)):
+        if name == channels[i]:
+            data_channel = raw_data[i]
+            train, test = data_channel[:-test_size], data_channel[-test_size:]
+            #x_train, x_test = np.array(range(train.shape[0])), np.array(range(train.shape[0], data_channel.shape[0]))
+            model = auto_arima(train, start_p=start_p, start_q=start_q,
+                               test='adf',
+                               max_p=max_p, max_q=max_q,
+                               m=1,
+                               d=1,
+                               seasonal=False,
+                               start_P=0,
+                               D=None,
+                               trace=True,
+                               error_action='ignore',
+                               suppress_warnings=True,
+                               stepwise=True,
+                               method=method,
+                               information_criterion=information_criterion)
+            prediction, confint = model.predict(n_periods=test_size, return_conf_int=True)
+            smape = calcsmape(test, prediction)
+            example = model.summary()
+            results_as_html = example.tables[0].as_html()
+            df_0 = pd.read_html(results_as_html, header=0, index_col=0)[0]
 
+            results_as_html = example.tables[1].as_html()
+            df_1 = pd.read_html(results_as_html, header=0, index_col=0)[0]
 
+            results_as_html = example.tables[2].as_html()
+            df_2 = pd.read_html(results_as_html, header=0, index_col=0)[0]
+
+            z = future_seconds*sampling_frequency
+
+            prediction, confint = model.predict(n_periods=int(z), return_conf_int=True)
+            return {'predictions': prediction.tolist(), 'error': smape, 'confint': confint, 'first_table':df_0.to_json(orient="split"), 'second table':df_1.to_json(orient="split"), 'third table':df_2.to_json(orient="split")}
+    return {'Channel not found'}
+
+# Spindles detection
+@router.get("/spindles_detection")
+async def detect_spindles(name: str):
+    raw_data = data.get_data()
+    info = data.info
+    channels = data.ch_names
+    list_all = []
+    for i in range(len(channels)):
+        if name == channels[i]:
+            sp = spindles_detect(raw_data[i] * 1e6, info['sfreq'])
+            if sp==None:
+                return {'No spindles'}
+            else:
+                df = sp.summary()
+                for i in range(len(df)):
+                    list_start_end = []
+                    start = df.iloc[i]['Start'] * info['sfreq']
+                    end = df.iloc[i]['End'] * info['sfreq']
+                    list_start_end.append(start)
+                    list_start_end.append(end)
+                    list_all.append(list_start_end)
+                return {'detected spindles': list_all}
+    return {'Channel not found'}
+
+# Slow Waves detection
+@router.get("/slow_waves_detection")
+async def detect_slow_waves(name: str):
+    raw_data = data.get_data()
+    info = data.info
+    channels = data.ch_names
+    list_all = []
+    for i in range(len(channels)):
+        if name == channels[i]:
+            sw = sw_detect(raw_data[i] * 1e6, info['sfreq'])
+            if sw==None:
+                return {'No slow waves'}
+            else:
+                df = sw.summary()
+                for i in range(len(df)):
+                    list_start_end = []
+                    start = df.iloc[i]['Start'] * info['sfreq']
+                    end = df.iloc[i]['End'] * info['sfreq']
+                    list_start_end.append(start)
+                    list_start_end.append(end)
+                    list_all.append(list_start_end)
+                return {'detected slow waves': list_all}
+    return {'Channel not found'}
 
 
 @router.get("/mne/open/eeg", tags=["mne_open_eeg"])
 # Validation is done inline in the input of the function
 # Slices are send in a single string and then de
 async def mne_open_eeg(input_run_id: str, input_step_id: str, current_user: str | None = None) -> dict:
-    # Create a new jupyter notebook with the id of the run and step for recognition
-    create_notebook_mne_plot(input_run_id, input_step_id)
+    # # Create a new jupyter notebook with the id of the run and step for recognition
+    # create_notebook_mne_plot(input_run_id, input_step_id)
 
     # Initiate ssh connection with neurodesk container
     ssh = paramiko.SSHClient()
@@ -678,12 +805,33 @@ async def mne_open_eeg(input_run_id: str, input_step_id: str, current_user: str 
     channel.send("pkill -INT code -u user\n")
 
     channel.send("/neurocommand/local/bin/mne-1_0_0.sh\n")
-    channel.send("nohup /usr/bin/code -n /home/user/neurodesktop-storage/EDFTEST.ipynb --extensions-dir=/opt/vscode-extensions --disable-workspace-trust &\n")
+    channel.send("nohup /usr/bin/code -n /home/user/neurodesktop-storage/created_1.ipynb --extensions-dir=/opt/vscode-extensions --disable-workspace-trust &\n")
     # channel.send("nohup code &\n")
     # channel.send("nohup code /home/user/neurodesktop-storage/TestEEG.ipynb --extensions-dir=/opt/vscode-extensions &\n")
     # channel.send(
     #     "nohup recon-all -subject " + input_test_name + " -i " + input_file + " -all > freesurfer_log.txtr &\n")
     #
+
+
+@router.get("/return_signal", tags=["return_signal"])
+# Start date time is returned as miliseconds epoch time
+async def return_signal(input_name: str) -> dict:
+    raw_data = data.get_data(return_times=True)
+    channels = data.ch_names
+
+    for i in range(len(channels)):
+        if input_name == channels[i]:
+
+            to_return = {}
+            to_return["signal"] = raw_data[0][i].tolist()
+            to_return["signal_time"] = raw_data[1].tolist()
+            to_return["start_date_time"] = data.info["meas_date"].timestamp() * 1000
+            to_return["sfreq"] = data.info["sfreq"]
+
+            # print(data.info["meas_date"].timestamp())
+            # print(datetime.fromtimestamp(data.info["meas_date"].timestamp()))
+            return to_return
+    return {'Channel not found'}
 
 
 @router.get("/mne/return_annotations", tags=["mne_return_annotations"])
@@ -694,6 +842,36 @@ async def mne_return_annotations(file_name: str | None = "annotation_test.csv") 
 
 
 
+
+
+@router.post("/receive_notebook_and_selection_configuration", tags=["receive__notebook_and_selection_configuration"])
+async def receive_notebook_and_selection_configuration(input_config: ModelNotebookAndSelectionConfiguration) -> dict:
+    # TODO TEMP
+    data = mne.io.read_raw_edf("example_data/trial_av.edf", infer_types=True)
+
+    raw_data = data.get_data(return_times=True)
+
+    print(input_config)
+    # Produce new notebook
+    create_notebook_mne_modular(file_to_save="created_1", file_to_open="trial_av.edf", notches_enabled=input_config.notches_enabled, notches_length= input_config.notches_length, annotations=True, bipolar_references=input_config.bipolar_references, reference_type= input_config.type_of_reference,
+                                reference_channels_list=input_config.channels_reference,selection_start_time= input_config.selection_start_time,selection_end_time= input_config.selection_end_time)
+
+    # If there is a selection channel we need to crop
+    if input_config.selection_channel != "":
+        # data.crop(float(input_config.selection_start_time), float(input_config.selection_end_time))
+
+        # data.save("/neurodesktop-storage/trial_av_processed.fif", "all", float(input_config.selection_start_time), float(input_config.selection_end_time), overwrite = True, buffer_size_sec=24)
+        data.save("/neurodesktop-storage/trial_av_processed.fif", "all", overwrite = True, buffer_size_sec=None)
+    else:
+        data.save("/neurodesktop-storage/trial_av_processed.fif", "all", overwrite = True, buffer_size_sec=None)
+
+    return {'Channel not found'}
+
+
+@router.post("/receive_channel_selection", tags=["receive_channel_selection"])
+async def receive_channel_selection(input_selection_channel: ModelSelectionChannelReference) -> dict:
+    print(input_selection_channel)
+    return {'Channel not found'}
 
 
 # @router.get("/mne/return_annotations/watch", tags=["mne_return_annotations_watch"])

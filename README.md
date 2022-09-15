@@ -1,5 +1,4 @@
 # MES-CoBraD Analytics and Visualisation Backend Module
-
 ![REPO-TYPE](https://img.shields.io/badge/repo--type-backend-critical?style=for-the-badge&logo=github)
 
 This is the backend of the MES-CoBraD Data Analytics and Visualisation Module
@@ -54,8 +53,10 @@ Pycharm IDE
         ```
 
 ## Running the tests (WIP)
+### Integration Testing
 ```
-WIP
+Current branch: 'feat/communication'
+Run tests from postman
 ```
 
 ### Break down into end to end tests (WIP)
@@ -73,12 +74,13 @@ WIP
         ```
         Docker
         ```
+    - Clone current branch: 'feat/communication'
+    - Change env variables in /docker/docker-compose.yml
     - Create Image and Container
         ```
         cd docker
         docker compose up -d --build 
         ```
-    
 ## Built With
 WIP 
 
