@@ -136,7 +136,7 @@ tags_metadata = [
     {
         "name": "return_asymmetry_indices",
         "description": "return_asymmetry_indices function",
-        externalDocs": {
+        "externalDocs": {
             "description": "-",
             "url": "https://www.google.com/",
         }
