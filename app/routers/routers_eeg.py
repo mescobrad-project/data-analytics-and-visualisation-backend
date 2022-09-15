@@ -574,7 +574,7 @@ async def calculate_alpha_delta_ratio(input_name: str,
             return {'alpha_delta_ratio': alpha_power/delta_power}
 
 
-@router.get("/asymmetry_indices")
+@router.get("/return_asymmetry_indices", tags=["return_asymmetry_indices"])
 async def calculate_asymmetry_indices(input_name_1: str,
                                       input_name_2: str,
                                       input_window: str | None = Query("hann",
