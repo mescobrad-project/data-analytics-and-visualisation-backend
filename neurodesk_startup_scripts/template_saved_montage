@@ -1,23 +1,20 @@
 {
   "bipolar_references": [
     {
-      "anode": "F8-AV",
-      "cathode": "A2-AV"
+      "anode": "channel_name_string",
+      "cathode": "channel_name_string"
     }
   ],
-  "type_of_reference": "channels",
+  "type_of_reference": "channels|average|none",
   "channels_reference": [
-    "F8-AV",
-    "Fp2-AV",
-    "T4-AV"
+    "channel_name_string",
+    "channel_name_string",
+    "channel_name_string"
   ],
-  "notches_enabled": true,
-  "notches_length": 50,
-  "selection_channel": "P4-AV",
-  "selection_start_time": 0,
-  "selection_end_time": 41,
-  "lowpass" : 40,
-  "highpass" : 50,
-  "montage": "Montage #1",
-  "channels_order" : ["Fp1-AV","F4-AV"]
+  "notches_enabled": true|false,
+  "notches_value": float,
+  "lowpass" : float,
+  "highpass" : float,
+  "montage": "montage_name_string",
+  "channels_order" : ["channel_name_string","channel_name_string"]
 }

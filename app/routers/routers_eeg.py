@@ -853,8 +853,21 @@ async def receive_notebook_and_selection_configuration(input_config: ModelNotebo
 
     print(input_config)
     # Produce new notebook
-    create_notebook_mne_modular(file_to_save="created_1", file_to_open="trial_av.edf", notches_enabled=input_config.notches_enabled, notches_length= input_config.notches_length, annotations=True, bipolar_references=input_config.bipolar_references, reference_type= input_config.type_of_reference,
-                                reference_channels_list=input_config.channels_reference,selection_start_time= input_config.selection_start_time,selection_end_time= input_config.selection_end_time)
+    create_notebook_mne_modular(file_to_save="created_1",
+                                file_to_open="trial_av.edf",
+                                notches_enabled=input_config.notches_enabled,
+                                notches_length= input_config.notches_length,
+                                annotations=True,
+                                bipolar_references=input_config.bipolar_references,
+                                reference_type= input_config.type_of_reference,
+                                reference_channels_list=input_config.channels_reference,
+                                selection_start_time= input_config.selection_start_time,
+                                selection_end_time= input_config.selection_end_time,
+                                repairing_artifacts_ica=None,
+                                n_components=None,
+                                list_exclude_ica=None,
+                                ica_method=None
+                                )
 
     # If there is a selection channel we need to crop
     if input_config.selection_channel != "":
