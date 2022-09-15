@@ -133,6 +133,14 @@ tags_metadata = [
             "url": "https://www.google.com/",
         }
     },
+    {
+        "name": "return_alpha_variability",
+        "description": "return_alpha_variability function",
+        "externalDocs": {
+            "description": "-",
+            "url": "https://www.google.com/",
+        }
+    },
 ]
 
 app = FastAPI(openapi_tags=tags_metadata)

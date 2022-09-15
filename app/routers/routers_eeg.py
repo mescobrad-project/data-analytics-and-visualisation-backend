@@ -632,7 +632,7 @@ async def calculate_asymmetry_indices(input_name_1: str,
 
     return {'asymmetry_indices': asymmetry_index}
 
-@router.get("/alpha_variability")
+@router.get("/return_alpha_variability", tags=["return_alpha_variability"])
 async def calculate_alpha_variability(input_name: str,
                                       tmin: float | None = 0,
                                       tmax: float | None = None,
