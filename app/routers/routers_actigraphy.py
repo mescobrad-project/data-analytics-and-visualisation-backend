@@ -33,6 +33,42 @@ async def return_actigraphy_data():
 
     return 1
 
+@router.get("/return_actigraphy_general_data", tags=["actigraphy_general_data"])
+async def return_actigraphy_general_data():
+    with open('example_data/actigraphy_general_relevant_dataset.csv', newline="") as csvfile:
+        if not os.path.isfile('example_data/actigraphy_relevant_dataset.csv'):
+            return []
+        reader = csv.reader(csvfile, delimiter=',')
+        results_array = []
+        i = 0
+        for row in reader:
+            i += 1
+            temp_to_append = {
+                "id": i,
+                "interval_type": row[0],
+                "interval": row[1],
+                "date_start": row[2],
+                "time_start": row[3],
+                "date_stop": row[4],
+                "time_stop": row[5],
+                "duration": row[6],
+                "invalid_sw": row[7],
+                "efficiency": row[8],
+                "wake_time": row[9],
+                "sleep_time": row[10],
+                "sleep": row[11],
+                "exposure_white": row[12],
+                "average_white": row[13],
+                "max_white": row[14],
+                "talt_white": row[15],
+                "invalid_white": row[16]
+            }
+            results_array.append(temp_to_append)
+            print(results_array)
+        return results_array
+
+    return 1
+
 @router.get("/return_diary", tags=["actigraphy_analysis"])
 async def return_diary():
     xx = 0

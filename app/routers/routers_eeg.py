@@ -748,8 +748,14 @@ async def detect_spindles(name: str):
     for i in range(len(channels)):
         if name == channels[i]:
             sp = spindles_detect(raw_data[i] * 1e6, info['sfreq'])
+            to_return ={}
+            fig = plt.figure(figsize=(18, 12))
+            plt.plot(raw_data[0][i])
+            html_str =mpld3.fig_to_html(fig)
+            to_return["figure"] = html_str
             if sp==None:
-                return {'No spindles'}
+                to_return["detected"] = "No Spindles"
+                return to_return
             else:
                 df = sp.summary()
                 for i in range(len(df)):
@@ -759,7 +765,9 @@ async def detect_spindles(name: str):
                     list_start_end.append(start)
                     list_start_end.append(end)
                     list_all.append(list_start_end)
-                return {'detected spindles': list_all}
+
+                    to_return["detected spindles"] = list_all
+                return to_return
     return {'Channel not found'}
 
 # Slow Waves detection
