@@ -255,7 +255,7 @@ async def estimate_welch(input_name: str,
                          input_scaling: str | None = Query("density", regex="^(density)$|^(spectrum)$"),
                          input_axis: int | None = -1,
                          input_average: str | None = Query("mean", regex="^(mean)$|^(median)$")) -> dict:
-    data.crop(tmin=tmin, tmax=tmax)
+    # data.crop(tmin=tmin, tmax=tmax)
     raw_data = data.get_data()
     info = data.info
     channels = data.ch_names
@@ -292,7 +292,7 @@ async def estimate_stft(input_name: str,
                                                           regex="^(zeros)$|^(even)$|^(odd)$|^(constant)$|^(None)$"),
                          input_padded: bool | None = True,
                          input_axis: int | None = -1) -> dict:
-    data.crop(tmin=tmin, tmax=tmax)
+    # data.crop(tmin=tmin, tmax=tmax)
     raw_data = data.get_data()
     info = data.info
     channels = data.ch_names
@@ -445,7 +445,7 @@ async def estimate_periodogram(input_name: str,
                                input_return_onesided: bool | None = True,
                                input_scaling: str | None = Query("density", regex="^(density)$|^(spectrum)$"),
                                input_axis: int | None = -1) -> dict:
-    data.crop(tmin=tmin, tmax=tmax)
+    # data.crop(tmin=tmin, tmax=tmax)
     raw_data = data.get_data()
     info = data.info
     channels = data.ch_names
@@ -462,6 +462,7 @@ async def estimate_periodogram(input_name: str,
 # Return power_spectral_density
 @router.get("/return_power_spectral_density", tags=["return_power_spectral_density"])
 # Validation is done inline in the input of the function
+# TODO TMIN and TMAX probably should be removed
 async def return_power_spectral_density(input_name: str,
                                         tmin: float | None = None,
                                         tmax: float | None = None,
@@ -475,7 +476,7 @@ async def return_power_spectral_density(input_name: str,
                                         input_n_jobs: int | None = 1,
                                         input_verbose: str | None = None
                                         ) -> dict:
-    data.crop(tmin=tmin, tmax=tmax)
+    # data.crop(tmin=tmin, tmax=tmax)
     raw_data = data.get_data()
     info = data.info
 
@@ -534,7 +535,7 @@ async def calculate_alpha_delta_ratio(input_name: str,
                                       input_scaling: str | None = Query("density", regex="^(density)$|^(spectrum)$"),
                                       input_axis: int | None = -1,
                                       input_average: str | None = Query("mean", regex="^(mean)$|^(median)$")) -> dict:
-    data.crop(tmin=tmin, tmax=tmax)
+    # data.crop(tmin=tmin, tmax=tmax)
     raw_data = data.get_data()
     info = data.info
     channels = data.ch_names
@@ -645,7 +646,7 @@ async def calculate_alpha_variability(input_name: str,
                                       input_scaling: str | None = Query("density", regex="^(density)$|^(spectrum)$"),
                                       input_axis: int | None = -1,
                                       input_average: str | None = Query("mean", regex="^(mean)$|^(median)$")) -> dict:
-    data.crop(tmin=tmin, tmax=tmax)
+    # data.crop(tmin=tmin, tmax=tmax)
     raw_data = data.get_data()
     info = data.info
     channels = data.ch_names

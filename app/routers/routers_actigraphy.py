@@ -1,3 +1,4 @@
+import csv
 from fastapi import Query, APIRouter
 import pyActigraphy
 import os
@@ -5,7 +6,32 @@ import os
 # import plotly.graph_objs as go
 
 router = APIRouter()
+@router.get("/return_actigraphy_data", tags=["actigraphy_data"])
+async def return_actigraphy_data():
+    with open('example_data/actigraphy_relevant_dataset.csv', newline="") as csvfile:
+        if not os.path.isfile('example_data/actigraphy_relevant_dataset.csv'):
+            return []
+        reader = csv.reader(csvfile, delimiter=',')
+        results_array = []
+        i = 0
+        for row in reader:
+            i += 1
+            temp_to_append = {
+                "id": i,
+                "line": row[0],
+                "date": row[1],
+                "time": row[2],
+                "activity": row[3],
+                "marker": row[4],
+                "whitelight": row[5],
+                "sleep_wake": row[6],
+                "interval_status": row[7]
+            }
+            results_array.append(temp_to_append)
+            # print(results_array)
+        return results_array
 
+    return 1
 
 @router.get("/return_diary", tags=["actigraphy_analysis"])
 async def return_diary():
