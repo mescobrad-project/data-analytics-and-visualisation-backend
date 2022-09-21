@@ -255,7 +255,7 @@ async def estimate_welch(input_name: str,
                          input_scaling: str | None = Query("density", regex="^(density)$|^(spectrum)$"),
                          input_axis: int | None = -1,
                          input_average: str | None = Query("mean", regex="^(mean)$|^(median)$")) -> dict:
-    data.crop(tmin=tmin, tmax=tmax)
+    # data.crop(tmin=tmin, tmax=tmax)
     raw_data = data.get_data()
     info = data.info
     channels = data.ch_names
@@ -292,7 +292,7 @@ async def estimate_stft(input_name: str,
                                                           regex="^(zeros)$|^(even)$|^(odd)$|^(constant)$|^(None)$"),
                          input_padded: bool | None = True,
                          input_axis: int | None = -1) -> dict:
-    data.crop(tmin=tmin, tmax=tmax)
+    # data.crop(tmin=tmin, tmax=tmax)
     raw_data = data.get_data()
     info = data.info
     channels = data.ch_names
@@ -445,7 +445,7 @@ async def estimate_periodogram(input_name: str,
                                input_return_onesided: bool | None = True,
                                input_scaling: str | None = Query("density", regex="^(density)$|^(spectrum)$"),
                                input_axis: int | None = -1) -> dict:
-    data.crop(tmin=tmin, tmax=tmax)
+    # data.crop(tmin=tmin, tmax=tmax)
     raw_data = data.get_data()
     info = data.info
     channels = data.ch_names
@@ -462,6 +462,7 @@ async def estimate_periodogram(input_name: str,
 # Return power_spectral_density
 @router.get("/return_power_spectral_density", tags=["return_power_spectral_density"])
 # Validation is done inline in the input of the function
+# TODO TMIN and TMAX probably should be removed
 async def return_power_spectral_density(input_name: str,
                                         tmin: float | None = None,
                                         tmax: float | None = None,
@@ -475,7 +476,7 @@ async def return_power_spectral_density(input_name: str,
                                         input_n_jobs: int | None = 1,
                                         input_verbose: str | None = None
                                         ) -> dict:
-    data.crop(tmin=tmin, tmax=tmax)
+    # data.crop(tmin=tmin, tmax=tmax)
     raw_data = data.get_data()
     info = data.info
 
@@ -534,7 +535,7 @@ async def calculate_alpha_delta_ratio(input_name: str,
                                       input_scaling: str | None = Query("density", regex="^(density)$|^(spectrum)$"),
                                       input_axis: int | None = -1,
                                       input_average: str | None = Query("mean", regex="^(mean)$|^(median)$")) -> dict:
-    data.crop(tmin=tmin, tmax=tmax)
+    # data.crop(tmin=tmin, tmax=tmax)
     raw_data = data.get_data()
     info = data.info
     channels = data.ch_names
@@ -574,7 +575,7 @@ async def calculate_alpha_delta_ratio(input_name: str,
             return {'alpha_delta_ratio': alpha_power/delta_power}
 
 
-@router.get("/asymmetry_indices")
+@router.get("/return_asymmetry_indices", tags=["return_asymmetry_indices"])
 async def calculate_asymmetry_indices(input_name_1: str,
                                       input_name_2: str,
                                       input_window: str | None = Query("hann",
@@ -632,7 +633,7 @@ async def calculate_asymmetry_indices(input_name_1: str,
 
     return {'asymmetry_indices': asymmetry_index}
 
-@router.get("/alpha_variability")
+@router.get("/return_alpha_variability", tags=["return_alpha_variability"])
 async def calculate_alpha_variability(input_name: str,
                                       tmin: float | None = 0,
                                       tmax: float | None = None,
@@ -645,7 +646,7 @@ async def calculate_alpha_variability(input_name: str,
                                       input_scaling: str | None = Query("density", regex="^(density)$|^(spectrum)$"),
                                       input_axis: int | None = -1,
                                       input_average: str | None = Query("mean", regex="^(mean)$|^(median)$")) -> dict:
-    data.crop(tmin=tmin, tmax=tmax)
+    # data.crop(tmin=tmin, tmax=tmax)
     raw_data = data.get_data()
     info = data.info
     channels = data.ch_names
@@ -747,8 +748,14 @@ async def detect_spindles(name: str):
     for i in range(len(channels)):
         if name == channels[i]:
             sp = spindles_detect(raw_data[i] * 1e6, info['sfreq'])
+            to_return ={}
+            fig = plt.figure(figsize=(18, 12))
+            plt.plot(raw_data[0][i])
+            html_str =mpld3.fig_to_html(fig)
+            to_return["figure"] = html_str
             if sp==None:
-                return {'No spindles'}
+                to_return["detected"] = "No Spindles"
+                return to_return
             else:
                 df = sp.summary()
                 for i in range(len(df)):
@@ -758,7 +765,9 @@ async def detect_spindles(name: str):
                     list_start_end.append(start)
                     list_start_end.append(end)
                     list_all.append(list_start_end)
-                return {'detected spindles': list_all}
+
+                    to_return["detected spindles"] = list_all
+                return to_return
     return {'Channel not found'}
 
 # Slow Waves detection
@@ -853,8 +862,21 @@ async def receive_notebook_and_selection_configuration(input_config: ModelNotebo
 
     print(input_config)
     # Produce new notebook
-    create_notebook_mne_modular(file_to_save="created_1", file_to_open="trial_av.edf", notches_enabled=input_config.notches_enabled, notches_length= input_config.notches_length, annotations=True, bipolar_references=input_config.bipolar_references, reference_type= input_config.type_of_reference,
-                                reference_channels_list=input_config.channels_reference,selection_start_time= input_config.selection_start_time,selection_end_time= input_config.selection_end_time)
+    create_notebook_mne_modular(file_to_save="created_1",
+                                file_to_open="trial_av.edf",
+                                notches_enabled=input_config.notches_enabled,
+                                notches_length= input_config.notches_length,
+                                annotations=True,
+                                bipolar_references=input_config.bipolar_references,
+                                reference_type= input_config.type_of_reference,
+                                reference_channels_list=input_config.channels_reference,
+                                selection_start_time= input_config.selection_start_time,
+                                selection_end_time= input_config.selection_end_time,
+                                repairing_artifacts_ica=None,
+                                n_components=None,
+                                list_exclude_ica=None,
+                                ica_method=None
+                                )
 
     # If there is a selection channel we need to crop
     if input_config.selection_channel != "":
