@@ -25,8 +25,6 @@ async def normal_tests(column: str,
                        axis: Optional[int] = 0,
                        alternative: Optional[str] | None = Query("two-sided",
                                                                  regex="^(two-sided)$|^(less)$|^(greater)$"),
-                       method: Optional[str] | None = Query("auto",
-                                                            regex="^(auto)$|^(approx)$|^(asymp)$|^(exact)$"),
                        name_test: str | None = Query("Shapiro-Wilk",
                                                    regex="^(Shapiro-Wilk)$|^(Kolmogorov-Smirnov)$|^(Anderson-Darling)$|^(D’Agostino’s K\^2)$")) -> dict:
     if name_test == 'Shapiro-Wilk':
@@ -36,7 +34,7 @@ async def normal_tests(column: str,
         else:
             return{'statistic': shapiro_test.statistic, 'p_value': shapiro_test.pvalue, 'Description':'Sample does not look Gaussian (reject H0)', 'data': data[str(column)].tolist()}
     elif name_test == 'Kolmogorov-Smirnov':
-        ks_test = kstest(data[str(column)], 'norm', alternative=alternative, method=method)
+        ks_test = kstest(data[str(column)], 'norm', alternative=alternative)
         if ks_test.pvalue > 0.05:
             return{'statistic': ks_test.statistic, 'p_value': ks_test.pvalue, 'Description':'Sample looks Gaussian (fail to reject H0)', 'data': data[str(column)].tolist()}
         else:
@@ -52,9 +50,9 @@ async def normal_tests(column: str,
             else:
                 print('%.3f: %.3f, data does not look normal (reject H0)' % (sl, cv))
                 list_anderson.append('%.3f: %.3f, data does not look normal (reject H0)' % (sl, cv))
-        return{'statistic':anderson_test.statistic, 'critical_values': list(anderson_test.critical_values), 'significance_level': list(anderson_test.significance_level), 'description': list_anderson, 'data': data[str(column)].tolist()}
+        return{'statistic':anderson_test.statistic, 'critical_values': list(anderson_test.critical_values), 'significance_level': list(anderson_test.significance_level), 'Description': list_anderson, 'data': data[str(column)].tolist()}
     elif name_test == 'D’Agostino’s K^2':
-        stat, p = normaltest(data[str(column)])
+        stat, p = normaltest(data[str(column)], nan_policy=nan_policy)
         if p > 0.05:
             return{'statistic': stat, 'p_value': p, 'Description':'Sample looks Gaussian (fail to reject H0)', 'data': data[str(column)].tolist()}
         else:
@@ -202,21 +200,21 @@ async def p_value_correction(input_config: ModelMultipleComparisons):
     if method == 'Bonferroni':
         z = multipletests(pvals=p_value, alpha=alpha, method='bonferroni')
         y = [str(x) for x in z[0]]
-        return {'true for hypothesis that can be rejected for given alpha': list(y), 'corrected_p_values': list(z[1])}
+        return {'rejected': list(y), 'corrected_p_values': list(z[1])}
     elif method == 'sidak':
         z = multipletests(pvals=p_value, alpha=alpha, method='sidak')
         y = [str(x) for x in z[0]]
-        return {'true for hypothesis that can be rejected for given alpha': list(y), 'corrected_p_values': list(z[1])}
+        return {'rejected': list(y), 'corrected_p_values': list(z[1])}
     elif method == 'benjamini-hochberg':
         z = multipletests(pvals=p_value, alpha=alpha, method='fdr_bh')
         y = [str(x) for x in z[0]]
-        return {'true for hypothesis that can be rejected for given alpha': list(y), 'corrected_p_values': list(z[1])}
+        return {'rejected': list(y), 'corrected_p_values': list(z[1])}
     elif method == 'benjamini-yekutieli':
         z = multipletests(pvals=p_value, alpha=alpha, method='fdr_by')
         y = [str(x) for x in z[0]]
-        return {'true for hypothesis that can be rejected for given alpha': list(y), 'corrected_p_values': list(z[1])}
+        return {'rejected': list(y), 'corrected_p_values': list(z[1])}
     else:
         z = multipletests(pvals=p_value, alpha=alpha, method= method)
         y = [str(x) for x in z[0]]
-        return {'true for hypothesis that can be rejected for given alpha': list(y), 'corrected_p_values': list(z[1])}
+        return {'rejected': list(y), 'corrected_p_values': list(z[1])}
 
