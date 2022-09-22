@@ -6,6 +6,11 @@ from statsmodels.stats.multitest import multipletests
 from enum import Enum
 from pydantic import BaseModel
 from fastapi import FastAPI, Path, Query, APIRouter
+import sklearn
+from sklearn.svm import SVC
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+from sklearn.decomposition import PCA
+from sklearn.cluster import KMeans
 
 from app.pydantic_models import ModelMultipleComparisons
 
@@ -218,3 +223,60 @@ async def p_value_correction(input_config: ModelMultipleComparisons):
         y = [str(x) for x in z[0]]
         return {'rejected': list(y), 'corrected_p_values': list(z[1])}
 
+@router.get("/classification_for_cutoff_determination")
+async def classification_cutoff_determination(dependent_variable: str,
+                                              independent_variables: list[str] | None = Query(default=None),
+                                              algorithm: str | None = Query("SVM",
+                                                                            regex="^(SVM)$|^(LDA)$")):
+    dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
+    df_label = dataset[dependent_variable]
+    for columns in dataset.columns:
+        if columns not in independent_variables:
+            dataset = dataset.drop(str(columns), axis=1)
+
+    X = np.array(dataset)
+    Y = np.array(df_label)
+
+    if algorithm=='SVM':
+        clf = SVC(kernel='linear')
+    else:
+        clf = LinearDiscriminantAnalysis()
+
+    clf.fit(X, Y)
+    coeffs = np.squeeze(clf.coef_)
+    inter = clf.intercept_
+    return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist()}
+
+
+@router.get("/principal_component_analysis")
+async def principal_component_analysis(n_components: int ,
+                                       independent_variables: list[str] | None = Query(default=None)):
+    dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
+    for columns in dataset.columns:
+        if columns not in independent_variables:
+            dataset = dataset.drop(str(columns), axis=1)
+
+    X = np.array(dataset)
+
+    pca = PCA(n_components=n_components)
+    pca.fit(X)
+
+    return {'Percentage of variance explained by each of the selected components': pca.explained_variance_ratio_.tolist(),
+            'The singular values corresponding to each of the selected components. ': pca.singular_values_.tolist(),
+            'Principal axes in feature space, representing the directions of maximum variance in the data.' : pca.components_.tolist()}
+
+@router.get("/kmeans_clustering")
+async def kmeans_clustering(n_clusters: int ,
+                            independent_variables: list[str] | None = Query(default=None)):
+    dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
+    for columns in dataset.columns:
+        if columns not in independent_variables:
+            dataset = dataset.drop(str(columns), axis=1)
+
+    X = np.array(dataset)
+
+    kmeans = KMeans(n_clusters=n_clusters, random_state=0).fit(X)
+
+    return {'Coordinates of cluster centers': kmeans.cluster_centers_.tolist(),
+            'Labels of each point ': kmeans.labels_.tolist(),
+            'Sum of squared distances of samples to their closest cluster center' : kmeans.inertia_}
