@@ -11,6 +11,7 @@ from statsmodels.graphics.tsaplots import acf, pacf
 from scipy import signal
 from scipy.integrate import simps
 from pmdarima.arima import auto_arima
+#import pywt
 import mne
 import matplotlib.pyplot as plt
 import mpld3
@@ -458,6 +459,27 @@ async def estimate_periodogram(input_name: str,
             return {'frequencies': f.tolist(), 'power spectral density': pxx_den.tolist()}
     return {'Channel not found'}
 
+@router.get("/discrete_wavelet_transform", tags=["discrete_wavelet_transform"])
+# Validation is done inline in the input of the function
+async def discrete_wavelet_transform(input_name: str,
+                                     wavelet: str |None = Query("db1",
+                                                                regex="^(db1)$|^(db2)$|^(coif1)$|^(coif2)$"),
+                                     mode: str | None = Query("sym",
+                                                              regex="^(sym)$|^(zpd)$|^(cpd)$|^(ppd)$|^(sp1)$|^(per)$"),
+                                     level: int | None = None) -> dict:
+    raw_data = data.get_data()
+    info = data.info
+    channels = data.ch_names
+    for i in range(len(channels)):
+        if input_name == channels[i]:
+            if level!=None:
+                coeffs = pywt.wavedec(raw_data[i], wavelet=wavelet, mode=mode, level=level)
+            else:
+                w = pywt.Wavelet(str(wavelet))
+                level = pywt.dwt_max_level(data_len=np.shape(raw_data[i])[0], filter_len=w.dec_len)
+                coeffs = pywt.wavedec(raw_data[i], wavelet=wavelet, mode=mode, level=level)
+            return {'coefficients': coeffs}
+    return {'Channel not found'}
 
 # Return power_spectral_density
 @router.get("/return_power_spectral_density", tags=["return_power_spectral_density"])
