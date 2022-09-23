@@ -707,7 +707,7 @@ async def calculate_alpha_variability(input_name: str,
 
             return {'alpha_variability': alpha_power/total_power}
 
-@router.get("/return_predictions")
+@router.get("/return_predictions", tags=["return_predictions"])
 async def return_predictions(name: str,
                              test_size: int,
                              future_seconds: int,
@@ -718,7 +718,7 @@ async def return_predictions(name: str,
                              method: str | None = Query("lbfgs",
                                                         regex="^(lbfgs)$|^(newton)$|^(nm)$|^(bfgs)$|^(powell)$|^(cg)$|^(ncg)$|^(basinhopping)$"),
                              information_criterion: str | None = Query("aic",
-                                                                       regex="^(aic)$|^(bic)$|^(hqic)$|^(oob)$") ):
+                                                                       regex="^(aic)$|^(bic)$|^(hqic)$|^(oob)$")):
     raw_data = data.get_data()
     channels = data.ch_names
     info = data.info
