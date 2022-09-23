@@ -794,7 +794,7 @@ async def detect_slow_waves(name: str):
                 return {'detected slow waves': list_all}
     return {'Channel not found'}
 
-
+# TODO remove current user form param and ge from file
 @router.get("/mne/open/eeg", tags=["mne_open_eeg"])
 # Validation is done inline in the input of the function
 # Slices are send in a single string and then de
@@ -821,7 +821,7 @@ async def mne_open_eeg(input_run_id: str, input_step_id: str, current_user: str 
     #     "nohup recon-all -subject " + input_test_name + " -i " + input_file + " -all > freesurfer_log.txtr &\n")
     #
 
-
+# TODO chagne parameter name
 @router.get("/return_signal", tags=["return_signal"])
 # Start date time is returned as miliseconds epoch time
 async def return_signal(input_name: str) -> dict:
@@ -941,7 +941,7 @@ async def mne_create_notebook(file_name: str,
                                 average_reference)
     # create_notebook_mne_plot("hello", "again")
 
-
+# TODO
 @router.get("/test/montage", tags=["test_montage"])
 async def test_montage() -> dict:
     raw_data = data.get_data()

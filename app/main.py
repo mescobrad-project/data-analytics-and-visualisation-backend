@@ -239,7 +239,7 @@ async def root():
 
 @app.get("/test/read/users", tags=["root"])
 async def test_read_users():
-    # Test write user in local storage
+    # Test read user in local storage
 
     read_all_neurodesk_users()
     return "Success"
@@ -249,7 +249,7 @@ async def test_write_user(name, password):
     # Test write user in local storage
 
     save_neurodesk_user(name, password)
-    return "Success"\
+    return "Success"
 
 @app.get("/test/display/neurodesk", tags=["root"])
 async def test_display_neurodesk():

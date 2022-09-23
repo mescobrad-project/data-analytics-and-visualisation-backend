@@ -37,7 +37,7 @@ class FunctionNavigationItem(BaseModel):
     metadata: list
 
 
-
+# TODO
 @router.get("/test/task/ping", tags=["test_task_ping"])
 async def test_task_ping() -> dict:
     # channels = data.ch_names
@@ -49,7 +49,7 @@ async def test_task_ping() -> dict:
     print(response)
     return {'test': "test"}
 
-
+# TODO
 @router.get("/test/task/complete", tags=["test_task_complete"])
 async def test_task_complete() -> dict:
     # channels = data.ch_names
