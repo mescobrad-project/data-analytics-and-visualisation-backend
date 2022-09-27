@@ -12,6 +12,8 @@ from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
 
+from app.pydantic_models import ModelMultipleComparisons
+
 router = APIRouter()
 data = pd.read_csv('example_data/mescobrad_dataset.csv')
 
@@ -23,20 +25,25 @@ async def name_columns():
 
 @router.get("/normality_tests", tags=['hypothesis_testing'])
 async def normal_tests(column: str,
+                       nan_policy: Optional[str] | None = Query("propagate",
+                                                                regex="^(propagate)$|^(raise)$|^(omit)$"),
+                       axis: Optional[int] = 0,
+                       alternative: Optional[str] | None = Query("two-sided",
+                                                                 regex="^(two-sided)$|^(less)$|^(greater)$"),
                        name_test: str | None = Query("Shapiro-Wilk",
                                                    regex="^(Shapiro-Wilk)$|^(Kolmogorov-Smirnov)$|^(Anderson-Darling)$|^(D’Agostino’s K\^2)$")) -> dict:
     if name_test == 'Shapiro-Wilk':
         shapiro_test = shapiro(data[str(column)])
         if shapiro_test.pvalue > 0.05:
-            return{'statistic': shapiro_test.statistic, 'p_value': shapiro_test.pvalue, 'Description': 'Sample looks Gaussian (fail to reject H0)'}
+            return{'statistic': shapiro_test.statistic, 'p_value': shapiro_test.pvalue, 'Description': 'Sample looks Gaussian (fail to reject H0)', 'data': data[str(column)].tolist()}
         else:
-            return{'statistic': shapiro_test.statistic, 'p_value': shapiro_test.pvalue, 'Description':'Sample does not look Gaussian (reject H0)'}
+            return{'statistic': shapiro_test.statistic, 'p_value': shapiro_test.pvalue, 'Description':'Sample does not look Gaussian (reject H0)', 'data': data[str(column)].tolist()}
     elif name_test == 'Kolmogorov-Smirnov':
-        ks_test = kstest(data[str(column)], 'norm')
+        ks_test = kstest(data[str(column)], 'norm', alternative=alternative)
         if ks_test.pvalue > 0.05:
-            return{'statistic': ks_test.statistic, 'p_value': ks_test.pvalue, 'Description':'Sample looks Gaussian (fail to reject H0)'}
+            return{'statistic': ks_test.statistic, 'p_value': ks_test.pvalue, 'Description':'Sample looks Gaussian (fail to reject H0)', 'data': data[str(column)].tolist()}
         else:
-            return{'statistic': ks_test.statistic, 'p_value': ks_test.pvalue, 'Description':'Sample does not look Gaussian (reject H0)'}
+            return{'statistic': ks_test.statistic, 'p_value': ks_test.pvalue, 'Description':'Sample does not look Gaussian (reject H0)', 'data': data[str(column)].tolist()}
     elif name_test == 'Anderson-Darling':
         anderson_test = anderson(data[str(column)])
         list_anderson = []
@@ -48,13 +55,13 @@ async def normal_tests(column: str,
             else:
                 print('%.3f: %.3f, data does not look normal (reject H0)' % (sl, cv))
                 list_anderson.append('%.3f: %.3f, data does not look normal (reject H0)' % (sl, cv))
-        return{'statistic':anderson_test.statistic, 'critical_values': list(anderson_test.critical_values), 'significance_level': list(anderson_test.significance_level), 'description': list_anderson}
+        return{'statistic':anderson_test.statistic, 'critical_values': list(anderson_test.critical_values), 'significance_level': list(anderson_test.significance_level), 'Description': list_anderson, 'data': data[str(column)].tolist()}
     elif name_test == 'D’Agostino’s K^2':
-        stat, p = normaltest(data[str(column)])
+        stat, p = normaltest(data[str(column)], nan_policy=nan_policy)
         if p > 0.05:
-            return{'statistic': stat, 'p_value': p, 'Description':'Sample looks Gaussian (fail to reject H0)'}
+            return{'statistic': stat, 'p_value': p, 'Description':'Sample looks Gaussian (fail to reject H0)', 'data': data[str(column)].tolist()}
         else:
-            return{'statistic': stat, 'p_value': p, 'Description':'Sample does not look Gaussian (reject H0)'}
+            return{'statistic': stat, 'p_value': p, 'Description':'Sample does not look Gaussian (reject H0)', 'data': data[str(column)].tolist()}
 
 @router.get("/transform_data", tags=['hypothesis_testing'])
 async def transform_data(column:str,
@@ -181,7 +188,7 @@ async def statistical_tests(column_1: str,
     elif statistical_test == "one-way ANOVA":
         statistic, p_value = f_oneway(data[str(column_1)], data[str(column_2)])
     elif statistical_test == "Wilcoxon rank-sum statistic":
-        statistic, p_value = ranksums(data[str(column_1)], data[str(column_2)])
+        statistic, p_value = ranksums(data[str(column_1)], data[str(column_2)], nan_policy=nan_policy, alternative=alternative)
     elif statistical_test == "one-way chi-square test":
         statistic, p_value = chisquare(data[str(column_1)], data[str(column_2)])
     return {'mean_positive': np.mean(data[str(column_1)]), 'standard_deviation_positive': np.std(data[str(column_1)]),
@@ -189,31 +196,32 @@ async def statistical_tests(column_1: str,
             'statistic': statistic, 'p-value': p_value}
 
 
-@router.get("/multiple_comparisons", tags=['hypothesis_testing'])
-async def p_value_correction(alpha: float,
-                             p_value: list[float] = Query([]),
-                             method: str | None = Query("Bonferroni",
-                                                        regex="^(Bonferroni)$|^(sidak)$|^(holm-sidak)$|^(holm)$|^(simes-hochberg)$|^(benjamini-hochberg)$|^(benjamini-yekutieli)$|^(fdr_tsbh)$|^(fdr_tsbky)$")):
+@router.post("/multiple_comparisons", tags=['hypothesis_testing'])
+async def p_value_correction(input_config: ModelMultipleComparisons):
+    method = input_config.method
+    alpha = input_config.alpha
+    p_value = input_config.p_value
+
     if method == 'Bonferroni':
         z = multipletests(pvals=p_value, alpha=alpha, method='bonferroni')
         y = [str(x) for x in z[0]]
-        return {'true for hypothesis that can be rejected for given alpha': list(y), 'corrected_p_values': list(z[1])}
+        return {'rejected': list(y), 'corrected_p_values': list(z[1])}
     elif method == 'sidak':
         z = multipletests(pvals=p_value, alpha=alpha, method='sidak')
         y = [str(x) for x in z[0]]
-        return {'true for hypothesis that can be rejected for given alpha': list(y), 'corrected_p_values': list(z[1])}
+        return {'rejected': list(y), 'corrected_p_values': list(z[1])}
     elif method == 'benjamini-hochberg':
         z = multipletests(pvals=p_value, alpha=alpha, method='fdr_bh')
         y = [str(x) for x in z[0]]
-        return {'true for hypothesis that can be rejected for given alpha': list(y), 'corrected_p_values': list(z[1])}
+        return {'rejected': list(y), 'corrected_p_values': list(z[1])}
     elif method == 'benjamini-yekutieli':
         z = multipletests(pvals=p_value, alpha=alpha, method='fdr_by')
         y = [str(x) for x in z[0]]
-        return {'true for hypothesis that can be rejected for given alpha': list(y), 'corrected_p_values': list(z[1])}
+        return {'rejected': list(y), 'corrected_p_values': list(z[1])}
     else:
         z = multipletests(pvals=p_value, alpha=alpha, method= method)
         y = [str(x) for x in z[0]]
-        return {'true for hypothesis that can be rejected for given alpha': list(y), 'corrected_p_values': list(z[1])}
+        return {'rejected': list(y), 'corrected_p_values': list(z[1])}
 
 @router.get("/classification_for_cutoff_determination")
 async def classification_cutoff_determination(dependent_variable: str,
