@@ -10,6 +10,7 @@ pyactigraphy==1.0
 pyedflib==0.1.30
 pyreadstat==1.1.9
 python-dotenv==0.19.2
+pywavelets==1.4.1
 pyyaml==6.0
 uvicorn==0.17.5
 watchdog==2.1.9

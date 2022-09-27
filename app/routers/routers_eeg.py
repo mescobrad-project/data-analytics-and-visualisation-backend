@@ -11,7 +11,7 @@ from statsmodels.graphics.tsaplots import acf, pacf
 from scipy import signal
 from scipy.integrate import simps
 from pmdarima.arima import auto_arima
-#import pywt
+import pywt
 import mne
 import matplotlib.pyplot as plt
 import mpld3
@@ -894,10 +894,10 @@ async def receive_notebook_and_selection_configuration(input_config: ModelNotebo
                                 reference_channels_list=input_config.channels_reference,
                                 selection_start_time= input_config.selection_start_time,
                                 selection_end_time= input_config.selection_end_time,
-                                repairing_artifacts_ica=None,
-                                n_components=None,
-                                list_exclude_ica=None,
-                                ica_method=None
+                                repairing_artifacts_ica=input_config.repairing_artifacts_ica,
+                                n_components=input_config.n_components,
+                                list_exclude_ica=input_config.list_exclude_ica,
+                                ica_method=input_config.ica_method
                                 )
 
     # If there is a selection channel we need to crop

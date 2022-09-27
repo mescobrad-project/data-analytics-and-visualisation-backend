@@ -24,6 +24,10 @@ class ModelNotebookAndSelectionConfiguration(BaseModel):
     selection_channel: str
     selection_start_time: str
     selection_end_time: str
+    repairing_artifacts_ica: bool
+    n_components: str
+    list_exclude_ica: list
+    ica_method: str
 
 
 class ModelSelectionChannelReference(BaseModel):

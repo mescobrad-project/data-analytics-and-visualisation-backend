@@ -65,6 +65,7 @@ def create_notebook_mne_modular(file_to_save,
 import mne
 import time
 import threading
+from mne.preprocessing import ICA
 
 %matplotlib qt5
 
@@ -98,12 +99,22 @@ data = data.notch_filter(freqs = """ + notches_length + """)
 """))
 
     if repairing_artifacts_ica:
-        nb['cells'].append(nbf.v4.new_code_cell("""
+        # Must check if n_components is int or float
+        if n_components.isdigit():
+            nb['cells'].append(nbf.v4.new_code_cell("""
 data.load_data()
-ica = ICA(n_components=float("""+n_components+"""), max_iter='auto', method=\""""+ica_method+"""\")
+ica = ICA(n_components=int("""+n_components+"""), max_iter='auto', method=\""""+ica_method+"""\")
 ica.fit(data)
 ica
 """))
+        else:
+            nb['cells'].append(nbf.v4.new_code_cell("""
+data.load_data()
+ica = ICA(n_components=float(""" + n_components + """), max_iter='auto', method=\"""" + ica_method + """\")
+ica.fit(data)
+ica
+"""))
+
         nb['cells'].append(nbf.v4.new_code_cell("""
 data.load_data()
 ica.plot_sources(data)
@@ -130,17 +141,18 @@ data.set_eeg_reference(ref_channels=[\"""" + '","'.join(reference_channels_list)
     else :
         pass
 
-    # We show the actual plot always
+    # We show the actual plot if not in artifact repair
     # Can send number of channels to be precise
-    nb['cells'].append(nbf.v4.new_code_cell("""
-fig = data.plot(n_channels=50)
-"""))
-
-    # Run the functions for annotations must always be in the end
-    if annotations:
+    if not repairing_artifacts_ica:
         nb['cells'].append(nbf.v4.new_code_cell("""
-autosave_annots()
-"""))
+    fig = data.plot(n_channels=50)
+    """))
+
+        # Run the functions for annotations must always be in the end
+        if annotations:
+            nb['cells'].append(nbf.v4.new_code_cell("""
+    autosave_annots()
+    """))
 
     nbf.write(nb, "/neurodesktop-storage/" + file_to_save + ".ipynb")
 

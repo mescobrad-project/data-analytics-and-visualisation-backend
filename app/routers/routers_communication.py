@@ -1,3 +1,4 @@
+import json
 import os
 
 import requests
@@ -27,14 +28,15 @@ ExistingFunctions = [
     "power_spectral_density",
     "spindle",
     "recon",
-    "samseg"
+    "samseg",
+    "normality"
 ]
 
 
 class FunctionNavigationItem(BaseModel):
     run_id: str
     step_id: str
-    metadata: list
+    metadata: dict
 
 
 # TODO
@@ -75,10 +77,10 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
     # print(type(navigation_item))
     # print(navigation_item)
 
-    # url_to_redirect = "http://localhost:3000"
-    url_to_redirect = ""
-    if navigation_item.metadata[0]["function"]:
-        match navigation_item.metadata[0]["function"]:
+    url_to_redirect = "http://localhost:3000"
+    # url_to_redirect = "http:/"
+    if navigation_item.metadata["function"]:
+        match navigation_item.metadata["function"]:
             case "auto_correlation":
                 # url_to_redirect += "/auto_correlation"
                 url_to_redirect += "/eeg"
@@ -109,8 +111,23 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/freesurfer/recon"
             case "samseg":
                 url_to_redirect += "/freesurfer/samseg"
-    url_to_redirect += "&run_id="+ navigation_item.run_id+"&step_id=" + navigation_item.step_id
-    # return RedirectResponse(url=url_to_redirect, status_code=303)
+            case "normality":
+                url_to_redirect += "/normality_Tests/"
+                os.makedirs('runtime_config/run_' + navigation_item.run_id + '_step_' + navigation_item.step_id, exist_ok=True)
+                data_to_write = {
+                }
+
+                if "files" in navigation_item.metadata:
+                    # TODO DOWNLOAD FILE instead of just saving file
+                    data_to_write["file"] = navigation_item.metadata["files"][0]
+                    with open('runtime_config/run_' + navigation_item.run_id + '_step_' + navigation_item.step_id + '/' + navigation_item.metadata["files"][0] + '.json', 'w', encoding='utf-8') as f:
+                        pass
+
+                with open('runtime_config/run_' + navigation_item.run_id+ '_step_' + navigation_item.step_id + '/config_data.json', 'w', encoding='utf-8') as f:
+                    json.dump(data_to_write, f, ensure_ascii=False, indent=4)
+    url_to_redirect += "?run_id="+ navigation_item.run_id+"&step_id=" + navigation_item.step_id
+    # return RedirectResponse(url=url_to_redirect, status_code=301)
+    print(url_to_redirect)
     return {"url": url_to_redirect}
 
 
