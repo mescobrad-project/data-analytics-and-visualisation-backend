@@ -9,7 +9,7 @@ services:
       dockerfile: Dockerfile
     volumes:
       - neurodesk-volume:/MES-CoBraD Input
-      - 'C:/neurodesktop-storage:/neurodesktop-storage'
+      - '/home/ntua/neurodesktop-storage:/neurodesktop-storage'
     ports:
       - '8080:8080'
 #    image: 'vnmd/neurodesktop:20220329'
