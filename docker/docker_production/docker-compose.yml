@@ -3,8 +3,8 @@ version: '3.7'
 services:
   analytics-backend:
     build:
-      context: ".."
-      dockerfile: ./docker/Dockerfile
+      context: "../../"
+      dockerfile: ./docker/docker_production/Dockerfile
     hostname: analytics_backend
     container_name: analytics_backend
     restart: always

@@ -158,7 +158,7 @@ data.set_eeg_reference(ref_channels=[\"""" + '","'.join(reference_channels_list)
     autosave_annots()
     """))
 
-    nbf.write(nb ,NeurodesktopStorageLocation + file_to_save + ".ipynb")
+    nbf.write(nb ,NeurodesktopStorageLocation + "/" + file_to_save + ".ipynb")
 
 
 def create_notebook_mne_plot(run_id, step_id):
@@ -291,7 +291,7 @@ def get_neurodesk_display_id():
 
 def get_annotations_from_csv(annotation_file="annotation_test.csv"):
     """This function gets the annotation from the local storage and returns it as list of dicts"""
-    with open("/neurodesktop-storage/"+ annotation_file, newline="") as csvfile:
+    with open( NeurodesktopStorageLocation + "/" + annotation_file, newline="") as csvfile:
         # Check if file exists
         if not os.path.isfile("/neurodesktop-storage/"+ annotation_file):
             # if it doesnt return empty list
