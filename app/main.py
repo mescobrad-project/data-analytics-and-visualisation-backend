@@ -173,19 +173,23 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"]
 )
+NeurodesktopStorageLocation = os.environ.get('NeurodesktopStorageLocation') if os.environ.get(
+    '/neurodesktop-storage') else "/neurodesktop-storage"
 
-app.mount("/static", StaticFiles(directory="/neurodesktop-storage"), name="static")
+
+app.mount("/static", StaticFiles(directory=NeurodesktopStorageLocation), name="static")
 
 # endregion
+
 
 
 # region Routes of the application
 @app.on_event("startup")
 def initiate_functions():
     # Create folder in volume if it doesn't exist
-    os.makedirs("/neurodesktop-storage", exist_ok=True)
-    os.makedirs("/neurodesktop-storage/config", exist_ok=True)
-    os.makedirs("/neurodesktop-storage/mne", exist_ok=True)
+    os.makedirs(NeurodesktopStorageLocation, exist_ok=True)
+    os.makedirs(NeurodesktopStorageLocation + "/config", exist_ok=True)
+    os.makedirs(NeurodesktopStorageLocation + "/mne", exist_ok=True)
 
     # Create example files
     with open('annotation_test.csv', 'w') as fp:
@@ -193,8 +197,8 @@ def initiate_functions():
 
     # Copy files from local storage to volume
     # Copy script for getting the current value of
-    shutil.copy("neurodesk_startup_scripts/get_display.sh", "/neurodesktop-storage/config/get_display.sh")
-    shutil.copy("neurodesk_startup_scripts/template_jupyter_notebooks/EDFTEST.ipynb", "/neurodesktop-storage/EDFTEST.ipynb")
+    shutil.copy("neurodesk_startup_scripts/get_display.sh", NeurodesktopStorageLocation + "/config/get_display.sh")
+    shutil.copy("neurodesk_startup_scripts/template_jupyter_notebooks/EDFTEST.ipynb", NeurodesktopStorageLocation + "/EDFTEST.ipynb")
 
     # CONERT WINDOWS ENDINGS TO UBUNTU / MIGHT NEED TO BE REMOVED AFTER VOLUME IS TRANSFERED TO NORMAL VOLUME AND NOT
     # BINDED
@@ -203,7 +207,9 @@ def initiate_functions():
     UNIX_LINE_ENDING = b'\n'
 
     # relative or absolute file path, e.g.:
-    file_path = r"/neurodesktop-storage/config/get_display.sh"
+    file_path = NeurodesktopStorageLocation + "/config/get_display.sh"
+    file_path = r'%s' % file_path
+    # file_path = NeurodesktopStorageLocation + r"/config/get_display.sh"
 
     with open(file_path, 'rb') as open_file:
         content = open_file.read()

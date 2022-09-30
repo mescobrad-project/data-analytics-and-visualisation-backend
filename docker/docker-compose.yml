@@ -10,8 +10,9 @@ services:
     restart: always
     environment:
       WFAddress: expertsystem_web_1
+      NeurodesktopStorageLocation: /neurodesktop-storage
     volumes:
-      - '/home/ntua/neurodesktop-storage:/neurodesktop-storage'
+      - '/neurodesktop-storage:/neurodesktop-storage'
     ports:
       - "8000:8000"
     networks:

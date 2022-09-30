@@ -12,10 +12,10 @@ WFAddress = os.environ.get('WFAddress') if os.environ.get(
     'WFAddress') else "http://100.0.0.1:8000"
 
 TestRunId = os.environ.get('TestRunId') if os.environ.get(
-    'WFAddress') else "fe2b0997-6974-4fee-9178-a3291ea1744c"
+    'TestRunId') else "fe2b0997-6974-4fee-9178-a3291ea1744c"
 
 TestStepId = os.environ.get('TestStepId') if os.environ.get(
-    'WFAddress') else "db4a0c7d-0e09-49b2-ba80-7c5e4e3f0768"
+    'TestStepId') else "db4a0c7d-0e09-49b2-ba80-7c5e4e3f0768"
 
 ExistingFunctions = [
     "auto_correlation",
@@ -113,18 +113,20 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/freesurfer/samseg"
             case "normality":
                 url_to_redirect += "/normality_Tests/"
-                os.makedirs('runtime_config/run_' + navigation_item.run_id + '_step_' + navigation_item.step_id, exist_ok=True)
-                data_to_write = {
-                }
 
-                if "files" in navigation_item.metadata:
-                    # TODO DOWNLOAD FILE instead of just saving file
-                    data_to_write["file"] = navigation_item.metadata["files"][0]
-                    with open('runtime_config/run_' + navigation_item.run_id + '_step_' + navigation_item.step_id + '/' + navigation_item.metadata["files"][0] + '.json', 'w', encoding='utf-8') as f:
-                        pass
-
-                with open('runtime_config/run_' + navigation_item.run_id+ '_step_' + navigation_item.step_id + '/config_data.json', 'w', encoding='utf-8') as f:
-                    json.dump(data_to_write, f, ensure_ascii=False, indent=4)
+                # TODO UNCOMMENT AND FIX
+                # os.makedirs('runtime_config/run_' + navigation_item.run_id + '_step_' + navigation_item.step_id, exist_ok=True)
+                # data_to_write = {
+                # }
+                #
+                # if "files" in navigation_item.metadata:
+                #     # TODO DOWNLOAD FILE instead of just saving file
+                #     data_to_write["file"] = navigation_item.metadata["files"][0]
+                #     with open('runtime_config/run_' + navigation_item.run_id + '_step_' + navigation_item.step_id + '/' + navigation_item.metadata["files"][0] + '.json', 'w', encoding='utf-8') as f:
+                #         pass
+                #
+                # with open('runtime_config/run_' + navigation_item.run_id+ '_step_' + navigation_item.step_id + '/config_data.json', 'w', encoding='utf-8') as f:
+                #     json.dump(data_to_write, f, ensure_ascii=False, indent=4)
     url_to_redirect += "?run_id="+ navigation_item.run_id+"&step_id=" + navigation_item.step_id
     # return RedirectResponse(url=url_to_redirect, status_code=301)
     print(url_to_redirect)

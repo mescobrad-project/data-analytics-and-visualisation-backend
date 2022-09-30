@@ -3,15 +3,16 @@ version: '3.7'
 services:
   analytics-backend:
     build:
-      context: "."
-      dockerfile: ./Dockerfile
+      context: ".."
+      dockerfile: ./docker/Dockerfile
     hostname: analytics_backend
     container_name: analytics_backend
     restart: always
     environment:
       WFAddress: expertsystem_web_1
-#    volumes:
-#      - 'C:/neurodesktop-storage:/neurodesktop-storage'
+      NeurodesktopStorageLocation: /home/ntua/neurodesktop-storage
+    volumes:
+      - '/home/ntua/neurodesktop-storage:/neurodesktop-storage'
     ports:
       - "7000:8000"
     networks:

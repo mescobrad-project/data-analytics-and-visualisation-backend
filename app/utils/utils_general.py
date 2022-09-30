@@ -7,6 +7,10 @@ import os
 import mne
 from mne.preprocessing import ICA
 
+NeurodesktopStorageLocation = os.environ.get('NeurodesktopStorageLocation') if os.environ.get(
+    '/neurodesktop-storage') else "/neurodesktop-storage"
+
+
 def validate_and_convert_peaks(input_height, input_threshold, input_prominence, input_width, input_plateau_size):
     to_return = {
         "height": convert_string_to_number_or_array(input_height),
@@ -154,7 +158,7 @@ data.set_eeg_reference(ref_channels=[\"""" + '","'.join(reference_channels_list)
     autosave_annots()
     """))
 
-    nbf.write(nb, "/neurodesktop-storage/" + file_to_save + ".ipynb")
+    nbf.write(nb ,NeurodesktopStorageLocation + file_to_save + ".ipynb")
 
 
 def create_notebook_mne_plot(run_id, step_id):
@@ -171,7 +175,7 @@ def create_notebook_mne_plot(run_id, step_id):
     data = mne.io.read_raw_edf('trial raw.edf', infer_types=True, preload = True)
     data = data.notch_filter(freqs = 70)
     fig = data.plot(n_channels=50)"""))
-    nbf.write(nb, "/neurodesktop-storage/mne/" + run_id + "_" + step_id + '.ipynb')
+    nbf.write(nb, NeurodesktopStorageLocation + run_id + "_" + step_id + '.ipynb')
 
 
 def create_notebook_mne_plot_annotate(run_id, step_id):
@@ -187,7 +191,7 @@ def create_notebook_mne_plot_annotate(run_id, step_id):
     data = mne.io.read_raw_edf('trial raw.edf', infer_types=True, preload = True)
     data = data.notch_filter(freqs = 70)
     fig = data.plot(n_channels=50)"""))
-    nbf.write(nb, "/neurodesktop-storage/" + run_id + "_" + step_id + '.ipynb')
+    nbf.write(nb, NeurodesktopStorageLocation + run_id + "_" + step_id + '.ipynb')
 
 
 def save_neurodesk_user(user_name, user_password):
