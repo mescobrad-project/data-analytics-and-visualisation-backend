@@ -1,4 +1,6 @@
 from minio import Minio
+from scipy import stats
+import numpy as np
 
 # Create client with access key and secret key.
 new_client = Minio(
@@ -70,3 +72,13 @@ def object_stat(bucket_name: str, object_name: str):
             result.last_modified, result.size,
         ),
     )
+
+
+# def normal_val():
+#     rng = np.random.default_rng()
+#     print(rng)
+#     x = stats.norm.rvs(loc=0, scale=2, size=10, random_state=rng)
+#     print(x)
+#
+#
+# a = normal_val()

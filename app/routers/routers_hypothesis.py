@@ -15,7 +15,7 @@ from sklearn.cluster import KMeans
 from app.pydantic_models import ModelMultipleComparisons
 
 router = APIRouter()
-data = pd.read_csv('example_data/mescobrad_dataset.csv')
+data = pd.read_csv('example_data/sample_questionnaire.csv')
 
 @router.get("/return_columns")
 async def name_columns():
