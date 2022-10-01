@@ -1,4 +1,5 @@
-from minio import Minio
+from minio import Minio, error
+
 from scipy import stats
 import numpy as np
 
@@ -72,6 +73,15 @@ def object_stat(bucket_name: str, object_name: str):
             result.last_modified, result.size,
         ),
     )
+
+def get_saved_dataset_for_Hypothesis(bucket_name: str, object_name: str, storeFileOnDisc: str):
+    try:
+        fget_object(bucket_name, object_name, storeFileOnDisc)
+        print("file has been downloaded")
+    except error as err:
+        print(err)
+
+# fget_object('saved', f"{'folder01'}/test-object", 'gd_test_data/Downloaded_object.json')
 
 
 # def normal_val():

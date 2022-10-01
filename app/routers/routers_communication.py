@@ -112,7 +112,7 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
             case "samseg":
                 url_to_redirect += "/freesurfer/samseg"
             case "normality":
-                url_to_redirect += "/normality_Tests/"
+                url_to_redirect += "/normality_Tests/?file_path="+navigation_item.metadata["files"][0]+"&"
                 os.makedirs('runtime_config/run_' + navigation_item.run_id + '_step_' + navigation_item.step_id, exist_ok=True)
                 data_to_write = {
                 }

@@ -11,20 +11,42 @@ from sklearn.svm import SVC
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
-
 from app.pydantic_models import ModelMultipleComparisons
+from app.utils.utils_datalake import fget_object, get_saved_dataset_for_Hypothesis
 
 router = APIRouter()
 data = pd.read_csv('example_data/sample_questionnaire.csv')
+
+@router.get("/load_demo_data")
+async def load_demo_data(file: Optional[str] | None):
+    # print(file, len(file))
+    # file = None
+    if file!= None:
+        data = pd.read_csv('runtime_config/' + file)
+    else:
+        data = pd.read_csv('example_data/sample_questionnaire.csv')
+
+    return data
 
 @router.get("/return_columns")
 async def name_columns():
     columns = data.columns
     return{'columns': list(columns)}
 
+@router.get("/return_saved_object_columns")
+async def name_saved_object_columns(file_name:str):
+    print('saved', file_name, 'runtime_config/' + file_name)
+    try:
+        get_saved_dataset_for_Hypothesis('saved', file_name, 'runtime_config/'+file_name)
+        data = pd.read_csv('runtime_config/'+file_name)
+        columns = data.columns
+        return{'columns': list(columns)}
+    except:
+        return{'columns': {}}
 
 @router.get("/normality_tests", tags=['hypothesis_testing'])
 async def normal_tests(column: str,
+                       file_name: str | None,
                        nan_policy: Optional[str] | None = Query("propagate",
                                                                 regex="^(propagate)$|^(raise)$|^(omit)$"),
                        axis: Optional[int] = 0,
@@ -32,6 +54,10 @@ async def normal_tests(column: str,
                                                                  regex="^(two-sided)$|^(less)$|^(greater)$"),
                        name_test: str | None = Query("Shapiro-Wilk",
                                                    regex="^(Shapiro-Wilk)$|^(Kolmogorov-Smirnov)$|^(Anderson-Darling)$|^(D’Agostino’s K\^2)$")) -> dict:
+    print(file_name)
+    data = await load_demo_data(file_name)
+    print(data)
+
     if name_test == 'Shapiro-Wilk':
         shapiro_test = shapiro(data[str(column)])
         if shapiro_test.pvalue > 0.05:
