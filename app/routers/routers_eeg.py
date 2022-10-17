@@ -708,29 +708,29 @@ async def calculate_alpha_variability(input_name: str,
             return {'alpha_variability': alpha_power/total_power}
 
 @router.get("/return_predictions", tags=["return_predictions"])
-async def return_predictions(name: str,
-                             test_size: int,
-                             future_seconds: int,
-                             start_p: int | None = 1,
-                             start_q: int | None = 1,
-                             max_p: int | None = 5,
-                             max_q: int | None = 5,
-                             method: str | None = Query("lbfgs",
-                                                        regex="^(lbfgs)$|^(newton)$|^(nm)$|^(bfgs)$|^(powell)$|^(cg)$|^(ncg)$|^(basinhopping)$"),
-                             information_criterion: str | None = Query("aic",
-                                                                       regex="^(aic)$|^(bic)$|^(hqic)$|^(oob)$")):
+async def return_predictions(input_name: str,
+                             input_test_size: int,
+                             input_future_seconds: int,
+                             input_start_p: int | None = 1,
+                             input_start_q: int | None = 1,
+                             input_max_p: int | None = 5,
+                             input_max_q: int | None = 5,
+                             input_method: str | None = Query("lbfgs",
+                                                              regex="^(lbfgs)$|^(newton)$|^(nm)$|^(bfgs)$|^(powell)$|^(cg)$|^(ncg)$|^(basinhopping)$"),
+                             input_information_criterion: str | None = Query("aic",
+                                                                             regex="^(aic)$|^(bic)$|^(hqic)$|^(oob)$")):
     raw_data = data.get_data()
     channels = data.ch_names
     info = data.info
     sampling_frequency = info['sfreq']
     for i in range(len(channels)):
-        if name == channels[i]:
+        if input_name == channels[i]:
             data_channel = raw_data[i]
-            train, test = data_channel[:-test_size], data_channel[-test_size:]
+            train, test = data_channel[:-input_test_size], data_channel[-input_test_size:]
             #x_train, x_test = np.array(range(train.shape[0])), np.array(range(train.shape[0], data_channel.shape[0]))
-            model = auto_arima(train, start_p=start_p, start_q=start_q,
+            model = auto_arima(train, start_p=input_start_p, start_q=input_start_q,
                                test='adf',
-                               max_p=max_p, max_q=max_q,
+                               max_p=input_max_p, max_q=input_max_q,
                                m=1,
                                d=1,
                                seasonal=False,
@@ -740,24 +740,30 @@ async def return_predictions(name: str,
                                error_action='ignore',
                                suppress_warnings=True,
                                stepwise=True,
-                               method=method,
-                               information_criterion=information_criterion)
-            prediction, confint = model.predict(n_periods=test_size, return_conf_int=True)
+                               method=input_method,
+                               information_criterion=input_information_criterion)
+            prediction, confint = model.predict(n_periods=input_test_size, return_conf_int=True)
             smape = calcsmape(test, prediction)
             example = model.summary()
-            results_as_html = example.tables[0].as_html()
-            df_0 = pd.read_html(results_as_html, header=0, index_col=0)[0]
+            results_as_html_1 = example.tables[0].as_html()
+            print('html')
+            print(results_as_html_1)
+            df_0 = pd.read_html(results_as_html_1, header=0, index_col=0)[0]
+            print('json')
+            print(df_0.to_json(orient="split"))
 
-            results_as_html = example.tables[1].as_html()
-            df_1 = pd.read_html(results_as_html, header=0, index_col=0)[0]
 
-            results_as_html = example.tables[2].as_html()
-            df_2 = pd.read_html(results_as_html, header=0, index_col=0)[0]
 
-            z = future_seconds*sampling_frequency
+            results_as_html_2 = example.tables[1].as_html()
+            df_1 = pd.read_html(results_as_html_2, header=0, index_col=0)[0]
+
+            results_as_html_3 = example.tables[2].as_html()
+            df_2 = pd.read_html(results_as_html_3, header=0, index_col=0)[0]
+
+            z = input_future_seconds * sampling_frequency
 
             prediction, confint = model.predict(n_periods=int(z), return_conf_int=True)
-            return {'predictions': prediction.tolist(), 'error': smape, 'confint': confint, 'first_table':df_0.to_json(orient="split"), 'second table':df_1.to_json(orient="split"), 'third table':df_2.to_json(orient="split")}
+            return {'predictions': prediction.tolist(), 'error': smape, 'confint': confint, 'first_table':results_as_html_1, 'second_table':results_as_html_2, 'third_table':results_as_html_3}
     return {'Channel not found'}
 
 # Spindles detection
