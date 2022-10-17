@@ -145,14 +145,14 @@ data.set_eeg_reference(ref_channels=[\"""" + '","'.join(reference_channels_list)
     # Can send number of channels to be precise
     if not repairing_artifacts_ica:
         nb['cells'].append(nbf.v4.new_code_cell("""
-    fig = data.plot(n_channels=50)
-    """))
+fig = data.plot(n_channels=50)
+"""))
 
         # Run the functions for annotations must always be in the end
         if annotations:
             nb['cells'].append(nbf.v4.new_code_cell("""
-    autosave_annots()
-    """))
+autosave_annots()
+"""))
 
     nbf.write(nb, "/neurodesktop-storage/" + file_to_save + ".ipynb")
 
