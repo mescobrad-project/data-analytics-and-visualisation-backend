@@ -455,3 +455,45 @@ async def return_power_spectral_density(input_name: str,
             to_return = {'frequencies': freqs.tolist(), 'power spectral density': psd_results.tolist()}
             return to_return
     return {'Channel not found'}
+
+
+@router.get("/envelope_trend", tags=["envelope_trend"])
+# Validation is done inline in the input of the function
+async def return_envelopetrend(input_name: str,
+                               window_size: int | None = None,
+                               percent: float | None = None,
+                               input_method: str | None = Query("none", regex="^(Simple)$|^(Cumulative)$|^(Exponential)$")) -> dict:
+    raw_data = data.get_data()
+    channels = data.ch_names
+    for i in range(len(channels)):
+        if input_name == channels[i]:
+            j = 1
+            # Initialize an empty list to store cumulative moving averages
+            moving_averages = []
+            moving_averages_upper = []
+            moving_averages_lower = []
+
+            # Store cumulative sums of array in cum_sum array
+            cum_sum = np.cumsum(raw_data[i])
+            print(cum_sum)
+            # Loop through the array elements
+            while j < len(raw_data[i]) - window_size + 1:
+                # Calculate the average of current window
+                window_average = round(np.sum(raw_data[i][
+                                              j:j + window_size]) / window_size, 10)
+                window_average_upper = window_average * (1+ percent)
+                window_average_lower = window_average * (1- percent)
+
+                # Store the average of current
+                # window in moving average list
+                moving_averages.append(window_average)
+                moving_averages_upper.append(window_average_upper)
+                moving_averages_lower.append(window_average_lower)
+                # print(moving_averages, moving_averages_upper, moving_averages_lower)
+
+                # Shift window to right by one position
+                j += 1
+            # print(moving_averages)
+
+            return {'signal': moving_averages, 'upper': moving_averages_upper, 'lower': moving_averages_lower}
+    return {'Channel not found'}
