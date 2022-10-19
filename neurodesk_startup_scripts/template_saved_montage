@@ -1,0 +1,20 @@
+{
+  "bipolar_references": [
+    {
+      "anode": "channel_name_string",
+      "cathode": "channel_name_string"
+    }
+  ],
+  "type_of_reference": "channels|average|none",
+  "channels_reference": [
+    "channel_name_string",
+    "channel_name_string",
+    "channel_name_string"
+  ],
+  "notches_enabled": true|false,
+  "notches_value": float,
+  "lowpass" : float,
+  "highpass" : float,
+  "montage": "montage_name_string",
+  "channels_order" : ["channel_name_string","channel_name_string"]
+}

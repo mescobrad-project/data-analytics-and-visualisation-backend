@@ -1,0 +1,38 @@
+version: '3.7'
+
+services:
+  free-surfer:
+      hostname: free-surfer
+      container_name: free-surfer
+      restart: always
+      build:
+        context: "."
+        dockerfile: Dockerfile
+      ports:
+        - "22:22"
+#      volumes:
+#        - mri-freesurfer-volume:/opt/freesurfer/static
+#        - type: bind
+#            source: ../../example_data
+#            target: /opt/freesurfer/static
+#            target: /opt/freesurfer/subjects/vistalab/freesurfer
+      volumes:
+        - type: bind
+          source: ../../example_data
+          target: /opt/freesurfer/local/static
+        - mri-freesurfer-volume:/opt/freesurfer/volume/static
+      environment:
+        SUBJECTS_DIR: /opt/freesurfer/static/practise_with_data
+      command: bash -c "/usr/sbin/sshd -D"
+      networks:
+        -  mri-freesurfer-network
+
+networks:
+    mri-freesurfer-network:
+        name: mri-freesurfer-network
+        driver: bridge
+
+volumes:
+  mri-freesurfer-volume:
+    driver: local
+    name: mri-freesurfer-volume
