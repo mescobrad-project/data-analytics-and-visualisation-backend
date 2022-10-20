@@ -842,8 +842,8 @@ async def mne_open_eeg(input_run_id: str, input_step_id: str, current_user: str 
     channel.send("pkill -INT edfbrowser -u user\n")
 
     # Opening EDFBrowser
-    channel.send("cd /home/user/EDFbrowser\n")
-    channel.send("edfbrowser '/home/user/neurodesktop-storage/NIA test.edf'\n")
+    channel.send("cd /home/user/neurodesktop-storage\n")
+    channel.send("/home/user/EDFbrowser/edfbrowser '/home/user/neurodesktop-storage/NIA test.edf'\n")
 
     # OLD VISUAL STUDIO CODE CALL and terminate
     # channel.send("pkill -INT code -u user\n")
