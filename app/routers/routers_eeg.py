@@ -17,8 +17,9 @@ import matplotlib.pyplot as plt
 import mpld3
 import numpy as np
 from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler
+from watchdog.events import LoggingEventHandler
 import lxml
+import logging
 from app.utils.utils_general import validate_and_convert_peaks, validate_and_convert_power_spectral_density, \
     create_notebook_mne_plot, get_neurodesk_display_id, get_annotations_from_csv, create_notebook_mne_modular
 
@@ -459,27 +460,27 @@ async def estimate_periodogram(input_name: str,
             return {'frequencies': f.tolist(), 'power spectral density': pxx_den.tolist()}
     return {'Channel not found'}
 
-@router.get("/discrete_wavelet_transform", tags=["discrete_wavelet_transform"])
-# Validation is done inline in the input of the function
-async def discrete_wavelet_transform(input_name: str,
-                                     wavelet: str |None = Query("db1",
-                                                                regex="^(db1)$|^(db2)$|^(coif1)$|^(coif2)$"),
-                                     mode: str | None = Query("sym",
-                                                              regex="^(sym)$|^(zpd)$|^(cpd)$|^(ppd)$|^(sp1)$|^(per)$"),
-                                     level: int | None = None) -> dict:
-    raw_data = data.get_data()
-    info = data.info
-    channels = data.ch_names
-    for i in range(len(channels)):
-        if input_name == channels[i]:
-            if level!=None:
-                coeffs = pywt.wavedec(raw_data[i], wavelet=wavelet, mode=mode, level=level)
-            else:
-                w = pywt.Wavelet(str(wavelet))
-                level = pywt.dwt_max_level(data_len=np.shape(raw_data[i])[0], filter_len=w.dec_len)
-                coeffs = pywt.wavedec(raw_data[i], wavelet=wavelet, mode=mode, level=level)
-            return {'coefficients': coeffs}
-    return {'Channel not found'}
+# @router.get("/discrete_wavelet_transform", tags=["discrete_wavelet_transform"])
+# # Validation is done inline in the input of the function
+# async def discrete_wavelet_transform(input_name: str,
+#                                      wavelet: str |None = Query("db1",
+#                                                                 regex="^(db1)$|^(db2)$|^(coif1)$|^(coif2)$"),
+#                                      mode: str | None = Query("sym",
+#                                                               regex="^(sym)$|^(zpd)$|^(cpd)$|^(ppd)$|^(sp1)$|^(per)$"),
+#                                      level: int | None = None) -> dict:
+#     raw_data = data.get_data()
+#     info = data.info
+#     channels = data.ch_names
+#     for i in range(len(channels)):
+#         if input_name == channels[i]:
+#             if level!=None:
+#                 coeffs = pywt.wavedec(raw_data[i], wavelet=wavelet, mode=mode, level=level)
+#             else:
+#                 w = pywt.Wavelet(str(wavelet))
+#                 level = pywt.dwt_max_level(data_len=np.shape(raw_data[i])[0], filter_len=w.dec_len)
+#                 coeffs = pywt.wavedec(raw_data[i], wavelet=wavelet, mode=mode, level=level)
+#             return {'coefficients': coeffs}
+#     return {'Channel not found'}
 
 # Return power_spectral_density
 @router.get("/return_power_spectral_density", tags=["return_power_spectral_density"])
@@ -838,16 +839,18 @@ async def mne_open_eeg(input_run_id: str, input_step_id: str, current_user: str 
     display_id = get_neurodesk_display_id()
     channel.send("export DISPLAY=" + display_id + "\n")
     # Close previous isntances of code for the user
-    # !!!!!!!!!!!!!!!!!!!!!!!!!!! THIS USER MUST CHANGE TO CURRENTLY USED USER
-    channel.send("pkill -INT code -u user\n")
+    # TODO !!!!!!!!!!!!!!!!!!!!!!!!!!! THIS USER MUST CHANGE TO CURRENTLY USED USER
+    channel.send("pkill -INT edfbrowser -u user\n")
 
-    channel.send("/neurocommand/local/bin/mne-1_0_0.sh\n")
-    channel.send("nohup /usr/bin/code -n /home/user/neurodesktop-storage/created_1.ipynb --extensions-dir=/opt/vscode-extensions --disable-workspace-trust &\n")
-    # channel.send("nohup code &\n")
-    # channel.send("nohup code /home/user/neurodesktop-storage/TestEEG.ipynb --extensions-dir=/opt/vscode-extensions &\n")
-    # channel.send(
-    #     "nohup recon-all -subject " + input_test_name + " -i " + input_file + " -all > freesurfer_log.txtr &\n")
-    #
+    # Opening EDFBrowser
+    channel.send("cd /home/user/neurodesktop-storage\n")
+    channel.send("/home/user/EDFbrowser/edfbrowser '/home/user/neurodesktop-storage/NIA test.edf'\n")
+
+    # OLD VISUAL STUDIO CODE CALL and terminate
+    # channel.send("pkill -INT code -u user\n")
+    # channel.send("/neurocommand/local/bin/mne-1_0_0.sh\n")
+    # channel.send("nohup /usr/bin/code -n /home/user/neurodesktop-storage/created_1.ipynb --extensions-dir=/opt/vscode-extensions --disable-workspace-trust &\n")
+
 
 # TODO chagne parameter name
 @router.get("/return_signal", tags=["return_signal"])
@@ -987,7 +990,6 @@ async def test_montage() -> dict:
 
 @router.get("/test/notebook", tags=["test_notebook"])
 # Validation is done inline in the input of the function
-# Slices are send in a single string and then de
 async def test_notebook(input_test_name: str, input_slices: str,
                         ) -> dict:
     create_notebook_mne_plot("hello", "again")
