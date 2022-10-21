@@ -40,7 +40,7 @@ router = APIRouter()
 # TODO Finalise the use of file dynamically
 data = mne.io.read_raw_edf("example_data/trial_av.edf", infer_types=True)
 NeurodesktopStorageLocation = os.environ.get('NeurodesktopStorageLocation') if os.environ.get(
-    '/neurodesktop-storage') else "/neurodesktop-storage"
+    'NeurodesktopStorageLocation') else "/neurodesktop-storage"
 
 # data = mne.io.read_raw_fif("/neurodesktop-storage/trial_av_processed.fif")
 
@@ -839,6 +839,13 @@ async def mne_open_eeg(input_run_id: str, input_step_id: str, current_user: str 
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect("neurodesktop", 22, username="user", password="password")
     channel = ssh.invoke_shell()
+
+    print(get_neurodesk_display_id())
+    channel.send("cd /home/user/neurodesktop-storage\n")
+    channel.send("sudo chmod 777 config\n")
+    channel.send("cd /home/user/neurodesktop-storage/config\n")
+    channel.send("sudo bash get_display.sh\n")
+
     display_id = get_neurodesk_display_id()
     channel.send("export DISPLAY=" + display_id + "\n")
     # Close previous isntances of code for the user
