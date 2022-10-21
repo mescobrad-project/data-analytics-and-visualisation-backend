@@ -1007,11 +1007,11 @@ async def return_envelopetrend(input_name: str,
     for i in range(len(channels)):
         if input_name == channels[i]:
             j = 1
+            to_return={}
             # Initialize an empty list to store cumulative moving averages
             moving_averages = []
-            # moving_averages_upper = []
-            # moving_averages_lower = []
-
+            moving_averages_upper = []
+            moving_averages_lower = []
             # Store cumulative sums of array in cum_sum array
             cum_sum = np.cumsum(raw_data[i])
             print(cum_sum)
@@ -1021,16 +1021,16 @@ async def return_envelopetrend(input_name: str,
                 # Calculate the average of current window
                 window_average = round(np.sum(raw_data[i][
                                               j:j + window_size]) / window_size, 10)
-                window_average_upper = window_average * (1+ percent)
-                window_average_lower = window_average * (1- percent)
+                window_average_upper = window_average * (1 + percent)
+                window_average_lower = window_average * (1 - percent)
 
                 # Store the average of current
                 # window in moving average list
                 row_to_append = {'signal': window_average, 'upper': window_average_upper, 'lower': window_average_lower}
                 moving_averages.append(row_to_append)
                 # moving_averages.append(window_average)
-                # moving_averages_upper.append(window_average_upper)
-                # moving_averages_lower.append(window_average_lower)
+                moving_averages_upper.append(window_average_upper)
+                moving_averages_lower.append(window_average_lower)
                 # print(moving_averages, moving_averages_upper, moving_averages_lower)
 
                 # Shift window to right by one position
@@ -1040,5 +1040,10 @@ async def return_envelopetrend(input_name: str,
             # to_return['signal'] = moving_averages
             # to_return['upper'] = moving_averages_upper
             # to_return['lower'] = moving_averages_lower
-            return moving_averages
+            to_return["signal"] = raw_data[i].tolist()
+            to_return["signal_time"] = raw_data[1].tolist()
+            to_return["start_date_time"] = data.info["meas_date"].timestamp() * 1000
+            to_return["upper"] = moving_averages_upper
+            to_return["lower"] = moving_averages_lower
+            return to_return
     return {'Channel not found'}
