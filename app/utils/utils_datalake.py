@@ -43,8 +43,12 @@ def list_all_objects(bucket_name: str):
 
 def fget_object(bucket_name: str, object_name: str, storeFileOnDisc: str):
     # Download data of an object.
-    new_client.fget_object(bucket_name, object_name, storeFileOnDisc)
-
+    try:
+        response = new_client.fget_object(bucket_name, object_name, storeFileOnDisc)
+        print(response)
+    finally:
+        response.close()
+        response.release_conn()
 
 def get_data_of_object(bucket_name: str, object_name: str):
     # Get data of an object.
@@ -78,11 +82,14 @@ def get_saved_dataset_for_Hypothesis(bucket_name: str, object_name: str, storeFi
     try:
         fget_object(bucket_name, object_name, storeFileOnDisc)
         print("file has been downloaded")
-    except error as err:
-        print(err)
+    except:
+        print("error")
 
-# fget_object('saved', f"{'folder01'}/test-object", 'gd_test_data/Downloaded_object.json')
+# fget_object('saved', f"{'folder01'}/test-oject", 'gd_test_data/Downloaded_object.json')
+# fget_object('saved', 'FriSep302022182125.csv', 'runtime_config/FriSep302022182125.csv')
+# 'saved', file_name, 'runtime_config/'+file_name
 
+# get_saved_dataset_for_Hypothesis('saved', 'FriSep302022182125.csv', 'runtime_config/FriSep302022182125.csv')
 
 # def normal_val():
 #     rng = np.random.default_rng()

@@ -1007,12 +1007,13 @@ async def return_envelopetrend(input_name: str,
             j = 1
             # Initialize an empty list to store cumulative moving averages
             moving_averages = []
-            moving_averages_upper = []
-            moving_averages_lower = []
+            # moving_averages_upper = []
+            # moving_averages_lower = []
 
             # Store cumulative sums of array in cum_sum array
             cum_sum = np.cumsum(raw_data[i])
             print(cum_sum)
+            row_to_append = {}
             # Loop through the array elements
             while j < len(raw_data[i]) - window_size + 1:
                 # Calculate the average of current window
@@ -1023,14 +1024,19 @@ async def return_envelopetrend(input_name: str,
 
                 # Store the average of current
                 # window in moving average list
-                moving_averages.append(window_average)
-                moving_averages_upper.append(window_average_upper)
-                moving_averages_lower.append(window_average_lower)
+                row_to_append = {'signal': window_average, 'upper': window_average_upper, 'lower': window_average_lower}
+                moving_averages.append(row_to_append)
+                # moving_averages.append(window_average)
+                # moving_averages_upper.append(window_average_upper)
+                # moving_averages_lower.append(window_average_lower)
                 # print(moving_averages, moving_averages_upper, moving_averages_lower)
 
                 # Shift window to right by one position
                 j += 1
             # print(moving_averages)
-
-            return {'signal': moving_averages, 'upper': moving_averages_upper, 'lower': moving_averages_lower}
+            # to_return = {}
+            # to_return['signal'] = moving_averages
+            # to_return['upper'] = moving_averages_upper
+            # to_return['lower'] = moving_averages_lower
+            return moving_averages
     return {'Channel not found'}
