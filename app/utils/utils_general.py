@@ -11,6 +11,10 @@ from mne.preprocessing import ICA
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler,DirCreatedEvent,FileCreatedEvent
 
+NeurodesktopStorageLocation = os.environ.get('NeurodesktopStorageLocation') if os.environ.get(
+    '/neurodesktop-storage') else "/neurodesktop-storage"
+
+
 def validate_and_convert_peaks(input_height, input_threshold, input_prominence, input_width, input_plateau_size):
     to_return = {
         "height": convert_string_to_number_or_array(input_height),
@@ -158,7 +162,7 @@ fig = data.plot(n_channels=50)
 autosave_annots()
 """))
 
-    nbf.write(nb, "/neurodesktop-storage/" + file_to_save + ".ipynb")
+    nbf.write(nb ,NeurodesktopStorageLocation + "/" + file_to_save + ".ipynb")
 
 
 def create_notebook_mne_plot(run_id, step_id):
@@ -175,7 +179,7 @@ def create_notebook_mne_plot(run_id, step_id):
     data = mne.io.read_raw_edf('trial raw.edf', infer_types=True, preload = True)
     data = data.notch_filter(freqs = 70)
     fig = data.plot(n_channels=50)"""))
-    nbf.write(nb, "/neurodesktop-storage/mne/" + run_id + "_" + step_id + '.ipynb')
+    nbf.write(nb, NeurodesktopStorageLocation + run_id + "_" + step_id + '.ipynb')
 
 
 def create_notebook_mne_plot_annotate(run_id, step_id):
@@ -191,7 +195,7 @@ def create_notebook_mne_plot_annotate(run_id, step_id):
     data = mne.io.read_raw_edf('trial raw.edf', infer_types=True, preload = True)
     data = data.notch_filter(freqs = 70)
     fig = data.plot(n_channels=50)"""))
-    nbf.write(nb, "/neurodesktop-storage/" + run_id + "_" + step_id + '.ipynb')
+    nbf.write(nb, NeurodesktopStorageLocation + run_id + "_" + step_id + '.ipynb')
 
 
 def save_neurodesk_user(user_name, user_password):
@@ -291,7 +295,7 @@ def get_neurodesk_display_id():
 
 def get_annotations_from_csv(annotation_file="annotation_test.csv"):
     """This function gets the annotation from the local storage and returns it as list of dicts"""
-    with open("/neurodesktop-storage/"+ annotation_file, newline="") as csvfile:
+    with open( NeurodesktopStorageLocation + "/" + annotation_file, newline="") as csvfile:
         # Check if file exists
         if not os.path.isfile("/neurodesktop-storage/"+ annotation_file):
             # if it doesnt return empty list

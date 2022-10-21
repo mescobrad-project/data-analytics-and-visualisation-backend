@@ -1,3 +1,4 @@
+import os
 from datetime import datetime
 import json
 import math
@@ -38,6 +39,8 @@ router = APIRouter()
 # region EEG Function pre-processing and functions
 # TODO Finalise the use of file dynamically
 data = mne.io.read_raw_edf("example_data/trial_av.edf", infer_types=True)
+NeurodesktopStorageLocation = os.environ.get('NeurodesktopStorageLocation') if os.environ.get(
+    '/neurodesktop-storage') else "/neurodesktop-storage"
 
 # data = mne.io.read_raw_fif("/neurodesktop-storage/trial_av_processed.fif")
 
@@ -914,9 +917,9 @@ async def receive_notebook_and_selection_configuration(input_config: ModelNotebo
         # data.crop(float(input_config.selection_start_time), float(input_config.selection_end_time))
 
         # data.save("/neurodesktop-storage/trial_av_processed.fif", "all", float(input_config.selection_start_time), float(input_config.selection_end_time), overwrite = True, buffer_size_sec=24)
-        data.save("/neurodesktop-storage/trial_av_processed.fif", "all", overwrite = True, buffer_size_sec=None)
+        data.save( NeurodesktopStorageLocation + "/trial_av_processed.fif", "all", overwrite = True, buffer_size_sec=None)
     else:
-        data.save("/neurodesktop-storage/trial_av_processed.fif", "all", overwrite = True, buffer_size_sec=None)
+        data.save(NeurodesktopStorageLocation + "/trial_av_processed.fif", "all", overwrite = True, buffer_size_sec=None)
 
     return {'Channel not found'}
 
