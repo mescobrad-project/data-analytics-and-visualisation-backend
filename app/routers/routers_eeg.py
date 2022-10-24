@@ -1007,6 +1007,13 @@ async def return_envelopetrend(input_name: str,
                                input_method: str | None = Query("none", regex="^(Simple)$|^(Cumulative)$|^(Exponential)$")) -> dict:
     raw_data = data.get_data()
     channels = data.ch_names
+    print("--------DATA INFO----")
+    print(data.ch_names)
+    print(data.info)
+    # print(data.info.meas_date)
+    print(data)
+    print(data.info["meas_date"])
+
     for i in range(len(channels)):
         if input_name == channels[i]:
             j = 1
@@ -1043,9 +1050,12 @@ async def return_envelopetrend(input_name: str,
             # to_return['signal'] = moving_averages
             # to_return['upper'] = moving_averages_upper
             # to_return['lower'] = moving_averages_lower
+            # to_return["raw"] = raw_data.tolist()
             to_return["signal"] = raw_data[i].tolist()
-            to_return["signal_time"] = raw_data[1].tolist()
+            to_return["signal_time"] = data.times.tolist()
             to_return["start_date_time"] = data.info["meas_date"].timestamp() * 1000
+            # print(to_return["signal_time"])
+            # print(to_return["start_date_time"])
             to_return["upper"] = moving_averages_upper
             to_return["lower"] = moving_averages_lower
             return to_return
