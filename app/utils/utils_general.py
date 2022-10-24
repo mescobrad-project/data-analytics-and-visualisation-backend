@@ -12,7 +12,7 @@ from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler,DirCreatedEvent,FileCreatedEvent
 
 NeurodesktopStorageLocation = os.environ.get('NeurodesktopStorageLocation') if os.environ.get(
-    '/neurodesktop-storage') else "/neurodesktop-storage"
+    'NeurodesktopStorageLocation') else "/neurodesktop-storage"
 
 
 def validate_and_convert_peaks(input_height, input_threshold, input_prominence, input_width, input_plateau_size):
@@ -280,14 +280,17 @@ def re_create_all_neurodesk_users():
 def get_neurodesk_display_id():
     """This function gets the id from the volume config folder where it was created when initiating the app"""
     try:
-        with open("/neurodesktop-storage/config/actual_display.txt", "r") as file:
+        with open(NeurodesktopStorageLocation + "/config/my_display.txt", "r") as file:
             # Save lines in an array
             lines = file.read().splitlines()
-            # print(lines[0])
+            print(lines)
+            print(NeurodesktopStorageLocation)
+            print(NeurodesktopStorageLocation + "/config/actual_display.txt")
     except OSError as e:
         return "0"
 
     if len(lines) > 0:
+        print(lines[0])
         return lines[0]
     else:
         return "0"
@@ -297,7 +300,7 @@ def get_annotations_from_csv(annotation_file="annotation_test.csv"):
     """This function gets the annotation from the local storage and returns it as list of dicts"""
     with open( NeurodesktopStorageLocation + "/" + annotation_file, newline="") as csvfile:
         # Check if file exists
-        if not os.path.isfile("/neurodesktop-storage/"+ annotation_file):
+        if not os.path.isfile(NeurodesktopStorageLocation + "/" + annotation_file):
             # if it doesnt return empty list
             return []
 

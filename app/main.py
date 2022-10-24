@@ -174,7 +174,7 @@ app.add_middleware(
     allow_headers=["*"]
 )
 NeurodesktopStorageLocation = os.environ.get('NeurodesktopStorageLocation') if os.environ.get(
-    '/neurodesktop-storage') else "/neurodesktop-storage"
+    'NeurodesktopStorageLocation') else "/neurodesktop-storage"
 
 
 app.mount("/static", StaticFiles(directory=NeurodesktopStorageLocation), name="static")
