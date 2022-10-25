@@ -1021,8 +1021,6 @@ async def return_envelopetrend(input_name: str,
                 j = 1
                 # Initialize an empty list to store cumulative moving averages
                 moving_averages = []
-                # Store cumulative sums of array in cum_sum array
-                cum_sum = np.cumsum(raw_data[i])
                 # Loop through the array elements
                 while j < len(raw_data[i]) - window_size + 1:
                     # Calculate the average of current window
