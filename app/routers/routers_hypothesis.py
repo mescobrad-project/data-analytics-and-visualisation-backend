@@ -11,6 +11,11 @@ from sklearn.svm import SVC
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
+from sklearn.linear_model import LinearRegression, Ridge, Lasso, ElasticNet, SGDRegressor, SGDClassifier, HuberRegressor,Lars
+from sklearn.svm import SVR, LinearSVR, LinearSVC
+from pingouin import ancova
+import statsmodels.api as sm
+import statsmodels.formula.api as smf
 
 router = APIRouter()
 data = pd.read_csv('example_data/mescobrad_dataset.csv')
@@ -210,11 +215,16 @@ async def p_value_correction(alpha: float,
         y = [str(x) for x in z[0]]
         return {'true for hypothesis that can be rejected for given alpha': list(y), 'corrected_p_values': list(z[1])}
 
-@router.get("/classification_for_cutoff_determination")
-async def classification_cutoff_determination(dependent_variable: str,
-                                              independent_variables: list[str] | None = Query(default=None),
-                                              algorithm: str | None = Query("SVM",
-                                                                            regex="^(SVM)$|^(LDA)$")):
+@router.get("/LDA")
+async def LDA(dependent_variable: str,
+              solver: str | None = Query("svd",
+                                         regex="^(svd)$|^(lsqr)$|^(eigen)$"),
+              shrinkage_1: str | None = Query(None,
+                                              regex="^(None)$|^(auto)$"),
+              shrinkage_2: float | None = Query(default=None, gt=0, lt=0),
+              shrinkage_3 : float | None = Query(default=None),
+              independent_variables: list[str] | None = Query(default=None)):
+
     dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
     df_label = dataset[dependent_variable]
     for columns in dataset.columns:
@@ -224,19 +234,65 @@ async def classification_cutoff_determination(dependent_variable: str,
     X = np.array(dataset)
     Y = np.array(df_label)
 
-    if algorithm=='SVM':
-        clf = SVC(kernel='linear')
+    if solver == 'lsqr' or solver == 'eigen':
+        if shrinkage_3==None:
+            clf = LinearDiscriminantAnalysis(solver=solver, shrinkage=shrinkage_3)
+        elif shrinkage_1!=None:
+            clf = LinearDiscriminantAnalysis(solver=solver, shrinkage=shrinkage_1)
+        else:
+            clf = LinearDiscriminantAnalysis(solver=solver, shrinkage=shrinkage_2)
     else:
-        clf = LinearDiscriminantAnalysis()
+        clf = LinearDiscriminantAnalysis(solver=solver)
 
     clf.fit(X, Y)
     coeffs = np.squeeze(clf.coef_)
     inter = clf.intercept_
     return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist()}
 
+@router.get("/SVC")
+async def SVC(dependent_variable: str,
+              degree: int | None = Query(default=3),
+              max_iter: int | None = Query(default=-1),
+              epsilon: float | None = Query(default=0.1),
+              C: float | None = Query(default=1,gt=0),
+              coef0: float | None = Query(default=0),
+              gamma: str | None = Query("scale",
+                                        regex="^(scale)$|^(auto)$"),
+              kernel: str | None = Query("rbf",
+                                         regex="^(rbf)$|^(linear)$|^(poly)$|^(sigmoid)$|^(precomputed)$"),
+              independent_variables: list[str] | None = Query(default=None)):
+
+    dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
+    df_label = dataset[dependent_variable]
+    for columns in dataset.columns:
+        if columns not in independent_variables:
+            dataset = dataset.drop(str(columns), axis=1)
+
+    X = np.array(dataset)
+    Y = np.array(df_label)
+
+    if kernel == 'poly':
+        clf = SVC(degree=degree, gamma=gamma, coef0=coef0, C=C, epsilon=epsilon, max_iter=max_iter)
+    elif kernel == 'rbf' or kernel == 'sigmoid':
+        if kernel == 'sigmoid':
+            clf = SVC(gamma=gamma, coef0=coef0, C=C, epsilon=epsilon, max_iter=max_iter)
+        else:
+            clf = SVC(gamma=gamma, C=C, epsilon=epsilon, max_iter=max_iter)
+
+    clf.fit(X, Y)
+    if kernel == 'linear':
+        coeffs = np.squeeze(clf.coef_)
+        inter = clf.intercept_
+        return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist()}
+    else:
+        coeffs = np.squeeze(clf.dual_coef_)
+        inter = clf.intercept_
+        return {'Dual coefficients': coeffs.tolist(), 'intercept': inter.tolist()}
+
 
 @router.get("/principal_component_analysis")
-async def principal_component_analysis(n_components: int ,
+async def principal_component_analysis(n_components_1: int | None = Query(default=None),
+                                       n_components_2: float | None = Query(default=None, gt=0, lt=1),
                                        independent_variables: list[str] | None = Query(default=None)):
     dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
     for columns in dataset.columns:
@@ -244,16 +300,26 @@ async def principal_component_analysis(n_components: int ,
             dataset = dataset.drop(str(columns), axis=1)
 
     X = np.array(dataset)
+    list_1 = []
+    list_1.append(int(np.shape(X)[0]))
+    list_1.append(int(np.shape(X)[1]))
+    dim = min(list_1)
 
-    pca = PCA(n_components=n_components)
-    pca.fit(X)
+    if n_components_2 == None:
+        if n_components_1 > dim:
+            return {'Error: n_components must be between 0 and min(n_samples, n_features)=': dim}
+        pca = PCA(n_components=n_components_1)
+        pca.fit(X)
+    else:
+        pca = PCA(n_components=n_components_2)
+        pca.fit(X)
 
     return {'Percentage of variance explained by each of the selected components': pca.explained_variance_ratio_.tolist(),
             'The singular values corresponding to each of the selected components. ': pca.singular_values_.tolist(),
             'Principal axes in feature space, representing the directions of maximum variance in the data.' : pca.components_.tolist()}
 
 @router.get("/kmeans_clustering")
-async def kmeans_clustering(n_clusters: int ,
+async def kmeans_clustering(n_clusters: int,
                             independent_variables: list[str] | None = Query(default=None)):
     dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
     for columns in dataset.columns:
@@ -267,3 +333,287 @@ async def kmeans_clustering(n_clusters: int ,
     return {'Coordinates of cluster centers': kmeans.cluster_centers_.tolist(),
             'Labels of each point ': kmeans.labels_.tolist(),
             'Sum of squared distances of samples to their closest cluster center' : kmeans.inertia_}
+
+@router.get("/linear_regressor")
+async def linear_regression(dependent_variable: str,
+                            independent_variables: list[str] | None = Query(default=None)):
+    dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
+    df_label = dataset[dependent_variable]
+    for columns in dataset.columns:
+        if columns not in independent_variables:
+            dataset = dataset.drop(str(columns), axis=1)
+
+    X = np.array(dataset)
+    Y = np.array(df_label)
+
+    clf = LinearRegression()
+
+    clf.fit(X, Y)
+    coeffs = np.squeeze(clf.coef_)
+    inter = clf.intercept_
+    return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist()}
+
+@router.get("/elastic_net")
+async def elastic_net(dependent_variable: str,
+                      alpha: float | None = Query(default=1.0),
+                      l1_ratio: float | None = Query(default=0.5, ge=0, le=1),
+                      max_iter: int | None = Query(default=1000),
+                      independent_variables: list[str] | None = Query(default=None)):
+
+
+
+    dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
+    df_label = dataset[dependent_variable]
+    for columns in dataset.columns:
+        if columns not in independent_variables:
+            dataset = dataset.drop(str(columns), axis=1)
+
+    X = np.array(dataset)
+    Y = np.array(df_label)
+
+    clf = ElasticNet(alpha=alpha, l1_ratio=l1_ratio, max_iter=max_iter)
+
+    clf.fit(X, Y)
+    coeffs = np.squeeze(clf.coef_)
+    inter = clf.intercept_
+    return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist()}
+
+@router.get("/lasso_regression")
+async def lasso(dependent_variable: str,
+                alpha: float | None = Query(default=1.0, gt=0),
+                max_iter: int | None = Query(default=1000),
+                independent_variables: list[str] | None = Query(default=None)):
+
+    dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
+    df_label = dataset[dependent_variable]
+    for columns in dataset.columns:
+        if columns not in independent_variables:
+            dataset = dataset.drop(str(columns), axis=1)
+
+    X = np.array(dataset)
+    Y = np.array(df_label)
+
+    clf = Lasso(alpha=alpha, max_iter=max_iter)
+
+    clf.fit(X, Y)
+    coeffs = np.squeeze(clf.coef_)
+    inter = clf.intercept_
+    return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist()}
+
+@router.get("/ridge_regression")
+async def ridge(dependent_variable: str,
+                alpha: float | None = Query(default=1.0, gt=0),
+                max_iter: int | None = Query(default=None),
+                solver: str | None = Query("auto",
+                                           regex="^(auto)$|^(svd)$|^(cholesky)$|^(sparse_cg)$|^(lsqr)$|^(sag)$|^(lbfgs)$"),
+                independent_variables: list[str] | None = Query(default=None)):
+
+    dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
+    df_label = dataset[dependent_variable]
+    for columns in dataset.columns:
+        if columns not in independent_variables:
+            dataset = dataset.drop(str(columns), axis=1)
+
+    X = np.array(dataset)
+    Y = np.array(df_label)
+
+    if solver!='lbfgs':
+        clf = Ridge(alpha=alpha, max_iter=max_iter, solver=solver)
+    else:
+        clf = Ridge(alpha=alpha, max_iter=max_iter, solver=solver, positive=True)
+
+    clf.fit(X, Y)
+    coeffs = np.squeeze(clf.coef_)
+    inter = clf.intercept_
+    return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist()}
+
+@router.get("/sgd_regression")
+async def sgd_regressor(dependent_variable: str,
+                        alpha: float | None = Query(default=0.0001),
+                        max_iter: int | None = Query(default=1000),
+                        epsilon: float | None = Query(default=0.1),
+                        eta0: float | None = Query(default=0.01),
+                        l1_ratio: float | None = Query(default=0.15, ge=0, le=1),
+                        loss: str | None = Query("squared_error",
+                                                   regex="^(squared_error)$|^(huber)$|^(epsilon_insensitive)$|^(squared_epsilon_insensitive)$"),
+                        learning_rate: str | None = Query("invscaling",
+                                                   regex="^(invscaling)$|^(constant)$|^(optimal)$|^(adaptive)$"),
+                        penalty: str | None = Query("l2",
+                                                 regex="^(l2)$|^(l1)$|^(elasticnet)$"),
+                        independent_variables: list[str] | None = Query(default=None)):
+
+    dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
+    df_label = dataset[dependent_variable]
+    for columns in dataset.columns:
+        if columns not in independent_variables:
+            dataset = dataset.drop(str(columns), axis=1)
+
+    X = np.array(dataset)
+    Y = np.array(df_label)
+
+    if loss == 'huber' or loss == 'epsilon_insensitive' or loss == 'squared_epsilon_insensitive':
+        if learning_rate == 'constant' or learning_rate == 'invscaling' or learning_rate == 'adaptive':
+            clf = SGDRegressor(alpha=alpha, max_iter=max_iter, epsilon=epsilon, eta0=eta0, penalty=penalty, l1_ratio=l1_ratio, learning_rate=learning_rate)
+        else:
+            clf = SGDRegressor(alpha=alpha, max_iter=max_iter, epsilon=epsilon, penalty=penalty, l1_ratio=l1_ratio, learning_rate=learning_rate)
+    else:
+        clf = SGDRegressor(alpha=alpha, max_iter=max_iter, eta0=eta0, penalty=penalty, l1_ratio=l1_ratio, learning_rate=learning_rate)
+
+    clf.fit(X, Y)
+    coeffs = np.squeeze(clf.coef_)
+    inter = clf.intercept_
+    return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist()}
+
+@router.get("/huber_regression")
+async def huber_regressor(dependent_variable: str,
+                          max_iter: int | None = Query(default=1000),
+                          epsilon: float | None = Query(default=1.5, gt=1),
+                          alpha: float | None = Query(default=0.0001,ge=0),
+                          independent_variables: list[str] | None = Query(default=None)):
+
+    dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
+    df_label = dataset[dependent_variable]
+    for columns in dataset.columns:
+        if columns not in independent_variables:
+            dataset = dataset.drop(str(columns), axis=1)
+
+    X = np.array(dataset)
+    Y = np.array(df_label)
+
+    clf = HuberRegressor(alpha=alpha, epsilon=epsilon, max_iter=max_iter)
+
+    clf.fit(X, Y)
+    coeffs = np.squeeze(clf.coef_)
+    inter = clf.intercept_
+    outliers = clf.outliers_
+    return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(), 'outliers':outliers.tolist()}
+
+@router.get("/svr_regression")
+async def svr_regressor(dependent_variable: str,
+                        degree: int | None = Query(default=3),
+                        max_iter: int | None = Query(default=-1),
+                        epsilon: float | None = Query(default=0.1),
+                        C: float | None = Query(default=1,gt=0),
+                        coef0: float | None = Query(default=0),
+                        gamma: str | None = Query("scale",
+                                                   regex="^(scale)$|^(auto)$"),
+                        kernel: str | None = Query("rbf",
+                                                 regex="^(rbf)$|^(linear)$|^(poly)$|^(sigmoid)$|^(precomputed)$"),
+
+                        independent_variables: list[str] | None = Query(default=None)):
+
+    dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
+    df_label = dataset[dependent_variable]
+    for columns in dataset.columns:
+        if columns not in independent_variables:
+            dataset = dataset.drop(str(columns), axis=1)
+
+    X = np.array(dataset)
+    Y = np.array(df_label)
+
+    if kernel == 'poly':
+        clf = SVR(degree=degree, gamma=gamma, coef0=coef0, C=C, epsilon=epsilon, max_iter=max_iter)
+    elif kernel == 'rbf' or kernel == 'sigmoid':
+        if kernel == 'sigmoid':
+            clf = SVR(gamma=gamma, coef0=coef0, C=C, epsilon=epsilon, max_iter=max_iter)
+        else:
+            clf = SVR(gamma=gamma, C=C, epsilon=epsilon, max_iter=max_iter)
+
+    clf.fit(X, Y)
+    if kernel == 'linear':
+        coeffs = np.squeeze(clf.coef_)
+        inter = clf.intercept_
+        return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist()}
+    else:
+        coeffs = np.squeeze(clf.dual_coef_)
+        inter = clf.intercept_
+        return {'Coefficients of the support vector in the decision function.': coeffs.tolist(), 'intercept': inter.tolist()}
+
+@router.get("/linearsvr_regression")
+async def linear_svr_regressor(dependent_variable: str,
+                               max_iter: int | None = Query(default=1000),
+                               epsilon: float | None = Query(default=0),
+                               C: float | None = Query(default=1,gt=0),
+                               loss: str | None = Query("epsilon_insensitive",
+                                                         regex="^(epsilon_insensitive)$|^(squared_epsilon_insensitive)$"),
+                               independent_variables: list[str] | None = Query(default=None)):
+
+    dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
+    df_label = dataset[dependent_variable]
+    for columns in dataset.columns:
+        if columns not in independent_variables:
+            dataset = dataset.drop(str(columns), axis=1)
+
+    X = np.array(dataset)
+    Y = np.array(df_label)
+
+    clf = LinearSVR(loss=loss, C=C, epsilon=epsilon, max_iter=max_iter)
+
+    clf.fit(X, Y)
+    coeffs = np.squeeze(clf.coef_)
+    inter = clf.intercept_
+    return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist()}
+
+@router.get("/linearsvc_regression")
+async def linear_svc_regressor(dependent_variable: str,
+                               max_iter: int | None = Query(default=1000),
+                               C: float | None = Query(default=1,gt=0),
+                               loss: str | None = Query("hinge",
+                                                         regex="^(hinge)$|^(squared_hinge)$"),
+                               penalty: str | None = Query("l2",
+                                                         regex="^(l1)$|^(l2)$"),
+                               independent_variables: list[str] | None = Query(default=None)):
+
+    dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
+    df_label = dataset[dependent_variable]
+    for columns in dataset.columns:
+        if columns not in independent_variables:
+            dataset = dataset.drop(str(columns), axis=1)
+
+    X = np.array(dataset)
+    Y = np.array(df_label)
+
+    if loss == 'hinge' and penalty == 'l1':
+        return {'This combination is not supported.'}
+    else:
+        clf = LinearSVC(loss=loss, C=C, penalty=penalty, max_iter=max_iter)
+
+    clf.fit(X, Y)
+    coeffs = np.squeeze(clf.coef_)
+    inter = clf.intercept_
+    return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist()}
+
+@router.get("/ancova")
+async def ancova_2(dv: str,
+                   between: str,
+                   covar: list[str] | None = Query(default=None),
+                   effsize: str | None = Query("np2",
+                                               regex="^(np2)$|^(n2)$")):
+
+    df_data = pd.read_csv('example_data/mescobrad_dataset.csv')
+
+    df = ancova(data=df_data, dv=dv, covar=covar, between=between, effsize=effsize)
+
+    return {'ANCOVA':df.to_json(orient="split")}
+
+@router.get("/linear_mixed_effects_model")
+async def linear_mixed_effects_model(dependent: str,
+                                     groups: str,
+                                     independent: list[str] | None = Query(default=None),
+                                     use_sqrt: bool | None = Query(default=True)):
+
+    data = pd.read_csv('example_data/mescobrad_dataset.csv')
+
+    z = dependent + "~"
+    for i in range(len(independent)):
+        z = z + "+" + independent[i]
+
+    md = smf.mixedlm(z, data, groups=data[groups], use_sqrt=use_sqrt)
+
+    mdf = md.fit()
+
+    df = mdf.summary()
+
+    print(df)
+
+    return {df}

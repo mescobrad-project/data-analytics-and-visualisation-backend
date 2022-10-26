@@ -5,6 +5,7 @@ jupyter==1.0.0
 lxml==4.9.1
 mpld3==0.5.7
 paramiko==2.11.0
+pingouin==0.5.2
 pip-chill==1.0.1
 pmdarima==1.8.5
 pyedflib==0.1.30
