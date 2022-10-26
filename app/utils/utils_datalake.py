@@ -41,9 +41,9 @@ def list_all_objects(bucket_name: str):
         print(obj.content_type, obj.etag, obj.metadata)
 
 
-def fget_object(bucket_name: str, object_name: str, storeFileOnDisc: str):
+def fget_object(bucket_name: str, object_name: str, file_location: str):
     # Download data of an object.
-    new_client.fget_object(bucket_name, object_name, storeFileOnDisc)
+    new_client.fget_object(bucket_name, object_name, file_location)
 
 
 def get_data_of_object(bucket_name: str, object_name: str):
@@ -74,9 +74,9 @@ def object_stat(bucket_name: str, object_name: str):
         ),
     )
 
-def get_saved_dataset_for_Hypothesis(bucket_name: str, object_name: str, storeFileOnDisc: str):
+def get_saved_dataset_for_Hypothesis(bucket_name: str, object_name: str, file_location: str):
     try:
-        fget_object(bucket_name, object_name, storeFileOnDisc)
+        fget_object(bucket_name, object_name, file_location)
         print("file has been downloaded")
     except error as err:
         print(err)

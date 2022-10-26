@@ -190,6 +190,7 @@ def initiate_functions():
     os.makedirs(NeurodesktopStorageLocation, exist_ok=True)
     os.makedirs(NeurodesktopStorageLocation + "/config", exist_ok=True)
     os.makedirs(NeurodesktopStorageLocation + "/mne", exist_ok=True)
+    os.makedirs(NeurodesktopStorageLocation + "/runtime_config", exist_ok=True)
 
     # Create example files
     with open('annotation_test.csv', 'w') as fp:

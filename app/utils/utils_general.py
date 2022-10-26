@@ -15,6 +15,16 @@ NeurodesktopStorageLocation = os.environ.get('NeurodesktopStorageLocation') if o
     'NeurodesktopStorageLocation') else "/neurodesktop-storage"
 
 
+def create_local_step(run_id, step_id):
+    path_to_save = NeurodesktopStorageLocation + '/runtime_config/run_' + run_id + '_step_' + step_id
+    os.makedirs(path_to_save, exist_ok=True)
+    os.makedirs(path_to_save + '/output', exist_ok=True)
+    # TODO DOWNLOAD FIe
+
+    # Info file might be unneeded
+    with open( path_to_save+ '/info.json', 'w', encoding='utf-8') as f:
+        pass
+
 def validate_and_convert_peaks(input_height, input_threshold, input_prominence, input_width, input_plateau_size):
     to_return = {
         "height": convert_string_to_number_or_array(input_height),
