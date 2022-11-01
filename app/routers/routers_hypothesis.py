@@ -748,11 +748,12 @@ async def cox_regression(duration_col: str,
     results = proportional_hazard_test(cph, dataset, time_transform='rank')
 
     df_1 = results.summary
-
-    return {'Dataframe of the coefficients, p-values, CIs, etc.':df.to_json(orient="split"), 'figure': to_return, 'proportional hazard test': df_1.to_json(orient='split')}
+    AIC = cph.AIC_partial_
+    return {'Concordance Index':cph.concordance_index_ ,'Akaike information criterion (AIC) (partial log-likelihood)': AIC,'Dataframe of the coefficients, p-values, CIs, etc.':df.to_json(orient="split"), 'figure': to_return, 'proportional hazard test': df_1.to_json(orient='split')}
 
 @router.get("/time_varying_covariates")
-async def time_varying_covariates(duration_col: str,
+async def time_varying_covariates(event_col: str,
+                                  duration_col:str,
                                   column_1:str | None = Query(default=None),
                                   column_2:str | None = Query(default=None),
                                   correction_columns: bool | None = Query(default=False),
@@ -760,7 +761,6 @@ async def time_varying_covariates(duration_col: str,
                                   alpha: float | None = Query(default=0.05),
                                   penalizer: float | None = Query(default=0.0),
                                   l1_ratio: float | None = Query(default=0.0),
-                                  event_col: str | None = Query(default=None),
                                   weights_col: str | None = Query(default=None),
                                   strata: list[str] | None = Query(default=None)):
 
@@ -789,7 +789,7 @@ async def time_varying_covariates(duration_col: str,
     html_str = mpld3.fig_to_html(fig)
     to_return["figure_1"] = html_str
 
-    return {'Dataframe of the coefficients, p-values, CIs, etc.':df.to_json(orient="split"), 'figure': to_return}
+    return {'Akaike information criterion (AIC) (partial log-likelihood)':cph.AIC_partial_,'Dataframe of the coefficients, p-values, CIs, etc.':df.to_json(orient="split"), 'figure': to_return}
 
 @router.get("/anova_repeated_measures")
 async def anova_rm(dependent_variable: str,
@@ -871,6 +871,7 @@ async def generalized_estimating_equations(dependent: str,
 @router.get("/kaplan_meier")
 async def kaplan_meier(column_1: str,
                        column_2: str,
+                       at_risk_counts: bool | None = Query(default=True),
                        label: str | None = Query(default=None),
                        alpha: float | None = Query(default=0.05)):
     to_return = {}
@@ -882,7 +883,7 @@ async def kaplan_meier(column_1: str,
 
     kmf = KaplanMeierFitter(alpha=alpha, label=label)
     kmf.fit(dataset[column_1], dataset[column_2])
-    kmf.plot()
+    kmf.plot_survival_function(at_risk_counts=at_risk_counts)
     plt.show()
 
     html_str = mpld3.fig_to_html(fig)
