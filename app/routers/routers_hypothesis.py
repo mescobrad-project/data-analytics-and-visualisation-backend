@@ -7,6 +7,7 @@ from enum import Enum
 from pydantic import BaseModel
 from fastapi import FastAPI, Path, Query, APIRouter
 import sklearn
+from lifelines.utils import to_episodic_format
 import matplotlib.pyplot as plt
 from sklearn.svm import SVC
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
@@ -18,9 +19,10 @@ from pingouin import ancova
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
 from lifelines import CoxPHFitter
+from lifelines.statistics import proportional_hazard_test
 import mpld3
 from statsmodels.stats.anova import AnovaRM
-from lifelines import KaplanMeierFitter
+from lifelines import KaplanMeierFitter, CoxTimeVaryingFitter
 from statsmodels.stats.contingency_tables import mcnemar
 from statsmodels.discrete.conditional_models import ConditionalLogit
 from zepid.base import RiskRatio, RiskDifference, OddsRatio, IncidenceRateRatio, IncidenceRateDifference, NNT
@@ -556,7 +558,6 @@ async def svr_regressor(dependent_variable: str,
 
     clf.fit(X, Y)
     if kernel == 'linear':
-        print('yes')
         coeffs = np.squeeze(clf.coef_)
         inter = clf.intercept_
         df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
@@ -743,6 +744,50 @@ async def cox_regression(duration_col: str,
         plt.show()
         html_str = mpld3.fig_to_html(fig)
         to_return["figure_2"] = html_str
+
+    results = proportional_hazard_test(cph, dataset, time_transform='rank')
+
+    df_1 = results.summary
+
+    return {'Dataframe of the coefficients, p-values, CIs, etc.':df.to_json(orient="split"), 'figure': to_return, 'proportional hazard test': df_1.to_json(orient='split')}
+
+@router.get("/time_varying_covariates")
+async def time_varying_covariates(duration_col: str,
+                                  column_1:str | None = Query(default=None),
+                                  column_2:str | None = Query(default=None),
+                                  correction_columns: bool | None = Query(default=False),
+                                  time_gaps: float | None = Query(default=1.),
+                                  alpha: float | None = Query(default=0.05),
+                                  penalizer: float | None = Query(default=0.0),
+                                  l1_ratio: float | None = Query(default=0.0),
+                                  event_col: str | None = Query(default=None),
+                                  weights_col: str | None = Query(default=None),
+                                  strata: list[str] | None = Query(default=None)):
+
+    to_return = {}
+
+    fig = plt.figure(1)
+    ax = plt.subplot(111)
+
+    dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
+
+    dataset_long = to_episodic_format(dataset, duration_col=duration_col, event_col=event_col, time_gaps=time_gaps)
+
+    if correction_columns:
+        dataset_long[column_1+'*'+column_2] = dataset_long[column_1]*dataset_long[column_2]
+
+    cph = CoxTimeVaryingFitter(alpha=alpha, penalizer=penalizer, l1_ratio=l1_ratio)
+
+    cph.fit(dataset_long, event_col=event_col, id_col='id', weights_col=weights_col,start_col='start', stop_col='stop',strata=strata)
+
+    df = cph.summary
+
+    #fig = plt.figure(figsize=(18, 12))
+    cph.plot(ax=ax)
+    plt.show()
+
+    html_str = mpld3.fig_to_html(fig)
+    to_return["figure_1"] = html_str
 
     return {'Dataframe of the coefficients, p-values, CIs, etc.':df.to_json(orient="split"), 'figure': to_return}
 
