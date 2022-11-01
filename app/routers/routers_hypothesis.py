@@ -531,7 +531,7 @@ async def svr_regressor(dependent_variable: str,
                         gamma: str | None = Query("scale",
                                                    regex="^(scale)$|^(auto)$"),
                         kernel: str | None = Query("rbf",
-                                                 regex="^(rbf)$|^(linear)$|^(poly)$|^(sigmoid)$|^(precomputed)$"),
+                                                 regex="^(rbf)$|^(linear)$|^(poly)$|^(sigmoid)$"),
 
                         independent_variables: list[str] | None = Query(default=None)):
 
@@ -545,15 +545,18 @@ async def svr_regressor(dependent_variable: str,
     Y = np.array(df_label)
 
     if kernel == 'poly':
-        clf = SVR(degree=degree, gamma=gamma, coef0=coef0, C=C, epsilon=epsilon, max_iter=max_iter)
+        clf = SVR(degree=degree, kernel=kernel, gamma=gamma, coef0=coef0, C=C, epsilon=epsilon, max_iter=max_iter)
     elif kernel == 'rbf' or kernel == 'sigmoid':
         if kernel == 'sigmoid':
-            clf = SVR(gamma=gamma, coef0=coef0, C=C, epsilon=epsilon, max_iter=max_iter)
+            clf = SVR(gamma=gamma, kernel=kernel, coef0=coef0, C=C, epsilon=epsilon, max_iter=max_iter)
         else:
-            clf = SVR(gamma=gamma, C=C, epsilon=epsilon, max_iter=max_iter)
+            clf = SVR(gamma=gamma, kernel=kernel, C=C, epsilon=epsilon, max_iter=max_iter)
+    else:
+        clf = SVR(C=C, kernel=kernel, epsilon=epsilon, max_iter=max_iter)
 
     clf.fit(X, Y)
     if kernel == 'linear':
+        print('yes')
         coeffs = np.squeeze(clf.coef_)
         inter = clf.intercept_
         df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
@@ -563,10 +566,7 @@ async def svr_regressor(dependent_variable: str,
     else:
         coeffs = np.squeeze(clf.dual_coef_)
         inter = clf.intercept_
-        df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
-        df_names = pd.DataFrame(independent_variables, columns=['variables'])
-        df = pd.concat([df_names, df_coeffs], axis=1)
-        return {'Coefficients of the support vector in the decision function.': coeffs.tolist(), 'intercept': inter.tolist(), 'dataframe': df.to_json(orient='split')}
+        return {'Coefficients of the support vector in the decision function.': coeffs.tolist(), 'intercept': inter.tolist()}
 
 @router.get("/linearsvr_regression")
 async def linear_svr_regressor(dependent_variable: str,
