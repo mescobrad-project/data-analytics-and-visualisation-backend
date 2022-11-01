@@ -1,21 +1,31 @@
 import numpy as np
 import pandas as pd
-from scipy.stats import ranksums, chisquare, kruskal, alexandergovern, kendalltau, f_oneway, shapiro, kstest, anderson, normaltest, boxcox, yeojohnson, bartlett, levene, fligner, obrientransform, pearsonr, spearmanr, pointbiserialr, ttest_ind, mannwhitneyu, wilcoxon,ttest_rel
+from scipy.stats import fisher_exact, ranksums, chisquare, kruskal, alexandergovern, kendalltau, f_oneway, shapiro, kstest, anderson, normaltest, boxcox, yeojohnson, bartlett, levene, fligner, obrientransform, pearsonr, spearmanr, pointbiserialr, ttest_ind, mannwhitneyu, wilcoxon,ttest_rel
 from typing import Optional, Union, List
 from statsmodels.stats.multitest import multipletests
 from enum import Enum
 from pydantic import BaseModel
 from fastapi import FastAPI, Path, Query, APIRouter
 import sklearn
+import matplotlib.pyplot as plt
 from sklearn.svm import SVC
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
-from sklearn.linear_model import LinearRegression, Ridge, Lasso, ElasticNet, SGDRegressor, SGDClassifier, HuberRegressor,Lars
+from sklearn.linear_model import LinearRegression, Ridge, Lasso, ElasticNet, SGDRegressor, SGDClassifier, HuberRegressor,Lars, PoissonRegressor
 from sklearn.svm import SVR, LinearSVR, LinearSVC
 from pingouin import ancova
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
+from lifelines import CoxPHFitter
+import mpld3
+from statsmodels.stats.anova import AnovaRM
+from lifelines import KaplanMeierFitter
+from statsmodels.stats.contingency_tables import mcnemar
+from statsmodels.discrete.conditional_models import ConditionalLogit
+from zepid.base import RiskRatio, RiskDifference, OddsRatio, IncidenceRateRatio, IncidenceRateDifference, NNT
+from zepid import load_sample_data
+from zepid.calc import risk_ci, incidence_rate_ci, risk_ratio, risk_difference, number_needed_to_treat, odds_ratio, incidence_rate_ratio, incidence_rate_difference
 
 router = APIRouter()
 data = pd.read_csv('example_data/mescobrad_dataset.csv')
@@ -123,11 +133,11 @@ async def point_biserial_correlation(column_1: str, column_2: str):
 #
 @router.get("/check_homoscedasticity")
 async def check_homoskedasticity(column_1: str,
-                           column_2: str,
-                           name_of_test: str | None = Query("Levene",
-                                                           regex="^(Levene)$|^(Bartlett)$|^(Fligner-Killeen)$"),
-                           center: Optional[str] | None = Query("median",
-                                                      regex="^(trimmed)$|^(median)$|^(mean)$")):
+                                 column_2: str,
+                                 name_of_test: str | None = Query("Levene",
+                                                                  regex="^(Levene)$|^(Bartlett)$|^(Fligner-Killeen)$"),
+                                 center: Optional[str] | None = Query("median",
+                                                                      regex="^(trimmed)$|^(median)$|^(mean)$")):
     if name_of_test == "Bartlett":
         statistic, p_value = bartlett(data[str(column_1)], data[str(column_2)])
     elif name_of_test == "Fligner-Killeen":
@@ -247,20 +257,22 @@ async def LDA(dependent_variable: str,
     clf.fit(X, Y)
     coeffs = np.squeeze(clf.coef_)
     inter = clf.intercept_
-    return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist()}
+    df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
+    df_names = pd.DataFrame(independent_variables, columns=['variables'])
+    df = pd.concat([df_names, df_coeffs], axis=1)
+    return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(), 'dataframe': df.to_json(orient='split')}
 
-@router.get("/SVC")
-async def SVC(dependent_variable: str,
-              degree: int | None = Query(default=3),
-              max_iter: int | None = Query(default=-1),
-              epsilon: float | None = Query(default=0.1),
-              C: float | None = Query(default=1,gt=0),
-              coef0: float | None = Query(default=0),
-              gamma: str | None = Query("scale",
-                                        regex="^(scale)$|^(auto)$"),
-              kernel: str | None = Query("rbf",
-                                         regex="^(rbf)$|^(linear)$|^(poly)$|^(sigmoid)$|^(precomputed)$"),
-              independent_variables: list[str] | None = Query(default=None)):
+@router.get("/SVC_function")
+async def SVC_function(dependent_variable: str,
+                       degree: int | None = Query(default=3),
+                       max_iter: int | None = Query(default=-1),
+                       C: float | None = Query(default=1,gt=0),
+                       coef0: float | None = Query(default=0),
+                       gamma: str | None = Query("scale",
+                                                 regex="^(scale)$|^(auto)$"),
+                       kernel: str | None = Query("rbf",
+                                                  regex="^(rbf)$|^(linear)$|^(poly)$|^(sigmoid)$"),
+                       independent_variables: list[str] | None = Query(default=None)):
 
     dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
     df_label = dataset[dependent_variable]
@@ -272,18 +284,23 @@ async def SVC(dependent_variable: str,
     Y = np.array(df_label)
 
     if kernel == 'poly':
-        clf = SVC(degree=degree, gamma=gamma, coef0=coef0, C=C, epsilon=epsilon, max_iter=max_iter)
+        clf = SVC(degree=degree, kernel=kernel, gamma=gamma, coef0=coef0, C=C, max_iter=max_iter)
     elif kernel == 'rbf' or kernel == 'sigmoid':
         if kernel == 'sigmoid':
-            clf = SVC(gamma=gamma, coef0=coef0, C=C, epsilon=epsilon, max_iter=max_iter)
+            clf = SVC(gamma=gamma, kernel=kernel, coef0=coef0, C=C, max_iter=max_iter)
         else:
-            clf = SVC(gamma=gamma, C=C, epsilon=epsilon, max_iter=max_iter)
+            clf = SVC(gamma=gamma, C=C, kernel=kernel, max_iter=max_iter)
+    else:
+        clf = SVC(kernel=kernel, C=C, max_iter=max_iter)
 
     clf.fit(X, Y)
     if kernel == 'linear':
         coeffs = np.squeeze(clf.coef_)
         inter = clf.intercept_
-        return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist()}
+        df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
+        df_names = pd.DataFrame(independent_variables, columns=['variables'])
+        df = pd.concat([df_names, df_coeffs], axis=1)
+        return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(), 'dataframe': df.to_json(orient='split')}
     else:
         coeffs = np.squeeze(clf.dual_coef_)
         inter = clf.intercept_
@@ -351,7 +368,10 @@ async def linear_regression(dependent_variable: str,
     clf.fit(X, Y)
     coeffs = np.squeeze(clf.coef_)
     inter = clf.intercept_
-    return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist()}
+    df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
+    df_names = pd.DataFrame(independent_variables, columns=['variables'])
+    df = pd.concat([df_names, df_coeffs], axis=1)
+    return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(), 'dataframe': df.to_json(orient='split')}
 
 @router.get("/elastic_net")
 async def elastic_net(dependent_variable: str,
@@ -359,8 +379,6 @@ async def elastic_net(dependent_variable: str,
                       l1_ratio: float | None = Query(default=0.5, ge=0, le=1),
                       max_iter: int | None = Query(default=1000),
                       independent_variables: list[str] | None = Query(default=None)):
-
-
 
     dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
     df_label = dataset[dependent_variable]
@@ -376,7 +394,10 @@ async def elastic_net(dependent_variable: str,
     clf.fit(X, Y)
     coeffs = np.squeeze(clf.coef_)
     inter = clf.intercept_
-    return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist()}
+    df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
+    df_names = pd.DataFrame(independent_variables, columns=['variables'])
+    df = pd.concat([df_names, df_coeffs], axis=1)
+    return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(), 'dataframe': df.to_json(orient='split')}
 
 @router.get("/lasso_regression")
 async def lasso(dependent_variable: str,
@@ -398,7 +419,10 @@ async def lasso(dependent_variable: str,
     clf.fit(X, Y)
     coeffs = np.squeeze(clf.coef_)
     inter = clf.intercept_
-    return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist()}
+    df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
+    df_names = pd.DataFrame(independent_variables, columns=['variables'])
+    df = pd.concat([df_names, df_coeffs], axis=1)
+    return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(), 'dataframe': df.to_json(orient='split')}
 
 @router.get("/ridge_regression")
 async def ridge(dependent_variable: str,
@@ -425,7 +449,10 @@ async def ridge(dependent_variable: str,
     clf.fit(X, Y)
     coeffs = np.squeeze(clf.coef_)
     inter = clf.intercept_
-    return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist()}
+    df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
+    df_names = pd.DataFrame(independent_variables, columns=['variables'])
+    df = pd.concat([df_names, df_coeffs], axis=1)
+    return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(), 'dataframe': df.to_json(orient='split')}
 
 @router.get("/sgd_regression")
 async def sgd_regressor(dependent_variable: str,
@@ -462,7 +489,10 @@ async def sgd_regressor(dependent_variable: str,
     clf.fit(X, Y)
     coeffs = np.squeeze(clf.coef_)
     inter = clf.intercept_
-    return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist()}
+    df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
+    df_names = pd.DataFrame(independent_variables, columns=['variables'])
+    df = pd.concat([df_names, df_coeffs], axis=1)
+    return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(), 'dataframe': df.to_json(orient='split')}
 
 @router.get("/huber_regression")
 async def huber_regressor(dependent_variable: str,
@@ -486,7 +516,10 @@ async def huber_regressor(dependent_variable: str,
     coeffs = np.squeeze(clf.coef_)
     inter = clf.intercept_
     outliers = clf.outliers_
-    return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(), 'outliers':outliers.tolist()}
+    df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
+    df_names = pd.DataFrame(independent_variables, columns=['variables'])
+    df = pd.concat([df_names, df_coeffs], axis=1)
+    return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(), 'outliers':outliers.tolist(), 'dataframe': df.to_json(orient='split')}
 
 @router.get("/svr_regression")
 async def svr_regressor(dependent_variable: str,
@@ -523,11 +556,17 @@ async def svr_regressor(dependent_variable: str,
     if kernel == 'linear':
         coeffs = np.squeeze(clf.coef_)
         inter = clf.intercept_
-        return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist()}
+        df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
+        df_names = pd.DataFrame(independent_variables, columns=['variables'])
+        df = pd.concat([df_names, df_coeffs], axis=1)
+        return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(), 'dataframe': df.to_json(orient='split')}
     else:
         coeffs = np.squeeze(clf.dual_coef_)
         inter = clf.intercept_
-        return {'Coefficients of the support vector in the decision function.': coeffs.tolist(), 'intercept': inter.tolist()}
+        df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
+        df_names = pd.DataFrame(independent_variables, columns=['variables'])
+        df = pd.concat([df_names, df_coeffs], axis=1)
+        return {'Coefficients of the support vector in the decision function.': coeffs.tolist(), 'intercept': inter.tolist(), 'dataframe': df.to_json(orient='split')}
 
 @router.get("/linearsvr_regression")
 async def linear_svr_regressor(dependent_variable: str,
@@ -552,7 +591,10 @@ async def linear_svr_regressor(dependent_variable: str,
     clf.fit(X, Y)
     coeffs = np.squeeze(clf.coef_)
     inter = clf.intercept_
-    return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist()}
+    df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
+    df_names = pd.DataFrame(independent_variables, columns=['variables'])
+    df = pd.concat([df_names, df_coeffs], axis=1)
+    return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(), 'dataframe': df.to_json(orient='split')}
 
 @router.get("/linearsvc_regression")
 async def linear_svc_regressor(dependent_variable: str,
@@ -581,7 +623,10 @@ async def linear_svc_regressor(dependent_variable: str,
     clf.fit(X, Y)
     coeffs = np.squeeze(clf.coef_)
     inter = clf.intercept_
-    return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist()}
+    df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
+    df_names = pd.DataFrame(independent_variables, columns=['variables'])
+    df = pd.concat([df_names, df_coeffs], axis=1)
+    return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(), 'dataframe': df.to_json(orient='split')}
 
 @router.get("/ancova")
 async def ancova_2(dv: str,
@@ -614,6 +659,435 @@ async def linear_mixed_effects_model(dependent: str,
 
     df = mdf.summary()
 
+    df_0 = df.tables[0]
+    df_1 = df.tables[1]
+
+    return {'first table': df_0.to_json(orient='split'), 'second table': df_1.to_json(orient='split')}
+
+@router.get("/poisson_regression")
+async def poisson_regression(dependent_variable: str,
+                             alpha: float | None = Query(default=1.0, ge=0),
+                             max_iter: int | None = Query(default=1000),
+                             independent_variables: list[str] | None = Query(default=None)):
+
+    dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
+
+    df_label = dataset[dependent_variable]
+    for columns in dataset.columns:
+        if columns not in independent_variables:
+            dataset = dataset.drop(str(columns), axis=1)
+
+    X = np.array(dataset)
+    Y = np.array(df_label)
+
+    clf = PoissonRegressor(alpha=alpha, max_iter=max_iter)
+
+    clf.fit(X, Y)
+    coeffs = np.squeeze(clf.coef_)
+    inter = clf.intercept_
+    df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
+    df_names = pd.DataFrame(independent_variables, columns=['variables'])
+    df = pd.concat([df_names, df_coeffs], axis=1)
+    return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(), 'dataframe': df.to_json(orient='split')}
+
+@router.get("/cox_regression")
+async def cox_regression(duration_col: str,
+                         covariates: str,
+                         alpha: float | None = Query(default=0.05),
+                         penalizer: float | None = Query(default=0.0),
+                         l1_ratio: float | None = Query(default=0.0),
+                         n_baseline_knots: int | None = Query(default=2),
+                         breakpoints: int | None = Query(default=None),
+                         event_col: str | None = Query(default=None),
+                         weights_col: str | None = Query(default=None),
+                         cluster_col: str | None = Query(default=None),
+                         entry_col: str | None = Query(default=None),
+                         strata: list[str] | None = Query(default=None),
+                         values: list[int] | None = Query(default=None),
+                         hazard_ratios: bool | None = Query(default=False),
+                         baseline_estimation_method: str | None = Query("breslow",
+                                                                       regex="^(breslow)$|^(spline)$|^(piecewise)$")):
+
+    to_return = {}
+
+    fig = plt.figure(1)
+    ax = plt.subplot(111)
+
+    dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
+
+    if baseline_estimation_method == "spline":
+        cph = CoxPHFitter(alpha=alpha, baseline_estimation_method=baseline_estimation_method,penalizer=penalizer,l1_ratio=l1_ratio,strata=strata,
+                          n_baseline_knots=n_baseline_knots)
+    elif baseline_estimation_method == "piecewise":
+        cph = CoxPHFitter(alpha=alpha, baseline_estimation_method=baseline_estimation_method, penalizer=penalizer, l1_ratio=l1_ratio,strata=strata,
+                          breakpoints=breakpoints)
+    else:
+        cph = CoxPHFitter(alpha=alpha,baseline_estimation_method=baseline_estimation_method, penalizer=penalizer, l1_ratio=l1_ratio,strata=strata)
+
+    cph.fit(dataset, duration_col=duration_col, event_col=event_col,weights_col=weights_col,cluster_col=cluster_col,entry_col=entry_col)
+
+    df = cph.summary
+
+    #fig = plt.figure(figsize=(18, 12))
+    cph.plot(hazard_ratios=hazard_ratios, ax=ax)
+    plt.show()
+
+    html_str = mpld3.fig_to_html(fig)
+    to_return["figure_1"] = html_str
+    #plt.close(1)
+    #fig = plt.figure(2)
+    #ax = plt.subplot(121)
+    plt.clf()
+    if values!=None:
+        cph.plot_partial_effects_on_outcome(covariates=covariates, values=values, cmap='coolwarm')
+        plt.show()
+        html_str = mpld3.fig_to_html(fig)
+        to_return["figure_2"] = html_str
+
+    return {'Dataframe of the coefficients, p-values, CIs, etc.':df.to_json(orient="split"), 'figure': to_return}
+
+@router.get("/anova_repeated_measures")
+async def anova_rm(dependent_variable: str,
+                   subject: str,
+                   within: list[str] | None = Query(default=None),
+                   aggregate_func: str | None = Query(default=None,
+                                                      regex="^(mean)$")):
+
+    df_data = pd.read_csv('example_data/mescobrad_dataset.csv')
+
+    unique, counts = np.unique(df_data[subject], return_counts=True)
+
+    z = all(x==counts[0] for x in counts)
+    if z:
+        df = AnovaRM(data=df_data, depvar=dependent_variable, subject=subject, within=within, aggregate_func=aggregate_func)
+        df_new = df.fit()
+        return{'Result': df_new}
+    else:
+        return {"Unbalanced"}
+
+@router.get("/generalized_estimating_equations")
+async def generalized_estimating_equations(dependent: str,
+                                           groups: str,
+                                           independent: list[str] | None = Query(default=None),
+                                           conv_struct: str | None = Query("independence",
+                                                                           regex="^(independence)$|^(autoregressive)$|^(exchangeable)$|^(nested_working_dependence)$"),
+                                           family: str | None = Query("poisson",
+                                                                      regex="^(poisson)$|^(gamma)$|^(gaussian)$|^(inverse_gaussian)$|^(negative_binomial)$|^(binomial)$|^(tweedie)$")):
+
+    data = pd.read_csv('example_data/mescobrad_dataset.csv')
+
+    z = dependent + "~"
+    for i in range(len(independent)):
+        z = z + "+" + independent[i]
+
+    if family == "poisson":
+        fam = sm.families.Poisson()
+    elif family == "gamma":
+        fam = sm.families.Gamma()
+    elif family == "gaussian":
+        fam = sm.families.Gaussian()
+    elif family == "inverse_gaussian":
+        fam = sm.families.InverseGaussian()
+    elif family == 'negative_binomial':
+        fam = sm.families.NegativeBinomial()
+    elif family == "binomial":
+        fam = sm.families.Binomial()
+    else:
+        fam = sm.families.Tweedie()
+
+    if conv_struct == "independence":
+        ind = sm.cov_struct.Independence()
+    elif conv_struct == "autoregressive":
+        ind = sm.cov_struct.Autoregressive()
+    elif conv_struct == "exchangeable":
+        ind = sm.cov_struct.Exchangeable()
+    else:
+        ind = sm.cov_struct.Nested()
+
+    md = smf.gee(z, groups, data, cov_struct=ind, family=fam)
+
+    mdf = md.fit()
+
+    df = mdf.summary()
+
     print(df)
 
-    return {df}
+    results_as_html = df.tables[0].as_html()
+    df_0 = pd.read_html(results_as_html)[0]
+
+    results_as_html = df.tables[1].as_html()
+    df_1 = pd.read_html(results_as_html)[0]
+
+    results_as_html = df.tables[2].as_html()
+    df_2 = pd.read_html(results_as_html)[0]
+
+    return {'first_table':df_0.to_json(orient="split"), 'second table':df_1.to_json(orient="split"), 'third table':df_2.to_json(orient="split")}
+
+@router.get("/kaplan_meier")
+async def kaplan_meier(column_1: str,
+                       column_2: str,
+                       label: str | None = Query(default=None),
+                       alpha: float | None = Query(default=0.05)):
+    to_return = {}
+
+    fig = plt.figure(1)
+    ax = plt.subplot(111)
+
+    dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
+
+    kmf = KaplanMeierFitter(alpha=alpha, label=label)
+    kmf.fit(dataset[column_1], dataset[column_2])
+    kmf.plot()
+    plt.show()
+
+    html_str = mpld3.fig_to_html(fig)
+    to_return["figure_1"] = html_str
+
+    df = kmf.survival_function_
+    confidence_interval = kmf.confidence_interval_
+
+    return {'figure': to_return, "survival_function":df.to_json(orient="split"), "confidence_interval": confidence_interval.to_json(orient='split')}
+
+@router.get("/fisher")
+async def fisher(variable_top_left: int,
+                 variable_top_right: int,
+                 variable_bottom_left: int,
+                 variable_bottom_right: int,
+                 alternative: Optional[str] | None = Query("two-sided",
+                                                           regex="^(two-sided)$|^(less)$|^(greater)$")):
+
+    df = [[variable_top_left,variable_top_right], [variable_bottom_left,variable_bottom_right]]
+
+    odd_ratio, p_value = fisher_exact(df, alternative=alternative)
+
+    return {'odd_ratio': odd_ratio, "p_value": p_value}
+
+@router.get("/mc_nemar")
+async def mc_nemar(variable_top_left: int,
+                   variable_top_right: int,
+                   variable_bottom_left: int,
+                   variable_bottom_right: int,
+                   exact: bool | None = Query(default=False),
+                   correction: bool | None = Query(default=True)):
+
+    df = [[variable_top_left,variable_top_right], [variable_bottom_left,variable_bottom_right]]
+
+    result = mcnemar(df, exact=exact, correction=correction)
+
+    return {'statistic': result.statistic, "p_value": result.pvalue}
+
+@router.get("/all_statistics")
+async def all_statistics():
+
+    dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
+    print(dataset.describe())
+
+    return {'statistics':dataset.to_json(orient="split")}
+
+@router.get("/conditional_logistic_regression")
+async def conditional_logistic_regression(endog: str,
+                                          exog: str,
+                                          groups: str,
+                                          method: str | None = Query("bfgs",
+                                                                     regex="^(bfgs)$|^(newton)$|^(lbfgs)$|^(powell)$|^(cg)$|^(ncg)$|^(basinhopping)$|^(minimize)$")
+                                          ):
+
+    dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
+    z = np.unique(dataset[endog])
+    if len(z) == 2 and 0 in z and 1 in z:
+        m = ConditionalLogit(endog=dataset[endog], exog=dataset[exog], groups=dataset[groups])
+        k = m.fit(method=method)
+        df = k.summary()
+        print(df)
+
+        results_as_html = df.tables[0].as_html()
+        df_0 = pd.read_html(results_as_html)[0]
+
+        results_as_html = df.tables[1].as_html()
+        df_1 = pd.read_html(results_as_html)[0]
+
+        return {'first_table': df_0.to_json(orient="split"), 'second table': df_1.to_json(orient="split")}
+    else:
+        return {'The response variable must contain only 0 and 1'}
+
+
+@router.get("/risks")
+async def risk_ratio_1(exposure: str,
+                       outcome: str,
+                       time: str | None = Query(default=None),
+                       reference: int | None = Query(default=0),
+                       alpha: float | None = Query(default=0.05),
+                       method: str | None = Query("risk_ratio",
+                                                  regex="^(risk_ratio)$|^(risk_difference)$|^(number_needed_to_treat)$|^(odds_ratio)$|^(incidence_rate_ratio)$|^(incidence_rate_difference)$")):
+
+    to_return = {}
+
+    fig = plt.figure(1)
+    ax = plt.subplot(111)
+
+    #dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
+    dataset = load_sample_data(False)
+
+    if method == 'risk_ratio':
+        rr = RiskRatio(reference=reference, alpha=alpha)
+    elif method == 'risk_difference':
+        rr = RiskDifference(reference=reference, alpha=alpha)
+    elif method == 'number_needed_to_treat':
+        rr = NNT(reference=reference, alpha=alpha)
+        rr.fit(dataset, exposure='art', outcome='dead')
+        df = rr.results
+        return {'table': df.to_json(orient="split")}
+    elif method == 'odds_ratio':
+        rr = OddsRatio(reference=reference, alpha=alpha)
+    elif method == 'incidence_rate_ratio':
+        rr = IncidenceRateRatio(reference=reference, alpha=alpha)
+        rr.fit(dataset, exposure='art', outcome='dead', time='t')
+        df = rr.results
+        rr.plot()
+        plt.show()
+
+        html_str = mpld3.fig_to_html(fig)
+        to_return["figure"] = html_str
+
+        return {'table': df.to_json(orient="split"), 'figure': to_return}
+    else:
+        rr = IncidenceRateDifference(reference=reference, alpha=alpha)
+        rr.fit(dataset, exposure='art', outcome='dead', time='t')
+        df = rr.results
+        rr.plot()
+        plt.show()
+
+        html_str = mpld3.fig_to_html(fig)
+        to_return["figure"] = html_str
+
+        return {'table': df.to_json(orient="split"), 'figure': to_return}
+
+    rr.fit(dataset, exposure='art', outcome='dead')
+    df = rr.results
+
+    rr.plot()
+    plt.show()
+
+    html_str = mpld3.fig_to_html(fig)
+    to_return["figure"] = html_str
+
+    return {'table': df.to_json(orient="split"), 'figure': to_return}
+
+@router.get("/two_sided_risk_ci")
+async def two_sided_risk_ci(events: int,
+                            total: int,
+                            alpha: float | None = Query(default=0.05),
+                            confint: str | None = Query("wald",
+                                                       regex="^(wald)$|^(hypergeometric)$")):
+
+    r = risk_ci(events=events, total=total, alpha=alpha, confint=confint)
+    estimated_risk = r.point_estimate
+    lower_bound = r.lower_bound
+    upper_bound = r.upper_bound
+    standard_error = r.standard_error
+
+    return {'estimated risk': estimated_risk, 'lower bound': lower_bound, 'upper bound': upper_bound, 'standard error': standard_error}
+
+@router.get("/two_sided_incident_rate")
+async def two_sided_risk_ci(events: int,
+                            time: int,
+                            alpha: float | None = Query(default=0.05)):
+
+    r = incidence_rate_ci(events=events, time=time, alpha=alpha)
+    estimated_risk = r.point_estimate
+    lower_bound = r.lower_bound
+    upper_bound = r.upper_bound
+    standard_error = r.standard_error
+
+    return {'estimated incident rate': estimated_risk, 'lower bound': lower_bound, 'upper bound': upper_bound, 'standard error': standard_error}
+
+
+@router.get("/risk_ratio_function")
+async def risk_ratio_function(exposed_with: int,
+                              unexposed_with: int,
+                              exposed_without: int,
+                              unexposed_without: int,
+                              alpha: float | None = Query(default=0.05)):
+
+    r = risk_ratio(a=exposed_with, b=unexposed_with, c=exposed_without, d=unexposed_without, alpha=alpha)
+    estimated_risk = r.point_estimate
+    lower_bound = r.lower_bound
+    upper_bound = r.upper_bound
+    standard_error = r.standard_error
+
+    return {'risk ratio': estimated_risk, 'lower bound': lower_bound, 'upper bound': upper_bound, 'standard error': standard_error}
+
+@router.get("/risk_difference_function")
+async def risk_difference_function(exposed_with: int,
+                                   unexposed_with: int,
+                                   exposed_without: int,
+                                   unexposed_without: int,
+                                   alpha: float | None = Query(default=0.05)):
+
+    r = risk_difference(a=exposed_with, b=unexposed_with, c=exposed_without, d=unexposed_without, alpha=alpha)
+    estimated_risk = r.point_estimate
+    lower_bound = r.lower_bound
+    upper_bound = r.upper_bound
+    standard_error = r.standard_error
+
+    return {'risk difference': estimated_risk, 'lower bound': lower_bound, 'upper bound': upper_bound, 'standard error': standard_error}
+
+@router.get("/number_needed_to_treat_function")
+async def number_needed_to_treat_function(exposed_with: int,
+                                          unexposed_with: int,
+                                          exposed_without: int,
+                                          unexposed_without: int,
+                                          alpha: float | None = Query(default=0.05)):
+
+    r = number_needed_to_treat(a=exposed_with, b=unexposed_with, c=exposed_without, d=unexposed_without, alpha=alpha)
+    estimated_risk = r.point_estimate
+    lower_bound = r.lower_bound
+    upper_bound = r.upper_bound
+    standard_error = r.standard_error
+
+    return {'nnt': estimated_risk, 'lower bound': lower_bound, 'upper bound': upper_bound, 'standard error': standard_error}
+
+@router.get("/odds_ratio_function")
+async def odds_ratio_function(exposed_with: int,
+                              unexposed_with: int,
+                              exposed_without: int,
+                              unexposed_without: int,
+                              alpha: float | None = Query(default=0.05)):
+
+    r = odds_ratio(a=exposed_with, b=unexposed_with, c=exposed_without, d=unexposed_without, alpha=alpha)
+    estimated_risk = r.point_estimate
+    lower_bound = r.lower_bound
+    upper_bound = r.upper_bound
+    standard_error = r.standard_error
+
+    return {'odds ratio': estimated_risk, 'lower bound': lower_bound, 'upper bound': upper_bound, 'standard error': standard_error}
+
+@router.get("/incidence_rate_ratio_function")
+async def incidence_rate_ratio_function(exposed_with: int,
+                                        unexposed_with: int,
+                                        person_time_exposed: int,
+                                        person_time_unexposed: int,
+                                        alpha: float | None = Query(default=0.05)):
+
+    r = incidence_rate_ratio(a=exposed_with, c=unexposed_with, t1=person_time_exposed, t2=person_time_unexposed, alpha=alpha)
+    estimated_risk = r.point_estimate
+    lower_bound = r.lower_bound
+    upper_bound = r.upper_bound
+    standard_error = r.standard_error
+
+    return {'incident rate ratio': estimated_risk, 'lower bound': lower_bound, 'upper bound': upper_bound, 'standard error': standard_error}
+
+@router.get("/incidence_rate_difference_function")
+async def incidence_rate_difference_function(exposed_with: int,
+                                             unexposed_with: int,
+                                             person_time_exposed: int,
+                                             person_time_unexposed: int,
+                                             alpha: float | None = Query(default=0.05)):
+
+    r = incidence_rate_difference(a=exposed_with, c=unexposed_with, t1=person_time_exposed, t2=person_time_unexposed, alpha=alpha)
+    estimated_risk = r.point_estimate
+    lower_bound = r.lower_bound
+    upper_bound = r.upper_bound
+    standard_error = r.standard_error
+
+    return {'incident rate difference': estimated_risk, 'lower bound': lower_bound, 'upper bound': upper_bound, 'standard error': standard_error}
