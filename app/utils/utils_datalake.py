@@ -43,6 +43,7 @@ def list_all_objects(bucket_name: str):
 
 def fget_object(bucket_name: str, object_name: str, file_location: str):
     # Download data of an object.
+    # File location needs also a name for the file to be downloaded
     new_client.fget_object(bucket_name, object_name, file_location)
 
 
@@ -76,16 +77,17 @@ def object_stat(bucket_name: str, object_name: str):
 
 def get_saved_dataset_for_Hypothesis(bucket_name: str, object_name: str, file_location: str):
     try:
-        print("------------ Test 1--------------")
-        print("bucket_name")
-        print(bucket_name)
-        print("object_name")
-        print(object_name)
-        print("file_location")
-        print(file_location)
+        # print("------------ Test 1--------------")
+        # print("bucket_name")
+        # print(bucket_name)
+        # print("object_name")
+        # print(object_name)
+        # print("file_location")
+        # print(file_location)
         fget_object(bucket_name, object_name, file_location)
         print("file has been downloaded")
-    except:
+    except Exception as exc:
+        print(exc)
         print("error")
 
 # fget_object('saved', f"{'folder01'}/test-object", 'gd_test_data/Downloaded_object.json')

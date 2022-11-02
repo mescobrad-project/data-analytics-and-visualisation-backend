@@ -26,10 +26,10 @@ def create_local_step(run_id, step_id, files_to_download):
     for file_to_download in files_to_download:
         print("file_to_download")
         print(file_to_download)
-        get_saved_dataset_for_Hypothesis(bucket_name=file_to_download[0], object_name=file_to_download[1], file_location=path_to_save)
+        get_saved_dataset_for_Hypothesis(bucket_name=file_to_download[0], object_name=file_to_download[1], file_location=path_to_save + "/" +file_to_download[1])
     # Info file might be unneeded
-    with open( path_to_save+ '/info.json', 'w', encoding='utf-8') as f:
-        pass
+    # with open( path_to_save+ '/info.json', 'w', encoding='utf-8') as f:
+    #     pass
 
 def validate_and_convert_peaks(input_height, input_threshold, input_prominence, input_width, input_plateau_size):
     to_return = {

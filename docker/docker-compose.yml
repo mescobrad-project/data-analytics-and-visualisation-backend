@@ -11,6 +11,7 @@ services:
     environment:
       WFAddress: expertsystem_web_1
       NeurodesktopStorageLocation: /neurodesktop-storage
+      FrontendAddress: http://localhost:3000
     volumes:
       - '/neurodesktop-storage:/neurodesktop-storage'
     ports:
