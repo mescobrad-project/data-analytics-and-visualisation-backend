@@ -260,7 +260,7 @@ async def LDA(dependent_variable: str,
     coeffs = np.squeeze(clf.coef_)
     inter = clf.intercept_
     df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
-    df_names = pd.DataFrame(independent_variables, columns=['variables'])
+    df_names = pd.DataFrame(dataset.columns, columns=['variables'])
     df = pd.concat([df_names, df_coeffs], axis=1)
     return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(), 'dataframe': df.to_json(orient='split')}
 
@@ -300,7 +300,7 @@ async def SVC_function(dependent_variable: str,
         coeffs = np.squeeze(clf.coef_)
         inter = clf.intercept_
         df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
-        df_names = pd.DataFrame(independent_variables, columns=['variables'])
+        df_names = pd.DataFrame(dataset.columns, columns=['variables'])
         df = pd.concat([df_names, df_coeffs], axis=1)
         return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(), 'dataframe': df.to_json(orient='split')}
     else:
@@ -371,7 +371,7 @@ async def linear_regression(dependent_variable: str,
     coeffs = np.squeeze(clf.coef_)
     inter = clf.intercept_
     df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
-    df_names = pd.DataFrame(independent_variables, columns=['variables'])
+    df_names = pd.DataFrame(dataset.columns, columns=['variables'])
     df = pd.concat([df_names, df_coeffs], axis=1)
     return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(), 'dataframe': df.to_json(orient='split')}
 
@@ -397,7 +397,7 @@ async def elastic_net(dependent_variable: str,
     coeffs = np.squeeze(clf.coef_)
     inter = clf.intercept_
     df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
-    df_names = pd.DataFrame(independent_variables, columns=['variables'])
+    df_names = pd.DataFrame(dataset.columns, columns=['variables'])
     df = pd.concat([df_names, df_coeffs], axis=1)
     return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(), 'dataframe': df.to_json(orient='split')}
 
@@ -422,7 +422,7 @@ async def lasso(dependent_variable: str,
     coeffs = np.squeeze(clf.coef_)
     inter = clf.intercept_
     df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
-    df_names = pd.DataFrame(independent_variables, columns=['variables'])
+    df_names = pd.DataFrame(dataset.columns, columns=['variables'])
     df = pd.concat([df_names, df_coeffs], axis=1)
     return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(), 'dataframe': df.to_json(orient='split')}
 
@@ -452,7 +452,7 @@ async def ridge(dependent_variable: str,
     coeffs = np.squeeze(clf.coef_)
     inter = clf.intercept_
     df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
-    df_names = pd.DataFrame(independent_variables, columns=['variables'])
+    df_names = pd.DataFrame(dataset.columns, columns=['variables'])
     df = pd.concat([df_names, df_coeffs], axis=1)
     return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(), 'dataframe': df.to_json(orient='split')}
 
@@ -492,7 +492,7 @@ async def sgd_regressor(dependent_variable: str,
     coeffs = np.squeeze(clf.coef_)
     inter = clf.intercept_
     df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
-    df_names = pd.DataFrame(independent_variables, columns=['variables'])
+    df_names = pd.DataFrame(dataset.columns, columns=['variables'])
     df = pd.concat([df_names, df_coeffs], axis=1)
     return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(), 'dataframe': df.to_json(orient='split')}
 
@@ -519,7 +519,7 @@ async def huber_regressor(dependent_variable: str,
     inter = clf.intercept_
     outliers = clf.outliers_
     df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
-    df_names = pd.DataFrame(independent_variables, columns=['variables'])
+    df_names = pd.DataFrame(dataset.columns, columns=['variables'])
     df = pd.concat([df_names, df_coeffs], axis=1)
     return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(), 'outliers':outliers.tolist(), 'dataframe': df.to_json(orient='split')}
 
@@ -561,7 +561,7 @@ async def svr_regressor(dependent_variable: str,
         coeffs = np.squeeze(clf.coef_)
         inter = clf.intercept_
         df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
-        df_names = pd.DataFrame(independent_variables, columns=['variables'])
+        df_names = pd.DataFrame(dataset.columns, columns=['variables'])
         df = pd.concat([df_names, df_coeffs], axis=1)
         return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(), 'dataframe': df.to_json(orient='split')}
     else:
@@ -593,7 +593,7 @@ async def linear_svr_regressor(dependent_variable: str,
     coeffs = np.squeeze(clf.coef_)
     inter = clf.intercept_
     df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
-    df_names = pd.DataFrame(independent_variables, columns=['variables'])
+    df_names = pd.DataFrame(dataset.columns, columns=['variables'])
     df = pd.concat([df_names, df_coeffs], axis=1)
     return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(), 'dataframe': df.to_json(orient='split')}
 
@@ -625,7 +625,7 @@ async def linear_svc_regressor(dependent_variable: str,
     coeffs = np.squeeze(clf.coef_)
     inter = clf.intercept_
     df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
-    df_names = pd.DataFrame(independent_variables, columns=['variables'])
+    df_names = pd.DataFrame(dataset.columns, columns=['variables'])
     df = pd.concat([df_names, df_coeffs], axis=1)
     return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(), 'dataframe': df.to_json(orient='split')}
 
@@ -687,7 +687,7 @@ async def poisson_regression(dependent_variable: str,
     coeffs = np.squeeze(clf.coef_)
     inter = clf.intercept_
     df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
-    df_names = pd.DataFrame(independent_variables, columns=['variables'])
+    df_names = pd.DataFrame(dataset.columns, columns=['variables'])
     df = pd.concat([df_names, df_coeffs], axis=1)
     return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(), 'dataframe': df.to_json(orient='split')}
 
