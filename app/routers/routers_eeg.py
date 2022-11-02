@@ -21,8 +21,11 @@ from watchdog.observers import Observer
 from watchdog.events import LoggingEventHandler
 import lxml
 import logging
+
+from app.utils.utils_eeg import load_data_from_edf
 from app.utils.utils_general import validate_and_convert_peaks, validate_and_convert_power_spectral_density, \
-    create_notebook_mne_plot, get_neurodesk_display_id, get_annotations_from_csv, create_notebook_mne_modular
+    create_notebook_mne_plot, get_neurodesk_display_id, get_annotations_from_csv, create_notebook_mne_modular, \
+    get_single_file_from_local_temp_storage, get_local_storage_path
 
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -73,7 +76,12 @@ def butter_lowpass_filter(data, cutoff, fs, type_filter, order=5):
 
 
 @router.get("/list/channels", tags=["list_channels"])
-async def list_channels() -> dict:
+async def list_channels(step_id: str,
+                        run_id: str
+                        ) -> dict:
+    path_to_storage = get_local_storage_path(run_id, step_id)
+    name_of_file = get_single_file_from_local_temp_storage(run_id, step_id)
+    data = load_data_from_edf(path_to_storage+"/"+name_of_file)
     channels = data.ch_names
     return {'channels': channels}
 

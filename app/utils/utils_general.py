@@ -1,6 +1,7 @@
 # DO NOT AUTO FORMAT THIS FILE THE STRINGS ADDED TO MNE NOTEBOOKS ARE TAB AND SPACE SENSITIVE
 import json
 import time
+from os.path import isfile, join
 
 import nbformat as nbf
 import paramiko
@@ -15,6 +16,23 @@ from app.utils.utils_datalake import get_saved_dataset_for_Hypothesis
 
 NeurodesktopStorageLocation = os.environ.get('NeurodesktopStorageLocation') if os.environ.get(
     'NeurodesktopStorageLocation') else "/neurodesktop-storage"
+
+
+def get_single_file_from_local_temp_storage(run_id, step_id):
+    """Function to lazily retrieve name and path of file from local storage when there is a single file"""
+    files_to_return = [f for f in os.listdir(NeurodesktopStorageLocation+'/runtime_config/run_' + run_id + '_step_' + step_id) if isfile(join(NeurodesktopStorageLocation+'/runtime_config/run_' + run_id + '_step_' + step_id, f))]
+    return files_to_return[0]
+
+
+def get_all_files_from_local_temp_storage(run_id, step_id):
+    """Function to lazily retrieve name and path of file from local storage when there is a single file"""
+    files_to_return = [f for f in os.listdir(NeurodesktopStorageLocation+'/runtime_config/run_' + run_id + '_step_' + step_id) if isfile(join(NeurodesktopStorageLocation+'/runtime_config/run_' + run_id + '_step_' + step_id, f))]
+    return files_to_return
+
+
+def get_local_storage_path(run_id, step_id):
+    """Function returns path with / at the end"""
+    return NeurodesktopStorageLocation+'/runtime_config/run_' + run_id + '_step_' + step_id
 
 
 def create_local_step(run_id, step_id, files_to_download):
