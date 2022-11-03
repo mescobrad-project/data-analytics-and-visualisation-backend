@@ -4,6 +4,7 @@ import time
 from os.path import isfile, join
 
 import nbformat as nbf
+import pandas as pd
 import paramiko
 import csv
 import os
@@ -34,9 +35,17 @@ def get_local_storage_path(run_id, step_id):
     """Function returns path with / at the end"""
     return NeurodesktopStorageLocation+'/runtime_config/run_' + run_id + '_step_' + step_id
 
+def load_data_from_csv(file_with_path):
+    """This functions returns data from an edf file with the use of the MNE library
+        This functions returns file with infer types enabled
+    """
+    data = pd.read_csv(file_with_path)
+    return data
 
 def create_local_step(run_id, step_id, files_to_download):
     """ files_to_download format is array of arrays with inner array 0: being bucket name and 1: object name each representing one file"""
+    print("CREATING LOCAL STEP")
+    print(files_to_download)
     path_to_save = NeurodesktopStorageLocation + '/runtime_config/run_' + run_id + '_step_' + step_id
     os.makedirs(path_to_save, exist_ok=True)
     os.makedirs(path_to_save + '/output', exist_ok=True)

@@ -226,12 +226,16 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
         #  Create local storage for files and download them
         # Handle files metadata missing from request/accept it as an empty array
         if "files" in navigation_item.metadata:
+            # print("KEY EXISTS")
+            # print(navigation_item.metadata)
             create_local_step(run_id=navigation_item.run_id, step_id=navigation_item.step_id, files_to_download=navigation_item.metadata["files"])
         else:
+            # print("NOT EXIST KEY")
+            # print(navigation_item.metadata)
             create_local_step(run_id=navigation_item.run_id, step_id=navigation_item.step_id, files_to_download=[])
 
     # Add step and run id to the parameters
-    url_to_redirect += "?run_id="+ navigation_item.run_id+"&step_id=" + navigation_item.step_id
+    url_to_redirect += "/?run_id="+ navigation_item.run_id+"&step_id=" + navigation_item.step_id
     print(url_to_redirect)
     return {"url": url_to_redirect}
 

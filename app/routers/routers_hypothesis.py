@@ -13,6 +13,7 @@ from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
 from app.pydantic_models import ModelMultipleComparisons
 from app.utils.utils_datalake import fget_object, get_saved_dataset_for_Hypothesis
+from app.utils.utils_general import get_local_storage_path, get_single_file_from_local_temp_storage, load_data_from_csv
 
 router = APIRouter()
 data = pd.read_csv('example_data/sample_questionnaire.csv')
@@ -29,7 +30,11 @@ async def load_demo_data(file: Optional[str] | None):
     return data
 
 @router.get("/return_columns")
-async def name_columns():
+async def name_columns(step_id: str, run_id: str):
+    path_to_storage = get_local_storage_path(run_id, step_id)
+    name_of_file = get_single_file_from_local_temp_storage(run_id, step_id)
+    data = load_data_from_csv(path_to_storage + "/" + name_of_file)
+
     columns = data.columns
     return{'columns': list(columns)}
 
@@ -54,9 +59,9 @@ async def normal_tests(column: str,
                                                                  regex="^(two-sided)$|^(less)$|^(greater)$"),
                        name_test: str | None = Query("Shapiro-Wilk",
                                                    regex="^(Shapiro-Wilk)$|^(Kolmogorov-Smirnov)$|^(Anderson-Darling)$|^(D’Agostino’s K\^2)$")) -> dict:
-    print(file_name)
-    data = await load_demo_data(file_name)
-    print(data)
+    # print(file_name)
+    # data = await load_demo_data(file_name)
+    # print(data)
 
     if name_test == 'Shapiro-Wilk':
         shapiro_test = shapiro(data[str(column)])
@@ -95,6 +100,7 @@ async def transform_data(column:str,
                                                            regex="^(Box-Cox)$|^(Yeo-Johnson)$"),
                          lmbd: Optional[float] = None,
                          alpha: Optional[float] = None) -> dict:
+
     if name_transform == 'Box-Cox':
         if lmbd == None:
             if alpha == None:
@@ -119,7 +125,11 @@ async def transform_data(column:str,
             return {'Yeo-Johnson power transformed array': list(yeojohnson_array)}
 
 @router.get("/compute_pearson_correlation", tags=['hypothesis_testing'])
-async def pearson_correlation(column_1: str, column_2: str):
+async def pearson_correlation(step_id: str, run_id: str, column_1: str, column_2: str):
+    path_to_storage = get_local_storage_path(run_id, step_id)
+    name_of_file = get_single_file_from_local_temp_storage(run_id, step_id)
+    data = load_data_from_csv(path_to_storage + "/" + name_of_file)
+
     pearsonr_test = pearsonr(data[str(column_1)], data[str(column_2)])
     return {'Pearson’s correlation coefficient':pearsonr_test[0], 'p-value': pearsonr_test[1]}
 
