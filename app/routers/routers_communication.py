@@ -6,6 +6,8 @@ from fastapi import APIRouter, Request
 from pydantic import BaseModel
 from fastapi.responses import RedirectResponse
 
+from app.utils.utils_general import create_local_step
+
 router = APIRouter()
 
 WFAddress = os.environ.get('WFAddress') if os.environ.get(
@@ -34,8 +36,13 @@ ExistingFunctions = [
 
 
 class FunctionNavigationItem(BaseModel):
+    """
+    Known metadata information
+    "files" : [["bucket_name: "string" , "object_name": "string"]]
+     """
     run_id: str
     step_id: str
+    function: str
     metadata: dict
 
 
@@ -79,30 +86,22 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
 
     url_to_redirect = "http://localhost:3000"
     # url_to_redirect = "http:/"
-    if navigation_item.metadata["function"]:
-        match navigation_item.metadata["function"]:
+    if navigation_item.function:
+        match navigation_item.function:
             case "auto_correlation":
-                # url_to_redirect += "/auto_correlation"
-                url_to_redirect += "/eeg"
-                url_to_redirect += "?eeg_function=auto_correlation"
+                url_to_redirect += "/auto_correlation"
             case "partial_auto_correlation":
-                # url_to_redirect += "/partial_auto_correlation"
-                url_to_redirect += "/eeg"
+                url_to_redirect += "/partial_auto_correlation"
             case "filters":
-                # url_to_redirect += "/filters"
-                url_to_redirect += "/eeg"
+                url_to_redirect += "/filters"
             case "welch":
-                # url_to_redirect += "/welch"
-                url_to_redirect += "/eeg"
+                url_to_redirect += "/welch"
             case "find_peaks":
-                # url_to_redirect += "/find_peaks"
-                url_to_redirect += "/eeg"
+                url_to_redirect += "/find_peaks"
             case "stft":
-                # url_to_redirect += "/stft"
-                url_to_redirect += "/eeg"
+                url_to_redirect += "/stft"
             case "periodogram":
-                # url_to_redirect += "/periodogram"
-                url_to_redirect += "/eeg"
+                url_to_redirect += "/periodogram"
             case "power_spectral_density":
                 url_to_redirect += "/power_spectral_density"
             case "spindle":
@@ -112,24 +111,13 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
             case "samseg":
                 url_to_redirect += "/freesurfer/samseg"
             case "normality":
-                url_to_redirect += "/normality_Tests/?file_path="+navigation_item.metadata["files"][0]+"&"
-                os.makedirs('runtime_config/run_' + navigation_item.run_id + '_step_' + navigation_item.step_id, exist_ok=True)
-                data_to_write = {
-                }
+                url_to_redirect += "/normality_Tests"
+                # url_to_redirect += "/normality_Tests/?file_path="+navigation_item.metadata["files"][0]+"&"
 
-                # TODO UNCOMMENT AND FIX
-                # os.makedirs('runtime_config/run_' + navigation_item.run_id + '_step_' + navigation_item.step_id, exist_ok=True)
-                # data_to_write = {
-                # }
-                #
-                # if "files" in navigation_item.metadata:
-                #     # TODO DOWNLOAD FILE instead of just saving file
-                #     data_to_write["file"] = navigation_item.metadata["files"][0]
-                #     with open('runtime_config/run_' + navigation_item.run_id + '_step_' + navigation_item.step_id + '/' + navigation_item.metadata["files"][0] + '.json', 'w', encoding='utf-8') as f:
-                #         pass
-                #
-                # with open('runtime_config/run_' + navigation_item.run_id+ '_step_' + navigation_item.step_id + '/config_data.json', 'w', encoding='utf-8') as f:
-                #     json.dump(data_to_write, f, ensure_ascii=False, indent=4)
+        #  Create local storage for files and download them
+        create_local_step(run_id=navigation_item.run_id, step_id=navigation_item.step_id, files_to_download=navigation_item.metadata["files"])
+
+    # Add step and run id to the parameters
     url_to_redirect += "?run_id="+ navigation_item.run_id+"&step_id=" + navigation_item.step_id
     # return RedirectResponse(url=url_to_redirect, status_code=301)
     print(url_to_redirect)

@@ -11,9 +11,25 @@ from mne.preprocessing import ICA
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler,DirCreatedEvent,FileCreatedEvent
 
+from app.utils.utils_datalake import get_saved_dataset_for_Hypothesis
+
 NeurodesktopStorageLocation = os.environ.get('NeurodesktopStorageLocation') if os.environ.get(
     'NeurodesktopStorageLocation') else "/neurodesktop-storage"
 
+
+def create_local_step(run_id, step_id, files_to_download):
+    """ files_to_download format is array of arrays with inner array 0: being bucket name and 1: object name each representing one file"""
+    path_to_save = NeurodesktopStorageLocation + '/runtime_config/run_' + run_id + '_step_' + step_id
+    os.makedirs(path_to_save, exist_ok=True)
+    os.makedirs(path_to_save + '/output', exist_ok=True)
+    # Download all files indicated
+    for file_to_download in files_to_download:
+        print("file_to_download")
+        print(file_to_download)
+        get_saved_dataset_for_Hypothesis(bucket_name=file_to_download[0], object_name=file_to_download[1], file_location=path_to_save)
+    # Info file might be unneeded
+    with open( path_to_save+ '/info.json', 'w', encoding='utf-8') as f:
+        pass
 
 def validate_and_convert_peaks(input_height, input_threshold, input_prominence, input_width, input_plateau_size):
     to_return = {
