@@ -24,6 +24,10 @@ def get_single_file_from_local_temp_storage(run_id, step_id):
     files_to_return = [f for f in os.listdir(NeurodesktopStorageLocation+'/runtime_config/run_' + run_id + '_step_' + step_id) if isfile(join(NeurodesktopStorageLocation+'/runtime_config/run_' + run_id + '_step_' + step_id, f))]
     return files_to_return[0]
 
+def get_single_file_from_edfbrowser_interim_storage(run_id, step_id):
+    """Function to lazily retrieve name and path of file from local storage when there is a single file"""
+    files_to_return = [f for f in os.listdir(NeurodesktopStorageLocation+'/runtime_config/run_' + run_id + '_step_' + step_id +'/edfbrowser_interim_storage') if isfile(join(NeurodesktopStorageLocation+'/runtime_config/run_' + run_id + '_step_' + step_id +'/edfbrowser_interim_storage', f))]
+    return files_to_return[0]
 
 def get_all_files_from_local_temp_storage(run_id, step_id):
     """Function to lazily retrieve name and path of file from local storage when there is a single file"""
@@ -34,6 +38,10 @@ def get_all_files_from_local_temp_storage(run_id, step_id):
 def get_local_storage_path(run_id, step_id):
     """Function returns path with / at the end"""
     return NeurodesktopStorageLocation+'/runtime_config/run_' + run_id + '_step_' + step_id
+
+def get_local_edfbrowser_storage_path(run_id, step_id):
+    """Function returns path with / at the end"""
+    return NeurodesktopStorageLocation+'/runtime_config/run_' + run_id + '_step_' + step_id+'/edfbrowser_interim_storage'
 
 def load_data_from_csv(file_with_path):
     """This functions returns data from an edf file with the use of the MNE library
@@ -49,6 +57,7 @@ def create_local_step(run_id, step_id, files_to_download):
     path_to_save = NeurodesktopStorageLocation + '/runtime_config/run_' + run_id + '_step_' + step_id
     os.makedirs(path_to_save, exist_ok=True)
     os.makedirs(path_to_save + '/output', exist_ok=True)
+    os.makedirs(path_to_save + '/edfbrowser_interim_storage', exist_ok=True)
     # Download all files indicated
     for file_to_download in files_to_download:
         print("file_to_download")
@@ -323,17 +332,17 @@ def re_create_all_neurodesk_users():
 def get_neurodesk_display_id():
     """This function gets the id from the volume config folder where it was created when initiating the app"""
     try:
-        with open(NeurodesktopStorageLocation + "/config/my_display.txt", "r") as file:
+        with open(NeurodesktopStorageLocation + "/config/actual_display.txt", "r") as file:
             # Save lines in an array
             lines = file.read().splitlines()
-            print(lines)
-            print(NeurodesktopStorageLocation)
-            print(NeurodesktopStorageLocation + "/config/actual_display.txt")
+            # print(lines)
+            # print(NeurodesktopStorageLocation)
+            # print(NeurodesktopStorageLocation + "/config/actual_display.txt")
     except OSError as e:
         return "0"
 
     if len(lines) > 0:
-        print(lines[0])
+        # print(lines[0])
         return lines[0]
     else:
         return "0"

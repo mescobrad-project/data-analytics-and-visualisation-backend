@@ -25,7 +25,8 @@ import logging
 from app.utils.utils_eeg import load_data_from_edf
 from app.utils.utils_general import validate_and_convert_peaks, validate_and_convert_power_spectral_density, \
     create_notebook_mne_plot, get_neurodesk_display_id, get_annotations_from_csv, create_notebook_mne_modular, \
-    get_single_file_from_local_temp_storage, get_local_storage_path
+    get_single_file_from_local_temp_storage, get_local_storage_path, get_local_edfbrowser_storage_path, \
+    get_single_file_from_edfbrowser_interim_storage
 
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -77,11 +78,22 @@ def butter_lowpass_filter(data, cutoff, fs, type_filter, order=5):
 
 @router.get("/list/channels", tags=["list_channels"])
 async def list_channels(step_id: str,
-                        run_id: str
+                        run_id: str,
+                        file_used: str | None = Query("original",
+                                        regex="^(original)$|^(printed)$"),
                         ) -> dict:
-    path_to_storage = get_local_storage_path(run_id, step_id)
-    name_of_file = get_single_file_from_local_temp_storage(run_id, step_id)
-    data = load_data_from_edf(path_to_storage+"/"+name_of_file)
+
+    # If file is altered we retrieve it from the edf interim storage fodler
+    if file_used == "printed":
+        path_to_storage = get_local_edfbrowser_storage_path(run_id, step_id)
+        name_of_file = get_single_file_from_edfbrowser_interim_storage(run_id, step_id)
+        data = load_data_from_edf(path_to_storage + "/" + name_of_file)
+    else:
+        # If not we use it from the directory input files are supposed to be
+        path_to_storage = get_local_storage_path(run_id, step_id)
+        name_of_file = get_single_file_from_local_temp_storage(run_id, step_id)
+        data = load_data_from_edf(path_to_storage + "/" + name_of_file)
+
     channels = data.ch_names
     return {'channels': channels}
 
@@ -94,10 +106,23 @@ async def return_autocorrelation(step_id: str, run_id: str,
                                  input_bartlett_confint: bool | None = False,
                                  input_missing: str | None = Query("none",
                                                                    regex="^(none)$|^(raise)$|^(conservative)$|^(drop)$"),
-                                 input_alpha: float | None = None, input_nlags: int | None = None) -> dict:
-    path_to_storage = get_local_storage_path(run_id, step_id)
-    name_of_file = get_single_file_from_local_temp_storage(run_id, step_id)
-    data = load_data_from_edf(path_to_storage + "/" + name_of_file)
+                                 input_alpha: float | None = None, input_nlags: int | None = None,
+                                 file_used: str | None = Query("original", regex="^(original)$|^(printed)$")
+                                 ) -> dict:
+    # If file is altered we retrieve it from the edf interim storage fodler
+    if file_used == "printed":
+        path_to_storage = get_local_edfbrowser_storage_path(run_id, step_id)
+        name_of_file = get_single_file_from_edfbrowser_interim_storage(run_id, step_id)
+        data = load_data_from_edf(path_to_storage + "/" + name_of_file)
+    else:
+        # If not we use it from the directory input files are supposed to be
+        path_to_storage = get_local_storage_path(run_id, step_id)
+        name_of_file = get_single_file_from_local_temp_storage(run_id, step_id)
+        data = load_data_from_edf(path_to_storage + "/" + name_of_file)
+
+    # path_to_storage = get_local_edfbrowser_storage_path(run_id, step_id)
+    # name_of_file = get_single_file_from_edfbrowser_interim_storage(run_id, step_id)
+    # data = load_data_from_edf(path_to_storage + "/" + name_of_file)
 
     raw_data = data.get_data()
     channels = data.ch_names
@@ -902,7 +927,7 @@ async def detect_slow_waves(step_id: str, run_id: str,name: str):
 @router.get("/mne/open/eeg", tags=["mne_open_eeg"])
 # Validation is done inline in the input of the function
 # Slices are send in a single string and then de
-async def mne_open_eeg(step_id: str, run_id: str,input_run_id: str, input_step_id: str, current_user: str | None = None) -> dict:
+async def mne_open_eeg(step_id: str, run_id: str, current_user: str | None = None) -> dict:
     # # Create a new jupyter notebook with the id of the run and step for recognition
     # create_notebook_mne_plot(input_run_id, input_step_id)
 
@@ -912,7 +937,8 @@ async def mne_open_eeg(step_id: str, run_id: str,input_run_id: str, input_step_i
     ssh.connect("neurodesktop", 22, username="user", password="password")
     channel = ssh.invoke_shell()
 
-    print(get_neurodesk_display_id())
+    # print("get_neurodesk_display_id()")
+    # print(get_neurodesk_display_id())
     channel.send("cd /home/user/neurodesktop-storage\n")
     channel.send("sudo chmod 777 config\n")
     channel.send("cd /home/user/neurodesktop-storage/config\n")
@@ -924,9 +950,18 @@ async def mne_open_eeg(step_id: str, run_id: str,input_run_id: str, input_step_i
     # TODO !!!!!!!!!!!!!!!!!!!!!!!!!!! THIS USER MUST CHANGE TO CURRENTLY USED USER
     channel.send("pkill -INT edfbrowser -u user\n")
 
+    # Get file name to open with EDFBrowser
+    path_to_storage = get_local_storage_path(run_id, step_id)
+    name_of_file = get_single_file_from_local_temp_storage(run_id, step_id)
+    file_full_path = path_to_storage + "/" + name_of_file
+
+    # Give permissions in working folder
+    channel.send("sudo chmod a+rw /home/user/neurodesktop-storage/runtime_config/run_" + run_id + "_step_" + step_id +"/edfbrowser_interim_storage\n")
+
     # Opening EDFBrowser
-    channel.send("cd /home/user/neurodesktop-storage\n")
-    channel.send("/home/user/EDFbrowser/edfbrowser '/home/user/neurodesktop-storage/NIA test.edf'\n")
+    channel.send("cd /home/user/neurodesktop-storage/runtime_config/run_" + run_id + "_step_" + step_id +"/edfbrowser_interim_storage\n")
+    # print("/home/user/EDFbrowser/edfbrowser /home/user/'" + file_full_path + "'\n")
+    channel.send("/home/user/EDFbrowser/edfbrowser '/home/user" + file_full_path + "'\n")
 
     # OLD VISUAL STUDIO CODE CALL and terminate
     # channel.send("pkill -INT code -u user\n")

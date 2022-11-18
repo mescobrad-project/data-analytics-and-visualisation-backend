@@ -13,7 +13,7 @@ services:
       NeurodesktopStorageLocation: /neurodesktop-storage
       FrontendAddress: http://localhost:3000
     volumes:
-      - '/neurodesktop-storage:/neurodesktop-storage'
+      - 'C:\neurodesktop-storage:/neurodesktop-storage'
     ports:
       - "8000:8000"
     networks:
