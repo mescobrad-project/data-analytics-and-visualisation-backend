@@ -11,6 +11,7 @@ services:
     environment:
       WFAddress: expertsystem_web_1
       NeurodesktopStorageLocation: /home/ntua/neurodesktop-storage
+      FrontendAddress: http://10.129.150.120:3005
     volumes:
       - '/home/ntua/neurodesktop-storage:/neurodesktop-storage'
     ports:
