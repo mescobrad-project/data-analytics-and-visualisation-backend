@@ -22,7 +22,7 @@ from watchdog.events import LoggingEventHandler
 import lxml
 import logging
 
-from app.utils.utils_eeg import load_data_from_edf
+from app.utils.utils_eeg import load_data_from_edf, load_file_from_local_or_interim_edfbrowser_storage
 from app.utils.utils_general import validate_and_convert_peaks, validate_and_convert_power_spectral_density, \
     create_notebook_mne_plot, get_neurodesk_display_id, get_annotations_from_csv, create_notebook_mne_modular, \
     get_single_file_from_local_temp_storage, get_local_storage_path, get_local_edfbrowser_storage_path, \
@@ -109,20 +109,7 @@ async def return_autocorrelation(step_id: str, run_id: str,
                                  input_alpha: float | None = None, input_nlags: int | None = None,
                                  file_used: str | None = Query("original", regex="^(original)$|^(printed)$")
                                  ) -> dict:
-    # If file is altered we retrieve it from the edf interim storage fodler
-    if file_used == "printed":
-        path_to_storage = get_local_edfbrowser_storage_path(run_id, step_id)
-        name_of_file = get_single_file_from_edfbrowser_interim_storage(run_id, step_id)
-        data = load_data_from_edf(path_to_storage + "/" + name_of_file)
-    else:
-        # If not we use it from the directory input files are supposed to be
-        path_to_storage = get_local_storage_path(run_id, step_id)
-        name_of_file = get_single_file_from_local_temp_storage(run_id, step_id)
-        data = load_data_from_edf(path_to_storage + "/" + name_of_file)
-
-    # path_to_storage = get_local_edfbrowser_storage_path(run_id, step_id)
-    # name_of_file = get_single_file_from_edfbrowser_interim_storage(run_id, step_id)
-    # data = load_data_from_edf(path_to_storage + "/" + name_of_file)
+    data = load_file_from_local_or_interim_edfbrowser_storage(file_used, run_id, step_id)
 
     raw_data = data.get_data()
     channels = data.ch_names
@@ -164,10 +151,14 @@ async def return_partial_autocorrelation(step_id: str, run_id: str,
                                          input_name: str,
                                          input_method: str | None = Query("none",
                                                                           regex="^(none)$|^(yw)$|^(ywadjusted)$|^(ywm)$|^(ywmle)$|^(ols)$|^(ols-inefficient)$|^(ols-adjusted)$|^(ld)$|^(ldadjusted)$|^(ldb)$|^(ldbiased)$|^(burg)$"),
-                                         input_alpha: float | None = None, input_nlags: int | None = None) -> dict:
-    path_to_storage = get_local_storage_path(run_id, step_id)
-    name_of_file = get_single_file_from_local_temp_storage(run_id, step_id)
-    data = load_data_from_edf(path_to_storage + "/" + name_of_file)
+                                         input_alpha: float | None = None, input_nlags: int | None = None,
+                                         file_used: str | None = Query("original", regex="^(original)$|^(printed)$")
+                                         ) -> dict:
+    data = load_file_from_local_or_interim_edfbrowser_storage(file_used, run_id, step_id)
+
+    # path_to_storage = get_local_storage_path(run_id, step_id)
+    # name_of_file = get_single_file_from_local_temp_storage(run_id, step_id)
+    # data = load_data_from_edf(path_to_storage + "/" + name_of_file)
 
     raw_data = data.get_data()
     channels = data.ch_names
@@ -205,7 +196,7 @@ async def return_filters(
                          input_output: str | None = Query("ba", regex="^(ba)$|^(zpk)$|^(sos)$"),
                          input_worn: int | None = 512,
                          input_whole: bool | None = False,
-                         input_fs_freq: float | None = None
+                         input_fs_freq: float | None = None,
                          ) -> dict:
     path_to_storage = get_local_storage_path(run_id, step_id)
     name_of_file = get_single_file_from_local_temp_storage(run_id, step_id)
@@ -310,10 +301,9 @@ async def estimate_welch(
                          input_return_onesided: bool | None = True,
                          input_scaling: str | None = Query("density", regex="^(density)$|^(spectrum)$"),
                          input_axis: int | None = -1,
-                         input_average: str | None = Query("mean", regex="^(mean)$|^(median)$")) -> dict:
-    path_to_storage = get_local_storage_path(run_id, step_id)
-    name_of_file = get_single_file_from_local_temp_storage(run_id, step_id)
-    data = load_data_from_edf(path_to_storage + "/" + name_of_file)
+                         input_average: str | None = Query("mean", regex="^(mean)$|^(median)$"),
+                         file_used: str | None = Query("original", regex="^(original)$|^(printed)$") ) -> dict:
+    data = load_file_from_local_or_interim_edfbrowser_storage(file_used, run_id, step_id)
 
     # data.crop(tmin=tmin, tmax=tmax)
     raw_data = data.get_data()
@@ -353,10 +343,10 @@ async def estimate_stft(
                          input_boundary: str | None = Query("zeros",
                                                           regex="^(zeros)$|^(even)$|^(odd)$|^(constant)$|^(None)$"),
                          input_padded: bool | None = True,
-                         input_axis: int | None = -1) -> dict:
-    path_to_storage = get_local_storage_path(run_id, step_id)
-    name_of_file = get_single_file_from_local_temp_storage(run_id, step_id)
-    data = load_data_from_edf(path_to_storage + "/" + name_of_file)
+                         input_axis: int | None = -1,
+                         file_used: str | None = Query("original", regex="^(original)$|^(printed)$")) -> dict:
+    data = load_file_from_local_or_interim_edfbrowser_storage(file_used, run_id, step_id)
+
 
     # data.crop(tmin=tmin, tmax=tmax)
     raw_data = data.get_data()
@@ -403,10 +393,11 @@ async def return_peaks(step_id: str, run_id: str,
                        input_width=None,
                        input_wlen: int | None = None,
                        input_rel_height: float | None = None,
-                       input_plateau_size=None) -> dict:
-    path_to_storage = get_local_storage_path(run_id, step_id)
-    name_of_file = get_single_file_from_local_temp_storage(run_id, step_id)
-    data = load_data_from_edf(path_to_storage + "/" + name_of_file)
+                       input_plateau_size=None,
+                       file_used: str | None = Query("original", regex="^(original)$|^(printed)$")
+                       ) -> dict:
+    data = load_file_from_local_or_interim_edfbrowser_storage(file_used, run_id, step_id)
+
 
     raw_data = data.get_data(return_times=True)
     channels = data.ch_names
@@ -515,10 +506,11 @@ async def estimate_periodogram(step_id: str, run_id: str,input_name: str,
                                input_nfft: int | None = 256,
                                input_return_onesided: bool | None = True,
                                input_scaling: str | None = Query("density", regex="^(density)$|^(spectrum)$"),
-                               input_axis: int | None = -1) -> dict:
-    path_to_storage = get_local_storage_path(run_id, step_id)
-    name_of_file = get_single_file_from_local_temp_storage(run_id, step_id)
-    data = load_data_from_edf(path_to_storage + "/" + name_of_file)
+                               input_axis: int | None = -1,
+                               file_used: str | None = Query("original", regex="^(original)$|^(printed)$")
+                               ) -> dict:
+    data = load_file_from_local_or_interim_edfbrowser_storage(file_used, run_id, step_id)
+
 
     # data.crop(tmin=tmin, tmax=tmax)
     raw_data = data.get_data()
@@ -570,11 +562,11 @@ async def return_power_spectral_density(step_id: str, run_id: str,input_name: st
                                         input_normalization: str | None = "length",
                                         input_output: str | None = "power",
                                         input_n_jobs: int | None = 1,
-                                        input_verbose: str | None = None
+                                        input_verbose: str | None = None,
+                                        file_used: str | None = Query("original", regex="^(original)$|^(printed)$")
                                         ) -> dict:
-    path_to_storage = get_local_storage_path(run_id, step_id)
-    name_of_file = get_single_file_from_local_temp_storage(run_id, step_id)
-    data = load_data_from_edf(path_to_storage + "/" + name_of_file)
+    data = load_file_from_local_or_interim_edfbrowser_storage(file_used, run_id, step_id)
+
 
     # data.crop(tmin=tmin, tmax=tmax)
     raw_data = data.get_data()
@@ -634,10 +626,11 @@ async def calculate_alpha_delta_ratio(step_id: str, run_id: str,input_name: str,
                                       input_return_onesided: bool | None = True,
                                       input_scaling: str | None = Query("density", regex="^(density)$|^(spectrum)$"),
                                       input_axis: int | None = -1,
-                                      input_average: str | None = Query("mean", regex="^(mean)$|^(median)$")) -> dict:
-    path_to_storage = get_local_storage_path(run_id, step_id)
-    name_of_file = get_single_file_from_local_temp_storage(run_id, step_id)
-    data = load_data_from_edf(path_to_storage + "/" + name_of_file)
+                                      input_average: str | None = Query("mean", regex="^(mean)$|^(median)$"),
+                                      file_used: str | None = Query("original", regex="^(original)$|^(printed)$")
+                                      ) -> dict:
+    data = load_file_from_local_or_interim_edfbrowser_storage(file_used, run_id, step_id)
+
 
     # data.crop(tmin=tmin, tmax=tmax)
     raw_data = data.get_data()
@@ -690,10 +683,11 @@ async def calculate_asymmetry_indices(step_id: str, run_id: str,input_name_1: st
                                       input_return_onesided: bool | None = True,
                                       input_scaling: str | None = Query("density", regex="^(density)$|^(spectrum)$"),
                                       input_axis: int | None = -1,
-                                      input_average: str | None = Query("mean", regex="^(mean)$|^(median)$")) -> dict:
-    path_to_storage = get_local_storage_path(run_id, step_id)
-    name_of_file = get_single_file_from_local_temp_storage(run_id, step_id)
-    data = load_data_from_edf(path_to_storage + "/" + name_of_file)
+                                      input_average: str | None = Query("mean", regex="^(mean)$|^(median)$"),
+                                      file_used: str | None = Query("original", regex="^(original)$|^(printed)$")
+                                      ) -> dict:
+    data = load_file_from_local_or_interim_edfbrowser_storage(file_used, run_id, step_id)
+
 
     raw_data = data.get_data()
     info = data.info
@@ -752,10 +746,11 @@ async def calculate_alpha_variability(step_id: str, run_id: str,input_name: str,
                                       input_return_onesided: bool | None = True,
                                       input_scaling: str | None = Query("density", regex="^(density)$|^(spectrum)$"),
                                       input_axis: int | None = -1,
-                                      input_average: str | None = Query("mean", regex="^(mean)$|^(median)$")) -> dict:
-    path_to_storage = get_local_storage_path(run_id, step_id)
-    name_of_file = get_single_file_from_local_temp_storage(run_id, step_id)
-    data = load_data_from_edf(path_to_storage + "/" + name_of_file)
+                                      input_average: str | None = Query("mean", regex="^(mean)$|^(median)$"),
+                                      file_used: str | None = Query("original", regex="^(original)$|^(printed)$")
+                                      ) -> dict:
+    data = load_file_from_local_or_interim_edfbrowser_storage(file_used, run_id, step_id)
+
 
     # data.crop(tmin=tmin, tmax=tmax)
     raw_data = data.get_data()
@@ -807,10 +802,10 @@ async def return_predictions(step_id: str, run_id: str,input_name: str,
                              input_method: str | None = Query("lbfgs",
                                                               regex="^(lbfgs)$|^(newton)$|^(nm)$|^(bfgs)$|^(powell)$|^(cg)$|^(ncg)$|^(basinhopping)$"),
                              input_information_criterion: str | None = Query("aic",
-                                                                             regex="^(aic)$|^(bic)$|^(hqic)$|^(oob)$")):
-    path_to_storage = get_local_storage_path(run_id, step_id)
-    name_of_file = get_single_file_from_local_temp_storage(run_id, step_id)
-    data = load_data_from_edf(path_to_storage + "/" + name_of_file)
+                                                                             regex="^(aic)$|^(bic)$|^(hqic)$|^(oob)$"),
+                             file_used: str | None = Query("original", regex="^(original)$|^(printed)$")
+                             ):
+    data = load_file_from_local_or_interim_edfbrowser_storage(file_used, run_id, step_id)
 
     raw_data = data.get_data()
     channels = data.ch_names
@@ -861,10 +856,10 @@ async def return_predictions(step_id: str, run_id: str,input_name: str,
 
 # Spindles detection
 @router.get("/spindles_detection")
-async def detect_spindles(step_id: str, run_id: str,name: str):
-    path_to_storage = get_local_storage_path(run_id, step_id)
-    name_of_file = get_single_file_from_local_temp_storage(run_id, step_id)
-    data = load_data_from_edf(path_to_storage + "/" + name_of_file)
+async def detect_spindles(step_id: str, run_id: str,name: str,
+                          file_used: str | None = Query("original", regex="^(original)$|^(printed)$")):
+    data = load_file_from_local_or_interim_edfbrowser_storage(file_used, run_id, step_id)
+
 
     raw_data = data.get_data()
     info = data.info
@@ -897,10 +892,9 @@ async def detect_spindles(step_id: str, run_id: str,name: str):
 
 # Slow Waves detection
 @router.get("/slow_waves_detection")
-async def detect_slow_waves(step_id: str, run_id: str,name: str):
-    path_to_storage = get_local_storage_path(run_id, step_id)
-    name_of_file = get_single_file_from_local_temp_storage(run_id, step_id)
-    data = load_data_from_edf(path_to_storage + "/" + name_of_file)
+async def detect_slow_waves(step_id: str, run_id: str,name: str,
+                            file_used: str | None = Query("original", regex="^(original)$|^(printed)$")):
+    data = load_file_from_local_or_interim_edfbrowser_storage(file_used, run_id, step_id)
 
     raw_data = data.get_data()
     info = data.info
@@ -1006,9 +1000,11 @@ async def mne_return_annotations(step_id: str, run_id: str, file_name: str | Non
 
 
 @router.post("/receive_notebook_and_selection_configuration", tags=["receive__notebook_and_selection_configuration"])
-async def receive_notebook_and_selection_configuration(input_config: ModelNotebookAndSelectionConfiguration,step_id: str, run_id: str) -> dict:
+async def receive_notebook_and_selection_configuration(input_config: ModelNotebookAndSelectionConfiguration,step_id: str, run_id: str,file_used: str | None = Query("original", regex="^(original)$|^(printed)$")) -> dict:
     # TODO TEMP
-    data = mne.io.read_raw_edf("example_data/trial_av.edf", infer_types=True)
+    data = load_file_from_local_or_interim_edfbrowser_storage(file_used, run_id, step_id)
+
+    # data = mne.io.read_raw_edf("example_data/trial_av.edf", infer_types=True)
 
     raw_data = data.get_data(return_times=True)
 

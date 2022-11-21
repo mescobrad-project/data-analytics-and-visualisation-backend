@@ -50,6 +50,13 @@ def load_data_from_csv(file_with_path):
     data = pd.read_csv(file_with_path)
     return data
 
+def load_file_csv_direct(run_id, step_id ):
+    path_to_storage = get_local_storage_path(run_id, step_id)
+    name_of_file = get_single_file_from_local_temp_storage(run_id, step_id)
+    data = load_data_from_csv(path_to_storage + "/" + name_of_file)
+    return data
+
+
 def create_local_step(run_id, step_id, files_to_download):
     """ files_to_download format is array of arrays with inner array 0: being bucket name and 1: object name each representing one file"""
     print("CREATING LOCAL STEP")

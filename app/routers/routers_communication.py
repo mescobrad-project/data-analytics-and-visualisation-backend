@@ -151,7 +151,7 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/artifacts"
             case "alpha_variability":
                 url_to_redirect += "/alpha_variability"
-            case "assymetry_indices":
+            case "asymmetry_indices":
                 url_to_redirect += "/asymmetry_indices"
             case "slow_waves":
                 url_to_redirect += "/slowwaves"

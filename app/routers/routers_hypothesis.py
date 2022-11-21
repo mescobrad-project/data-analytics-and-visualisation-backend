@@ -13,7 +13,8 @@ from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
 from app.pydantic_models import ModelMultipleComparisons
 from app.utils.utils_datalake import fget_object, get_saved_dataset_for_Hypothesis
-from app.utils.utils_general import get_local_storage_path, get_single_file_from_local_temp_storage, load_data_from_csv
+from app.utils.utils_general import get_local_storage_path, get_single_file_from_local_temp_storage, load_data_from_csv, \
+    load_file_csv_direct
 
 router = APIRouter()
 data = pd.read_csv('example_data/sample_questionnaire.csv')
@@ -126,10 +127,7 @@ async def transform_data(column:str,
 
 @router.get("/compute_pearson_correlation", tags=['hypothesis_testing'])
 async def pearson_correlation(step_id: str, run_id: str, column_1: str, column_2: str):
-    path_to_storage = get_local_storage_path(run_id, step_id)
-    name_of_file = get_single_file_from_local_temp_storage(run_id, step_id)
-    data = load_data_from_csv(path_to_storage + "/" + name_of_file)
-
+    data = load_file_csv_direct(run_id, step_id)
     pearsonr_test = pearsonr(data[str(column_1)], data[str(column_2)])
     return {'Pearson’s correlation coefficient':pearsonr_test[0], 'p-value': pearsonr_test[1]}
 
