@@ -1111,3 +1111,86 @@ async def test_notebook(input_test_name: str, input_slices: str,
                         ) -> dict:
     create_notebook_mne_plot("hello", "again")
 
+
+
+@router.get("/envelope_trend", tags=["envelope_trend"])
+# Validation is done inline in the input of the function
+async def return_envelopetrend(input_name: str,
+                               window_size: int | None = None,
+                               percent: float | None = None,
+                               input_method: str | None = Query("none", regex="^(Simple)$|^(Cumulative)$|^(Exponential)$")) -> dict:
+    raw_data = data.get_data()
+    channels = data.ch_names
+
+    for i in range(len(channels)):
+        if input_name == channels[i]:
+            if input_method == 'Simple':
+                j = 1
+                # Initialize an empty list to store cumulative moving averages
+                moving_averages = []
+                # Loop through the array elements
+                while j < len(raw_data[i]) - window_size + 1:
+                    # Calculate the average of current window
+                    window_average = round(np.sum(raw_data[i][
+                                                  j:j + window_size]) / window_size, 15)
+                    window_average_upper = window_average * (1 + percent)
+                    window_average_lower = window_average * (1 - percent)
+
+                    # Store the average of current window in moving average list
+                    row_to_append = {'date': (data.info["meas_date"].timestamp() * 1000 + data.times[j-1] * 1000).tolist(), 'signal': raw_data[i][j-1].tolist(), 'upper': window_average_upper, 'lower': window_average_lower}
+                    moving_averages.append(row_to_append)
+
+                    # Shift window to right by one position
+                    j += 1
+                return moving_averages
+            elif input_method == 'Cumulative':
+                j = 1
+                # Initialize an empty list to store cumulative moving averages
+                moving_averages = []
+                # Store cumulative sums of array in cum_sum array
+                cum_sum = np.cumsum(raw_data[i])
+                # Loop through the array elements
+                print(len(raw_data[i]))
+                while j <= len(raw_data[i]):
+                    # Calculate the cumulative average by dividing cumulative sum by number of elements till
+                    # that position
+                    window_average = round(cum_sum[j - 1] / j, 15)
+                    window_average_upper = window_average * (1 + percent)
+                    window_average_lower = window_average * (1 - percent)
+
+                    row_to_append = {
+                        'date': (data.info["meas_date"].timestamp() * 1000 + data.times[j-1] * 1000).tolist(),
+                        'signal': raw_data[i][j-1].tolist(), 'upper': window_average_upper, 'lower': window_average_lower}
+                    moving_averages.append(row_to_append)
+
+                    # Shift window to right by one position
+                    j += 1
+                return moving_averages
+            elif input_method == 'Exponential':
+                x = 2 / (window_size + 1)  # smoothening factor
+                j = 1
+                # Initialize an empty list to store exponential moving averages
+                moving_averages = []
+                arr = []
+                # Insert first exponential average in the list
+                arr.append(raw_data[i][0])
+
+                # Loop through the array elements
+                while j < len(raw_data[i]):
+                    # Calculate the exponential average by using the formula
+                    window_average = round((x * raw_data[i][j]) +
+                                           (1 - x) * arr[-1], 15)
+                    window_average_upper = window_average * (1 + percent)
+                    window_average_lower = window_average * (1 - percent)
+                    arr.append(window_average)
+
+                    row_to_append = {
+                        'date': (data.info["meas_date"].timestamp() * 1000 + data.times[j-1] * 1000).tolist(),
+                        'signal': raw_data[i][j-1].tolist(), 'upper': window_average_upper, 'lower': window_average_lower}
+                    moving_averages.append(row_to_append)
+                    # Shift window to right by one position
+                    j += 1
+                return moving_averages
+            else:
+                return {'Channel not found'}
+    return {'Channel not found'}
