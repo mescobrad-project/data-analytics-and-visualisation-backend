@@ -43,7 +43,7 @@ def list_all_objects(bucket_name: str):
 
 def fget_object(bucket_name: str, object_name: str, file_location: str):
     # Download data of an object.
-    try:
+    # try:
         new_client.fget_object(bucket_name, object_name, file_location)
     #     print(response)
     # finally:
