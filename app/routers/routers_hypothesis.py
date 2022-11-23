@@ -227,14 +227,15 @@ async def p_value_correction(alpha: float,
         y = [str(x) for x in z[0]]
         return {'true for hypothesis that can be rejected for given alpha': list(y), 'corrected_p_values': list(z[1])}
 
-@router.get("/LDA")
+
+@router.get("/return_LDA", tags=["return_LDA"])
 async def LDA(dependent_variable: str,
               solver: str | None = Query("svd",
                                          regex="^(svd)$|^(lsqr)$|^(eigen)$"),
-              shrinkage_1: str | None = Query(None,
-                                              regex="^(None)$|^(auto)$"),
+              shrinkage_1: str | None = Query("none",
+                                              regex="^(none)$|^(auto)$"),
               shrinkage_2: float | None = Query(default=None, gt=0, lt=0),
-              shrinkage_3 : float | None = Query(default=None),
+              shrinkage_3: float | None = Query(default=None),
               independent_variables: list[str] | None = Query(default=None)):
 
     dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
