@@ -1,5 +1,7 @@
 from datetime import datetime
 import json
+import pingouin as pg
+import seaborn as sns
 import math
 import yasa
 from yasa import plot_spectrogram, spindles_detect, sw_detect, SleepStaging
@@ -19,6 +21,7 @@ import numpy as np
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 import lxml
+from yasa import sleep_statistics
 from app.utils.utils_general import validate_and_convert_peaks, validate_and_convert_power_spectral_density, \
     create_notebook_mne_plot, get_neurodesk_display_id, get_annotations_from_csv, create_notebook_mne_modular
 
@@ -43,6 +46,58 @@ data = mne.io.read_raw_edf("example_data/trial_av.edf", infer_types=True)
 #data = mne.io.read_raw_edf("example_data/psg1 anonym2.edf", infer_types=True)
 
 # endregion
+
+def rose_plot(ax, angles, bins=12, density=None, offset=0, lab_unit="degrees",
+              start_zero=False, **param_dict):
+    """
+    Plot polar histogram of angles on ax. ax must have been created using
+    subplot_kw=dict(projection='polar'). Angles are expected in radians.
+    """
+    # Wrap angles to [-pi, pi)
+
+    fig = plt.figure(1)
+
+    angles = (angles + np.pi) % (2*np.pi) - np.pi
+
+    # Set bins symetrically around zero
+    if start_zero:
+        # To have a bin edge at zero use an even number of bins
+        if bins % 2:
+            bins += 1
+        bins = np.linspace(-np.pi, np.pi, num=bins+1)
+
+    # Bin data and record counts
+    count, bin = np.histogram(angles, bins=bins)
+
+    # Compute width of each bin
+    widths = np.diff(bin)
+
+    # By default plot density (frequency potentially misleading)
+    if density is None or density is True:
+        # Area to assign each bin
+        area = count / angles.size
+        # Calculate corresponding bin radius
+        radius = (area / np.pi)**.5
+    else:
+        radius = count
+
+    # Plot data on ax
+    ax.bar(bin[:-1], radius, zorder=1, align='edge', width=widths,
+           edgecolor='C0', fill=False, linewidth=1)
+
+    # Set the direction of the zero angle
+    ax.set_theta_offset(offset)
+
+    # Remove ylabels, they are mostly obstructive and not informative
+    ax.set_yticks([])
+
+    if lab_unit == "radians":
+        label = ['$0$', r'$\pi/4$', r'$\pi/2$', r'$3\pi/4$',
+                  r'$\pi$', r'$5\pi/4$', r'$3\pi/2$', r'$7\pi/4$']
+        ax.set_xticklabels(label)
+
+    html_str = mpld3.fig_to_html(fig)
+    return html_str
 
 def calcsmape(actual, forecast):
     return 1/len(actual) * np.sum(2 * np.abs(forecast-actual) / (np.abs(actual) + np.abs(forecast)))
@@ -806,6 +861,174 @@ async def detect_slow_waves(name: str):
                     list_all.append(list_start_end)
                 return {'detected slow waves': list_all}
     return {'Channel not found'}
+
+@router.get("/sleep_statistics_hypnogram")
+async def sleep_statistics_hypnogram(sampling_frequency: float | None = Query(default=1/30)):
+
+    hypno = pd.read_csv('example_data/XX_Firsthalf_Hypno.csv')
+
+    df = pd.DataFrame.from_dict(sleep_statistics(list(hypno['stage']), sf_hyp=sampling_frequency), orient='index', columns=['value'])
+
+    return{'sleep statistics':df.to_json(orient='split')}
+
+@router.get("/sleep_transition_matrix")
+async def sleep_transition_matrix():
+    #fig = plt.figure(1)
+    #ax = plt.subplot(111)
+
+    to_return = {}
+    fig = plt.figure(1)
+
+    hypno = pd.read_csv('example_data/XX_Firsthalf_Hypno.csv')
+
+    counts, probs = yasa.transition_matrix(list(hypno['stage']))
+
+    # Start the plot
+    grid_kws = {"height_ratios": (.9, .05), "hspace": .1}
+    f, (ax, cbar_ax) = plt.subplots(2, gridspec_kw=grid_kws,
+                                    figsize=(5, 5))
+    sns.heatmap(probs, ax=ax, square=False, vmin=0, vmax=1, cbar=True,
+                cbar_ax=cbar_ax, cmap='YlOrRd', annot=True, fmt='.2f',
+                cbar_kws={"orientation": "horizontal", "fraction": 0.1,
+                          "label": "Transition probability"})
+    ax.set_xlabel("To sleep stage")
+    ax.xaxis.tick_top()
+    ax.set_ylabel("From sleep stage")
+    ax.xaxis.set_label_position('top')
+    plt.show()
+
+    html_str = mpld3.fig_to_html(fig)
+    to_return["figure"] = html_str
+
+    return{'Counts transition matrix (number of transitions from stage A to stage B).':counts.to_json(orient='split'),
+           'Conditional probability transition matrix, i.e. given that current state is A, what is the probability that the next state is B.':probs.to_json(orient='split'),
+           'figure': to_return}
+
+@router.get("/sleep_stability_extraction")
+async def sleep_stability_extraction():
+
+    hypno = pd.read_csv('example_data/XX_Firsthalf_Hypno.csv')
+
+    counts, probs = yasa.transition_matrix(list(hypno['stage']))
+
+    return{'stability of sleep stages':np.diag(probs.loc[2:, 2:]).mean().round(3)}
+
+@router.get("/spectrogram_yasa")
+async def spectrogram_yasa(name: str,
+                           current_sampling_frequency_of_the_hypnogram: float | None = Query(default=1/30)):
+
+    data = mne.io.read_raw_fif("example_data/XX_Firsthalf_raw.fif")
+    hypno = pd.read_csv('example_data/XX_Firsthalf_Hypno.csv')
+    raw_data = data.get_data()
+    info = data.info
+    channels = data.ch_names
+    print(channels)
+    sf = info['sfreq']
+
+    for i in range(len(channels)):
+        if name == channels[i]:
+            array_data = raw_data[i]
+            hypno = yasa.hypno_upsample_to_data(list(hypno['stage']), sf_hypno=current_sampling_frequency_of_the_hypnogram, data=data)
+            to_return = {}
+            fig = plt.figure(1)
+            fig = yasa.plot_spectrogram(array_data, sf, hypno, cmap='Spectral_r')
+            plt.show()
+
+            html_str = mpld3.fig_to_html(fig)
+            to_return["figure"] = html_str
+
+            return {'Figure': to_return}
+    return {'Channel not found'}
+
+@router.get("/bandpower_yasa")
+async def bandpower_yasa(name: str,
+                         current_sampling_frequency_of_the_hypnogram: float | None = Query(default=1/30)):
+
+    data = mne.io.read_raw_fif("example_data/XX_Firsthalf_raw.fif")
+    hypno = pd.read_csv('example_data/XX_Firsthalf_Hypno.csv')
+    raw_data = data.get_data()
+    info = data.info
+    channels = data.ch_names
+    print(channels)
+    sf = info['sfreq']
+
+    hypno = yasa.hypno_upsample_to_data(list(hypno['stage']), sf_hypno=current_sampling_frequency_of_the_hypnogram, data=data)
+
+    df = yasa.bandpower(data, hypno=hypno)
+
+    return {'DataFrame':df.to_json(orient='split')}
+
+@router.get("/spindles_detect_two_dataframes")
+async def spindles_detect_two_dataframes(current_sampling_frequency_of_the_hypnogram: float | None = Query(default=1/30)):
+
+    data = mne.io.read_raw_fif("example_data/XX_Firsthalf_raw.fif")
+    hypno = pd.read_csv('example_data/XX_Firsthalf_Hypno.csv')
+    raw_data = data.get_data()
+    info = data.info
+    channels = data.ch_names
+    sf = info['sfreq']
+    hypno = yasa.hypno_upsample_to_data(list(hypno['stage']), sf_hypno=current_sampling_frequency_of_the_hypnogram, data=data)
+
+    sp = yasa.spindles_detect(data, hypno=hypno, include=(0,1,2,3))
+    if sp!=None:
+        df_1 = sp.summary()
+        df_2 = sp.summary(grp_chan=True, grp_stage=True)
+
+        to_return = {}
+        fig = plt.figure(1)
+        fig = sp.plot_average(center='Peak', time_before=1, time_after=1)
+        plt.show()
+        html_str = mpld3.fig_to_html(fig)
+        to_return["figure"] = html_str
+
+        return {'DataFrame_1':df_1.to_json(orient='split'), 'DataFrame_2':df_2.to_json(orient='split'),'Figure':to_return}
+    else:
+        return {'No spindles detected'}
+
+@router.get("/sw_detect_two_dataframes")
+async def sw_detect_two_dataframes(current_sampling_frequency_of_the_hypnogram: float | None = Query(default=1/30)):
+
+    #data = mne.io.read_raw_fif("example_data/XX_Firsthalf_raw.fif")
+    #hypno = pd.read_csv('example_data/XX_Firsthalf_Hypno.csv')
+    raw_data = data.get_data()
+    info = data.info
+    channels = data.ch_names
+    sf = info['sfreq']
+    #hypno = yasa.hypno_upsample_to_data(list(hypno['stage']), sf_hypno=current_sampling_frequency_of_the_hypnogram, data=data)
+
+    sw = yasa.sw_detect(data, coupling=True,remove_outliers=True)
+    if sw!=None:
+        df_1 = sw.summary()
+        df_2 = sw.summary(grp_chan=True, grp_stage=True)
+
+        to_return = {}
+        ax = plt.subplot(projection='polar')
+        figure_2 = rose_plot(ax, df_1['PhaseAtSigmaPeak'], density=False, offset=0, lab_unit='degrees', start_zero=False)
+        to_return['figure_2'] = figure_2
+
+
+        fig = plt.figure(1)
+        pg.plot_circmean(df_1['PhaseAtSigmaPeak'])
+        print('Circular mean: %.3f rad' % pg.circ_mean(df_1['PhaseAtSigmaPeak']))
+        print('Vector length: %.3f' % pg.circ_r(df_1['PhaseAtSigmaPeak']))
+        plt.show()
+        html_str = mpld3.fig_to_html(fig)
+        to_return["figure"] = html_str
+
+        return {'DataFrame_1':df_1.to_json(orient='split'), 'DataFrame_2':df_2.to_json(orient='split'),'Figure':to_return,
+                'Circular mean (rad):': pg.circ_mean(df_1['PhaseAtSigmaPeak']),
+                'Vector length (rad):': pg.circ_r(df_1['PhaseAtSigmaPeak'])}
+    else:
+        return {'No slow-waves detected'}
+
+
+
+
+
+
+
+
+
 
 
 @router.get("/mne/open/eeg", tags=["mne_open_eeg"])
