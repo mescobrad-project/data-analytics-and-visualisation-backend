@@ -41,14 +41,17 @@ def list_all_objects(bucket_name: str):
         print(obj.content_type, obj.etag, obj.metadata)
 
 
-def fget_object(bucket_name: str, object_name: str, storeFileOnDisc: str):
+def fget_object(bucket_name: str, object_name: str, file_location: str):
     # Download data of an object.
     try:
-        response = new_client.fget_object(bucket_name, object_name, storeFileOnDisc)
-        print(response)
-    finally:
-        response.close()
-        response.release_conn()
+        new_client.fget_object(bucket_name, object_name, file_location)
+    #     print(response)
+    # finally:
+    #     response.close()
+    #     response.release_conn()
+    # File location needs also a name for the file to be downloaded
+
+
 
 def get_data_of_object(bucket_name: str, object_name: str):
     # Get data of an object.
@@ -78,16 +81,15 @@ def object_stat(bucket_name: str, object_name: str):
         ),
     )
 
-def get_saved_dataset_for_Hypothesis(bucket_name: str, object_name: str, storeFileOnDisc: str):
+def get_saved_dataset_for_Hypothesis(bucket_name: str, object_name: str, file_location: str):
     try:
-        fget_object(bucket_name, object_name, storeFileOnDisc)
+        fget_object(bucket_name, object_name, file_location)
         print("file has been downloaded")
-    except:
+    except Exception as exc:
+        print(exc)
         print("error")
 
-# fget_object('saved', f"{'folder01'}/test-oject", 'gd_test_data/Downloaded_object.json')
-# fget_object('saved', 'FriSep302022182125.csv', 'runtime_config/FriSep302022182125.csv')
-# 'saved', file_name, 'runtime_config/'+file_name
+# fget_object('saved', f"{'folder01'}/test-object", 'gd_test_data/Downloaded_object.json')
 
 # get_saved_dataset_for_Hypothesis('saved', 'FriSep302022182125.csv', 'runtime_config/FriSep302022182125.csv')
 
