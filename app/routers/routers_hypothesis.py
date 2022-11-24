@@ -7,6 +7,7 @@ from enum import Enum
 from pydantic import BaseModel
 from fastapi import FastAPI, Path, Query, APIRouter
 import sklearn
+import pingouin
 from lifelines.utils import to_episodic_format
 import matplotlib.pyplot as plt
 from sklearn.svm import SVC
@@ -1254,3 +1255,35 @@ async def incidence_rate_difference_function(exposed_with: int,
     standard_error = r.standard_error
 
     return {'incident rate difference': estimated_risk, 'lower bound': lower_bound, 'upper bound': upper_bound, 'standard error': standard_error}
+
+@router.get("/correlations_pingouin")
+async def correlations_pingouin(column_1: str,
+                                column_2: str,
+                                alternative: Optional[str] | None = Query("two-sided",
+                                                                          regex="^(two-sided)$|^(less)$|^(greater)$"),
+                                method: Optional[str] | None = Query("pearson",
+                                                                     regex="^(pearson)$|^(spearman)$|^(kendall)$|^(bicor)$|^(percbend)$|^(shepherd)$|^(skipped)$")):
+
+    df = pingouin.corr(x=data[str(column_1)], y=data[str(column_2)], method=method, alternative=alternative)
+
+    return {'DataFrame': df.to_json(orient='split')}
+
+@router.get("/linear_regressor_pinguin")
+async def linear_regression_pinguin(dependent_variable: str,
+                                    alpha: float | None=Query(default=0.05),
+                                    relimp: bool | None=Query(default=False),
+                                    independent_variables: list[str] | None = Query(default=None)):
+
+    lm = pingouin.linear_regression(data[independent_variables], data[dependent_variable], as_dataframe=True, alpha=alpha, relimp=relimp)
+
+    return {'residuals': lm.residuals_.tolist(), 'degrees of freedom of the model': lm.df_model_, 'degrees of freedom of the residuals': lm.df_resid_ , 'dataframe': lm.to_json(orient='split')}
+
+@router.get("/logistic_regressor_pinguin")
+async def logistic_regression_pinguin(dependent_variable: str,
+                                      alpha: float | None=Query(default=0.05),
+                                      independent_variables: list[str] | None = Query(default=None)):
+
+    lm = pingouin.logistic_regression(data[independent_variables], data[dependent_variable], as_dataframe=True, alpha=alpha)
+
+    return {'dataframe': lm.to_json(orient='split')}
+
