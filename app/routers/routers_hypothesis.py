@@ -1,12 +1,13 @@
 import numpy as np
 import pandas as pd
+import json
 from scipy.stats import ranksums, chisquare, kruskal, alexandergovern, kendalltau, f_oneway, shapiro, kstest, anderson, normaltest, boxcox, yeojohnson, bartlett, levene, fligner, obrientransform, pearsonr, spearmanr, pointbiserialr, ttest_ind, mannwhitneyu, wilcoxon,ttest_rel
 from typing import Optional, Union, List
 from statsmodels.stats.multitest import multipletests
-from enum import Enum
-from pydantic import BaseModel
+import statsmodels.api as sm
+import matplotlib.pyplot as plt
+import mpld3
 from fastapi import FastAPI, Path, Query, APIRouter
-import sklearn
 from sklearn.svm import SVC
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.decomposition import PCA
@@ -15,6 +16,7 @@ from app.pydantic_models import ModelMultipleComparisons
 from app.utils.utils_datalake import fget_object, get_saved_dataset_for_Hypothesis
 from app.utils.utils_general import get_local_storage_path, get_single_file_from_local_temp_storage, load_data_from_csv, \
     load_file_csv_direct
+import scipy.stats as st
 
 router = APIRouter()
 data = pd.read_csv('example_data/sample_questionnaire.csv')
@@ -51,8 +53,8 @@ async def name_saved_object_columns(file_name:str):
         return{'columns': {}}
 
 @router.get("/normality_tests", tags=['hypothesis_testing'])
-async def normal_tests(column: str,
-                       file_name: str | None,
+async def normal_tests(step_id: str, run_id: str,
+                       column: str,
                        nan_policy: Optional[str] | None = Query("propagate",
                                                                 regex="^(propagate)$|^(raise)$|^(omit)$"),
                        axis: Optional[int] = 0,
@@ -60,16 +62,57 @@ async def normal_tests(column: str,
                                                                  regex="^(two-sided)$|^(less)$|^(greater)$"),
                        name_test: str | None = Query("Shapiro-Wilk",
                                                    regex="^(Shapiro-Wilk)$|^(Kolmogorov-Smirnov)$|^(Anderson-Darling)$|^(D’Agostino’s K\^2)$")) -> dict:
-    # print(file_name)
-    # data = await load_demo_data(file_name)
-    # print(data)
+
+    data = load_file_csv_direct(run_id, step_id)
+    # 'min,q1,median,q3,max'
+    boxplot_data = [{
+        "date": "2022-05-18",
+        # "name": column,
+        "min": float(np.min(data[str(column)])),
+        "q1": float(np.percentile(data[str(column)], 25)),
+        "q2": float(np.percentile(data[str(column)], 50)),
+        "q3": float(np.percentile(data[str(column)], 75)),
+        "max": float(np.max(data[str(column)]))
+    }]
+
+    fig = sm.qqplot(data[str(column)], line='45')
+    plt.xticks(fontsize=12)
+    plt.yticks(fontsize=12)
+    plt.show()
+    html_str = mpld3.fig_to_html(fig)
+
+    # # Creating histogram
+    fig1, axs = plt.subplots(1, 1,
+                            # figsize=(640, 480),
+                            tight_layout=True)
+
+    # q25, q75 = np.percentile(data[str(column)], [25, 75])
+    # bin_width = 2 * (q75 - q25) * len(data[str(column)]) ** (-1 / 3)
+    # bins = round((data[str(column)].max() - data[str(column)].min()) / bin_width)
+    axs.hist(data[str(column)], density=True, bins=30, label="Data", rwidth=0.9,
+                   color='#607c8e')
+
+    mn, mx = plt.xlim()
+    print(mn, mx)
+    plt.xlim(mn, mx)
+    kde_xs = np.linspace(mn, mx, 300)
+    kde = st.gaussian_kde(data[str(column)])
+    plt.plot(kde_xs, kde.pdf(kde_xs), label="PDF")
+    plt.legend(loc="upper left")
+    plt.ylabel("Probability", fontsize=14)
+    plt.xlabel("Data", fontsize=14)
+    plt.title("Histogram", fontsize=16)
+    plt.xticks(fontsize=12)
+    plt.yticks(fontsize=12)
+    plt.show()
+    html_str_H = mpld3.fig_to_html(fig1)
 
     if name_test == 'Shapiro-Wilk':
         shapiro_test = shapiro(data[str(column)])
         if shapiro_test.pvalue > 0.05:
-            return{'statistic': shapiro_test.statistic, 'p_value': shapiro_test.pvalue, 'Description': 'Sample looks Gaussian (fail to reject H0)', 'data': data[str(column)].tolist()}
+            return{'statistic': shapiro_test.statistic, 'p_value': shapiro_test.pvalue, 'Description': 'Sample looks Gaussian (fail to reject H0)', 'data': data[str(column)].tolist(), 'boxplot_data': boxplot_data, 'qqplot': html_str, 'histogramplot': html_str_H}
         else:
-            return{'statistic': shapiro_test.statistic, 'p_value': shapiro_test.pvalue, 'Description':'Sample does not look Gaussian (reject H0)', 'data': data[str(column)].tolist()}
+            return{'statistic': shapiro_test.statistic, 'p_value': shapiro_test.pvalue, 'Description':'Sample does not look Gaussian (reject H0)', 'data': data[str(column)].tolist(), 'boxplot_data': boxplot_data, 'qqplot': html_str, 'histogramplot': html_str_H}
     elif name_test == 'Kolmogorov-Smirnov':
         ks_test = kstest(data[str(column)], 'norm', alternative=alternative)
         if ks_test.pvalue > 0.05:
