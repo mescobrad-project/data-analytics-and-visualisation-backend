@@ -6,8 +6,13 @@ from statsmodels.stats.multitest import multipletests
 from enum import Enum
 from pydantic import BaseModel
 from fastapi import FastAPI, Path, Query, APIRouter
+from scipy.stats import zscore
 import sklearn
 import pingouin
+from scipy.stats import skew, kurtosis
+from statsmodels.stats.diagnostic import het_white
+import statsmodels.api as sm
+from statsmodels.stats.stattools import durbin_watson
 from lifelines.utils import to_episodic_format
 import matplotlib.pyplot as plt
 from sklearn.svm import SVC
@@ -1287,3 +1292,133 @@ async def logistic_regression_pinguin(dependent_variable: str,
 
     return {'dataframe': lm.to_json(orient='split')}
 
+@router.get("/linear_regressor_statsmodels")
+async def linear_regression_statsmodels(dependent_variable: str,
+                                        check_heteroscedasticity: bool | None = Query(default=True),
+                                        regularization: bool | None = Query(default=True),
+                                        independent_variables: list[str] | None = Query(default=None)):
+
+    x = data[independent_variables]
+    y = data[dependent_variable]
+
+    df_dict = {}
+    for name in independent_variables:
+        df_dict[str(name)] = data[str(name)]
+
+    df_dict[str(dependent_variable)] = data[dependent_variable]
+    df_features_label = pd.DataFrame.from_dict(df_dict)
+
+    x = sm.add_constant(x)
+
+    if regularization:
+        model = sm.OLS(y,x).fit_regularized(method='elastic_net')
+    else:
+        #fig = plt.figure(1)
+        model = sm.OLS(y, x).fit()
+        # create instance of influence
+        influence = model.get_influence()
+
+        #sm.graphics.influence_plot(model)
+        #plt.show()
+
+        # obtain standardized residuals
+        standardized_residuals = influence.resid_studentized_internal
+        inf_sum = influence.summary_frame()
+
+        df_final_influence = pd.concat([df_features_label,inf_sum], axis=1)
+
+        student_resid = influence.resid_studentized_external
+        (cooks, p) = influence.cooks_distance
+        (dffits, p) = influence.dffits
+
+        df = model.summary()
+
+        results_as_html = df.tables[0].as_html()
+        df_0 = pd.read_html(results_as_html)[0]
+
+        results_as_html = df.tables[1].as_html()
+        df_1 = pd.read_html(results_as_html)[0]
+
+        results_as_html = df.tables[2].as_html()
+        df_2 = pd.read_html(results_as_html)[0]
+
+    if regularization==False:
+
+        white_test = het_white(model.resid, model.model.exog)
+        # define labels to use for output of White's test
+        labels = ['Test Statistic', 'Test Statistic p-value', 'F-Statistic', 'F-Test p-value']
+        results_dict = dict(zip(labels, white_test))
+
+        return {'DataFrame with all available influence results':df_final_influence.to_json(orient='split'),'first_table': df_0.to_json(orient="split"), 'second table': df_1.to_json(orient="split"),
+                'third table': df_2.to_json(orient="split"), 'dataframe white test': results_dict}
+    else:
+        return {'ll'}
+
+@router.get("/transformation_methods")
+async def transformation_methods(dependent_variable: str,
+                                 method: str | None = Query("log",
+                                                            regex="^(log)$|^(squared)$|^(root)$")):
+
+
+    x = data[dependent_variable]
+
+    if method == 'log':
+        x = np.log(x)
+    elif method == 'squared':
+        x = np.sqrt(x)
+    else:
+        x = np.cbrt(x)
+
+    return {'transformed array': x}
+
+@router.get("/skewness_kurtosis")
+async def skewness_kurtosis(dependent_variable: str):
+
+
+    x = data[dependent_variable]
+
+    skewness_res = skew(x)
+    kurtosis_res = kurtosis(x)
+
+    return {'skew': skewness_res, 'kurtosis': kurtosis_res}
+
+
+@router.get("/z_score")
+async def z_score(dependent_variable: str):
+
+
+    x = data[dependent_variable]
+
+    z_score_res = zscore(x)
+
+    return {'z_score': list(z_score_res)}
+
+@router.get("/logistic_regressor_statsmodels")
+async def logistic_regression_statsmodels(dependent_variable: str,
+                                          check_heteroscedasticity: bool | None = Query(default=True),
+                                          regularization: bool | None = Query(default=True),
+                                          independent_variables: list[str] | None = Query(default=None)):
+
+    x = data[independent_variables]
+    y = data[dependent_variable]
+
+    x = sm.add_constant(x)
+
+    if regularization:
+        model = sm.Logit(y,x).fit_regularized(method='elastic_net')
+    else:
+        model = sm.Logit(y, x).fit()
+
+        df = model.summary()
+
+        results_as_html = df.tables[0].as_html()
+        df_0 = pd.read_html(results_as_html)[0]
+
+        results_as_html = df.tables[1].as_html()
+        df_1 = pd.read_html(results_as_html)[0]
+
+    if regularization==False:
+
+        return {'first_table': df_0.to_json(orient="split"), 'second table': df_1.to_json(orient="split")}
+    else:
+        return {'ll'}
