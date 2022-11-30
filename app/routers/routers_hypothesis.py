@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 import json
-from scipy.stats import ranksums, chisquare, kruskal, alexandergovern, kendalltau, f_oneway, shapiro, kstest, anderson, normaltest, boxcox, yeojohnson, bartlett, levene, fligner, obrientransform, pearsonr, spearmanr, pointbiserialr, ttest_ind, mannwhitneyu, wilcoxon,ttest_rel
+from scipy.stats import ranksums, chisquare, kruskal, alexandergovern, kendalltau, f_oneway, shapiro, kstest, anderson, normaltest, boxcox, yeojohnson, bartlett, levene, fligner, obrientransform, pearsonr, spearmanr, pointbiserialr, ttest_ind, mannwhitneyu, wilcoxon, ttest_rel, skew, kurtosis
 from typing import Optional, Union, List
 from statsmodels.stats.multitest import multipletests
 import statsmodels.api as sm
@@ -17,6 +17,7 @@ from app.utils.utils_datalake import fget_object, get_saved_dataset_for_Hypothes
 from app.utils.utils_general import get_local_storage_path, get_single_file_from_local_temp_storage, load_data_from_csv, \
     load_file_csv_direct
 import scipy.stats as st
+import statistics
 
 router = APIRouter()
 data = pd.read_csv('example_data/sample_questionnaire.csv')
@@ -74,6 +75,14 @@ async def normal_tests(step_id: str, run_id: str,
         "q3": float(np.percentile(data[str(column)], 75)),
         "max": float(np.max(data[str(column)]))
     }]
+    fig2 = plt.figure()
+
+    # Creating plot
+    plt.boxplot(data[str(column)])
+    plt.ylabel("", fontsize=14)
+    # show plot
+    plt.show()
+    html_str_B = mpld3.fig_to_html(fig2)
 
     fig = sm.qqplot(data[str(column)], line='45')
     plt.xticks(fontsize=12)
@@ -93,7 +102,6 @@ async def normal_tests(step_id: str, run_id: str,
                    color='#607c8e')
 
     mn, mx = plt.xlim()
-    print(mn, mx)
     plt.xlim(mn, mx)
     kde_xs = np.linspace(mn, mx, 300)
     kde = st.gaussian_kde(data[str(column)])
@@ -107,12 +115,27 @@ async def normal_tests(step_id: str, run_id: str,
     plt.show()
     html_str_H = mpld3.fig_to_html(fig1)
 
+    skew_tosend = skew(data[str(column)], axis=0, bias=True)
+    kurtosis_tosend = kurtosis(data[str(column)], axis=0, bias=True)
+    st_dev= np.std(data[str(column)])
+    standard_deviation = statistics.stdev(data[str(column)])
+    print(st_dev, standard_deviation)
+    median_value = float(np.percentile(data[str(column)], 50))
+    med2 = np.median(data[str(column)])
+    print(median_value, med2)
+    mean_value =np.mean(data[str(column)])
+    print (mean_value)
+    num_rows = data[str(column)].shape
+    print(num_rows)
+    top_5 = sorted(data[str(column)].tolist(), reverse=True)[:5]
+    last_5 = sorted(data[str(column)].tolist(), reverse=True)[-5:]
+    print(top_5, last_5)
     if name_test == 'Shapiro-Wilk':
         shapiro_test = shapiro(data[str(column)])
         if shapiro_test.pvalue > 0.05:
-            return{'statistic': shapiro_test.statistic, 'p_value': shapiro_test.pvalue, 'Description': 'Sample looks Gaussian (fail to reject H0)', 'data': data[str(column)].tolist(), 'boxplot_data': boxplot_data, 'qqplot': html_str, 'histogramplot': html_str_H}
+            return{'statistic': shapiro_test.statistic, 'p_value': shapiro_test.pvalue, 'Description': 'Sample looks Gaussian (fail to reject H0)', 'data': data[str(column)].tolist(), 'boxplot_data': boxplot_data, 'qqplot': html_str, 'histogramplot': html_str_H, 'boxplot': html_str_B, 'skew': "{:.4f}".format(skew_tosend), 'kurtosis': "{:.4f}".format(kurtosis_tosend), 'standard_deviation': "{:.4f}".format(st_dev), "median": "{:.4f}".format(median_value), "mean": "{:.4f}".format(mean_value), "sample_N": num_rows, "top_5": top_5, "last_5": last_5}
         else:
-            return{'statistic': shapiro_test.statistic, 'p_value': shapiro_test.pvalue, 'Description':'Sample does not look Gaussian (reject H0)', 'data': data[str(column)].tolist(), 'boxplot_data': boxplot_data, 'qqplot': html_str, 'histogramplot': html_str_H}
+            return{'statistic': shapiro_test.statistic, 'p_value': shapiro_test.pvalue, 'Description': 'Sample does not look Gaussian (reject H0)', 'data': data[str(column)].tolist(), 'boxplot_data': boxplot_data, 'qqplot': html_str, 'histogramplot': html_str_H, 'boxplot': html_str_B, 'skew': "{:.4f}".format(skew_tosend), 'kurtosis': "{:.4f}".format(kurtosis_tosend), 'standard_deviation': "{:.4f}".format(st_dev), "median": "{:.4f}".format(median_value), "mean": "{:.4f}".format(mean_value), "sample_N": num_rows, "top_5": top_5, "last_5": last_5}
     elif name_test == 'Kolmogorov-Smirnov':
         ks_test = kstest(data[str(column)], 'norm', alternative=alternative)
         if ks_test.pvalue > 0.05:
