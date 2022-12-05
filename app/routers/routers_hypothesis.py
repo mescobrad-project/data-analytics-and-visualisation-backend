@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from scipy.stats import fisher_exact, ranksums, chisquare, kruskal, alexandergovern, kendalltau, f_oneway, shapiro, kstest, anderson, normaltest, boxcox, yeojohnson, bartlett, levene, fligner, obrientransform, pearsonr, spearmanr, pointbiserialr, ttest_ind, mannwhitneyu, wilcoxon,ttest_rel
+from scipy.stats import jarque_bera, fisher_exact, ranksums, chisquare, kruskal, alexandergovern, kendalltau, f_oneway, shapiro, kstest, anderson, normaltest, boxcox, yeojohnson, bartlett, levene, fligner, obrientransform, pearsonr, spearmanr, pointbiserialr, ttest_ind, mannwhitneyu, wilcoxon,ttest_rel
 from typing import Optional, Union, List
 from statsmodels.stats.multitest import multipletests
 from enum import Enum
@@ -1422,3 +1422,21 @@ async def logistic_regression_statsmodels(dependent_variable: str,
         return {'first_table': df_0.to_json(orient="split"), 'second table': df_1.to_json(orient="split")}
     else:
         return {'ll'}
+
+@router.get("/jarqueberatest")
+async def jarqueberatest(dependent_variable: str):
+
+    x = data[dependent_variable]
+
+    jarque_bera_test = jarque_bera(x)
+
+    statistic = jarque_bera_test.statistic
+    pvalue = jarque_bera_test.pvalue
+
+    if pvalue > 0.05:
+        return {'statistic': statistic, 'pvalue': pvalue, 'Since this p-value is not less than .05, we fail to reject the null hypothesis. We don’t have sufficient evidence to say that this data has skewness and kurtosis that is significantly different from a normal distribution.':''}
+    else:
+        return {'statistic': statistic, 'pvalue': pvalue,'Since this p-value is less than .05, we reject the null hypothesis. Thus, we have sufficient evidence to say that this data has skewness and kurtosis that is significantly different from a normal distribution.':''}
+
+
+
