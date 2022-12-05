@@ -856,7 +856,21 @@ async def return_predictions(step_id: str, run_id: str,input_name: str,
 
 # Spindles detection
 @router.get("/spindles_detection")
-async def detect_spindles(step_id: str, run_id: str,name: str,
+async def detect_spindles(step_id: str,
+                          run_id: str,
+                          name: str,
+                          freq_sp_low: int | None = 12,
+                          freq_sp_high: int | None = 15,
+                          freq_broad_low: int | None = 1,
+                          freq_broad_high: int | None = 30,
+                          duration_low: int | None = 0.5,
+                          duration_high: int | None = 2,
+                          min_distance: int | None = 500,
+                          rel_pow: float | None = None,
+                          corr: float | None = None,
+                          rms: float | None = None,
+                          multi_only: bool | None = False,
+                          remove_outliers: bool | None = False,
                           file_used: str | None = Query("original", regex="^(original)$|^(printed)$")):
     data = load_file_from_local_or_interim_edfbrowser_storage(file_used, run_id, step_id)
 
@@ -867,7 +881,18 @@ async def detect_spindles(step_id: str, run_id: str,name: str,
     list_all = []
     for i in range(len(channels)):
         if name == channels[i]:
-            sp = spindles_detect(raw_data[i] * 1e6, info['sfreq'])
+            sp = spindles_detect(data=raw_data[i] * 1e6,
+                                 sf=info['sfreq'],
+                                 # hypno=,
+                                 # include=,
+                                 freq_sp= (freq_sp_low, freq_sp_high),
+                                 freq_broad= (freq_broad_low, freq_broad_high),
+                                 duration= (duration_low, duration_high),
+                                 min_distance= min_distance,
+                                 thresh={'rel_pow': rel_pow, 'corr': corr, 'rms': rms},
+                                 multi_only=multi_only,
+                                 remove_outliers=remove_outliers
+                                 )
             to_return ={}
             fig = plt.figure(figsize=(18, 12))
             plt.plot(raw_data[0][i])
@@ -892,8 +917,25 @@ async def detect_spindles(step_id: str, run_id: str,name: str,
 
 # Slow Waves detection
 @router.get("/slow_waves_detection")
-async def detect_slow_waves(step_id: str, run_id: str,name: str,
-                            file_used: str | None = Query("original", regex="^(original)$|^(printed)$")):
+async def detect_slow_waves(
+                          step_id: str,
+                          run_id: str,
+                          name: str,
+                          freq_sw_low: int | None = 12,
+                          freq_sw_high: int | None = 15,
+                          duration_negative_low: int | None = 0.5,
+                          duration_negative_high: int | None = 2,
+                          duration_positive_low: int | None = 0.5,
+                          duration_positive_high: int | None = 2,
+                          amplitude_positive_low: int | None = 0.5,
+                          amplitude_positive_high: int | None = 2,
+                          amplitude_negative_low: int | None = 0.5,
+                          amplitude_negative_high: int | None = 2,
+                          amplitude_ptp_low: int | None = 0.5,
+                          amplitude_ptp_high: int | None = 2,
+                          coupling: bool | None = False,
+                          remove_outliers: bool | None = False,
+                          file_used: str | None = Query("original", regex="^(original)$|^(printed)$")):
     data = load_file_from_local_or_interim_edfbrowser_storage(file_used, run_id, step_id)
 
     raw_data = data.get_data()
@@ -902,7 +944,17 @@ async def detect_slow_waves(step_id: str, run_id: str,name: str,
     list_all = []
     for i in range(len(channels)):
         if name == channels[i]:
-            sw = sw_detect(raw_data[i] * 1e6, info['sfreq'])
+            sw = sw_detect(data =raw_data[i] * 1e6,
+                           sf =info['sfreq'],
+                           freq_sw= (freq_sw_low, freq_sw_high),
+                           dur_neg=(duration_negative_low, duration_negative_high),
+                           dur_pos=(duration_positive_low, duration_positive_high),
+                           amp_neg=(amplitude_negative_low, amplitude_negative_high),
+                           amp_pos=(amplitude_positive_low, amplitude_positive_high),
+                           amp_ptp=(amplitude_ptp_low, amplitude_ptp_high),
+                           coupling=coupling,
+                           remove_outliers=remove_outliers
+                           )
             if sw==None:
                 return {'No slow waves'}
             else:
