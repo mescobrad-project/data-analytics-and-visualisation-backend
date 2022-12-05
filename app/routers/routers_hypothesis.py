@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 import json
-from scipy.stats import ranksums, chisquare, kruskal, alexandergovern, kendalltau, f_oneway, shapiro, kstest, anderson, normaltest, boxcox, yeojohnson, bartlett, levene, fligner, obrientransform, pearsonr, spearmanr, pointbiserialr, ttest_ind, mannwhitneyu, wilcoxon, ttest_rel, skew, kurtosis
+from scipy.stats import jarque_bera,ranksums, chisquare, kruskal, alexandergovern, kendalltau, f_oneway, shapiro, kstest, anderson, normaltest, boxcox, yeojohnson, bartlett, levene, fligner, obrientransform, pearsonr, spearmanr, pointbiserialr, ttest_ind, mannwhitneyu, wilcoxon, ttest_rel, skew, kurtosis
 from typing import Optional, Union, List
 from statsmodels.stats.multitest import multipletests
 import statsmodels.api as sm
@@ -127,7 +127,7 @@ async def normal_tests(step_id: str, run_id: str,
                        alternative: Optional[str] | None = Query("two-sided",
                                                                  regex="^(two-sided)$|^(less)$|^(greater)$"),
                        name_test: str | None = Query("Shapiro-Wilk",
-                                                   regex="^(Shapiro-Wilk)$|^(Kolmogorov-Smirnov)$|^(Anderson-Darling)$|^(D’Agostino’s K\^2)$")) -> dict:
+                                                   regex="^(Shapiro-Wilk)$|^(Kolmogorov-Smirnov)$|^(Anderson-Darling)$|^(D’Agostino’s K\^2)$|(Jarque-Bera)$")) -> dict:
 
     data = load_file_csv_direct(run_id, step_id)
     results_to_send = normality_test_content_results(column)
@@ -179,6 +179,18 @@ async def normal_tests(step_id: str, run_id: str,
             return{'statistic': stat, 'p_value': p, 'Description':'Sample looks Gaussian (fail to reject H0)', 'data': data[str(column)].tolist(), 'results': results_to_send}
         else:
             return{'statistic': stat, 'p_value': p, 'Description':'Sample does not look Gaussian (reject H0)', 'data': data[str(column)].tolist(), 'results': results_to_send}
+    elif name_test == 'Jarque-Bera':
+        jarque_bera_test = jarque_bera(data[str(column)])
+        statistic = jarque_bera_test.statistic
+        pvalue = jarque_bera_test.pvalue
+        print(pvalue)
+        if pvalue > 0.05:
+            return {'statistic': statistic, 'p_value': pvalue,
+                    'Description': 'Sample looks Gaussian (fail to reject H0)', 'data': data[str(column)].tolist(), 'results': results_to_send}
+        else:
+            return {'statistic': statistic, 'p_value': pvalue,
+                    'Description': 'Sample does not look Gaussian (reject H0)', 'data': data[str(column)].tolist(), 'results': results_to_send}
+
 
 @router.get("/transform_data", tags=['hypothesis_testing'])
 async def transform_data(column:str,
