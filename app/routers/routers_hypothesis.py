@@ -1295,7 +1295,7 @@ async def logistic_regression_pinguin(dependent_variable: str,
 @router.get("/linear_regressor_statsmodels")
 async def linear_regression_statsmodels(dependent_variable: str,
                                         check_heteroscedasticity: bool | None = Query(default=True),
-                                        regularization: bool | None = Query(default=True),
+                                        regularization: bool | None = Query(default=False),
                                         independent_variables: list[str] | None = Query(default=None)):
 
     x = data[independent_variables]
@@ -1325,7 +1325,7 @@ async def linear_regression_statsmodels(dependent_variable: str,
         standardized_residuals = influence.resid_studentized_internal
         inf_sum = influence.summary_frame()
 
-        df_final_influence = pd.concat([df_features_label,inf_sum], axis=1)
+        df_final_influence = pd.concat([df_features_label,inf_sum], axis=1).round(4)
 
         student_resid = influence.resid_studentized_external
         (cooks, p) = influence.cooks_distance
@@ -1334,23 +1334,43 @@ async def linear_regression_statsmodels(dependent_variable: str,
         df = model.summary()
 
         results_as_html = df.tables[0].as_html()
-        df_0 = pd.read_html(results_as_html)[0]
+        df_0 = pd.read_html(results_as_html)[0].round(4)
+        df_new = df_0[[2, 3]]
+        df_0.drop(columns=[2, 3], inplace=True)
+        df_0 = pd.concat([df_0, df_new.rename(columns={2: 0, 3: 1})], ignore_index=True)
+        df_0.set_index(0, inplace=True)
+        df_0.index.name = None
+        df_0.rename(columns={1: 'Values'}, inplace = True)
+        df_0.drop(df_0.tail(2).index,inplace=True)
 
         results_as_html = df.tables[1].as_html()
-        df_1 = pd.read_html(results_as_html)[0]
+        df_1 = pd.read_html(results_as_html)[0].round(4)
+        new_header = df_1.iloc[0, 1:]
+        df_1 = df_1[1:]
+        print(df_1.columns)
+        df_1.set_index(0, inplace=True)
+        df_1.columns = new_header
+        df_1.index.name = None
 
         results_as_html = df.tables[2].as_html()
-        df_2 = pd.read_html(results_as_html)[0]
+        df_2 = pd.read_html(results_as_html)[0].round(4)
+        df_new = df_2[[2, 3]]
+        df_2.drop(columns=[2, 3], inplace=True)
+        df_2 = pd.concat([df_2, df_new.rename(columns={2: 0, 3: 1})], ignore_index=True)
+        df_2.set_index(0, inplace=True)
+        df_2.index.name = None
+        df_2.rename(columns={1: 'Values'}, inplace=True)
 
-    if regularization==False:
-
+    if not regularization:
         white_test = het_white(model.resid, model.model.exog)
         # define labels to use for output of White's test
         labels = ['Test Statistic', 'Test Statistic p-value', 'F-Statistic', 'F-Test p-value']
         results_dict = dict(zip(labels, white_test))
+        white_test = pd.DataFrame(results_dict.values(), index=results_dict.keys()).round(4)
+        white_test.rename(columns={0: 'Values'}, inplace=True)
 
-        return {'DataFrame with all available influence results':df_final_influence.to_json(orient='split'),'first_table': df_0.to_json(orient="split"), 'second table': df_1.to_json(orient="split"),
-                'third table': df_2.to_json(orient="split"), 'dataframe white test': results_dict}
+        return {'DataFrame with all available influence results':df_final_influence.to_html(),'first_table': df_0.to_html(), 'second table': df_1.to_html(),
+                'third table': df_2.to_html(), 'dataframe white test': white_test.to_html()}
     else:
         return {'ll'}
 
