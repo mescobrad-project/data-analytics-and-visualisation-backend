@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 import json
-from scipy.stats import ranksums, chisquare, kruskal, alexandergovern, kendalltau, f_oneway, shapiro, kstest, anderson, normaltest, boxcox, yeojohnson, bartlett, levene, fligner, obrientransform, pearsonr, spearmanr, pointbiserialr, ttest_ind, mannwhitneyu, wilcoxon, ttest_rel, skew, kurtosis
+from scipy.stats import jarque_bera,ranksums, chisquare, kruskal, alexandergovern, kendalltau, f_oneway, shapiro, kstest, anderson, normaltest, boxcox, yeojohnson, bartlett, levene, fligner, obrientransform, pearsonr, spearmanr, pointbiserialr, ttest_ind, mannwhitneyu, wilcoxon, ttest_rel, skew, kurtosis
 from typing import Optional, Union, List
 from statsmodels.stats.multitest import multipletests
 import statsmodels.api as sm
@@ -21,6 +21,71 @@ import statistics
 
 router = APIRouter()
 data = pd.read_csv('example_data/sample_questionnaire.csv')
+
+def normality_test_content_results(column: str):
+    if (column):
+        # region Creating Box-plot
+        fig2 = plt.figure()
+        plt.boxplot(data[str(column)])
+        plt.ylabel("", fontsize=14)
+        # show plot
+        plt.show()
+        html_str_B = mpld3.fig_to_html(fig2)
+        #endregion
+        # region Creating QQ-plot
+        fig = sm.qqplot(data[str(column)], line='45')
+        plt.xticks(fontsize=12)
+        plt.yticks(fontsize=12)
+        plt.show()
+        html_str = mpld3.fig_to_html(fig)
+        # endregion
+        #region Creating histogram
+        fig1, axs = plt.subplots(1, 1,
+                                 # figsize=(640, 480),
+                                 tight_layout=True)
+
+        ## q25, q75 = np.percentile(data[str(column)], [25, 75])
+        ## bin_width = 2 * (q75 - q25) * len(data[str(column)]) ** (-1 / 3)
+        ## bins = round((data[str(column)].max() - data[str(column)].min()) / bin_width)
+        axs.hist(data[str(column)], density=True, bins=30, label="Data", rwidth=0.9,
+                 color='#607c8e')
+
+        mn, mx = plt.xlim()
+        plt.xlim(mn, mx)
+        kde_xs = np.linspace(mn, mx, 300)
+        kde = st.gaussian_kde(data[str(column)])
+        plt.plot(kde_xs, kde.pdf(kde_xs), label="PDF")
+        plt.legend(loc="upper left")
+        plt.ylabel("Probability", fontsize=14)
+        plt.xlabel("Data", fontsize=14)
+        plt.title("Histogram", fontsize=16)
+        plt.xticks(fontsize=12)
+        plt.yticks(fontsize=12)
+        plt.show()
+        html_str_H = mpld3.fig_to_html(fig1)
+        #endregion
+        #region Calculate skew, kurtosis, median, std, etc.
+        skewtosend = skew(data[str(column)], axis=0, bias=True)
+        kurtosistosend = kurtosis(data[str(column)], axis=0, bias=True)
+        st_dev = np.std(data[str(column)])
+        # Used Statistics lib for cross-checking
+        # standard_deviation = statistics.stdev(data[str(column)])
+        median_value = float(np.percentile(data[str(column)], 50))
+        # Used a different way to calculate Median
+        # TODO: we must investigate why it returns a different value
+        # med2 = np.median(data[str(column)])
+        mean_value = np.mean(data[str(column)])
+        num_rows = data[str(column)].shape
+        top5 = sorted(data[str(column)].tolist(), reverse=True)[:5]
+        last5 = sorted(data[str(column)].tolist(), reverse=True)[-5:]
+        #endregion
+        return {'qqplot': html_str, 'histogramplot': html_str_H, 'boxplot': html_str_B, 'skew': skewtosend, 'kurtosis': kurtosistosend, 'standard_deviation': st_dev, "median": median_value, "mean": mean_value, "sample_N": num_rows, "top_5": top5, "last_5": last5}
+    else:
+        return {'qqplot': "", 'histogramplot': "", 'boxplot': "",
+                'skew': 0, 'kurtosis': 0,
+                'standard_deviation': 0, "median": 0,
+                "mean": 0, "sample_N": 0, "top_5": [], "last_5": []}
+
 
 @router.get("/load_demo_data")
 async def load_demo_data(file: Optional[str] | None):
@@ -62,86 +127,40 @@ async def normal_tests(step_id: str, run_id: str,
                        alternative: Optional[str] | None = Query("two-sided",
                                                                  regex="^(two-sided)$|^(less)$|^(greater)$"),
                        name_test: str | None = Query("Shapiro-Wilk",
-                                                   regex="^(Shapiro-Wilk)$|^(Kolmogorov-Smirnov)$|^(Anderson-Darling)$|^(D’Agostino’s K\^2)$")) -> dict:
+                                                   regex="^(Shapiro-Wilk)$|^(Kolmogorov-Smirnov)$|^(Anderson-Darling)$|^(D’Agostino’s K\^2)$|(Jarque-Bera)$")) -> dict:
 
     data = load_file_csv_direct(run_id, step_id)
-    # 'min,q1,median,q3,max'
-    boxplot_data = [{
-        "date": "2022-05-18",
-        # "name": column,
-        "min": float(np.min(data[str(column)])),
-        "q1": float(np.percentile(data[str(column)], 25)),
-        "q2": float(np.percentile(data[str(column)], 50)),
-        "q3": float(np.percentile(data[str(column)], 75)),
-        "max": float(np.max(data[str(column)]))
-    }]
-    fig2 = plt.figure()
+    results_to_send = normality_test_content_results(column)
 
-    # Creating plot
-    plt.boxplot(data[str(column)])
-    plt.ylabel("", fontsize=14)
-    # show plot
-    plt.show()
-    html_str_B = mpld3.fig_to_html(fig2)
+    # region AmCharts_CODE_REGION
+    # # ******************************************
+    # # Data where prepared for Amcharts but now are not needed
+    # # for BoxPlot chart
+    # # 'min,q1,median,q3,max'
+    # boxplot_data = [{
+    #     "date": "2022-05-18",
+    #     # "name": column,
+    #     "min": float(np.min(data[str(column)])),
+    #     "q1": float(np.percentile(data[str(column)], 25)),
+    #     "q2": float(np.percentile(data[str(column)], 50)),
+    #     "q3": float(np.percentile(data[str(column)], 75)),
+    #     "max": float(np.max(data[str(column)]))
+    # }]
+    # # ******************************************
+    # endregion
 
-    fig = sm.qqplot(data[str(column)], line='45')
-    plt.xticks(fontsize=12)
-    plt.yticks(fontsize=12)
-    plt.show()
-    html_str = mpld3.fig_to_html(fig)
-
-    # # Creating histogram
-    fig1, axs = plt.subplots(1, 1,
-                            # figsize=(640, 480),
-                            tight_layout=True)
-
-    # q25, q75 = np.percentile(data[str(column)], [25, 75])
-    # bin_width = 2 * (q75 - q25) * len(data[str(column)]) ** (-1 / 3)
-    # bins = round((data[str(column)].max() - data[str(column)].min()) / bin_width)
-    axs.hist(data[str(column)], density=True, bins=30, label="Data", rwidth=0.9,
-                   color='#607c8e')
-
-    mn, mx = plt.xlim()
-    plt.xlim(mn, mx)
-    kde_xs = np.linspace(mn, mx, 300)
-    kde = st.gaussian_kde(data[str(column)])
-    plt.plot(kde_xs, kde.pdf(kde_xs), label="PDF")
-    plt.legend(loc="upper left")
-    plt.ylabel("Probability", fontsize=14)
-    plt.xlabel("Data", fontsize=14)
-    plt.title("Histogram", fontsize=16)
-    plt.xticks(fontsize=12)
-    plt.yticks(fontsize=12)
-    plt.show()
-    html_str_H = mpld3.fig_to_html(fig1)
-
-    skew_tosend = skew(data[str(column)], axis=0, bias=True)
-    kurtosis_tosend = kurtosis(data[str(column)], axis=0, bias=True)
-    st_dev= np.std(data[str(column)])
-    standard_deviation = statistics.stdev(data[str(column)])
-    print(st_dev, standard_deviation)
-    median_value = float(np.percentile(data[str(column)], 50))
-    med2 = np.median(data[str(column)])
-    print(median_value, med2)
-    mean_value =np.mean(data[str(column)])
-    print (mean_value)
-    num_rows = data[str(column)].shape
-    print(num_rows)
-    top_5 = sorted(data[str(column)].tolist(), reverse=True)[:5]
-    last_5 = sorted(data[str(column)].tolist(), reverse=True)[-5:]
-    print(top_5, last_5)
     if name_test == 'Shapiro-Wilk':
         shapiro_test = shapiro(data[str(column)])
         if shapiro_test.pvalue > 0.05:
-            return{'statistic': shapiro_test.statistic, 'p_value': shapiro_test.pvalue, 'Description': 'Sample looks Gaussian (fail to reject H0)', 'data': data[str(column)].tolist(), 'boxplot_data': boxplot_data, 'qqplot': html_str, 'histogramplot': html_str_H, 'boxplot': html_str_B, 'skew': "{:.4f}".format(skew_tosend), 'kurtosis': "{:.4f}".format(kurtosis_tosend), 'standard_deviation': "{:.4f}".format(st_dev), "median": "{:.4f}".format(median_value), "mean": "{:.4f}".format(mean_value), "sample_N": num_rows, "top_5": top_5, "last_5": last_5}
+            return{'statistic': shapiro_test.statistic, 'p_value': shapiro_test.pvalue, 'Description': 'Sample looks Gaussian (fail to reject H0)', 'data': data[str(column)].tolist(), 'results': results_to_send}
         else:
-            return{'statistic': shapiro_test.statistic, 'p_value': shapiro_test.pvalue, 'Description': 'Sample does not look Gaussian (reject H0)', 'data': data[str(column)].tolist(), 'boxplot_data': boxplot_data, 'qqplot': html_str, 'histogramplot': html_str_H, 'boxplot': html_str_B, 'skew': "{:.4f}".format(skew_tosend), 'kurtosis': "{:.4f}".format(kurtosis_tosend), 'standard_deviation': "{:.4f}".format(st_dev), "median": "{:.4f}".format(median_value), "mean": "{:.4f}".format(mean_value), "sample_N": num_rows, "top_5": top_5, "last_5": last_5}
+            return{'statistic': shapiro_test.statistic, 'p_value': shapiro_test.pvalue, 'Description': 'Sample does not look Gaussian (reject H0)', 'data': data[str(column)].tolist(), 'results': results_to_send}
     elif name_test == 'Kolmogorov-Smirnov':
         ks_test = kstest(data[str(column)], 'norm', alternative=alternative)
         if ks_test.pvalue > 0.05:
-            return{'statistic': ks_test.statistic, 'p_value': ks_test.pvalue, 'Description':'Sample looks Gaussian (fail to reject H0)', 'data': data[str(column)].tolist()}
+            return{'statistic': ks_test.statistic, 'p_value': ks_test.pvalue, 'Description':'Sample looks Gaussian (fail to reject H0)', 'data': data[str(column)].tolist(), 'results': results_to_send}
         else:
-            return{'statistic': ks_test.statistic, 'p_value': ks_test.pvalue, 'Description':'Sample does not look Gaussian (reject H0)', 'data': data[str(column)].tolist()}
+            return{'statistic': ks_test.statistic, 'p_value': ks_test.pvalue, 'Description':'Sample does not look Gaussian (reject H0)', 'data': data[str(column)].tolist(), 'results': results_to_send}
     elif name_test == 'Anderson-Darling':
         anderson_test = anderson(data[str(column)])
         list_anderson = []
@@ -153,13 +172,25 @@ async def normal_tests(step_id: str, run_id: str,
             else:
                 print('%.3f: %.3f, data does not look normal (reject H0)' % (sl, cv))
                 list_anderson.append('%.3f: %.3f, data does not look normal (reject H0)' % (sl, cv))
-        return{'statistic':anderson_test.statistic, 'critical_values': list(anderson_test.critical_values), 'significance_level': list(anderson_test.significance_level), 'Description': list_anderson, 'data': data[str(column)].tolist()}
+        return{'statistic':anderson_test.statistic, 'critical_values': list(anderson_test.critical_values), 'significance_level': list(anderson_test.significance_level), 'Description': list_anderson, 'data': data[str(column)].tolist(), 'results': results_to_send}
     elif name_test == 'D’Agostino’s K^2':
         stat, p = normaltest(data[str(column)], nan_policy=nan_policy)
         if p > 0.05:
-            return{'statistic': stat, 'p_value': p, 'Description':'Sample looks Gaussian (fail to reject H0)', 'data': data[str(column)].tolist()}
+            return{'statistic': stat, 'p_value': p, 'Description':'Sample looks Gaussian (fail to reject H0)', 'data': data[str(column)].tolist(), 'results': results_to_send}
         else:
-            return{'statistic': stat, 'p_value': p, 'Description':'Sample does not look Gaussian (reject H0)', 'data': data[str(column)].tolist()}
+            return{'statistic': stat, 'p_value': p, 'Description':'Sample does not look Gaussian (reject H0)', 'data': data[str(column)].tolist(), 'results': results_to_send}
+    elif name_test == 'Jarque-Bera':
+        jarque_bera_test = jarque_bera(data[str(column)])
+        statistic = jarque_bera_test.statistic
+        pvalue = jarque_bera_test.pvalue
+        print(pvalue)
+        if pvalue > 0.05:
+            return {'statistic': statistic, 'p_value': pvalue,
+                    'Description': 'Sample looks Gaussian (fail to reject H0)', 'data': data[str(column)].tolist(), 'results': results_to_send}
+        else:
+            return {'statistic': statistic, 'p_value': pvalue,
+                    'Description': 'Sample does not look Gaussian (reject H0)', 'data': data[str(column)].tolist(), 'results': results_to_send}
+
 
 @router.get("/transform_data", tags=['hypothesis_testing'])
 async def transform_data(column:str,
