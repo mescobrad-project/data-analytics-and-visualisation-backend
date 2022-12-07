@@ -1374,6 +1374,105 @@ async def linear_regression_statsmodels(dependent_variable: str,
     else:
         return {'ll'}
 
+@router.get("/linear_regressor_statsmodels_2")
+async def linear_regression_statsmodels(dependent_variable: str,
+                                        check_heteroscedasticity: bool | None = Query(default=True),
+                                        regularization: bool | None = Query(default=False),
+                                        independent_variables: list[str] | None = Query(default=None)):
+
+    x = data[independent_variables]
+    y = data[dependent_variable]
+
+    df_dict = {}
+    for name in independent_variables:
+        df_dict[str(name)] = data[str(name)]
+
+    df_dict[str(dependent_variable)] = data[dependent_variable]
+    df_features_label = pd.DataFrame.from_dict(df_dict)
+
+    x = sm.add_constant(x)
+
+    if regularization:
+        model = sm.OLS(y,x).fit_regularized(method='elastic_net')
+    else:
+        #fig = plt.figure(1)
+        model = sm.OLS(y, x).fit()
+        # create instance of influence
+        influence = model.get_influence()
+
+        #sm.graphics.influence_plot(model)
+        #plt.show()
+
+        # obtain standardized residuals
+        standardized_residuals = influence.resid_studentized_internal
+        inf_sum = influence.summary_frame()
+
+        df_final_influence = pd.concat([df_features_label,inf_sum], axis=1)
+        inf_dict = {}
+        for column in df_final_influence.columns:
+            inf_dict[column] = list(df_final_influence[column])
+        df_final_influence = df_final_influence.round(4)
+
+        student_resid = influence.resid_studentized_external
+        (cooks, p) = influence.cooks_distance
+        (dffits, p) = influence.dffits
+
+        df = model.summary()
+
+        results_as_html = df.tables[0].as_html()
+        df_0 = pd.read_html(results_as_html)[0]
+        df_new = df_0[[2, 3]]
+        df_0.drop(columns=[2, 3], inplace=True)
+        df_0 = pd.concat([df_0, df_new.rename(columns={2: 0, 3: 1})], ignore_index=True)
+        df_0.set_index(0, inplace=True)
+        df_0.index.name = None
+        df_0.rename(columns={1: 'Values'}, inplace = True)
+        df_0.drop(df_0.tail(2).index,inplace=True)
+        print(list(df_0.values))
+
+
+        results_as_html = df.tables[1].as_html()
+        df_1 = pd.read_html(results_as_html)[0]
+        new_header = df_1.iloc[0, 1:]
+        df_1 = df_1[1:]
+        print(df_1.columns)
+        df_1.set_index(0, inplace=True)
+        df_1.columns = new_header
+        df_1.index.name = None
+
+        results_as_html = df.tables[2].as_html()
+        df_2 = pd.read_html(results_as_html)[0]
+        df_new = df_2[[2, 3]]
+        df_2.drop(columns=[2, 3], inplace=True)
+        df_2 = pd.concat([df_2, df_new.rename(columns={2: 0, 3: 1})], ignore_index=True)
+        df_2.set_index(0, inplace=True)
+        df_2.index.name = None
+        df_2.rename(columns={1: 'Values'}, inplace=True)
+
+    if not regularization:
+        white_test = het_white(model.resid, model.model.exog)
+        # define labels to use for output of White's test
+        labels = ['Test Statistic', 'Test Statistic p-value', 'F-Statistic', 'F-Test p-value']
+        results_dict = dict(zip(labels, white_test))
+        white_test = pd.DataFrame(results_dict.values(), index=results_dict.keys())
+        white_test.rename(columns={0: 'Values'}, inplace=True)
+        response = {'DataFrame with all available influence results':df_final_influence.to_html(),'first_table': df_0.to_json(orient='split'), 'second table': df_1.to_html(),
+                'third table': df_2.to_dict(), 'dataframe white test': white_test.to_json(orient='split'),
+                'dep': df_0.loc['Dep. Variable:'][0], 'model': df_0.loc['Model:'][0],
+                'method': df_0.loc['Method:'][0], 'date': df_0.loc['Date:'][0],
+                'time': df_0.loc['Time:'][0], 'no_obs': df_0.loc['No. Observations:'][0], 'resid': df_0.loc['Df Residuals:'][0],
+                'df_model': df_0.loc['Df Model:'][0], 'cov_type': df_0.loc['Covariance Type:'][0],
+                'r_squared': df_0.loc['R-squared:'][0], 'adj_r_squared': df_0.loc['Adj. R-squared:'][0],
+                'f_stat': df_0.loc['F-statistic:'][0], 'prob_f': df_0.loc['Prob (F-statistic):'][0],
+                'log_like': df_0.loc['Log-Likelihood:'][0], 'aic': df_0.loc['AIC:'][0], 'bic': df_0.loc['BIC:'][0],
+                'omnibus': df_2.loc['Omnibus:'][0], 'prob_omni': df_2.loc['Prob(Omnibus):'][0], 'skew': df_2.loc['Skew:'][0], 'kurtosis': df_2.loc['Kurtosis:'][0],
+                'durbin': df_2.loc['Durbin-Watson:'][0], 'jb': df_2.loc['Jarque-Bera (JB):'][0], 'prob_jb': df_2.loc['Prob(JB):'][0], 'cond': df_2.loc['Cond. No.'][0],
+                'test_stat': white_test.loc['Test Statistic'][0], 'test_stat_p': white_test.loc['Test Statistic p-value'][0], 'white_f_stat': white_test.loc['F-Statistic'][0],
+                'white_prob_f': white_test.loc['F-Test p-value'][0], 'influence_columns': list(df_final_influence.columns), 'influence_dict': inf_dict}
+        return response
+    else:
+        return {'ll'}
+
 @router.get("/transformation_methods")
 async def transformation_methods(dependent_variable: str,
                                  method: str | None = Query("log",
