@@ -856,7 +856,21 @@ async def return_predictions(step_id: str, run_id: str,input_name: str,
 
 # Spindles detection
 @router.get("/spindles_detection")
-async def detect_spindles(step_id: str, run_id: str,name: str,
+async def detect_spindles(step_id: str,
+                          run_id: str,
+                          name: str,
+                          freq_sp_low: float | None = 12,
+                          freq_sp_high: float | None = 15,
+                          freq_broad_low: float | None = 1,
+                          freq_broad_high: float | None = 30,
+                          duration_low: float | None = 0.5,
+                          duration_high: float | None = 2,
+                          min_distance: float | None = 500,
+                          rel_pow: float | None = None,
+                          corr: float | None = None,
+                          rms: float | None = None,
+                          multi_only: bool | None = False,
+                          remove_outliers: bool | None = False,
                           file_used: str | None = Query("original", regex="^(original)$|^(printed)$")):
     data = load_file_from_local_or_interim_edfbrowser_storage(file_used, run_id, step_id)
 
@@ -867,7 +881,18 @@ async def detect_spindles(step_id: str, run_id: str,name: str,
     list_all = []
     for i in range(len(channels)):
         if name == channels[i]:
-            sp = spindles_detect(raw_data[i] * 1e6, info['sfreq'])
+            sp = spindles_detect(data=raw_data[i] * 1e6,
+                                 sf=info['sfreq'],
+                                 # hypno=,
+                                 # include=,
+                                 freq_sp= (freq_sp_low, freq_sp_high),
+                                 freq_broad= (freq_broad_low, freq_broad_high),
+                                 duration= (duration_low, duration_high),
+                                 min_distance= min_distance,
+                                 thresh={'rel_pow': rel_pow, 'corr': corr, 'rms': rms},
+                                 multi_only=multi_only,
+                                 remove_outliers=remove_outliers
+                                 )
             to_return ={}
             fig = plt.figure(figsize=(18, 12))
             plt.plot(raw_data[0][i])
@@ -892,8 +917,25 @@ async def detect_spindles(step_id: str, run_id: str,name: str,
 
 # Slow Waves detection
 @router.get("/slow_waves_detection")
-async def detect_slow_waves(step_id: str, run_id: str,name: str,
-                            file_used: str | None = Query("original", regex="^(original)$|^(printed)$")):
+async def detect_slow_waves(
+                          step_id: str,
+                          run_id: str,
+                          name: str,
+                          freq_sw_low: float | None = 12,
+                          freq_sw_high: float | None = 15,
+                          duration_negative_low: float | None = 0.5,
+                          duration_negative_high: float | None = 2,
+                          duration_positive_low: float | None = 0.5,
+                          duration_positive_high: float | None = 2,
+                          amplitude_positive_low: int | None = 0.5,
+                          amplitude_positive_high: int | None = 2,
+                          amplitude_negative_low: int | None = 0.5,
+                          amplitude_negative_high: int | None = 2,
+                          amplitude_ptp_low: int | None = 0.5,
+                          amplitude_ptp_high: int | None = 2,
+                          coupling: bool | None = False,
+                          remove_outliers: bool | None = False,
+                          file_used: str | None = Query("original", regex="^(original)$|^(printed)$")):
     data = load_file_from_local_or_interim_edfbrowser_storage(file_used, run_id, step_id)
 
     raw_data = data.get_data()
@@ -902,7 +944,29 @@ async def detect_slow_waves(step_id: str, run_id: str,name: str,
     list_all = []
     for i in range(len(channels)):
         if name == channels[i]:
-            sw = sw_detect(raw_data[i] * 1e6, info['sfreq'])
+            print("gegegegege")
+            print(channels[i])
+            print(freq_sw_low)
+            print(freq_sw_high)
+            print(duration_negative_low)
+            print(duration_negative_high)
+            print(amplitude_positive_high)
+            print(freq_sw_low)
+            print(amplitude_ptp_low)
+            print(remove_outliers)
+            print(coupling)
+
+            sw = sw_detect(data =raw_data[i] * 1e6,
+                           sf =info['sfreq'],
+                           freq_sw= (freq_sw_low, freq_sw_high),
+                           dur_neg=(duration_negative_low, duration_negative_high),
+                           dur_pos=(duration_positive_low, duration_positive_high),
+                           amp_neg=(amplitude_negative_low, amplitude_negative_high),
+                           amp_pos=(amplitude_positive_low, amplitude_positive_high),
+                           amp_ptp=(amplitude_ptp_low, amplitude_ptp_high),
+                           coupling=coupling,
+                           remove_outliers=remove_outliers
+                           )
             if sw==None:
                 return {'No slow waves'}
             else:
@@ -916,6 +980,58 @@ async def detect_slow_waves(step_id: str, run_id: str,name: str,
                     list_all.append(list_start_end)
                 return {'detected slow waves': list_all}
     return {'Channel not found'}
+
+
+# Spindles detection
+# Annotations_to_add have the folowing format which follows the format of adding it to the file with mne
+# [ [starts], [durations], [names]  ]
+@router.get("/save_annotation_to_file")
+async def save_annotation_to_file(step_id: str,
+                          run_id: str,
+                          name: str,
+                          annotations_to_add: str,
+                          file_used: str | None = Query("original", regex="^(original)$|^(printed)$")):
+    # Open file
+    data = load_file_from_local_or_interim_edfbrowser_storage(file_used, run_id, step_id)
+    raw_data = data.get_data()
+    info = data.info
+    channels = data.ch_names
+    list_all = []
+
+    for i in range(len(channels)):
+        if name == channels[i]:
+            print("----")
+            print(raw_data[0][i].tolist())
+            print( raw_data[1].tolist())
+            values = raw_data[0][i].tolist()
+            time = raw_data[1].tolist()
+            plt.plot(time, values, color='red', marker='o')
+            plt.title('Channel Sleep/Spindle', fontsize=14)
+            plt.xlabel('time', fontsize=14)
+            plt.ylabel('value', fontsize=14)
+            plt.grid(True)
+            plt.show()
+            plt.savefig(get_local_storage_path(step_id, run_id) + "/" +'plot.png')
+    # # Add the new annotations
+    # raw_data = data.get_data()
+    # # info = data.info
+    # # channels = data.ch_names
+    # # list_all = []
+    # print("---fff---")
+    # print(type(raw_data))
+    # print(type(data))
+    # new_annotations = mne.Annotations([31, 187, 317], [8, 8, 8],
+    #                                   ["Movement", "Movement", "Movement"])
+    # print("NOW ANNOTATING")
+    # data.set_annotations(new_annotations)
+
+    # print("NOW EXPORTING")
+    # mne.export.export_raw(get_local_storage_path(step_id, run_id) + "/" + "test_file_edf.edf", data)
+    # Open EDF BROWSER
+
+
+    return {'Saved Annotations'}
+
 
 # TODO remove current user form param and ge from file
 @router.get("/mne/open/eeg", tags=["mne_open_eeg"])

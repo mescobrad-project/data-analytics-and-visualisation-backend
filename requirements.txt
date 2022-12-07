@@ -1,3 +1,4 @@
+edflib-python==1.0.6
 fastapi==0.74.0
 freesurfer-stats==1.2.1
 httptools==0.3.0
