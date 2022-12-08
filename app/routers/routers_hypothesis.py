@@ -1,7 +1,9 @@
 import numpy as np
 import pandas as pd
 import json
-from scipy.stats import jarque_bera,ranksums, chisquare, kruskal, alexandergovern, kendalltau, f_oneway, shapiro, kstest, anderson, normaltest, boxcox, yeojohnson, bartlett, levene, fligner, obrientransform, pearsonr, spearmanr, pointbiserialr, ttest_ind, mannwhitneyu, wilcoxon, ttest_rel, skew, kurtosis
+from scipy.stats import jarque_bera, ranksums, chisquare, kruskal, alexandergovern, kendalltau, f_oneway, shapiro, \
+    kstest, anderson, normaltest, boxcox, yeojohnson, bartlett, levene, fligner, obrientransform, pearsonr, spearmanr, \
+    pointbiserialr, ttest_ind, mannwhitneyu, wilcoxon, ttest_rel, skew, kurtosis, probplot
 from typing import Optional, Union, List
 from statsmodels.stats.multitest import multipletests
 import statsmodels.api as sm
@@ -18,26 +20,37 @@ from app.utils.utils_general import get_local_storage_path, get_single_file_from
     load_file_csv_direct
 import scipy.stats as st
 import statistics
+from tabulate import tabulate
 
 router = APIRouter()
 data = pd.read_csv('example_data/sample_questionnaire.csv')
 
-def normality_test_content_results(column: str):
+def normality_test_content_results(column: str, selected_dataframe):
     if (column):
         # region Creating Box-plot
         fig2 = plt.figure()
-        plt.boxplot(data[str(column)])
+        plt.boxplot(selected_dataframe[str(column)])
         plt.ylabel("", fontsize=14)
         # show plot
         plt.show()
         html_str_B = mpld3.fig_to_html(fig2)
         #endregion
         # region Creating QQ-plot
-        fig = sm.qqplot(data[str(column)], line='45')
+        fig = sm.qqplot(selected_dataframe[str(column)], line='45')
         plt.xticks(fontsize=12)
         plt.yticks(fontsize=12)
         plt.show()
         html_str = mpld3.fig_to_html(fig)
+        # endregion
+        # region Creating Probability-plot
+        fig3 = plt.figure()
+        ax1 = fig3.add_subplot()
+        prob =  probplot(selected_dataframe[str(column)], dist=st.norm, plot=ax1)
+        ax1.set_title('Probplot against normal distribution')
+        plt.xticks(fontsize=12)
+        plt.yticks(fontsize=12)
+        plt.show()
+        html_str_P = mpld3.fig_to_html(fig3)
         # endregion
         #region Creating histogram
         fig1, axs = plt.subplots(1, 1,
@@ -47,13 +60,13 @@ def normality_test_content_results(column: str):
         ## q25, q75 = np.percentile(data[str(column)], [25, 75])
         ## bin_width = 2 * (q75 - q25) * len(data[str(column)]) ** (-1 / 3)
         ## bins = round((data[str(column)].max() - data[str(column)].min()) / bin_width)
-        axs.hist(data[str(column)], density=True, bins=30, label="Data", rwidth=0.9,
+        axs.hist(selected_dataframe[str(column)], density=True, bins=30, label="Data", rwidth=0.9,
                  color='#607c8e')
 
         mn, mx = plt.xlim()
         plt.xlim(mn, mx)
         kde_xs = np.linspace(mn, mx, 300)
-        kde = st.gaussian_kde(data[str(column)])
+        kde = st.gaussian_kde(selected_dataframe[str(column)])
         plt.plot(kde_xs, kde.pdf(kde_xs), label="PDF")
         plt.legend(loc="upper left")
         plt.ylabel("Probability", fontsize=14)
@@ -65,27 +78,40 @@ def normality_test_content_results(column: str):
         html_str_H = mpld3.fig_to_html(fig1)
         #endregion
         #region Calculate skew, kurtosis, median, std, etc.
-        skewtosend = skew(data[str(column)], axis=0, bias=True)
-        kurtosistosend = kurtosis(data[str(column)], axis=0, bias=True)
-        st_dev = np.std(data[str(column)])
+        skewtosend = skew(selected_dataframe[str(column)], axis=0, bias=True)
+        kurtosistosend = kurtosis(selected_dataframe[str(column)], axis=0, bias=True)
+        st_dev = np.std(selected_dataframe[str(column)])
         # Used Statistics lib for cross-checking
         # standard_deviation = statistics.stdev(data[str(column)])
-        median_value = float(np.percentile(data[str(column)], 50))
+        median_value = float(np.percentile(selected_dataframe[str(column)], 50))
         # Used a different way to calculate Median
         # TODO: we must investigate why it returns a different value
         # med2 = np.median(data[str(column)])
-        mean_value = np.mean(data[str(column)])
-        num_rows = data[str(column)].shape
-        top5 = sorted(data[str(column)].tolist(), reverse=True)[:5]
-        last5 = sorted(data[str(column)].tolist(), reverse=True)[-5:]
+        mean_value = np.mean(selected_dataframe[str(column)])
+        num_rows = selected_dataframe[str(column)].shape
+        top5 = sorted(selected_dataframe[str(column)].tolist(), reverse=True)[:5]
+        last5 = sorted(selected_dataframe[str(column)].tolist(), reverse=True)[-5:]
         #endregion
-        return {'qqplot': html_str, 'histogramplot': html_str_H, 'boxplot': html_str_B, 'skew': skewtosend, 'kurtosis': kurtosistosend, 'standard_deviation': st_dev, "median": median_value, "mean": mean_value, "sample_N": num_rows, "top_5": top5, "last_5": last5}
+        return {'plot_column': column, 'qqplot': html_str, 'histogramplot': html_str_H, 'boxplot': html_str_B, 'probplot': html_str_P, 'skew': skewtosend, 'kurtosis': kurtosistosend, 'standard_deviation': st_dev, "median": median_value, "mean": mean_value, "sample_N": num_rows, "top_5": top5, "last_5": last5}
     else:
-        return {'qqplot': "", 'histogramplot': "", 'boxplot': "",
+        return {'plot_column': "", 'qqplot': "", 'histogramplot': "", 'boxplot': "", 'probplot': "",
                 'skew': 0, 'kurtosis': 0,
                 'standard_deviation': 0, "median": 0,
                 "mean": 0, "sample_N": 0, "top_5": [], "last_5": []}
 
+def transformation_extra_content_results(column_In: str, column_Out:str, selected_dataframe):
+    fig = plt.figure()
+    plt.plot(selected_dataframe[str(column_In)], selected_dataframe[str(column_In)],
+             color='blue', marker="*")
+    # red for numpy.log()
+    plt.plot(selected_dataframe[str(column_Out)], selected_dataframe[str(column_In)],
+             color='red', marker="o")
+    plt.title("Transformed data Comparison")
+    plt.xlabel("out_array")
+    plt.ylabel("in_array")
+    plt.show()
+    html_str_Transf = mpld3.fig_to_html(fig)
+    return html_str_Transf
 
 @router.get("/load_demo_data")
 async def load_demo_data(file: Optional[str] | None):
@@ -127,10 +153,10 @@ async def normal_tests(step_id: str, run_id: str,
                        alternative: Optional[str] | None = Query("two-sided",
                                                                  regex="^(two-sided)$|^(less)$|^(greater)$"),
                        name_test: str | None = Query("Shapiro-Wilk",
-                                                   regex="^(Shapiro-Wilk)$|^(Kolmogorov-Smirnov)$|^(Anderson-Darling)$|^(D’Agostino’s K\^2)$|(Jarque-Bera)$")) -> dict:
+                                                   regex="^(Shapiro-Wilk)$|^(Kolmogorov-Smirnov)$|^(Anderson-Darling)$|^(D’Agostino’s K\^2)$|^(Jarque-Bera)$")) -> dict:
 
     data = load_file_csv_direct(run_id, step_id)
-    results_to_send = normality_test_content_results(column)
+    results_to_send = normality_test_content_results(column, data)
 
     # region AmCharts_CODE_REGION
     # # ******************************************
@@ -152,75 +178,115 @@ async def normal_tests(step_id: str, run_id: str,
     if name_test == 'Shapiro-Wilk':
         shapiro_test = shapiro(data[str(column)])
         if shapiro_test.pvalue > 0.05:
-            return{'statistic': shapiro_test.statistic, 'p_value': shapiro_test.pvalue, 'Description': 'Sample looks Gaussian (fail to reject H0)', 'data': data[str(column)].tolist(), 'results': results_to_send}
+            return{'statistic': shapiro_test.statistic, 'p_value': shapiro_test.pvalue, 'Description': 'Sample looks Gaussian (fail to reject H0)', 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
         else:
-            return{'statistic': shapiro_test.statistic, 'p_value': shapiro_test.pvalue, 'Description': 'Sample does not look Gaussian (reject H0)', 'data': data[str(column)].tolist(), 'results': results_to_send}
+            return{'statistic': shapiro_test.statistic, 'p_value': shapiro_test.pvalue, 'Description': 'Sample does not look Gaussian (reject H0)', 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
     elif name_test == 'Kolmogorov-Smirnov':
         ks_test = kstest(data[str(column)], 'norm', alternative=alternative)
         if ks_test.pvalue > 0.05:
-            return{'statistic': ks_test.statistic, 'p_value': ks_test.pvalue, 'Description':'Sample looks Gaussian (fail to reject H0)', 'data': data[str(column)].tolist(), 'results': results_to_send}
+            return{'statistic': ks_test.statistic, 'p_value': ks_test.pvalue, 'Description':'Sample looks Gaussian (fail to reject H0)', 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
         else:
-            return{'statistic': ks_test.statistic, 'p_value': ks_test.pvalue, 'Description':'Sample does not look Gaussian (reject H0)', 'data': data[str(column)].tolist(), 'results': results_to_send}
+            return{'statistic': ks_test.statistic, 'p_value': ks_test.pvalue, 'Description':'Sample does not look Gaussian (reject H0)', 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
     elif name_test == 'Anderson-Darling':
         anderson_test = anderson(data[str(column)])
         list_anderson = []
         for i in range(len(anderson_test.critical_values)):
             sl, cv = anderson_test.significance_level[i], anderson_test.critical_values[i]
             if anderson_test.statistic < anderson_test.critical_values[i]:
-                print('%.3f: %.3f, data looks normal (fail to reject H0)' % (sl, cv))
+                # print('%.3f: %.3f, data looks normal (fail to reject H0)' % (sl, cv))
                 list_anderson.append('%.3f: %.3f, data looks normal (fail to reject H0)' % (sl, cv))
             else:
-                print('%.3f: %.3f, data does not look normal (reject H0)' % (sl, cv))
+                # print('%.3f: %.3f, data does not look normal (reject H0)' % (sl, cv))
                 list_anderson.append('%.3f: %.3f, data does not look normal (reject H0)' % (sl, cv))
-        return{'statistic':anderson_test.statistic, 'critical_values': list(anderson_test.critical_values), 'significance_level': list(anderson_test.significance_level), 'Description': list_anderson, 'data': data[str(column)].tolist(), 'results': results_to_send}
+        return{'statistic':anderson_test.statistic, 'critical_values': list(anderson_test.critical_values), 'significance_level': list(anderson_test.significance_level), 'Description': list_anderson, 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
     elif name_test == 'D’Agostino’s K^2':
         stat, p = normaltest(data[str(column)], nan_policy=nan_policy)
         if p > 0.05:
-            return{'statistic': stat, 'p_value': p, 'Description':'Sample looks Gaussian (fail to reject H0)', 'data': data[str(column)].tolist(), 'results': results_to_send}
+            return{'statistic': stat, 'p_value': p, 'Description':'Sample looks Gaussian (fail to reject H0)', 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
         else:
-            return{'statistic': stat, 'p_value': p, 'Description':'Sample does not look Gaussian (reject H0)', 'data': data[str(column)].tolist(), 'results': results_to_send}
+            return{'statistic': stat, 'p_value': p, 'Description':'Sample does not look Gaussian (reject H0)', 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
     elif name_test == 'Jarque-Bera':
         jarque_bera_test = jarque_bera(data[str(column)])
         statistic = jarque_bera_test.statistic
         pvalue = jarque_bera_test.pvalue
-        print(pvalue)
         if pvalue > 0.05:
             return {'statistic': statistic, 'p_value': pvalue,
-                    'Description': 'Sample looks Gaussian (fail to reject H0)', 'data': data[str(column)].tolist(), 'results': results_to_send}
+                    'Description': 'Sample looks Gaussian (fail to reject H0)', 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
         else:
             return {'statistic': statistic, 'p_value': pvalue,
-                    'Description': 'Sample does not look Gaussian (reject H0)', 'data': data[str(column)].tolist(), 'results': results_to_send}
+                    'Description': 'Sample does not look Gaussian (reject H0)', 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
 
 
 @router.get("/transform_data", tags=['hypothesis_testing'])
-async def transform_data(column:str,
-                         name_transform:str | None = Query("Box-Cox",
-                                                           regex="^(Box-Cox)$|^(Yeo-Johnson)$"),
+async def transform_data(step_id: str,
+                         run_id: str,
+                         column: str,
+                         name_transform: str | None = Query("Box-Cox",
+                                                           regex="^(Box-Cox)$|^(Yeo-Johnson)$|^(Log)$|^(Squared-root)$|^(Cube-root)$"),
                          lmbd: Optional[float] = None,
                          alpha: Optional[float] = None) -> dict:
 
+    data = load_file_csv_direct(run_id, step_id)
+    newColumnName = "Transf_" + column
     if name_transform == 'Box-Cox':
         if lmbd == None:
             if alpha == None:
                 boxcox_array, maxlog = boxcox(np.array(data[str(column)]))
-                return {'Box-Cox power transformed array': list(boxcox_array), 'lambda that maximizes the log-likelihood function': maxlog}
+                data[newColumnName] = boxcox_array
+                results_to_send = normality_test_content_results(newColumnName, data)
+                results_to_send['transf_plot'] = transformation_extra_content_results(column, newColumnName, data)
+                return {'Box-Cox power transformed array': list(boxcox_array), 'lambda that maximizes the log-likelihood function': maxlog, 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
             else:
-                boxcox_array, maxlog, z = boxcox(np.array(data[str(column)]), alpha = alpha)
-                return {'Box-Cox power transformed array': list(boxcox_array), 'lambda that maximizes the log-likelihood function': maxlog, 'minimum confidence limit': z[0], 'maximum confidence limit': z[1]}
+                boxcox_array, maxlog, z = boxcox(np.array(data[str(column)]), alpha=alpha)
+                data[newColumnName] = boxcox_array
+                results_to_send = normality_test_content_results(newColumnName, data)
+                results_to_send['transf_plot'] = transformation_extra_content_results(column, newColumnName, data)
+                return {'Box-Cox power transformed array': list(boxcox_array), 'lambda that maximizes the log-likelihood function': maxlog, 'minimum confidence limit': z[0], 'maximum confidence limit': z[1], 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
         else:
             if alpha == None:
-                y = boxcox(np.array(data[str(column)]), lmbda = lmbd)
-                return {'Box-Cox power transformed array': list(y)}
+                y = boxcox(np.array(data[str(column)]), lmbda=lmbd)
+                data[newColumnName] = y
+                results_to_send = normality_test_content_results(newColumnName, data)
+                results_to_send['transf_plot'] = transformation_extra_content_results(column, newColumnName, data)
+                return {'Box-Cox power transformed array': list(y), 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
             else:
-                y = boxcox(np.array(data[str(column)]), lmbda=lmbd, alpha = alpha)
-                return {'Box-Cox power transformed array': list(y)}
+                y = boxcox(np.array(data[str(column)]), lmbda=lmbd, alpha=alpha)
+                data[newColumnName] = y
+                results_to_send = normality_test_content_results(newColumnName, data)
+                results_to_send['transf_plot'] = transformation_extra_content_results(column, newColumnName, data)
+                return {'Box-Cox power transformed array': list(y), 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
     elif name_transform == 'Yeo-Johnson':
         if lmbd == None:
             yeojohnson_array, maxlog = yeojohnson(np.array(data[str(column)]))
-            return {'Yeo-Johnson power transformed array': list(yeojohnson_array), 'lambda that maximizes the log-likelihood function': maxlog}
+            data[newColumnName] = yeojohnson_array
+            results_to_send = normality_test_content_results(newColumnName, data)
+            results_to_send['transf_plot'] = transformation_extra_content_results(column, newColumnName, data)
+            return {'Yeo-Johnson power transformed array': list(yeojohnson_array), 'lambda that maximizes the log-likelihood function': maxlog, 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
         else:
             yeojohnson_array = yeojohnson(np.array(data[str(column)]), lmbda=lmbd)
-            return {'Yeo-Johnson power transformed array': list(yeojohnson_array)}
+            data[newColumnName] = yeojohnson_array
+            results_to_send = normality_test_content_results(newColumnName, data)
+            results_to_send['transf_plot'] = transformation_extra_content_results(column, newColumnName, data)
+            return {'Yeo-Johnson power transformed array': list(yeojohnson_array), 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
+    elif name_transform == 'Log':
+        log_array = np.log(data[str(column)])
+        data[newColumnName] = log_array
+        results_to_send = normality_test_content_results(newColumnName, data)
+        results_to_send['transf_plot'] = transformation_extra_content_results(column, newColumnName, data)
+        return {'Log transformed array': list(log_array), 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
+    elif name_transform == 'Squared-root':
+        sqrt_array = np.sqrt(data[str(column)])
+        data[newColumnName] = sqrt_array
+        results_to_send = normality_test_content_results(newColumnName, data)
+        results_to_send['transf_plot'] = transformation_extra_content_results(column, newColumnName, data)
+        return {'Squared-root transformed array': list(sqrt_array), 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
+    elif name_transform == 'Cube-root':
+        cbrt_array = np.cbrt(data[str(column)])
+        data[newColumnName] = cbrt_array
+        results_to_send = normality_test_content_results(newColumnName, data)
+        results_to_send['transf_plot'] = transformation_extra_content_results(column, newColumnName, data)
+        return {'Cube-root transformed array': list(cbrt_array), 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
+
 
 @router.get("/compute_pearson_correlation", tags=['hypothesis_testing'])
 async def pearson_correlation(step_id: str, run_id: str, column_1: str, column_2: str):
