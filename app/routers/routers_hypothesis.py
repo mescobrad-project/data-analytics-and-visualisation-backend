@@ -4,6 +4,8 @@ from scipy.stats import jarque_bera, fisher_exact, ranksums, chisquare, kruskal,
 from typing import Optional, Union, List
 from statsmodels.stats.multitest import multipletests
 from enum import Enum
+from statsmodels.compat import lzip
+import statsmodels.stats.api as sms
 from pydantic import BaseModel
 from fastapi import FastAPI, Path, Query, APIRouter
 from scipy.stats import zscore
@@ -37,6 +39,7 @@ from zepid.calc import risk_ci, incidence_rate_ci, risk_ratio, risk_difference, 
 
 router = APIRouter()
 data = pd.read_csv('example_data/mescobrad_dataset.csv')
+data = data.drop(["Unnamed: 0"], axis=1)
 @router.get("/return_columns")
 async def name_columns():
     columns = data.columns
@@ -1315,6 +1318,8 @@ async def linear_regression_statsmodels(dependent_variable: str,
     else:
         #fig = plt.figure(1)
         model = sm.OLS(y, x).fit()
+        fitted_value = model.fittedvalues
+        df_fitted_value = pd.DataFrame(fitted_value, columns=['fitted_values'])
         # create instance of influence
         influence = model.get_influence()
 
@@ -1325,7 +1330,8 @@ async def linear_regression_statsmodels(dependent_variable: str,
         standardized_residuals = influence.resid_studentized_internal
         inf_sum = influence.summary_frame()
 
-        df_final_influence = pd.concat([df_features_label,inf_sum], axis=1).round(4)
+        df_final_influence = pd.concat([df_features_label,inf_sum, df_fitted_value], axis=1).round(4)
+        print(df_final_influence)
 
         student_resid = influence.resid_studentized_external
         (cooks, p) = influence.cooks_distance
@@ -1369,8 +1375,15 @@ async def linear_regression_statsmodels(dependent_variable: str,
         white_test = pd.DataFrame(results_dict.values(), index=results_dict.keys()).round(4)
         white_test.rename(columns={0: 'Values'}, inplace=True)
 
+        bresuch_pagan_test = sms.het_breuschpagan(model.resid, model.model.exog)
+        # define labels to use for output of White's test
+        labels = ['Lagrange multiplier statistic', 'p-value','f-value', 'f p-value']
+        results_dict_bresuch = dict(zip(labels, bresuch_pagan_test))
+        bresuch_test = pd.DataFrame(results_dict_bresuch.values(), index=results_dict_bresuch.keys()).round(4)
+        bresuch_test.rename(columns={0: 'Values'}, inplace=True)
+
         return {'DataFrame with all available influence results':df_final_influence.to_html(),'first_table': df_0.to_html(), 'second table': df_1.to_html(),
-                'third table': df_2.to_html(), 'dataframe white test': white_test.to_html()}
+                'third table': df_2.to_html(), 'dataframe white test': white_test.to_html(), 'dataframe bresuch pagan test': bresuch_test.to_html()}
     else:
         return {'ll'}
 
