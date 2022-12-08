@@ -12,6 +12,7 @@ from statsmodels.graphics.tsaplots import acf, pacf
 from scipy import signal
 from scipy.integrate import simps
 from pmdarima.arima import auto_arima
+import seaborn as seaborn
 # import pywt
 import mne
 import matplotlib.pyplot as plt
@@ -902,6 +903,16 @@ async def detect_spindles(step_id: str,
                 to_return["detected"] = "No Spindles"
                 return to_return
             else:
+                df_sync = sp.get_sync_events(center="Peak", time_before=0.4, time_after=0.8)
+                fig, ax = plt.subplots(1, 1, figsize=(9, 6))
+                seaborn.lineplot(data=df_sync, x='Time', y='Amplitude', hue='Channel', palette="plasma", ci=95, ax=ax)
+                # ax.legend(frameon=False, loc='lower right')
+                ax.set_xlim(df_sync['Time'].min(), df_sync['Time'].max())
+                ax.set_title('Spindles Average')
+                ax.set_xlabel('Time (sec)')
+                ax.set_ylabel('Amplitude (uV)')
+                plt.savefig(get_local_storage_path(step_id, run_id) + "/output/" + 'plot.png')
+
                 df = sp.summary()
                 for i in range(len(df)):
                     list_start_end = []
@@ -956,6 +967,8 @@ async def detect_slow_waves(
             print(remove_outliers)
             print(coupling)
 
+            # SW_list = []
+
             sw = sw_detect(data =raw_data[i] * 1e6,
                            sf =info['sfreq'],
                            freq_sw= (freq_sw_low, freq_sw_high),
@@ -967,9 +980,21 @@ async def detect_slow_waves(
                            coupling=coupling,
                            remove_outliers=remove_outliers
                            )
+
+
             if sw==None:
                 return {'No slow waves'}
             else:
+                df_sync = sw.get_sync_events(center="NegPeak", time_before=0.4, time_after=0.8)
+                fig, ax = plt.subplots(1, 1, figsize=(6, 4.5))
+                seaborn.lineplot(data=df_sync, x='Time', y='Amplitude', hue='Channel', palette="plasma", ci=95, ax=ax)
+                # ax.legend(frameon=False, loc='lower right')
+                ax.set_xlim(df_sync['Time'].min(), df_sync['Time'].max())
+                ax.set_title('Average SW')
+                ax.set_xlabel('Time (sec)')
+                ax.set_ylabel('Amplitude (uV)')
+                plt.savefig(get_local_storage_path(step_id, run_id) + "/output/" + 'plot.png')
+
                 df = sw.summary()
                 for i in range(len(df)):
                     list_start_end = []
@@ -1001,17 +1026,27 @@ async def save_annotation_to_file(step_id: str,
     for i in range(len(channels)):
         if name == channels[i]:
             print("----")
-            print(raw_data[0][i].tolist())
-            print( raw_data[1].tolist())
-            values = raw_data[0][i].tolist()
+            # print(raw_data[0][i].tolist())
+            # print( raw_data[1].tolist())
+            values = raw_data[i].tolist()
             time = raw_data[1].tolist()
-            plt.plot(time, values, color='red', marker='o')
+            plt.plot(values, time, color='red', marker='o')
             plt.title('Channel Sleep/Spindle', fontsize=14)
             plt.xlabel('time', fontsize=14)
             plt.ylabel('value', fontsize=14)
             plt.grid(True)
             plt.show()
             plt.savefig(get_local_storage_path(step_id, run_id) + "/" +'plot.png')
+
+            # SW_list = []
+            #
+            # fig, ax = plt.subplots(1, 1, figsize=(6, 4.5))
+            # seaborn.lineplot(data=df_sync, x='Time', y='Amplitude', hue='Channel', palette="plasma", ci=95, ax=ax)
+            # # ax.legend(frameon=False, loc='lower right')
+            # ax.set_xlim(df_sync['Time'].min(), df_sync['Time'].max())
+            # ax.set_title('Average SW')
+            # ax.set_xlabel('Time (sec)')
+            # ax.set_ylabel('Amplitude (uV)')
     # # Add the new annotations
     # raw_data = data.get_data()
     # # info = data.info
