@@ -1478,6 +1478,12 @@ async def linear_regression_statsmodels(dependent_variable: str,
         bresuch_test = pd.DataFrame(results_dict_bresuch.values(), index=results_dict_bresuch.keys())
         bresuch_test.rename(columns={0: 'Values'}, inplace=True)
 
+        z = het_goldfeldquandt(y,x)
+        labels = ['F-statistic', 'p-value', "ordering used in the alternative"]
+        results_goldfeldquandt = dict(zip(labels, z))
+        goldfeld_test = pd.DataFrame(results_goldfeldquandt.values(), index=results_goldfeldquandt.keys())
+        goldfeld_test.rename(columns={0: 'Values'}, inplace=True)
+
         response = {'DataFrame with all available influence results':df_final_influence.to_html(),'first_table': df_0.to_json(orient='split'), 'second table': df_1.to_html(),
                 'third table': df_2.to_dict(), 'dataframe white test': white_test.to_json(orient='split'),
                 'dep': df_0.loc['Dep. Variable:'][0], 'model': df_0.loc['Model:'][0],
@@ -1492,7 +1498,8 @@ async def linear_regression_statsmodels(dependent_variable: str,
                 'test_stat': white_test.loc['Test Statistic'][0], 'test_stat_p': white_test.loc['Test Statistic p-value'][0], 'white_f_stat': white_test.loc['F-Statistic'][0],
                 'white_prob_f': white_test.loc['F-Test p-value'][0], 'influence_columns': list(df_final_influence.columns), 'influence_dict': inf_dict,
                 'bresuch_lagrange': bresuch_test.loc['Lagrange multiplier statistic'][0], 'bresuch_p_value': bresuch_test.loc['p-value'][0],
-                'bresuch_f_value': bresuch_test.loc['f-value'][0], 'bresuch_f_p_value': bresuch_test.loc['f p-value'][0]}
+                'bresuch_f_value': bresuch_test.loc['f-value'][0], 'bresuch_f_p_value': bresuch_test.loc['f p-value'][0],'Goldfeld-Quandt F-value':goldfeld_test.loc['F-statistic'][0],
+                    'Goldfeld-Quandt p-value': goldfeld_test.loc['p-value'][0], 'Goldfeld-Quandt ordering used in the alternative': goldfeld_test.loc['ordering used in the alternative'][0]}
         return response
     else:
         return {'ll'}
