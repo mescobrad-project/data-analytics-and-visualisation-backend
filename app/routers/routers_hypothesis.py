@@ -7,6 +7,7 @@ from enum import Enum
 from statsmodels.compat import lzip
 import statsmodels.stats.api as sms
 from pydantic import BaseModel
+from statsmodels.stats.diagnostic import het_goldfeldquandt
 from fastapi import FastAPI, Path, Query, APIRouter
 from scipy.stats import zscore
 import sklearn
