@@ -324,19 +324,28 @@ async def point_biserial_correlation(column_1: str, column_2: str):
 
 #
 @router.get("/check_homoscedasticity", tags=['hypothesis_testing'])
-async def check_homoskedasticity(column_1: str,
-                           column_2: str,
-                           name_of_test: str | None = Query("Levene",
-                                                           regex="^(Levene)$|^(Bartlett)$|^(Fligner-Killeen)$"),
-                           center: Optional[str] | None = Query("median",
-                                                      regex="^(trimmed)$|^(median)$|^(mean)$")):
+async def check_homoskedasticity(step_id: str,
+                                 run_id: str,
+                                 columns: list[str] | None = Query(default=None),
+                                 name_of_test: str | None = Query("Levene",
+                                                                  regex="^(Levene)$|^(Bartlett)$|^(Fligner-Killeen)$"),
+                                 center: Optional[str] | None = Query("median",
+                                                                      regex="^(trimmed)$|^(median)$|^(mean)$")):
+    data = load_file_csv_direct(run_id, step_id)
+
+    args = []
+    for k in columns:
+        args.append(data[k])
+
     if name_of_test == "Bartlett":
-        statistic, p_value = bartlett(data[str(column_1)], data[str(column_2)])
+        statistic, p_value = bartlett(*args)
+        # statistic, p_value = bartlett(data[str(column_1)], data[str(column_2)])
     elif name_of_test == "Fligner-Killeen":
-        statistic, p_value = fligner(data[str(column_1)], data[str(column_2)], center=center)
+        statistic, p_value = fligner(*args, center=center)
     else:
-        statistic, p_value = levene(data[str(column_1)], data[str(column_2)], center = center)
+        statistic, p_value = levene(*args, center=center)
     return {'statistic': statistic, 'p-value': p_value}
+
 
 @router.get("/transformed_data_for_use_in_an_ANOVA", tags=['hypothesis_testing'])
 async def transform_data_anova(column_1: str, column_2: str):
