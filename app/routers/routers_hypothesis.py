@@ -1296,99 +1296,99 @@ async def logistic_regression_pinguin(dependent_variable: str,
 
     return {'dataframe': lm.to_json(orient='split')}
 
+# @router.get("/linear_regressor_statsmodels")
+# async def linear_regression_statsmodels(dependent_variable: str,
+#                                         check_heteroscedasticity: bool | None = Query(default=True),
+#                                         regularization: bool | None = Query(default=False),
+#                                         independent_variables: list[str] | None = Query(default=None)):
+#
+#     x = data[independent_variables]
+#     y = data[dependent_variable]
+#
+#     df_dict = {}
+#     for name in independent_variables:
+#         df_dict[str(name)] = data[str(name)]
+#
+#     df_dict[str(dependent_variable)] = data[dependent_variable]
+#     df_features_label = pd.DataFrame.from_dict(df_dict)
+#
+#     x = sm.add_constant(x)
+#
+#     if regularization:
+#         model = sm.OLS(y,x).fit_regularized(method='elastic_net')
+#     else:
+#         #fig = plt.figure(1)
+#         model = sm.OLS(y, x).fit()
+#         fitted_value = model.fittedvalues
+#         df_fitted_value = pd.DataFrame(fitted_value, columns=['fitted_values'])
+#         # create instance of influence
+#         influence = model.get_influence()
+#
+#         #sm.graphics.influence_plot(model)
+#         #plt.show()
+#
+#         # obtain standardized residuals
+#         standardized_residuals = influence.resid_studentized_internal
+#         inf_sum = influence.summary_frame()
+#
+#         df_final_influence = pd.concat([df_features_label,inf_sum, df_fitted_value], axis=1).round(4)
+#         print(df_final_influence)
+#
+#         student_resid = influence.resid_studentized_external
+#         (cooks, p) = influence.cooks_distance
+#         (dffits, p) = influence.dffits
+#
+#         df = model.summary()
+#
+#         results_as_html = df.tables[0].as_html()
+#         df_0 = pd.read_html(results_as_html)[0].round(4)
+#         df_new = df_0[[2, 3]]
+#         df_0.drop(columns=[2, 3], inplace=True)
+#         df_0 = pd.concat([df_0, df_new.rename(columns={2: 0, 3: 1})], ignore_index=True)
+#         df_0.set_index(0, inplace=True)
+#         df_0.index.name = None
+#         df_0.rename(columns={1: 'Values'}, inplace = True)
+#         df_0.drop(df_0.tail(2).index,inplace=True)
+#
+#         results_as_html = df.tables[1].as_html()
+#         df_1 = pd.read_html(results_as_html)[0].round(4)
+#         new_header = df_1.iloc[0, 1:]
+#         df_1 = df_1[1:]
+#         print(df_1.columns)
+#         df_1.set_index(0, inplace=True)
+#         df_1.columns = new_header
+#         df_1.index.name = None
+#
+#         results_as_html = df.tables[2].as_html()
+#         df_2 = pd.read_html(results_as_html)[0].round(4)
+#         df_new = df_2[[2, 3]]
+#         df_2.drop(columns=[2, 3], inplace=True)
+#         df_2 = pd.concat([df_2, df_new.rename(columns={2: 0, 3: 1})], ignore_index=True)
+#         df_2.set_index(0, inplace=True)
+#         df_2.index.name = None
+#         df_2.rename(columns={1: 'Values'}, inplace=True)
+#
+#     if not regularization:
+#         white_test = het_white(model.resid, model.model.exog)
+#         # define labels to use for output of White's test
+#         labels = ['Test Statistic', 'Test Statistic p-value', 'F-Statistic', 'F-Test p-value']
+#         results_dict = dict(zip(labels, white_test))
+#         white_test = pd.DataFrame(results_dict.values(), index=results_dict.keys()).round(4)
+#         white_test.rename(columns={0: 'Values'}, inplace=True)
+#
+#         bresuch_pagan_test = sms.het_breuschpagan(model.resid, model.model.exog)
+#         # define labels to use for output of White's test
+#         labels = ['Lagrange multiplier statistic', 'p-value','f-value', 'f p-value']
+#         results_dict_bresuch = dict(zip(labels, bresuch_pagan_test))
+#         bresuch_test = pd.DataFrame(results_dict_bresuch.values(), index=results_dict_bresuch.keys()).round(4)
+#         bresuch_test.rename(columns={0: 'Values'}, inplace=True)
+#
+#         return {'DataFrame with all available influence results':df_final_influence.to_html(),'first_table': df_0.to_html(), 'second table': df_1.to_html(),
+#                 'third table': df_2.to_html(), 'dataframe white test': white_test.to_html(), 'dataframe bresuch pagan test': bresuch_test.to_html()}
+#     else:
+#         return {'ll'}
+
 @router.get("/linear_regressor_statsmodels")
-async def linear_regression_statsmodels(dependent_variable: str,
-                                        check_heteroscedasticity: bool | None = Query(default=True),
-                                        regularization: bool | None = Query(default=False),
-                                        independent_variables: list[str] | None = Query(default=None)):
-
-    x = data[independent_variables]
-    y = data[dependent_variable]
-
-    df_dict = {}
-    for name in independent_variables:
-        df_dict[str(name)] = data[str(name)]
-
-    df_dict[str(dependent_variable)] = data[dependent_variable]
-    df_features_label = pd.DataFrame.from_dict(df_dict)
-
-    x = sm.add_constant(x)
-
-    if regularization:
-        model = sm.OLS(y,x).fit_regularized(method='elastic_net')
-    else:
-        #fig = plt.figure(1)
-        model = sm.OLS(y, x).fit()
-        fitted_value = model.fittedvalues
-        df_fitted_value = pd.DataFrame(fitted_value, columns=['fitted_values'])
-        # create instance of influence
-        influence = model.get_influence()
-
-        #sm.graphics.influence_plot(model)
-        #plt.show()
-
-        # obtain standardized residuals
-        standardized_residuals = influence.resid_studentized_internal
-        inf_sum = influence.summary_frame()
-
-        df_final_influence = pd.concat([df_features_label,inf_sum, df_fitted_value], axis=1).round(4)
-        print(df_final_influence)
-
-        student_resid = influence.resid_studentized_external
-        (cooks, p) = influence.cooks_distance
-        (dffits, p) = influence.dffits
-
-        df = model.summary()
-
-        results_as_html = df.tables[0].as_html()
-        df_0 = pd.read_html(results_as_html)[0].round(4)
-        df_new = df_0[[2, 3]]
-        df_0.drop(columns=[2, 3], inplace=True)
-        df_0 = pd.concat([df_0, df_new.rename(columns={2: 0, 3: 1})], ignore_index=True)
-        df_0.set_index(0, inplace=True)
-        df_0.index.name = None
-        df_0.rename(columns={1: 'Values'}, inplace = True)
-        df_0.drop(df_0.tail(2).index,inplace=True)
-
-        results_as_html = df.tables[1].as_html()
-        df_1 = pd.read_html(results_as_html)[0].round(4)
-        new_header = df_1.iloc[0, 1:]
-        df_1 = df_1[1:]
-        print(df_1.columns)
-        df_1.set_index(0, inplace=True)
-        df_1.columns = new_header
-        df_1.index.name = None
-
-        results_as_html = df.tables[2].as_html()
-        df_2 = pd.read_html(results_as_html)[0].round(4)
-        df_new = df_2[[2, 3]]
-        df_2.drop(columns=[2, 3], inplace=True)
-        df_2 = pd.concat([df_2, df_new.rename(columns={2: 0, 3: 1})], ignore_index=True)
-        df_2.set_index(0, inplace=True)
-        df_2.index.name = None
-        df_2.rename(columns={1: 'Values'}, inplace=True)
-
-    if not regularization:
-        white_test = het_white(model.resid, model.model.exog)
-        # define labels to use for output of White's test
-        labels = ['Test Statistic', 'Test Statistic p-value', 'F-Statistic', 'F-Test p-value']
-        results_dict = dict(zip(labels, white_test))
-        white_test = pd.DataFrame(results_dict.values(), index=results_dict.keys()).round(4)
-        white_test.rename(columns={0: 'Values'}, inplace=True)
-
-        bresuch_pagan_test = sms.het_breuschpagan(model.resid, model.model.exog)
-        # define labels to use for output of White's test
-        labels = ['Lagrange multiplier statistic', 'p-value','f-value', 'f p-value']
-        results_dict_bresuch = dict(zip(labels, bresuch_pagan_test))
-        bresuch_test = pd.DataFrame(results_dict_bresuch.values(), index=results_dict_bresuch.keys()).round(4)
-        bresuch_test.rename(columns={0: 'Values'}, inplace=True)
-
-        return {'DataFrame with all available influence results':df_final_influence.to_html(),'first_table': df_0.to_html(), 'second table': df_1.to_html(),
-                'third table': df_2.to_html(), 'dataframe white test': white_test.to_html(), 'dataframe bresuch pagan test': bresuch_test.to_html()}
-    else:
-        return {'ll'}
-
-@router.get("/linear_regressor_statsmodels_2")
 async def linear_regression_statsmodels(dependent_variable: str,
                                         check_heteroscedasticity: bool | None = Query(default=True),
                                         regularization: bool | None = Query(default=False),
@@ -1470,6 +1470,14 @@ async def linear_regression_statsmodels(dependent_variable: str,
         results_dict = dict(zip(labels, white_test))
         white_test = pd.DataFrame(results_dict.values(), index=results_dict.keys())
         white_test.rename(columns={0: 'Values'}, inplace=True)
+
+        bresuch_pagan_test = sms.het_breuschpagan(model.resid, model.model.exog)
+        # define labels to use for output of White's test
+        labels = ['Lagrange multiplier statistic', 'p-value', 'f-value', 'f p-value']
+        results_dict_bresuch = dict(zip(labels, bresuch_pagan_test))
+        bresuch_test = pd.DataFrame(results_dict_bresuch.values(), index=results_dict_bresuch.keys())
+        bresuch_test.rename(columns={0: 'Values'}, inplace=True)
+
         response = {'DataFrame with all available influence results':df_final_influence.to_html(),'first_table': df_0.to_json(orient='split'), 'second table': df_1.to_html(),
                 'third table': df_2.to_dict(), 'dataframe white test': white_test.to_json(orient='split'),
                 'dep': df_0.loc['Dep. Variable:'][0], 'model': df_0.loc['Model:'][0],
@@ -1482,7 +1490,9 @@ async def linear_regression_statsmodels(dependent_variable: str,
                 'omnibus': df_2.loc['Omnibus:'][0], 'prob_omni': df_2.loc['Prob(Omnibus):'][0], 'skew': df_2.loc['Skew:'][0], 'kurtosis': df_2.loc['Kurtosis:'][0],
                 'durbin': df_2.loc['Durbin-Watson:'][0], 'jb': df_2.loc['Jarque-Bera (JB):'][0], 'prob_jb': df_2.loc['Prob(JB):'][0], 'cond': df_2.loc['Cond. No.'][0],
                 'test_stat': white_test.loc['Test Statistic'][0], 'test_stat_p': white_test.loc['Test Statistic p-value'][0], 'white_f_stat': white_test.loc['F-Statistic'][0],
-                'white_prob_f': white_test.loc['F-Test p-value'][0], 'influence_columns': list(df_final_influence.columns), 'influence_dict': inf_dict}
+                'white_prob_f': white_test.loc['F-Test p-value'][0], 'influence_columns': list(df_final_influence.columns), 'influence_dict': inf_dict,
+                'bresuch_lagrange': bresuch_test.loc['Lagrange multiplier statistic'][0], 'bresuch_p_value': bresuch_test.loc['p-value'][0],
+                'bresuch_f_value': bresuch_test.loc['f-value'][0], 'bresuch_f_p_value': bresuch_test.loc['f p-value'][0]}
         return response
     else:
         return {'ll'}
