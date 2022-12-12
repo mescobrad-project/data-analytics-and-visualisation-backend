@@ -69,7 +69,7 @@ WIP
 WIP
 ```
 
-## Deployment (WIP)
+## Deployment Docker (WIP)
     - Prerequisites
         ```
         Docker
@@ -81,6 +81,34 @@ WIP
         cd docker
         docker compose up -d --build 
         ```
+## Deployment (Kubernetes) WIP
+    - Prerequisites
+        ```
+        Kuberenetes : Recommended enable through docker desktop
+        ```
+    - kubectl create -f .\analytics-backend-claim0-persistentvolumeclaim.yaml
+    - kubectl create -f .\analytics-backend-service.yaml
+    - kubectl create -f .\analytics-backend-deployment.yaml
+    - kubectl create -f .\analytics-network-networkpolicy.yaml
+
+    - Misc 
+        ```
+        kubectl get services -o wide
+        kubectl get pods -o wide
+        kubectl get nodes -o wide
+        kubectl describe services
+        kubectl describe services/analytics-backend
+        
+        To stop the nodes:
+        kubectl get deployments
+        kubectl delete deployment analytics-backend
+        
+
+        To clear:  kubectl delete all --all --namespace default 
+
+        To see logs, can be done through docker-desktop
+        ```
+
 ## Built With
 WIP 
 
