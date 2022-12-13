@@ -134,6 +134,14 @@ tags_metadata = [
         }
     },
     {
+        "name": "return_LDA",
+        "description": "return_LDA",
+        "externalDocs": {
+            "description": "-",
+            "url": "https://www.google.com/",
+        }
+    },
+    {
         "name": "return_asymmetry_indices",
         "description": "return_asymmetry_indices function",
         "externalDocs": {
