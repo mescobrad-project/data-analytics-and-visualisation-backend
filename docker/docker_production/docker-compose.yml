@@ -1,0 +1,29 @@
+version: '3.7'
+
+services:
+  analytics-backend:
+    build:
+      context: "../../"
+      dockerfile: ./docker/docker_production/Dockerfile
+    hostname: analytics_backend
+    container_name: analytics_backend
+    restart: always
+    environment:
+      WFAddress: expertsystem_web_1
+      NeurodesktopStorageLocation: /home/ntua/neurodesktop-storage
+      FrontendAddress: http://10.129.150.120:3005
+    volumes:
+      - '/home/ntua/neurodesktop-storage:/neurodesktop-storage'
+    ports:
+      - "7000:8000"
+    networks:
+      - mri-freesurfer-network
+      - analytics-network
+
+networks:
+  analytics-network:
+    name: analytics-network
+    driver: bridge
+  mri-freesurfer-network:
+    name: mri-freesurfer-network
+    driver: bridge

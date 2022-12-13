@@ -204,6 +204,7 @@ async def return_free_view_1(input_test_name: str, input_slices: str,
     to_return = "Success"
     return to_return
 
+# TODO freesuerfer/recon/
 @router.get("/free_surfer/", tags=["return_free_surfer"])
 # Validation is done inline in the input of the function
 # If file input is niifty the input_file parameter should contain the name and path of the file

@@ -1,11 +1,78 @@
 # DO NOT AUTO FORMAT THIS FILE THE STRINGS ADDED TO MNE NOTEBOOKS ARE TAB AND SPACE SENSITIVE
 import json
+import time
+from os.path import isfile, join
+
 import nbformat as nbf
+import pandas as pd
 import paramiko
 import csv
 import os
 import mne
 from mne.preprocessing import ICA
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler,DirCreatedEvent,FileCreatedEvent
+
+from app.utils.utils_datalake import get_saved_dataset_for_Hypothesis
+
+NeurodesktopStorageLocation = os.environ.get('NeurodesktopStorageLocation') if os.environ.get(
+    'NeurodesktopStorageLocation') else "/neurodesktop-storage"
+
+
+def get_single_file_from_local_temp_storage(run_id, step_id):
+    """Function to lazily retrieve name and path of file from local storage when there is a single file"""
+    files_to_return = [f for f in os.listdir(NeurodesktopStorageLocation+'/runtime_config/run_' + run_id + '_step_' + step_id) if isfile(join(NeurodesktopStorageLocation+'/runtime_config/run_' + run_id + '_step_' + step_id, f))]
+    return files_to_return[0]
+
+def get_single_file_from_edfbrowser_interim_storage(run_id, step_id):
+    """Function to lazily retrieve name and path of file from local storage when there is a single file"""
+    files_to_return = [f for f in os.listdir(NeurodesktopStorageLocation+'/runtime_config/run_' + run_id + '_step_' + step_id +'/edfbrowser_interim_storage') if isfile(join(NeurodesktopStorageLocation+'/runtime_config/run_' + run_id + '_step_' + step_id +'/edfbrowser_interim_storage', f))]
+    return files_to_return[0]
+
+def get_all_files_from_local_temp_storage(run_id, step_id):
+    """Function to lazily retrieve name and path of file from local storage when there is a single file"""
+    files_to_return = [f for f in os.listdir(NeurodesktopStorageLocation+'/runtime_config/run_' + run_id + '_step_' + step_id) if isfile(join(NeurodesktopStorageLocation+'/runtime_config/run_' + run_id + '_step_' + step_id, f))]
+    return files_to_return
+
+
+def get_local_storage_path(run_id, step_id):
+    """Function returns path with / at the end"""
+    return NeurodesktopStorageLocation+'/runtime_config/run_' + run_id + '_step_' + step_id
+
+def get_local_edfbrowser_storage_path(run_id, step_id):
+    """Function returns path with / at the end"""
+    return NeurodesktopStorageLocation+'/runtime_config/run_' + run_id + '_step_' + step_id+'/edfbrowser_interim_storage'
+
+def load_data_from_csv(file_with_path):
+    """This functions returns data from an edf file with the use of the MNE library
+        This functions returns file with infer types enabled
+    """
+    data = pd.read_csv(file_with_path)
+    return data
+
+def load_file_csv_direct(run_id, step_id ):
+    path_to_storage = get_local_storage_path(run_id, step_id)
+    name_of_file = get_single_file_from_local_temp_storage(run_id, step_id)
+    data = load_data_from_csv(path_to_storage + "/" + name_of_file)
+    return data
+
+
+def create_local_step(run_id, step_id, files_to_download):
+    """ files_to_download format is array of arrays with inner array 0: being bucket name and 1: object name each representing one file"""
+    print("CREATING LOCAL STEP")
+    print(files_to_download)
+    path_to_save = NeurodesktopStorageLocation + '/runtime_config/run_' + run_id + '_step_' + step_id
+    os.makedirs(path_to_save, exist_ok=True)
+    os.makedirs(path_to_save + '/output', exist_ok=True)
+    os.makedirs(path_to_save + '/edfbrowser_interim_storage', exist_ok=True)
+    # Download all files indicated
+    for file_to_download in files_to_download:
+        print("file_to_download")
+        print(file_to_download)
+        get_saved_dataset_for_Hypothesis(bucket_name=file_to_download[0], object_name=file_to_download[1], file_location=path_to_save + "/" +file_to_download[1])
+    # Info file might be unneeded
+    # with open( path_to_save+ '/info.json', 'w', encoding='utf-8') as f:
+    #     pass
 
 def validate_and_convert_peaks(input_height, input_threshold, input_prominence, input_width, input_plateau_size):
     to_return = {
@@ -65,6 +132,7 @@ def create_notebook_mne_modular(file_to_save,
 import mne
 import time
 import threading
+from mne.preprocessing import ICA
 
 %matplotlib qt5
 
@@ -98,12 +166,22 @@ data = data.notch_filter(freqs = """ + notches_length + """)
 """))
 
     if repairing_artifacts_ica:
-        nb['cells'].append(nbf.v4.new_code_cell("""
+        # Must check if n_components is int or float
+        if n_components.isdigit():
+            nb['cells'].append(nbf.v4.new_code_cell("""
 data.load_data()
-ica = ICA(n_components=float("""+n_components+"""), max_iter='auto', method=\""""+ica_method+"""\")
+ica = ICA(n_components=int("""+n_components+"""), max_iter='auto', method=\""""+ica_method+"""\")
 ica.fit(data)
 ica
 """))
+        else:
+            nb['cells'].append(nbf.v4.new_code_cell("""
+data.load_data()
+ica = ICA(n_components=float(""" + n_components + """), max_iter='auto', method=\"""" + ica_method + """\")
+ica.fit(data)
+ica
+"""))
+
         nb['cells'].append(nbf.v4.new_code_cell("""
 data.load_data()
 ica.plot_sources(data)
@@ -130,19 +208,20 @@ data.set_eeg_reference(ref_channels=[\"""" + '","'.join(reference_channels_list)
     else :
         pass
 
-    # We show the actual plot always
+    # We show the actual plot if not in artifact repair
     # Can send number of channels to be precise
-    nb['cells'].append(nbf.v4.new_code_cell("""
+    if not repairing_artifacts_ica:
+        nb['cells'].append(nbf.v4.new_code_cell("""
 fig = data.plot(n_channels=50)
 """))
 
-    # Run the functions for annotations must always be in the end
-    if annotations:
-        nb['cells'].append(nbf.v4.new_code_cell("""
+        # Run the functions for annotations must always be in the end
+        if annotations:
+            nb['cells'].append(nbf.v4.new_code_cell("""
 autosave_annots()
 """))
 
-    nbf.write(nb, "/neurodesktop-storage/" + file_to_save + ".ipynb")
+    nbf.write(nb ,NeurodesktopStorageLocation + "/" + file_to_save + ".ipynb")
 
 
 def create_notebook_mne_plot(run_id, step_id):
@@ -159,7 +238,7 @@ def create_notebook_mne_plot(run_id, step_id):
     data = mne.io.read_raw_edf('trial raw.edf', infer_types=True, preload = True)
     data = data.notch_filter(freqs = 70)
     fig = data.plot(n_channels=50)"""))
-    nbf.write(nb, "/neurodesktop-storage/mne/" + run_id + "_" + step_id + '.ipynb')
+    nbf.write(nb, NeurodesktopStorageLocation + run_id + "_" + step_id + '.ipynb')
 
 
 def create_notebook_mne_plot_annotate(run_id, step_id):
@@ -175,7 +254,7 @@ def create_notebook_mne_plot_annotate(run_id, step_id):
     data = mne.io.read_raw_edf('trial raw.edf', infer_types=True, preload = True)
     data = data.notch_filter(freqs = 70)
     fig = data.plot(n_channels=50)"""))
-    nbf.write(nb, "/neurodesktop-storage/" + run_id + "_" + step_id + '.ipynb')
+    nbf.write(nb, NeurodesktopStorageLocation + run_id + "_" + step_id + '.ipynb')
 
 
 def save_neurodesk_user(user_name, user_password):
@@ -260,14 +339,17 @@ def re_create_all_neurodesk_users():
 def get_neurodesk_display_id():
     """This function gets the id from the volume config folder where it was created when initiating the app"""
     try:
-        with open("/neurodesktop-storage/config/actual_display.txt", "r") as file:
+        with open(NeurodesktopStorageLocation + "/config/actual_display.txt", "r") as file:
             # Save lines in an array
             lines = file.read().splitlines()
-            # print(lines[0])
+            # print(lines)
+            # print(NeurodesktopStorageLocation)
+            # print(NeurodesktopStorageLocation + "/config/actual_display.txt")
     except OSError as e:
         return "0"
 
     if len(lines) > 0:
+        # print(lines[0])
         return lines[0]
     else:
         return "0"
@@ -275,9 +357,9 @@ def get_neurodesk_display_id():
 
 def get_annotations_from_csv(annotation_file="annotation_test.csv"):
     """This function gets the annotation from the local storage and returns it as list of dicts"""
-    with open("/neurodesktop-storage/"+ annotation_file, newline="") as csvfile:
+    with open( NeurodesktopStorageLocation + "/" + annotation_file, newline="") as csvfile:
         # Check if file exists
-        if not os.path.isfile("/neurodesktop-storage/"+ annotation_file):
+        if not os.path.isfile(NeurodesktopStorageLocation + "/" + annotation_file):
             # if it doesnt return empty list
             return []
 
@@ -305,5 +387,4 @@ def get_annotations_from_csv(annotation_file="annotation_test.csv"):
         # lines = file.read().splitlines()
         # print(lines[0])
     # return lines[0]
-
 

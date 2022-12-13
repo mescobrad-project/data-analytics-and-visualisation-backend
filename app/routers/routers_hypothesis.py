@@ -1,8 +1,15 @@
 import numpy as np
 import pandas as pd
 from scipy.stats import jarque_bera, fisher_exact, ranksums, chisquare, kruskal, alexandergovern, kendalltau, f_oneway, shapiro, kstest, anderson, normaltest, boxcox, yeojohnson, bartlett, levene, fligner, obrientransform, pearsonr, spearmanr, pointbiserialr, ttest_ind, mannwhitneyu, wilcoxon,ttest_rel
+import json
+from scipy.stats import jarque_bera, ranksums, chisquare, kruskal, alexandergovern, kendalltau, f_oneway, shapiro, \
+    kstest, anderson, normaltest, boxcox, yeojohnson, bartlett, levene, fligner, obrientransform, pearsonr, spearmanr, \
+    pointbiserialr, ttest_ind, mannwhitneyu, wilcoxon, ttest_rel, skew, kurtosis, probplot
 from typing import Optional, Union, List
 from statsmodels.stats.multitest import multipletests
+import statsmodels.api as sm
+import matplotlib.pyplot as plt
+import mpld3
 from enum import Enum
 from statsmodels.compat import lzip
 import statsmodels.stats.api as sms
@@ -37,103 +44,308 @@ from statsmodels.discrete.conditional_models import ConditionalLogit
 from zepid.base import RiskRatio, RiskDifference, OddsRatio, IncidenceRateRatio, IncidenceRateDifference, NNT
 from zepid import load_sample_data
 from zepid.calc import risk_ci, incidence_rate_ci, risk_ratio, risk_difference, number_needed_to_treat, odds_ratio, incidence_rate_ratio, incidence_rate_difference
+from app.pydantic_models import ModelMultipleComparisons
+from app.utils.utils_datalake import fget_object, get_saved_dataset_for_Hypothesis
+from app.utils.utils_general import get_local_storage_path, get_single_file_from_local_temp_storage, load_data_from_csv, \
+    load_file_csv_direct
+import scipy.stats as st
+import statistics
+from tabulate import tabulate
 
 router = APIRouter()
 data = pd.read_csv('example_data/mescobrad_dataset.csv')
 data = data.drop(["Unnamed: 0"], axis=1)
+data = pd.read_csv('example_data/sample_questionnaire.csv')
+
+def normality_test_content_results(column: str, selected_dataframe):
+    if (column):
+        # region Creating Box-plot
+        fig2 = plt.figure()
+        plt.boxplot(selected_dataframe[str(column)])
+        plt.ylabel("", fontsize=14)
+        # show plot
+        plt.show()
+        html_str_B = mpld3.fig_to_html(fig2)
+        #endregion
+        # region Creating QQ-plot
+        fig = sm.qqplot(selected_dataframe[str(column)], line='45')
+        plt.xticks(fontsize=12)
+        plt.yticks(fontsize=12)
+        plt.show()
+        html_str = mpld3.fig_to_html(fig)
+        # endregion
+        # region Creating Probability-plot
+        fig3 = plt.figure()
+        ax1 = fig3.add_subplot()
+        prob =  probplot(selected_dataframe[str(column)], dist=st.norm, plot=ax1)
+        ax1.set_title('Probplot against normal distribution')
+        plt.xticks(fontsize=12)
+        plt.yticks(fontsize=12)
+        plt.show()
+        html_str_P = mpld3.fig_to_html(fig3)
+        # endregion
+        #region Creating histogram
+        fig1, axs = plt.subplots(1, 1,
+                                 # figsize=(640, 480),
+                                 tight_layout=True)
+
+        ## q25, q75 = np.percentile(data[str(column)], [25, 75])
+        ## bin_width = 2 * (q75 - q25) * len(data[str(column)]) ** (-1 / 3)
+        ## bins = round((data[str(column)].max() - data[str(column)].min()) / bin_width)
+        axs.hist(selected_dataframe[str(column)], density=True, bins=30, label="Data", rwidth=0.9,
+                 color='#607c8e')
+
+        mn, mx = plt.xlim()
+        plt.xlim(mn, mx)
+        kde_xs = np.linspace(mn, mx, 300)
+        kde = st.gaussian_kde(selected_dataframe[str(column)])
+        plt.plot(kde_xs, kde.pdf(kde_xs), label="PDF")
+        plt.legend(loc="upper left")
+        plt.ylabel("Probability", fontsize=14)
+        plt.xlabel("Data", fontsize=14)
+        plt.title("Histogram", fontsize=16)
+        plt.xticks(fontsize=12)
+        plt.yticks(fontsize=12)
+        plt.show()
+        html_str_H = mpld3.fig_to_html(fig1)
+        #endregion
+        #region Calculate skew, kurtosis, median, std, etc.
+        skewtosend = skew(selected_dataframe[str(column)], axis=0, bias=True)
+        kurtosistosend = kurtosis(selected_dataframe[str(column)], axis=0, bias=True)
+        st_dev = np.std(selected_dataframe[str(column)])
+        # Used Statistics lib for cross-checking
+        # standard_deviation = statistics.stdev(data[str(column)])
+        median_value = float(np.percentile(selected_dataframe[str(column)], 50))
+        # Used a different way to calculate Median
+        # TODO: we must investigate why it returns a different value
+        # med2 = np.median(data[str(column)])
+        mean_value = np.mean(selected_dataframe[str(column)])
+        num_rows = selected_dataframe[str(column)].shape
+        top5 = sorted(selected_dataframe[str(column)].tolist(), reverse=True)[:5]
+        last5 = sorted(selected_dataframe[str(column)].tolist(), reverse=True)[-5:]
+        #endregion
+        return {'plot_column': column, 'qqplot': html_str, 'histogramplot': html_str_H, 'boxplot': html_str_B, 'probplot': html_str_P, 'skew': skewtosend, 'kurtosis': kurtosistosend, 'standard_deviation': st_dev, "median": median_value, "mean": mean_value, "sample_N": num_rows, "top_5": top5, "last_5": last5}
+    else:
+        return {'plot_column': "", 'qqplot': "", 'histogramplot': "", 'boxplot': "", 'probplot': "",
+                'skew': 0, 'kurtosis': 0,
+                'standard_deviation': 0, "median": 0,
+                "mean": 0, "sample_N": 0, "top_5": [], "last_5": []}
+
+def transformation_extra_content_results(column_In: str, column_Out:str, selected_dataframe):
+    fig = plt.figure()
+    plt.plot(selected_dataframe[str(column_In)], selected_dataframe[str(column_In)],
+             color='blue', marker="*")
+    # red for numpy.log()
+    plt.plot(selected_dataframe[str(column_Out)], selected_dataframe[str(column_In)],
+             color='red', marker="o")
+    plt.title("Transformed data Comparison")
+    plt.xlabel("out_array")
+    plt.ylabel("in_array")
+    plt.show()
+    html_str_Transf = mpld3.fig_to_html(fig)
+    return html_str_Transf
+
+@router.get("/load_demo_data")
+async def load_demo_data(file: Optional[str] | None):
+    # print(file, len(file))
+    # file = None
+    if file!= None:
+        data = pd.read_csv('runtime_config/' + file)
+    else:
+        data = pd.read_csv('example_data/sample_questionnaire.csv')
+
+    return data
+
 @router.get("/return_columns")
-async def name_columns():
+async def name_columns(step_id: str, run_id: str):
+    path_to_storage = get_local_storage_path(run_id, step_id)
+    name_of_file = get_single_file_from_local_temp_storage(run_id, step_id)
+    data = load_data_from_csv(path_to_storage + "/" + name_of_file)
+
     columns = data.columns
     return{'columns': list(columns)}
 
+@router.get("/return_saved_object_columns")
+async def name_saved_object_columns(file_name:str):
+    print('saved', file_name, 'runtime_config/' + file_name)
+    try:
+        get_saved_dataset_for_Hypothesis('saved', file_name, 'runtime_config/'+file_name)
+        data = pd.read_csv('runtime_config/'+file_name)
+        columns = data.columns
+        return{'columns': list(columns)}
+    except:
+        return{'columns': {}}
 
 @router.get("/normality_tests", tags=['hypothesis_testing'])
-async def normal_tests(column: str,
+async def normal_tests(step_id: str, run_id: str,
+                       column: str,
+                       nan_policy: Optional[str] | None = Query("propagate",
+                                                                regex="^(propagate)$|^(raise)$|^(omit)$"),
+                       axis: Optional[int] = 0,
+                       alternative: Optional[str] | None = Query("two-sided",
+                                                                 regex="^(two-sided)$|^(less)$|^(greater)$"),
                        name_test: str | None = Query("Shapiro-Wilk",
-                                                   regex="^(Shapiro-Wilk)$|^(Kolmogorov-Smirnov)$|^(Anderson-Darling)$|^(D’Agostino’s K\^2)$")) -> dict:
+                                                   regex="^(Shapiro-Wilk)$|^(Kolmogorov-Smirnov)$|^(Anderson-Darling)$|^(D’Agostino’s K\^2)$|^(Jarque-Bera)$")) -> dict:
+
+    data = load_file_csv_direct(run_id, step_id)
+    results_to_send = normality_test_content_results(column, data)
+
+    # region AmCharts_CODE_REGION
+    # # ******************************************
+    # # Data where prepared for Amcharts but now are not needed
+    # # for BoxPlot chart
+    # # 'min,q1,median,q3,max'
+    # boxplot_data = [{
+    #     "date": "2022-05-18",
+    #     # "name": column,
+    #     "min": float(np.min(data[str(column)])),
+    #     "q1": float(np.percentile(data[str(column)], 25)),
+    #     "q2": float(np.percentile(data[str(column)], 50)),
+    #     "q3": float(np.percentile(data[str(column)], 75)),
+    #     "max": float(np.max(data[str(column)]))
+    # }]
+    # # ******************************************
+    # endregion
+
     if name_test == 'Shapiro-Wilk':
         shapiro_test = shapiro(data[str(column)])
         if shapiro_test.pvalue > 0.05:
-            return{'statistic': shapiro_test.statistic, 'p_value': shapiro_test.pvalue, 'Description': 'Sample looks Gaussian (fail to reject H0)'}
+            return{'statistic': shapiro_test.statistic, 'p_value': shapiro_test.pvalue, 'Description': 'Sample looks Gaussian (fail to reject H0)', 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
         else:
-            return{'statistic': shapiro_test.statistic, 'p_value': shapiro_test.pvalue, 'Description':'Sample does not look Gaussian (reject H0)'}
+            return{'statistic': shapiro_test.statistic, 'p_value': shapiro_test.pvalue, 'Description': 'Sample does not look Gaussian (reject H0)', 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
     elif name_test == 'Kolmogorov-Smirnov':
-        ks_test = kstest(data[str(column)], 'norm')
+        ks_test = kstest(data[str(column)], 'norm', alternative=alternative)
         if ks_test.pvalue > 0.05:
-            return{'statistic': ks_test.statistic, 'p_value': ks_test.pvalue, 'Description':'Sample looks Gaussian (fail to reject H0)'}
+            return{'statistic': ks_test.statistic, 'p_value': ks_test.pvalue, 'Description':'Sample looks Gaussian (fail to reject H0)', 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
         else:
-            return{'statistic': ks_test.statistic, 'p_value': ks_test.pvalue, 'Description':'Sample does not look Gaussian (reject H0)'}
+            return{'statistic': ks_test.statistic, 'p_value': ks_test.pvalue, 'Description':'Sample does not look Gaussian (reject H0)', 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
     elif name_test == 'Anderson-Darling':
         anderson_test = anderson(data[str(column)])
         list_anderson = []
         for i in range(len(anderson_test.critical_values)):
             sl, cv = anderson_test.significance_level[i], anderson_test.critical_values[i]
             if anderson_test.statistic < anderson_test.critical_values[i]:
-                print('%.3f: %.3f, data looks normal (fail to reject H0)' % (sl, cv))
+                # print('%.3f: %.3f, data looks normal (fail to reject H0)' % (sl, cv))
                 list_anderson.append('%.3f: %.3f, data looks normal (fail to reject H0)' % (sl, cv))
             else:
-                print('%.3f: %.3f, data does not look normal (reject H0)' % (sl, cv))
+                # print('%.3f: %.3f, data does not look normal (reject H0)' % (sl, cv))
                 list_anderson.append('%.3f: %.3f, data does not look normal (reject H0)' % (sl, cv))
-        return{'statistic':anderson_test.statistic, 'critical_values': list(anderson_test.critical_values), 'significance_level': list(anderson_test.significance_level), 'description': list_anderson}
+        return{'statistic':anderson_test.statistic, 'critical_values': list(anderson_test.critical_values), 'significance_level': list(anderson_test.significance_level), 'Description': list_anderson, 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
     elif name_test == 'D’Agostino’s K^2':
-        stat, p = normaltest(data[str(column)])
+        stat, p = normaltest(data[str(column)], nan_policy=nan_policy)
         if p > 0.05:
-            return{'statistic': stat, 'p_value': p, 'Description':'Sample looks Gaussian (fail to reject H0)'}
+            return{'statistic': stat, 'p_value': p, 'Description':'Sample looks Gaussian (fail to reject H0)', 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
         else:
-            return{'statistic': stat, 'p_value': p, 'Description':'Sample does not look Gaussian (reject H0)'}
+            return{'statistic': stat, 'p_value': p, 'Description':'Sample does not look Gaussian (reject H0)', 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
+    elif name_test == 'Jarque-Bera':
+        jarque_bera_test = jarque_bera(data[str(column)])
+        statistic = jarque_bera_test.statistic
+        pvalue = jarque_bera_test.pvalue
+        if pvalue > 0.05:
+            return {'statistic': statistic, 'p_value': pvalue,
+                    'Description': 'Sample looks Gaussian (fail to reject H0)', 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
+        else:
+            return {'statistic': statistic, 'p_value': pvalue,
+                    'Description': 'Sample does not look Gaussian (reject H0)', 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
 
-@router.get("/transform_data")
-async def transform_data(column:str,
-                         name_transform:str | None = Query("Box-Cox",
-                                                           regex="^(Box-Cox)$|^(Yeo-Johnson)$"),
+
+@router.get("/transform_data", tags=['hypothesis_testing'])
+async def transform_data(step_id: str,
+                         run_id: str,
+                         column: str,
+                         name_transform: str | None = Query("Box-Cox",
+                                                           regex="^(Box-Cox)$|^(Yeo-Johnson)$|^(Log)$|^(Squared-root)$|^(Cube-root)$"),
                          lmbd: Optional[float] = None,
                          alpha: Optional[float] = None) -> dict:
+
+    data = load_file_csv_direct(run_id, step_id)
+    newColumnName = "Transf_" + column
     if name_transform == 'Box-Cox':
         if lmbd == None:
             if alpha == None:
                 boxcox_array, maxlog = boxcox(np.array(data[str(column)]))
-                return {'Box-Cox power transformed array': list(boxcox_array), 'lambda that maximizes the log-likelihood function': maxlog}
+                data[newColumnName] = boxcox_array
+                results_to_send = normality_test_content_results(newColumnName, data)
+                results_to_send['transf_plot'] = transformation_extra_content_results(column, newColumnName, data)
+                return {'Box-Cox power transformed array': list(boxcox_array), 'lambda that maximizes the log-likelihood function': maxlog, 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
             else:
-                boxcox_array, maxlog, z = boxcox(np.array(data[str(column)]), alpha = alpha)
-                return {'Box-Cox power transformed array': list(boxcox_array), 'lambda that maximizes the log-likelihood function': maxlog, 'minimum confidence limit': z[0], 'maximum confidence limit': z[1]}
+                boxcox_array, maxlog, z = boxcox(np.array(data[str(column)]), alpha=alpha)
+                data[newColumnName] = boxcox_array
+                results_to_send = normality_test_content_results(newColumnName, data)
+                results_to_send['transf_plot'] = transformation_extra_content_results(column, newColumnName, data)
+                return {'Box-Cox power transformed array': list(boxcox_array), 'lambda that maximizes the log-likelihood function': maxlog, 'minimum confidence limit': z[0], 'maximum confidence limit': z[1], 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
         else:
             if alpha == None:
-                y = boxcox(np.array(data[str(column)]), lmbda = lmbd)
-                return {'Box-Cox power transformed array': list(y)}
+                y = boxcox(np.array(data[str(column)]), lmbda=lmbd)
+                data[newColumnName] = y
+                results_to_send = normality_test_content_results(newColumnName, data)
+                results_to_send['transf_plot'] = transformation_extra_content_results(column, newColumnName, data)
+                return {'Box-Cox power transformed array': list(y), 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
             else:
-                y = boxcox(np.array(data[str(column)]), lmbda=lmbd, alpha = alpha)
-                return {'Box-Cox power transformed array': list(y)}
+                y = boxcox(np.array(data[str(column)]), lmbda=lmbd, alpha=alpha)
+                data[newColumnName] = y
+                results_to_send = normality_test_content_results(newColumnName, data)
+                results_to_send['transf_plot'] = transformation_extra_content_results(column, newColumnName, data)
+                return {'Box-Cox power transformed array': list(y), 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
     elif name_transform == 'Yeo-Johnson':
         if lmbd == None:
             yeojohnson_array, maxlog = yeojohnson(np.array(data[str(column)]))
-            return {'Yeo-Johnson power transformed array': list(yeojohnson_array), 'lambda that maximizes the log-likelihood function': maxlog}
+            data[newColumnName] = yeojohnson_array
+            results_to_send = normality_test_content_results(newColumnName, data)
+            results_to_send['transf_plot'] = transformation_extra_content_results(column, newColumnName, data)
+            return {'Yeo-Johnson power transformed array': list(yeojohnson_array), 'lambda that maximizes the log-likelihood function': maxlog, 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
         else:
             yeojohnson_array = yeojohnson(np.array(data[str(column)]), lmbda=lmbd)
-            return {'Yeo-Johnson power transformed array': list(yeojohnson_array)}
+            data[newColumnName] = yeojohnson_array
+            results_to_send = normality_test_content_results(newColumnName, data)
+            results_to_send['transf_plot'] = transformation_extra_content_results(column, newColumnName, data)
+            return {'Yeo-Johnson power transformed array': list(yeojohnson_array), 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
+    elif name_transform == 'Log':
+        log_array = np.log(data[str(column)])
+        data[newColumnName] = log_array
+        results_to_send = normality_test_content_results(newColumnName, data)
+        results_to_send['transf_plot'] = transformation_extra_content_results(column, newColumnName, data)
+        return {'Log transformed array': list(log_array), 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
+    elif name_transform == 'Squared-root':
+        sqrt_array = np.sqrt(data[str(column)])
+        data[newColumnName] = sqrt_array
+        results_to_send = normality_test_content_results(newColumnName, data)
+        results_to_send['transf_plot'] = transformation_extra_content_results(column, newColumnName, data)
+        return {'Squared-root transformed array': list(sqrt_array), 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
+    elif name_transform == 'Cube-root':
+        cbrt_array = np.cbrt(data[str(column)])
+        data[newColumnName] = cbrt_array
+        results_to_send = normality_test_content_results(newColumnName, data)
+        results_to_send['transf_plot'] = transformation_extra_content_results(column, newColumnName, data)
+        return {'Cube-root transformed array': list(cbrt_array), 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
 
-@router.get("/compute_pearson_correlation")
-async def pearson_correlation(column_1: str, column_2: str):
+
+@router.get("/compute_pearson_correlation", tags=['hypothesis_testing'])
+async def pearson_correlation(step_id: str, run_id: str, column_1: str, column_2: str):
+    data = load_file_csv_direct(run_id, step_id)
     pearsonr_test = pearsonr(data[str(column_1)], data[str(column_2)])
     return {'Pearson’s correlation coefficient':pearsonr_test[0], 'p-value': pearsonr_test[1]}
 
-@router.get("/compute_spearman_correlation")
+@router.get("/compute_spearman_correlation", tags=['hypothesis_testing'])
 async def spearman_correlation(column_1: str, column_2: str):
     spearman_test = spearmanr(data[str(column_1)], data[str(column_2)])
     return {'Spearman correlation coefficient': spearman_test[0], 'p-value': spearman_test[1]}
 
-@router.get("/compute_kendalltau_correlation")
+@router.get("/compute_kendalltau_correlation", tags=['hypothesis_testing'])
 async def kendalltau_correlation(column_1: str,
                                  column_2: str,
+                                 nan_policy: Optional[str] | None = Query("propagate",
+                                                                           regex="^(propagate)$|^(raise)$|^(omit)$"),
                                  alternative: Optional[str] | None = Query("two-sided",
                                                                            regex="^(two-sided)$|^(less)$|^(greater)$"),
                                  variant: Optional[str] | None = Query("b",
                                                                        regex="^(b)$|^(c)$"),
                                  method: Optional[str] | None = Query("auto",
                                                                       regex="^(auto)$|^(asymptotic)$|^(exact)$")):
-    kendalltau_test = kendalltau(data[str(column_1)], data[str(column_2)], alternative=alternative, variant=variant, method=method)
+    kendalltau_test = kendalltau(data[str(column_1)], data[str(column_2)], nan_policy=nan_policy, alternative=alternative, variant=variant, method=method)
     return {'kendalltau correlation coefficient': kendalltau_test[0], 'p-value': kendalltau_test[1]}
 
-@router.get("/compute_point_biserial_correlation")
+@router.get("/compute_point_biserial_correlation", tags=['hypothesis_testing'])
 async def point_biserial_correlation(column_1: str, column_2: str):
     unique_values = np.unique(data[str(column_1)])
     if len(unique_values) == 2:
@@ -143,31 +355,42 @@ async def point_biserial_correlation(column_1: str, column_2: str):
     return {'correlation':pointbiserialr_test[0], 'p-value': pointbiserialr_test[1]}
 
 #
-@router.get("/check_homoscedasticity")
-async def check_homoskedasticity(column_1: str,
-                                 column_2: str,
+@router.get("/check_homoscedasticity", tags=['hypothesis_testing'])
+async def check_homoskedasticity(step_id: str,
+                                 run_id: str,
+                                 columns: list[str] | None = Query(default=None),
                                  name_of_test: str | None = Query("Levene",
                                                                   regex="^(Levene)$|^(Bartlett)$|^(Fligner-Killeen)$"),
                                  center: Optional[str] | None = Query("median",
                                                                       regex="^(trimmed)$|^(median)$|^(mean)$")):
+    data = load_file_csv_direct(run_id, step_id)
+
+    args = []
+    for k in columns:
+        args.append(data[k])
+
     if name_of_test == "Bartlett":
-        statistic, p_value = bartlett(data[str(column_1)], data[str(column_2)])
+        statistic, p_value = bartlett(*args)
+        # statistic, p_value = bartlett(data[str(column_1)], data[str(column_2)])
     elif name_of_test == "Fligner-Killeen":
-        statistic, p_value = fligner(data[str(column_1)], data[str(column_2)], center=center)
+        statistic, p_value = fligner(*args, center=center)
     else:
-        statistic, p_value = levene(data[str(column_1)], data[str(column_2)], center = center)
+        statistic, p_value = levene(*args, center=center)
     return {'statistic': statistic, 'p-value': p_value}
 
-@router.get("/transformed_data_for_use_in_an_ANOVA")
+
+@router.get("/transformed_data_for_use_in_an_ANOVA", tags=['hypothesis_testing'])
 async def transform_data_anova(column_1: str, column_2: str):
     tx, ty = obrientransform(data[str(column_1)], data[str(column_2)])
     return {'transformed_1': list(tx), 'transformed_2': list(ty)}
 
 
-@router.get("/statistical_tests")
+@router.get("/statistical_tests", tags=['hypothesis_testing'])
 async def statistical_tests(column_1: str,
                             column_2: str,
-                            correction: bool,
+                            correction: bool = True,
+                            nan_policy: Optional[str] | None = Query("propagate",
+                                                                     regex="^(propagate)$|^(raise)$|^(omit)$"),
                             statistical_test: str | None = Query("Independent t-test",
                                                                  regex="^(Independent t-test)$|^(Welch t-test)$|^(Mann-Whitney U rank test)$|^(t-test on TWO RELATED samples of scores)$|^(Wilcoxon signed-rank test)$|^(Alexander Govern test)$|^(Kruskal-Wallis H-test)$|^(one-way ANOVA)$|^(Wilcoxon rank-sum statistic)$|^(one-way chi-square test)$"),
                             alternative: Optional[str] | None = Query("two-sided",
@@ -180,13 +403,13 @@ async def statistical_tests(column_1: str,
                                                                  regex="^(pratt)$|^(wilcox)$|^(zsplit)$")):
 
     if statistical_test == "Welch t-test":
-        statistic, p_value = ttest_ind(data[str(column_1)], data[str(column_2)], equal_var=False, alternative=alternative)
+        statistic, p_value = ttest_ind(data[str(column_1)], data[str(column_2)], nan_policy=nan_policy, equal_var=False, alternative=alternative)
     elif statistical_test == "Independent t-test":
-        statistic, p_value = ttest_ind(data[str(column_1)], data[str(column_2)], alternative=alternative)
+        statistic, p_value = ttest_ind(data[str(column_1)], data[str(column_2)], nan_policy=nan_policy, alternative=alternative)
     elif statistical_test == "t-test on TWO RELATED samples of scores":
         if np.shape(data[str(column_1)])[0] != np.shape(data[str(column_2)])[0]:
             return {'error': 'Unequal length arrays'}
-        statistic, p_value = ttest_rel(data[str(column_1)], data[str(column_2)], alternative=alternative)
+        statistic, p_value = ttest_rel(data[str(column_1)], data[str(column_2)], nan_policy=nan_policy, alternative=alternative)
     elif statistical_test == "Mann-Whitney U rank test":
         statistic, p_value = mannwhitneyu(data[str(column_1)], data[str(column_2)], alternative=alternative, method=method)
     elif statistical_test == "Wilcoxon signed-rank test":
@@ -199,11 +422,11 @@ async def statistical_tests(column_1: str,
                 'mean_negative': np.mean(data[str(column_2)]), 'standard_deviation_negative': np.std(data[str(column_2)]),
                 'statistic, p_value': z}
     elif statistical_test == "Kruskal-Wallis H-test":
-        statistic, p_value = kruskal(data[str(column_1)], data[str(column_2)])
+        statistic, p_value = kruskal(data[str(column_1)], data[str(column_2)], nan_policy=nan_policy)
     elif statistical_test == "one-way ANOVA":
         statistic, p_value = f_oneway(data[str(column_1)], data[str(column_2)])
     elif statistical_test == "Wilcoxon rank-sum statistic":
-        statistic, p_value = ranksums(data[str(column_1)], data[str(column_2)])
+        statistic, p_value = ranksums(data[str(column_1)], data[str(column_2)], nan_policy=nan_policy, alternative=alternative)
     elif statistical_test == "one-way chi-square test":
         statistic, p_value = chisquare(data[str(column_1)], data[str(column_2)])
     return {'mean_positive': np.mean(data[str(column_1)]), 'standard_deviation_positive': np.std(data[str(column_1)]),
@@ -211,31 +434,32 @@ async def statistical_tests(column_1: str,
             'statistic': statistic, 'p-value': p_value}
 
 
-@router.get("/multiple_comparisons")
-async def p_value_correction(alpha: float,
-                             p_value: list[float] = Query([]),
-                             method: str | None = Query("Bonferroni",
-                                                        regex="^(Bonferroni)$|^(sidak)$|^(holm-sidak)$|^(holm)$|^(simes-hochberg)$|^(benjamini-hochberg)$|^(benjamini-yekutieli)$|^(fdr_tsbh)$|^(fdr_tsbky)$")):
+@router.post("/multiple_comparisons", tags=['hypothesis_testing'])
+async def p_value_correction(input_config: ModelMultipleComparisons):
+    method = input_config.method
+    alpha = input_config.alpha
+    p_value = input_config.p_value
+
     if method == 'Bonferroni':
         z = multipletests(pvals=p_value, alpha=alpha, method='bonferroni')
         y = [str(x) for x in z[0]]
-        return {'true for hypothesis that can be rejected for given alpha': list(y), 'corrected_p_values': list(z[1])}
+        return {'rejected': list(y), 'corrected_p_values': list(z[1])}
     elif method == 'sidak':
         z = multipletests(pvals=p_value, alpha=alpha, method='sidak')
         y = [str(x) for x in z[0]]
-        return {'true for hypothesis that can be rejected for given alpha': list(y), 'corrected_p_values': list(z[1])}
+        return {'rejected': list(y), 'corrected_p_values': list(z[1])}
     elif method == 'benjamini-hochberg':
         z = multipletests(pvals=p_value, alpha=alpha, method='fdr_bh')
         y = [str(x) for x in z[0]]
-        return {'true for hypothesis that can be rejected for given alpha': list(y), 'corrected_p_values': list(z[1])}
+        return {'rejected': list(y), 'corrected_p_values': list(z[1])}
     elif method == 'benjamini-yekutieli':
         z = multipletests(pvals=p_value, alpha=alpha, method='fdr_by')
         y = [str(x) for x in z[0]]
-        return {'true for hypothesis that can be rejected for given alpha': list(y), 'corrected_p_values': list(z[1])}
+        return {'rejected': list(y), 'corrected_p_values': list(z[1])}
     else:
         z = multipletests(pvals=p_value, alpha=alpha, method= method)
         y = [str(x) for x in z[0]]
-        return {'true for hypothesis that can be rejected for given alpha': list(y), 'corrected_p_values': list(z[1])}
+        return {'rejected': list(y), 'corrected_p_values': list(z[1])}
 
 
 @router.get("/return_LDA", tags=["return_LDA"])
@@ -817,7 +1041,7 @@ async def poisson_regression(dependent_variable: str,
         df = pd.concat([df_names, df_coeffs], axis=1)
         return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(),
                 'dataframe': df.to_json(orient='split')}
-    
+
 @router.get("/cox_regression")
 async def cox_regression(duration_col: str,
                          covariates: str,

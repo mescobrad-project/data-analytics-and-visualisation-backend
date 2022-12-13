@@ -5,7 +5,7 @@ import socket
 import paramiko
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .routers import routers_eeg, routers_mri, routers_datalake, routers_hypothesis,  routers_communication
+from .routers import routers_eeg, routers_mri, routers_datalake, routers_hypothesis,  routers_communication, routers_actigraphy
 from starlette.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -118,6 +118,14 @@ tags_metadata = [
         }
     },
     {
+        "name": "actigraphy_analysis",
+        "description": "return results of functions for Actigraphy analysis",
+        "externalDocs": {
+            "description": "-",
+            "url": "https://www.google.com/",
+        }
+    },
+    {
         "name": "return_alpha_delta_ratio",
         "description": "return_alpha_delta_ratio function",
         "externalDocs": {
@@ -133,6 +141,30 @@ tags_metadata = [
             "url": "https://www.google.com/",
         }
     },
+    {
+        "name": "return_asymmetry_indices",
+        "description": "return_asymmetry_indices function",
+        "externalDocs": {
+            "description": "-",
+            "url": "https://www.google.com/",
+        }
+     },
+     {
+        "name": "return_alpha_variability",
+        "description": "return_alpha_variability function",
+        "externalDocs": {
+            "description": "-",
+            "url": "https://www.google.com/",
+        }
+    },
+    {
+        "name": "return_predictions",
+        "description": "return_predictions function",
+        "externalDocs": {
+            "description": "-",
+            "url": "https://www.google.com/",
+        }
+    },
 ]
 
 app = FastAPI(openapi_tags=tags_metadata)
@@ -140,12 +172,7 @@ app = FastAPI(openapi_tags=tags_metadata)
 # region CORS Setup
 # This region enables FastAPI's built in CORSMiddleware allowing cross-origin requests allowing communication with
 # the React front end
-origins = [
-    "http://localhost:3000",
-    "http://localhost:3000/auto_correlation",
-    "localhost:3000"
-    "localhost:3000/auto_correlation"
-]
+origins = ["*"]
 
 app.add_middleware(
     CORSMiddleware,
@@ -154,19 +181,24 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"]
 )
+NeurodesktopStorageLocation = os.environ.get('NeurodesktopStorageLocation') if os.environ.get(
+    'NeurodesktopStorageLocation') else "/neurodesktop-storage"
 
-app.mount("/static", StaticFiles(directory="/neurodesktop-storage"), name="static")
+
+app.mount("/static", StaticFiles(directory=NeurodesktopStorageLocation), name="static")
 
 # endregion
+
 
 
 # region Routes of the application
 @app.on_event("startup")
 def initiate_functions():
     # Create folder in volume if it doesn't exist
-    os.makedirs("/neurodesktop-storage", exist_ok=True)
-    os.makedirs("/neurodesktop-storage/config", exist_ok=True)
-    os.makedirs("/neurodesktop-storage/mne", exist_ok=True)
+    os.makedirs(NeurodesktopStorageLocation, exist_ok=True)
+    os.makedirs(NeurodesktopStorageLocation + "/config", exist_ok=True)
+    os.makedirs(NeurodesktopStorageLocation + "/mne", exist_ok=True)
+    os.makedirs(NeurodesktopStorageLocation + "/runtime_config", exist_ok=True)
 
     # Create example files
     with open('annotation_test.csv', 'w') as fp:
@@ -174,8 +206,8 @@ def initiate_functions():
 
     # Copy files from local storage to volume
     # Copy script for getting the current value of
-    shutil.copy("neurodesk_startup_scripts/get_display.sh", "/neurodesktop-storage/config/get_display.sh")
-    shutil.copy("neurodesk_startup_scripts/template_jupyter_notebooks/EDFTEST.ipynb", "/neurodesktop-storage/EDFTEST.ipynb")
+    shutil.copy("neurodesk_startup_scripts/get_display.sh", NeurodesktopStorageLocation + "/config/get_display.sh")
+    shutil.copy("neurodesk_startup_scripts/template_jupyter_notebooks/EDFTEST.ipynb", NeurodesktopStorageLocation + "/EDFTEST.ipynb")
 
     # CONERT WINDOWS ENDINGS TO UBUNTU / MIGHT NEED TO BE REMOVED AFTER VOLUME IS TRANSFERED TO NORMAL VOLUME AND NOT
     # BINDED
@@ -184,7 +216,9 @@ def initiate_functions():
     UNIX_LINE_ENDING = b'\n'
 
     # relative or absolute file path, e.g.:
-    file_path = r"/neurodesktop-storage/config/get_display.sh"
+    file_path = NeurodesktopStorageLocation + "/config/get_display.sh"
+    file_path = r'%s' % file_path
+    # file_path = NeurodesktopStorageLocation + r"/config/get_display.sh"
 
     with open(file_path, 'rb') as open_file:
         content = open_file.read()
@@ -223,7 +257,7 @@ async def root():
 
 @app.get("/test/read/users", tags=["root"])
 async def test_read_users():
-    # Test write user in local storage
+    # Test read user in local storage
 
     read_all_neurodesk_users()
     return "Success"
@@ -233,7 +267,7 @@ async def test_write_user(name, password):
     # Test write user in local storage
 
     save_neurodesk_user(name, password)
-    return "Success"\
+    return "Success"
 
 @app.get("/test/display/neurodesk", tags=["root"])
 async def test_display_neurodesk():
@@ -262,5 +296,6 @@ app.include_router(routers_communication.router)
 app.include_router(routers_mri.router)
 app.include_router(routers_hypothesis.router)
 app.include_router(routers_datalake.router)
+app.include_router(routers_actigraphy.router)
 
 # endregion

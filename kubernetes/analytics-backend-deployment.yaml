@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: C:\Users\mkont\PycharmProjects\data-analytics-and-visualisation-backend\docker\kompose.exe -f .\docker-compose.yml convert
+    kompose.version: 1.27.0 (b0ed6a2c9)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: analytics-backend
+  name: analytics-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: analytics-backend
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: C:\Users\mkont\PycharmProjects\data-analytics-and-visualisation-backend\docker\kompose.exe -f .\docker-compose.yml convert
+        kompose.version: 1.27.0 (b0ed6a2c9)
+      creationTimestamp: null
+      labels:
+        io.kompose.network/analytics-network: "true"
+        io.kompose.network/mri-freesurfer-network: "true"
+        io.kompose.service: analytics-backend
+    spec:
+      containers:
+        - env:
+            - name: FrontendAddress
+              value: http://localhost:3000
+            - name: NeurodesktopStorageLocation
+              value: /neurodesktop-storage
+            - name: WFAddress
+              value: expertsystem_web_1
+          image: docker-analytics-backend
+          imagePullPolicy: Never
+          name: analytics-backend
+          ports:
+            - containerPort: 8000
+          resources: {}
+          volumeMounts:
+            - mountPath: /neurodesktop-storage
+              name: analytics-backend-claim0
+      hostname: analytics-backend
+      restartPolicy: Always
+      volumes:
+        - name: analytics-backend-claim0
+          persistentVolumeClaim:
+            claimName: analytics-backend-claim0
+status: {}
