@@ -1,10 +1,9 @@
 import numpy as np
 import pandas as pd
-from scipy.stats import jarque_bera, fisher_exact, ranksums, chisquare, kruskal, alexandergovern, kendalltau, f_oneway, shapiro, kstest, anderson, normaltest, boxcox, yeojohnson, bartlett, levene, fligner, obrientransform, pearsonr, spearmanr, pointbiserialr, ttest_ind, mannwhitneyu, wilcoxon,ttest_rel
 import json
-from scipy.stats import jarque_bera, ranksums, chisquare, kruskal, alexandergovern, kendalltau, f_oneway, shapiro, \
+from scipy.stats import jarque_bera, fisher_exact, ranksums, chisquare, kruskal, alexandergovern, kendalltau, f_oneway, shapiro, \
     kstest, anderson, normaltest, boxcox, yeojohnson, bartlett, levene, fligner, obrientransform, pearsonr, spearmanr, \
-    pointbiserialr, ttest_ind, mannwhitneyu, wilcoxon, ttest_rel, skew, kurtosis, probplot
+    pointbiserialr, ttest_ind, mannwhitneyu, wilcoxon, ttest_rel, skew, kurtosis, probplot, zscore
 from typing import Optional, Union, List
 from statsmodels.stats.multitest import multipletests
 import statsmodels.api as sm
@@ -16,12 +15,9 @@ import statsmodels.stats.api as sms
 from pydantic import BaseModel
 from statsmodels.stats.diagnostic import het_goldfeldquandt
 from fastapi import FastAPI, Path, Query, APIRouter
-from scipy.stats import zscore
 import sklearn
 import pingouin
-from scipy.stats import skew, kurtosis
 from statsmodels.stats.diagnostic import het_white
-import statsmodels.api as sm
 from statsmodels.stats.stattools import durbin_watson
 from lifelines.utils import to_episodic_format
 import matplotlib.pyplot as plt
@@ -55,7 +51,7 @@ from tabulate import tabulate
 router = APIRouter()
 data = pd.read_csv('example_data/mescobrad_dataset.csv')
 data = data.drop(["Unnamed: 0"], axis=1)
-data = pd.read_csv('example_data/sample_questionnaire.csv')
+# data = pd.read_csv('example_data/sample_questionnaire.csv')
 
 def normality_test_content_results(column: str, selected_dataframe):
     if (column):
