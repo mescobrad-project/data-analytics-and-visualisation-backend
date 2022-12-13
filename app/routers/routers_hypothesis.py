@@ -362,17 +362,25 @@ async def check_homoskedasticity(step_id: str,
     data = load_file_csv_direct(run_id, step_id)
 
     args = []
+    var = []
+    i = 0
     for k in columns:
         args.append(data[k])
+        temp_to_append = {
+            "id": i,
+            "Variable": k,
+            "Variance": np.var(data[k], ddof=0)
+        }
+        var.append(temp_to_append)
+        i = i + 1
 
     if name_of_test == "Bartlett":
         statistic, p_value = bartlett(*args)
-        # statistic, p_value = bartlett(data[str(column_1)], data[str(column_2)])
     elif name_of_test == "Fligner-Killeen":
         statistic, p_value = fligner(*args, center=center)
     else:
         statistic, p_value = levene(*args, center=center)
-    return {'statistic': statistic, 'p-value': p_value}
+    return {'statistic': statistic, 'p_value': p_value, 'variance': var}
 
 
 @router.get("/transformed_data_for_use_in_an_ANOVA", tags=['hypothesis_testing'])
