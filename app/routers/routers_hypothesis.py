@@ -1625,6 +1625,9 @@ async def linear_regression_statsmodels(step_id: str, run_id: str,
                                         independent_variables: list[str] | None = Query(default=None)):
 
     data = load_file_csv_direct(run_id, step_id)
+
+    data = data.drop(['Unnamed: 0'], 1)
+
     x = data[independent_variables]
     y = data[dependent_variable]
 

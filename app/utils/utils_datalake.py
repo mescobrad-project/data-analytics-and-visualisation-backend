@@ -91,8 +91,10 @@ def get_saved_dataset_for_Hypothesis(bucket_name: str, object_name: str, file_lo
 
 # fget_object('saved', f"{'folder01'}/test-object", 'gd_test_data/Downloaded_object.json')
 
+# fget_object('demo', "expertsystem/workflow/3fa85f64-5717-4562-b3fc-2c963f66afa6/3fa85f64-5717-4562-b3fc-2c963f66afa6/3fa85f64-5717-4562-b3fc-2c963f66afa6/mescobrad_dataset.csv", 'gd_test_data/Downloaded_object.json')
+# list_all_objects("demo")
 # get_saved_dataset_for_Hypothesis('saved', 'FriSep302022182125.csv', 'runtime_config/FriSep302022182125.csv')
-
+# fget_object("demo","expertsystem/workflow/3fa85f64-5717-4562-b3fc-2c963f66afa6/3fa85f64-5717-4562-b3fc-2c963f66afa6/3fa85f64-5717-4562-b3fc-2c963f66afa6/mescobrad_dataset.csv", 'gd_test_data/Downloaded_object.json')
 # def normal_val():
 #     rng = np.random.default_rng()
 #     print(rng)

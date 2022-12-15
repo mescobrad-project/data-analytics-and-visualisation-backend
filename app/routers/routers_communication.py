@@ -76,8 +76,10 @@ ExistingFunctions = [
     "wilcoxon_rank_statistic",
     "one_way_chi_square",
     "mutliple_comparisons",
+    "linear_regression",
     # Dashboard
     "dashboard",
+
 ]
 
 
@@ -220,6 +222,8 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/One_way_chi_square_test"
             case "mutliple_comparisons":
                 url_to_redirect += "/Multiple_comparisons"
+            case "linear_regression":
+                url_to_redirect += "/linear_regression"
             # Dashboard
             case "dashboard":
                 url_to_redirect += "/dashboard"
