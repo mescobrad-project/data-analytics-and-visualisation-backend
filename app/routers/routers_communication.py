@@ -76,6 +76,16 @@ ExistingFunctions = [
     "wilcoxon_rank_statistic",
     "one_way_chi_square",
     "mutliple_comparisons",
+    "LDA",
+    "SVC",
+    "PCA",
+    "KMeans",
+    "LinearRegression",
+    "ElasticNet",
+    "LassoRegression",
+    "RidgeRegression",
+    "SGDRegression",
+    "HuberRegression",
     # Dashboard
     "dashboard",
 ]
@@ -220,6 +230,26 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/One_way_chi_square_test"
             case "mutliple_comparisons":
                 url_to_redirect += "/Multiple_comparisons"
+            case "LDA":
+                url_to_redirect += "/LDA"
+            case "SVC":
+                url_to_redirect += "/SVC"
+            case "PCA":
+                url_to_redirect += "/PCA"
+            case "KMeans":
+                url_to_redirect += "/KMeans"
+            case "LinearRegression":
+                url_to_redirect += "/LinearRegression"
+            case "ElasticNet":
+                url_to_redirect += "/ElasticNet"
+            case "LassoRegression":
+                url_to_redirect += "/LassoRegression"
+            case "RidgeRegression":
+                url_to_redirect += "/RidgeRegression"
+            case "SGDRegression":
+                url_to_redirect += "/SGDRegression"
+            case "HuberRegression":
+                url_to_redirect += "/HuberRegression"
             # Dashboard
             case "dashboard":
                 url_to_redirect += "/dashboard"

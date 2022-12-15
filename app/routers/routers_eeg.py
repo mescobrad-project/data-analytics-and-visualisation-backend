@@ -1259,7 +1259,7 @@ async def save_annotation_to_file(step_id: str,
             plt.ylabel('value', fontsize=14)
             plt.grid(True)
             plt.show()
-            plt.savefig(get_local_storage_path(step_id, run_id) + "/" +'plot.png')
+            # plt.savefig(get_local_storage_path(step_id, run_id) + "/" +'plot.png')
 
             # SW_list = []
             #
@@ -1489,10 +1489,15 @@ async def test_notebook(input_test_name: str, input_slices: str,
 
 @router.get("/envelope_trend", tags=["envelope_trend"])
 # Validation is done inline in the input of the function
-async def return_envelopetrend(input_name: str,
+async def return_envelopetrend(
+                               step_id: str,
+                               run_id: str,
+                               input_name: str,
                                window_size: int | None = None,
                                percent: float | None = None,
-                               input_method: str | None = Query("none", regex="^(Simple)$|^(Cumulative)$|^(Exponential)$")) -> dict:
+                               input_method: str | None = Query("none", regex="^(Simple)$|^(Cumulative)$|^(Exponential)$"),
+                               file_used: str | None = Query("original", regex="^(original)$|^(printed)$")) -> dict:
+    data = load_file_from_local_or_interim_edfbrowser_storage(file_used, run_id, step_id)
     raw_data = data.get_data()
     channels = data.ch_names
 

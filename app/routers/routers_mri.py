@@ -169,15 +169,16 @@ async def return_free_view(input_test_name: str, input_slices: str,
     return to_return
 
 
-@router.get("/free_view/1/", tags=["return_free_view"])
+@router.get("/free_view/simple/", tags=["return_free_view"])
 # Validation is done inline in the input of the function
 # Slices are send in a single string and then de
-async def return_free_view_1(input_test_name: str, input_slices: str,
-                                   ) -> dict:
+async def return_free_view_simple(step_id: str,
+                                  run_id: str,
+                                  file_to_open: str | None = None) -> dict:
     # CONNECT THROUGH SSH TO DOCKER WITH FREESURFER
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect("neurodesktop", 22, username="user1", password="password1")
+    ssh.connect("neurodesktop", 22, username="user", password="password")
 
     channel = ssh.invoke_shell()
     response = channel.recv(9999)
@@ -186,6 +187,7 @@ async def return_free_view_1(input_test_name: str, input_slices: str,
     display_id = get_neurodesk_display_id()
     channel.send("export DISPLAY=" + display_id + "\n")
     # channel.send("nohup firefox &\n")
+
     channel.send("ls > ls1.txt\n")
     channel.send("cd /neurocommand/local/bin/\n")
     channel.send("./freesurfer-7_1_1.sh\n")

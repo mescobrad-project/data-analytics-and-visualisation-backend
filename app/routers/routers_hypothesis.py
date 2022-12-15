@@ -514,7 +514,8 @@ async def LDA(dependent_variable: str,
                 'dataframe': df.to_json(orient='split')}
 
 @router.get("/SVC_function")
-async def SVC_function(dependent_variable: str,
+async def SVC_function(step_id: str, run_id: str,
+                       dependent_variable: str,
                        degree: int | None = Query(default=3),
                        max_iter: int | None = Query(default=-1),
                        C: float | None = Query(default=1,gt=0),
@@ -525,7 +526,9 @@ async def SVC_function(dependent_variable: str,
                                                   regex="^(rbf)$|^(linear)$|^(poly)$|^(sigmoid)$"),
                        independent_variables: list[str] | None = Query(default=None)):
 
-    dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
+    # dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
+    dataset = load_file_csv_direct(run_id, step_id)
+
     df_label = dataset[dependent_variable]
     for columns in dataset.columns:
         if columns not in independent_variables:
@@ -613,37 +616,39 @@ async def kmeans_clustering(n_clusters: int,
             'Labels of each point ': kmeans.labels_.tolist(),
             'Sum of squared distances of samples to their closest cluster center' : kmeans.inertia_}
 
-@router.get("/linear_regressor")
-async def linear_regression(dependent_variable: str,
-                            independent_variables: list[str] | None = Query(default=None)):
-    dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
-    df_label = dataset[dependent_variable]
-    for columns in dataset.columns:
-        if columns not in independent_variables:
-            dataset = dataset.drop(str(columns), axis=1)
+# TODO DELETE NEWER IMPLEMENTATION LATER IN THE FILE
+# @router.get("/linear_regressor")
+# async def linear_regression(dependent_variable: str,
+#                             independent_variables: list[str] | None = Query(default=None)):
+#     dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
+#     df_label = dataset[dependent_variable]
+#     for columns in dataset.columns:
+#         if columns not in independent_variables:
+#             dataset = dataset.drop(str(columns), axis=1)
+#
+#     X = np.array(dataset)
+#     Y = np.array(df_label)
+#
+#     clf = LinearRegression()
+#
+#     clf.fit(X, Y)
+#     if np.shape(X)[1] == 1:
+#         coeffs = clf.coef_
+#         inter = clf.intercept_
+#         df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
+#         df_names = pd.DataFrame(dataset.columns, columns=['variables'])
+#         df = pd.concat([df_names, df_coeffs], axis=1)
+#         return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(), 'dataframe': df.to_json(orient='split')}
+#     else:
+#         coeffs = np.squeeze(clf.coef_)
+#         inter = clf.intercept_
+#         df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
+#         df_names = pd.DataFrame(dataset.columns, columns=['variables'])
+#         df = pd.concat([df_names, df_coeffs], axis=1)
+#         return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(),
+#                 'dataframe': df.to_json(orient='split')}
 
-    X = np.array(dataset)
-    Y = np.array(df_label)
-
-    clf = LinearRegression()
-
-    clf.fit(X, Y)
-    if np.shape(X)[1] == 1:
-        coeffs = clf.coef_
-        inter = clf.intercept_
-        df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
-        df_names = pd.DataFrame(dataset.columns, columns=['variables'])
-        df = pd.concat([df_names, df_coeffs], axis=1)
-        return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(), 'dataframe': df.to_json(orient='split')}
-    else:
-        coeffs = np.squeeze(clf.coef_)
-        inter = clf.intercept_
-        df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
-        df_names = pd.DataFrame(dataset.columns, columns=['variables'])
-        df = pd.concat([df_names, df_coeffs], axis=1)
-        return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(),
-                'dataframe': df.to_json(orient='split')}
-
+# TODO Create frontend
 @router.get("/elastic_net")
 async def elastic_net(dependent_variable: str,
                       alpha: float | None = Query(default=1.0),
@@ -679,6 +684,7 @@ async def elastic_net(dependent_variable: str,
         return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(),
                 'dataframe': df.to_json(orient='split')}
 
+# TODO Create frontend
 @router.get("/lasso_regression")
 async def lasso(dependent_variable: str,
                 alpha: float | None = Query(default=1.0, gt=0),
@@ -713,6 +719,7 @@ async def lasso(dependent_variable: str,
         return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(),
                 'dataframe': df.to_json(orient='split')}
 
+# TODO Create frontend
 @router.get("/ridge_regression")
 async def ridge(dependent_variable: str,
                 alpha: float | None = Query(default=1.0, gt=0),
@@ -802,13 +809,15 @@ async def sgd_regressor(dependent_variable: str,
                 'dataframe': df.to_json(orient='split')}
 
 @router.get("/huber_regression")
-async def huber_regressor(dependent_variable: str,
+async def huber_regressor(step_id: str, run_id: str,
+                          dependent_variable: str,
                           max_iter: int | None = Query(default=1000),
                           epsilon: float | None = Query(default=1.5, gt=1),
                           alpha: float | None = Query(default=0.0001,ge=0),
                           independent_variables: list[str] | None = Query(default=None)):
 
-    dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
+    # dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
+    dataset = load_file_csv_direct(run_id, step_id)
     df_label = dataset[dependent_variable]
     for columns in dataset.columns:
         if columns not in independent_variables:
@@ -1617,10 +1626,12 @@ async def logistic_regression_pinguin(dependent_variable: str,
 #         return {'ll'}
 
 @router.get("/linear_regressor_statsmodels")
-async def linear_regression_statsmodels(dependent_variable: str,
+async def linear_regression_statsmodels(step_id: str, run_id: str,
+                                        dependent_variable: str,
                                         check_heteroscedasticity: bool | None = Query(default=True),
                                         regularization: bool | None = Query(default=False),
                                         independent_variables: list[str] | None = Query(default=None)):
+    data = load_file_csv_direct(run_id, step_id)
 
     x = data[independent_variables]
     y = data[dependent_variable]
@@ -1751,8 +1762,6 @@ async def transformation_methods(dependent_variable: str,
 
 @router.get("/skewness_kurtosis")
 async def skewness_kurtosis(dependent_variable: str):
-
-
     x = data[dependent_variable]
 
     skewness_res = skew(x)
@@ -1763,8 +1772,6 @@ async def skewness_kurtosis(dependent_variable: str):
 
 @router.get("/z_score")
 async def z_score(dependent_variable: str):
-
-
     x = data[dependent_variable]
 
     z_score_res = zscore(x)
