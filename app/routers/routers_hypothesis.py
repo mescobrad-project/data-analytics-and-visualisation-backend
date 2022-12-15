@@ -342,7 +342,8 @@ async def kendalltau_correlation(column_1: str,
     return {'kendalltau correlation coefficient': kendalltau_test[0], 'p-value': kendalltau_test[1]}
 
 @router.get("/compute_point_biserial_correlation", tags=['hypothesis_testing'])
-async def point_biserial_correlation(column_1: str, column_2: str):
+async def point_biserial_correlation(step_id: str, run_id: str, column_1: str, column_2: str):
+    data = load_file_csv_direct(run_id, step_id)
     unique_values = np.unique(data[str(column_1)])
     if len(unique_values) == 2:
         pointbiserialr_test = pointbiserialr(data[str(column_1)], data[str(column_2)])
@@ -1617,11 +1618,13 @@ async def logistic_regression_pinguin(dependent_variable: str,
 #         return {'ll'}
 
 @router.get("/linear_regressor_statsmodels")
-async def linear_regression_statsmodels(dependent_variable: str,
+async def linear_regression_statsmodels(step_id: str, run_id: str,
+                                        dependent_variable: str,
                                         check_heteroscedasticity: bool | None = Query(default=True),
                                         regularization: bool | None = Query(default=False),
                                         independent_variables: list[str] | None = Query(default=None)):
 
+    data = load_file_csv_direct(run_id, step_id)
     x = data[independent_variables]
     y = data[dependent_variable]
 
