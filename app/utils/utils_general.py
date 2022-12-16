@@ -70,15 +70,13 @@ def create_local_step(run_id, step_id, files_to_download):
         print("file_to_download")
         print(file_to_download[0])
         print(file_to_download[1])
-        print(path_to_save + "/" + file_to_download[1])
+        print(path_to_save + "/" +file_to_download[1])
 
-        file_location_path = path_to_save + "/" + file_to_download[1]
+        file_location_path = path_to_save + "/" +file_to_download[1]
         if "/" in file_location_path:
-            file_location_path = NeurodesktopStorageLocation + '/runtime_config/run_' + run_id + '_step_' + step_id + '/' + file_location_path.split("/")[-1]
+            file_location_path = NeurodesktopStorageLocation + '/runtime_config/run_' + run_id + '_step_' + step_id + '/'+file_location_path.split("/")[-1]
 
-        get_saved_dataset_for_Hypothesis(bucket_name=file_to_download[0], object_name=file_to_download[1],
-                                         file_location=file_location_path)
-
+        get_saved_dataset_for_Hypothesis(bucket_name=file_to_download[0], object_name=file_to_download[1], file_location=file_location_path)
     # Info file might be unneeded
     # with open( path_to_save+ '/info.json', 'w', encoding='utf-8') as f:
     #     pass
