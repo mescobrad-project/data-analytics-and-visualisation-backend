@@ -1,3 +1,4 @@
+import colorama
 import numpy as np
 import pandas as pd
 import json
@@ -156,6 +157,35 @@ async def load_demo_data(file: Optional[str] | None):
         data = pd.read_csv('example_data/sample_questionnaire.csv')
 
     return data
+
+class FunctionOutputItem(BaseModel):
+    """
+    Known metadata information
+    "files" : [["run_id: "string" , "step_id": "string"], "output":"string"]
+     """
+    run_id: str
+    step_id: str
+    file: str
+
+
+@router.put("/save_hypothesis_output")
+async def save_hypothesis_output(item: FunctionOutputItem) -> dict:
+    output_json = json.loads(item.file)
+    print(output_json)
+    try:
+        path_to_storage = get_local_storage_path(item.run_id, item.step_id)
+        out_filename = path_to_storage + '/output' + '/output.json'
+        with open(out_filename, 'w') as fh:
+            json.dump(output_json, fh, ensure_ascii=False)
+        # print(colorama.Fore.GREEN + "###################### Successfully! created json file. ##############################")
+        print("###################### Successfully! created json file. ##############################")
+        return 200
+    except Exception as e:
+        print(e)
+        print("Error : The save api")
+        return 500
+
+
 
 @router.get("/return_columns")
 async def name_columns(step_id: str, run_id: str):
@@ -1703,17 +1733,16 @@ async def linear_regression_statsmodels(step_id: str, run_id: str,
         df_0.index.name = None
         df_0.rename(columns={1: 'Values'}, inplace = True)
         df_0.drop(df_0.tail(2).index,inplace=True)
-        print(list(df_0.values))
+        # print(list(df_0.values))
 
         results_as_html = df.tables[1].as_html()
         df_1 = pd.read_html(results_as_html)[0]
         new_header = df_1.iloc[0, 1:]
         df_1 = df_1[1:]
-        print("GD -->", df.tables[1])
         df_1.set_index(0, inplace=True)
         df_1.columns = new_header
         df_1.index.name = None
-        print(df_1.to_html())
+
 
         results_as_html = df.tables[2].as_html()
         df_2 = pd.read_html(results_as_html)[0]
