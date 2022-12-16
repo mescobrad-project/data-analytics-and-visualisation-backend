@@ -64,7 +64,12 @@ def normality_test_content_results(column: str, selected_dataframe):
         html_str_B = mpld3.fig_to_html(fig2)
         #endregion
         # region Creating QQ-plot
-        fig = sm.qqplot(selected_dataframe[str(column)], line='45')
+        fig = plt.figure()
+        ax = fig.add_subplot()
+
+        pingouin.qqplot(selected_dataframe[str(column)], dist='norm', ax=ax)
+        # We changed to Pingouin because it's better
+        # fig = sm.qqplot(selected_dataframe[str(column)], line='45')
         plt.xticks(fontsize=12)
         plt.yticks(fontsize=12)
         plt.show()
@@ -158,6 +163,10 @@ async def name_columns(step_id: str, run_id: str):
     name_of_file = get_single_file_from_local_temp_storage(run_id, step_id)
     data = load_data_from_csv(path_to_storage + "/" + name_of_file)
 
+    # For the testing dataset
+    if 'Unnamed: 0' in data.columns:
+        data = data.drop(['Unnamed: 0'], axis=1)
+
     columns = data.columns
     return{'columns': list(columns)}
 
@@ -184,6 +193,9 @@ async def normal_tests(step_id: str, run_id: str,
                                                    regex="^(Shapiro-Wilk)$|^(Kolmogorov-Smirnov)$|^(Anderson-Darling)$|^(D’Agostino’s K\^2)$|^(Jarque-Bera)$")) -> dict:
 
     data = load_file_csv_direct(run_id, step_id)
+    if 'Unnamed: 0' in data.columns:
+        data = data.drop(['Unnamed: 0'], axis=1)
+
     results_to_send = normality_test_content_results(column, data)
 
     # region AmCharts_CODE_REGION
@@ -1626,7 +1638,8 @@ async def linear_regression_statsmodels(step_id: str, run_id: str,
 
     data = load_file_csv_direct(run_id, step_id)
 
-    data = data.drop(['Unnamed: 0'], 1)
+    if 'Unnamed: 0' in data.columns:
+        data.drop(['Unnamed: 0'], axis=1)
 
     x = data[independent_variables]
     y = data[dependent_variable]
@@ -1645,6 +1658,10 @@ async def linear_regression_statsmodels(step_id: str, run_id: str,
     else:
         #fig = plt.figure(1)
         model = sm.OLS(y, x).fit()
+        fitted_value = model.fittedvalues
+        df_fitted_value = pd.DataFrame(fitted_value, columns=['fitted_values'])
+        resid_value = model.resid
+        df_resid_value = pd.DataFrame(resid_value, columns=['residuals'])
         # create instance of influence
         influence = model.get_influence()
 
@@ -1655,7 +1672,7 @@ async def linear_regression_statsmodels(step_id: str, run_id: str,
         standardized_residuals = influence.resid_studentized_internal
         inf_sum = influence.summary_frame()
 
-        df_final_influence = pd.concat([df_features_label,inf_sum], axis=1)
+        df_final_influence = pd.concat([df_features_label,inf_sum,df_fitted_value,df_resid_value], axis=1)
         inf_dict = {}
         for column in df_final_influence.columns:
             inf_dict[column] = list(df_final_influence[column])
@@ -1678,15 +1695,15 @@ async def linear_regression_statsmodels(step_id: str, run_id: str,
         df_0.drop(df_0.tail(2).index,inplace=True)
         print(list(df_0.values))
 
-
         results_as_html = df.tables[1].as_html()
         df_1 = pd.read_html(results_as_html)[0]
         new_header = df_1.iloc[0, 1:]
         df_1 = df_1[1:]
-        print(df_1.columns)
+        print("GD -->", df.tables[1])
         df_1.set_index(0, inplace=True)
         df_1.columns = new_header
         df_1.index.name = None
+        print(df_1.to_html())
 
         results_as_html = df.tables[2].as_html()
         df_2 = pd.read_html(results_as_html)[0]
