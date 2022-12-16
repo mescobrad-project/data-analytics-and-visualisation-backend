@@ -80,7 +80,7 @@ ExistingFunctions = [
     "SVC",
     "PCA",
     "KMeans",
-    "LinearRegression",
+    "linear_regression",
     "ElasticNet",
     "LassoRegression",
     "RidgeRegression",
@@ -238,8 +238,8 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/PCA"
             case "KMeans":
                 url_to_redirect += "/KMeans"
-            case "LinearRegression":
-                url_to_redirect += "/LinearRegression"
+            case "linear_regression":
+                url_to_redirect += "/linear_regression"
             case "ElasticNet":
                 url_to_redirect += "/ElasticNet"
             case "LassoRegression":
