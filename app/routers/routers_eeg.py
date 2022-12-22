@@ -431,7 +431,9 @@ async def estimate_stft(
             plt.ylabel('Frequency [Hz]')
             plt.xlabel('Time [sec]')
             plt.show()
+
             html_str = mpld3.fig_to_html(fig)
+            plt.savefig(get_local_storage_path(step_id, run_id) + "/output/" + 'plot.png')
             to_return["figure"] = html_str
             return to_return
     return {'Channel not found'}

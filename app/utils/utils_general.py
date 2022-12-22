@@ -24,10 +24,12 @@ def get_single_file_from_local_temp_storage(run_id, step_id):
     files_to_return = [f for f in os.listdir(NeurodesktopStorageLocation+'/runtime_config/run_' + run_id + '_step_' + step_id) if isfile(join(NeurodesktopStorageLocation+'/runtime_config/run_' + run_id + '_step_' + step_id, f))]
     return files_to_return[0]
 
+
 def get_single_file_from_edfbrowser_interim_storage(run_id, step_id):
     """Function to lazily retrieve name and path of file from local storage when there is a single file"""
     files_to_return = [f for f in os.listdir(NeurodesktopStorageLocation+'/runtime_config/run_' + run_id + '_step_' + step_id +'/edfbrowser_interim_storage') if isfile(join(NeurodesktopStorageLocation+'/runtime_config/run_' + run_id + '_step_' + step_id +'/edfbrowser_interim_storage', f))]
     return files_to_return[0]
+
 
 def get_all_files_from_local_temp_storage(run_id, step_id):
     """Function to lazily retrieve name and path of file from local storage when there is a single file"""
