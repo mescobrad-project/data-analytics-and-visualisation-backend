@@ -153,7 +153,7 @@ async def load_demo_data(file: Optional[str] | None):
     return data
 
 @router.get("/return_columns")
-async def name_columns(step_id: str, run_id: str):
+async def name_columns(workflow_id: str, step_id: str, run_id: str):
     path_to_storage = get_local_storage_path(run_id, step_id)
     name_of_file = get_single_file_from_local_temp_storage(run_id, step_id)
     data = load_data_from_csv(path_to_storage + "/" + name_of_file)
@@ -173,7 +173,7 @@ async def name_saved_object_columns(file_name:str):
         return{'columns': {}}
 
 @router.get("/normality_tests", tags=['hypothesis_testing'])
-async def normal_tests(step_id: str, run_id: str,
+async def normal_tests(workflow_id: str, step_id: str, run_id: str,
                        column: str,
                        nan_policy: Optional[str] | None = Query("propagate",
                                                                 regex="^(propagate)$|^(raise)$|^(omit)$"),
@@ -246,7 +246,8 @@ async def normal_tests(step_id: str, run_id: str,
 
 
 @router.get("/transform_data", tags=['hypothesis_testing'])
-async def transform_data(step_id: str,
+async def transform_data(workflow_id: str,
+                         step_id: str,
                          run_id: str,
                          column: str,
                          name_transform: str | None = Query("Box-Cox",
@@ -317,7 +318,7 @@ async def transform_data(step_id: str,
 
 
 @router.get("/compute_pearson_correlation", tags=['hypothesis_testing'])
-async def pearson_correlation(step_id: str, run_id: str, column_1: str, column_2: str):
+async def pearson_correlation(workflow_id: str, step_id: str, run_id: str, column_1: str, column_2: str):
     data = load_file_csv_direct(run_id, step_id)
     pearsonr_test = pearsonr(data[str(column_1)], data[str(column_2)])
     return {'Pearson’s correlation coefficient':pearsonr_test[0], 'p-value': pearsonr_test[1]}
@@ -352,7 +353,8 @@ async def point_biserial_correlation(column_1: str, column_2: str):
 
 #
 @router.get("/check_homoscedasticity", tags=['hypothesis_testing'])
-async def check_homoskedasticity(step_id: str,
+async def check_homoskedasticity(workflow_id: str,
+                                 step_id: str,
                                  run_id: str,
                                  columns: list[str] | None = Query(default=None),
                                  name_of_test: str | None = Query("Levene",
@@ -514,7 +516,7 @@ async def LDA(dependent_variable: str,
                 'dataframe': df.to_json(orient='split')}
 
 @router.get("/SVC_function")
-async def SVC_function(step_id: str, run_id: str,
+async def SVC_function(workflow_id: str, step_id: str, run_id: str,
                        dependent_variable: str,
                        degree: int | None = Query(default=3),
                        max_iter: int | None = Query(default=-1),
@@ -809,7 +811,7 @@ async def sgd_regressor(dependent_variable: str,
                 'dataframe': df.to_json(orient='split')}
 
 @router.get("/huber_regression")
-async def huber_regressor(step_id: str, run_id: str,
+async def huber_regressor(workflow_id: str, step_id: str, run_id: str,
                           dependent_variable: str,
                           max_iter: int | None = Query(default=1000),
                           epsilon: float | None = Query(default=1.5, gt=1),
@@ -1626,7 +1628,7 @@ async def logistic_regression_pinguin(dependent_variable: str,
 #         return {'ll'}
 
 @router.get("/linear_regressor_statsmodels")
-async def linear_regression_statsmodels(step_id: str, run_id: str,
+async def linear_regression_statsmodels(workflow_id: str, step_id: str, run_id: str,
                                         dependent_variable: str,
                                         check_heteroscedasticity: bool | None = Query(default=True),
                                         regularization: bool | None = Query(default=False),

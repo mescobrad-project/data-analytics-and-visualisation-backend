@@ -133,7 +133,8 @@ def butter_lowpass_filter(data, cutoff, fs, type_filter, order=5):
 
 
 @router.get("/list/channels", tags=["list_channels"])
-async def list_channels(step_id: str,
+async def list_channels(workflow_id: str,
+                        step_id: str,
                         run_id: str,
                         file_used: str | None = Query("original",
                                         regex="^(original)$|^(printed)$"),
@@ -156,7 +157,7 @@ async def list_channels(step_id: str,
 
 @router.get("/return_autocorrelation", tags=["return_autocorrelation"])
 # Validation is done inline in the input of the function
-async def return_autocorrelation(step_id: str, run_id: str,
+async def return_autocorrelation(workflow_id: str, step_id: str, run_id: str,
                                  input_name: str, input_adjusted: bool | None = False,
                                  input_qstat: bool | None = False, input_fft: bool | None = False,
                                  input_bartlett_confint: bool | None = False,
@@ -203,7 +204,7 @@ async def return_autocorrelation(step_id: str, run_id: str,
 
 @router.get("/return_partial_autocorrelation", tags=["return_partial_autocorrelation"])
 # Validation is done inline in the input of the function
-async def return_partial_autocorrelation(step_id: str, run_id: str,
+async def return_partial_autocorrelation(workflow_id: str, step_id: str, run_id: str,
                                          input_name: str,
                                          input_method: str | None = Query("none",
                                                                           regex="^(none)$|^(yw)$|^(ywadjusted)$|^(ywm)$|^(ywmle)$|^(ols)$|^(ols-inefficient)$|^(ols-adjusted)$|^(ld)$|^(ldadjusted)$|^(ldb)$|^(ldbiased)$|^(burg)$"),
@@ -240,7 +241,7 @@ async def return_partial_autocorrelation(step_id: str, run_id: str,
 @router.get("/return_filters", tags=["return_filters"])
 # Validation is done inline in the input of the function besides
 async def return_filters(
-                         step_id: str, run_id: str,
+                         workflow_id: str, step_id: str, run_id: str,
                          input_name: str,
                          input_cutoff_1: int,
                          input_order: int,
@@ -345,7 +346,7 @@ async def return_filters(
 @router.get("/return_welch", tags=["return_welch"])
 # Validation is done inline in the input of the function
 async def estimate_welch(
-                        step_id: str, run_id: str,
+                        workflow_id: str, step_id: str, run_id: str,
                         input_name: str,
                          tmin: float | None = 0,
                          tmax: float | None = None,
@@ -386,7 +387,7 @@ async def estimate_welch(
 @router.get("/return_stft", tags=["return_stft"])
 # Validation is done inline in the input of the function
 async def estimate_stft(
-                        step_id: str, run_id: str,
+                        workflow_id: str, step_id: str, run_id: str,
                         input_name: str,
                          tmin: float | None = 0,
                          tmax: float | None = None,
@@ -442,7 +443,7 @@ async def estimate_stft(
 # Find peaks
 @router.get("/return_peaks", tags=["return_peaks"])
 # Validation is done inline in the input of the function
-async def return_peaks(step_id: str, run_id: str,
+async def return_peaks(workflow_id: str, step_id: str, run_id: str,
                        input_name: str,
                        input_height=None,
                        input_threshold=None,
@@ -556,7 +557,7 @@ async def return_peaks(step_id: str, run_id: str,
 # Estimate welch
 @router.get("/return_periodogram", tags=["return_periodogram"])
 # Validation is done inline in the input of the function
-async def estimate_periodogram(step_id: str, run_id: str,input_name: str,
+async def estimate_periodogram(workflow_id: str, step_id: str, run_id: str,input_name: str,
                                tmin: float | None = 0,
                                tmax: float | None = None,
                                input_window: str | None = Query("hann",
@@ -609,7 +610,7 @@ async def estimate_periodogram(step_id: str, run_id: str,input_name: str,
 @router.get("/return_power_spectral_density", tags=["return_power_spectral_density"])
 # Validation is done inline in the input of the function
 # TODO TMIN and TMAX probably should be removed
-async def return_power_spectral_density(step_id: str, run_id: str,input_name: str,
+async def return_power_spectral_density(workflow_id: str, step_id: str, run_id: str,input_name: str,
                                         tmin: float | None = None,
                                         tmax: float | None = None,
                                         input_fmin: float | None = 0,
@@ -673,7 +674,7 @@ async def SpO2_Hypothesis():
     return {'Channel not found'}
 
 @router.get("/return_alpha_delta_ratio", tags=["return_alpha_delta_ratio"])
-async def calculate_alpha_delta_ratio(step_id: str, run_id: str,input_name: str,
+async def calculate_alpha_delta_ratio(workflow_id: str, step_id: str, run_id: str,input_name: str,
                                       tmin: float | None = 0,
                                       tmax: float | None = None,
                                       input_window: str | None = Query("hann",
@@ -731,7 +732,7 @@ async def calculate_alpha_delta_ratio(step_id: str, run_id: str,input_name: str,
 
 
 @router.get("/return_asymmetry_indices", tags=["return_asymmetry_indices"])
-async def calculate_asymmetry_indices(step_id: str, run_id: str,input_name_1: str,
+async def calculate_asymmetry_indices(workflow_id: str, step_id: str, run_id: str,input_name_1: str,
                                       input_name_2: str,
                                       input_window: str | None = Query("hann",
                                                           regex="^(boxcar)$|^(triang)$|^(blackman)$|^(hamming)$|^(hann)$|^(bartlett)$|^(flattop)$|^(parzen)$|^(bohman)$|^(blackmanharris)$|^(nuttall)$|^(barthann)$|^(cosine)$|^(exponential)$|^(tukey)$|^(taylor)$"),
@@ -793,7 +794,7 @@ async def calculate_asymmetry_indices(step_id: str, run_id: str,input_name_1: st
     return {'asymmetry_indices': asymmetry_index}
 
 @router.get("/return_alpha_variability", tags=["return_alpha_variability"])
-async def calculate_alpha_variability(step_id: str, run_id: str,input_name: str,
+async def calculate_alpha_variability(workflow_id: str, step_id: str, run_id: str,input_name: str,
                                       tmin: float | None = 0,
                                       tmax: float | None = None,
                                       input_window: str | None = Query("hann",
@@ -850,7 +851,7 @@ async def calculate_alpha_variability(step_id: str, run_id: str,input_name: str,
             return {'alpha_variability': alpha_power/total_power}
 
 @router.get("/return_predictions", tags=["return_predictions"])
-async def return_predictions(step_id: str, run_id: str,input_name: str,
+async def return_predictions(workflow_id: str, step_id: str, run_id: str,input_name: str,
                              input_test_size: int,
                              input_future_seconds: int,
                              input_start_p: int | None = 1,
@@ -914,7 +915,9 @@ async def return_predictions(step_id: str, run_id: str,input_name: str,
 
 # Spindles detection
 @router.get("/spindles_detection")
-async def detect_spindles(step_id: str,
+async def detect_spindles(
+                          workflow_id: str,
+                          step_id: str,
                           run_id: str,
                           name: str,
                           freq_sp_low: float | None = 12,
@@ -986,6 +989,7 @@ async def detect_spindles(step_id: str,
 # Slow Waves detection
 @router.get("/slow_waves_detection")
 async def detect_slow_waves(
+                          workflow_id: str,
                           step_id: str,
                           run_id: str,
                           name: str,
@@ -1236,7 +1240,9 @@ async def sw_detect_two_dataframes(current_sampling_frequency_of_the_hypnogram: 
 # Annotations_to_add have the folowing format which follows the format of adding it to the file with mne
 # [ [starts], [durations], [names]  ]
 @router.get("/save_annotation_to_file")
-async def save_annotation_to_file(step_id: str,
+async def save_annotation_to_file(
+                          workflow_id: str,
+                          step_id: str,
                           run_id: str,
                           name: str,
                           annotations_to_add: str,
@@ -1297,7 +1303,7 @@ async def save_annotation_to_file(step_id: str,
 @router.get("/mne/open/eeg", tags=["mne_open_eeg"])
 # Validation is done inline in the input of the function
 # Slices are send in a single string and then de
-async def mne_open_eeg(step_id: str, run_id: str, current_user: str | None = None) -> dict:
+async def mne_open_eeg(workflow_id: str, step_id: str, run_id: str, current_user: str | None = None) -> dict:
     # # Create a new jupyter notebook with the id of the run and step for recognition
     # create_notebook_mne_plot(input_run_id, input_step_id)
 
@@ -1342,7 +1348,7 @@ async def mne_open_eeg(step_id: str, run_id: str, current_user: str | None = Non
 # TODO chagne parameter name
 @router.get("/return_signal", tags=["return_signal"])
 # Start date time is returned as miliseconds epoch time
-async def return_signal(step_id: str, run_id: str,input_name: str) -> dict:
+async def return_signal(workflow_id: str, step_id: str, run_id: str,input_name: str) -> dict:
     path_to_storage = get_local_storage_path(run_id, step_id)
     name_of_file = get_single_file_from_local_temp_storage(run_id, step_id)
     data = load_data_from_edf(path_to_storage + "/" + name_of_file)
@@ -1366,7 +1372,7 @@ async def return_signal(step_id: str, run_id: str,input_name: str) -> dict:
 
 
 @router.get("/mne/return_annotations", tags=["mne_return_annotations"])
-async def mne_return_annotations(step_id: str, run_id: str, file_name: str | None = "annotation_test.csv") -> dict:
+async def mne_return_annotations(workflow_id: str, step_id: str, run_id: str, file_name: str | None = "annotation_test.csv") -> dict:
     # Default value proable isnt needed in final implementation
     annotations = get_annotations_from_csv(file_name)
     return annotations
@@ -1376,7 +1382,7 @@ async def mne_return_annotations(step_id: str, run_id: str, file_name: str | Non
 
 
 @router.post("/receive_notebook_and_selection_configuration", tags=["receive__notebook_and_selection_configuration"])
-async def receive_notebook_and_selection_configuration(input_config: ModelNotebookAndSelectionConfiguration,step_id: str, run_id: str,file_used: str | None = Query("original", regex="^(original)$|^(printed)$")) -> dict:
+async def receive_notebook_and_selection_configuration(input_config: ModelNotebookAndSelectionConfiguration,workflow_id: str, step_id: str, run_id: str,file_used: str | None = Query("original", regex="^(original)$|^(printed)$")) -> dict:
     # TODO TEMP
     data = load_file_from_local_or_interim_edfbrowser_storage(file_used, run_id, step_id)
 

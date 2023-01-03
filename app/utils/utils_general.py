@@ -19,31 +19,31 @@ NeurodesktopStorageLocation = os.environ.get('NeurodesktopStorageLocation') if o
     'NeurodesktopStorageLocation') else "/neurodesktop-storage"
 
 
-def get_single_file_from_local_temp_storage(run_id, step_id):
+def get_single_file_from_local_temp_storage(workflow_id, run_id, step_id):
     """Function to lazily retrieve name and path of file from local storage when there is a single file"""
-    files_to_return = [f for f in os.listdir(NeurodesktopStorageLocation+'/runtime_config/run_' + run_id + '_step_' + step_id) if isfile(join(NeurodesktopStorageLocation+'/runtime_config/run_' + run_id + '_step_' + step_id, f))]
+    files_to_return = [f for f in os.listdir(NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id) if isfile(join(NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id, f))]
     return files_to_return[0]
 
 
-def get_single_file_from_edfbrowser_interim_storage(run_id, step_id):
+def get_single_file_from_edfbrowser_interim_storage(workflow_id, run_id, step_id):
     """Function to lazily retrieve name and path of file from local storage when there is a single file"""
-    files_to_return = [f for f in os.listdir(NeurodesktopStorageLocation+'/runtime_config/run_' + run_id + '_step_' + step_id +'/edfbrowser_interim_storage') if isfile(join(NeurodesktopStorageLocation+'/runtime_config/run_' + run_id + '_step_' + step_id +'/edfbrowser_interim_storage', f))]
+    files_to_return = [f for f in os.listdir(NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id) if isfile(join(NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id +'/edfbrowser_interim_storage', f))]
     return files_to_return[0]
 
 
-def get_all_files_from_local_temp_storage(run_id, step_id):
+def get_all_files_from_local_temp_storage(workflow_id, run_id, step_id):
     """Function to lazily retrieve name and path of file from local storage when there is a single file"""
-    files_to_return = [f for f in os.listdir(NeurodesktopStorageLocation+'/runtime_config/run_' + run_id + '_step_' + step_id) if isfile(join(NeurodesktopStorageLocation+'/runtime_config/run_' + run_id + '_step_' + step_id, f))]
+    files_to_return = [f for f in os.listdir(NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id) if isfile(join(NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id, f))]
     return files_to_return
 
 
-def get_local_storage_path(run_id, step_id):
+def get_local_storage_path(workflow_id, run_id, step_id):
     """Function returns path with / at the end"""
-    return NeurodesktopStorageLocation+'/runtime_config/run_' + run_id + '_step_' + step_id
+    return NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id
 
-def get_local_edfbrowser_storage_path(run_id, step_id):
+def get_local_edfbrowser_storage_path(workflow_id, run_id, step_id):
     """Function returns path with / at the end"""
-    return NeurodesktopStorageLocation+'/runtime_config/run_' + run_id + '_step_' + step_id+'/edfbrowser_interim_storage'
+    return NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id + '/edfbrowser_interim_storage'
 
 def load_data_from_csv(file_with_path):
     """This functions returns data from an edf file with the use of the MNE library
@@ -52,18 +52,18 @@ def load_data_from_csv(file_with_path):
     data = pd.read_csv(file_with_path)
     return data
 
-def load_file_csv_direct(run_id, step_id ):
-    path_to_storage = get_local_storage_path(run_id, step_id)
-    name_of_file = get_single_file_from_local_temp_storage(run_id, step_id)
+def load_file_csv_direct(workflow_id, run_id, step_id ):
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    name_of_file = get_single_file_from_local_temp_storage(workflow_id, run_id, step_id)
     data = load_data_from_csv(path_to_storage + "/" + name_of_file)
     return data
 
 
-def create_local_step(run_id, step_id, files_to_download):
+def create_local_step(workflow_id, run_id, step_id, files_to_download):
     """ files_to_download format is array of arrays with inner array 0: being bucket name and 1: object name each representing one file"""
     print("CREATING LOCAL STEP")
     print(files_to_download)
-    path_to_save = NeurodesktopStorageLocation + '/runtime_config/run_' + run_id + '_step_' + step_id
+    path_to_save = NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id
     os.makedirs(path_to_save, exist_ok=True)
     os.makedirs(path_to_save + '/output', exist_ok=True)
     os.makedirs(path_to_save + '/edfbrowser_interim_storage', exist_ok=True)
@@ -233,7 +233,7 @@ autosave_annots()
     nbf.write(nb ,NeurodesktopStorageLocation + "/" + file_to_save + ".ipynb")
 
 
-def create_notebook_mne_plot(run_id, step_id):
+def create_notebook_mne_plot(workflow_id, run_id, step_id):
     # Test Function to create sample mne notebook
     nb = nbf.v4.new_notebook()
     nb['cells'] = []
@@ -250,7 +250,7 @@ def create_notebook_mne_plot(run_id, step_id):
     nbf.write(nb, NeurodesktopStorageLocation + run_id + "_" + step_id + '.ipynb')
 
 
-def create_notebook_mne_plot_annotate(run_id, step_id):
+def create_notebook_mne_plot_annotate(workflow_id, run_id, step_id):
     nb = nbf.v4.new_notebook()
     nb['cells'] = []
     nb['cells'].append(nbf.v4.new_code_cell("""import mne
