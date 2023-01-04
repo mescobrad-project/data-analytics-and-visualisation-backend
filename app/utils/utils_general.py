@@ -27,7 +27,7 @@ def get_single_file_from_local_temp_storage(workflow_id, run_id, step_id):
 
 def get_single_file_from_edfbrowser_interim_storage(workflow_id, run_id, step_id):
     """Function to lazily retrieve name and path of file from local storage when there is a single file"""
-    files_to_return = [f for f in os.listdir(NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id) if isfile(join(NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id +'/edfbrowser_interim_storage', f))]
+    files_to_return = [f for f in os.listdir(NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id + '/edfbrowser_interim_storage') if isfile(join(NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id +'/edfbrowser_interim_storage', f))]
     return files_to_return[0]
 
 
@@ -76,8 +76,9 @@ def create_local_step(workflow_id, run_id, step_id, files_to_download):
 
         file_location_path = path_to_save + "/" +file_to_download[1]
         if "/" in file_location_path:
-            file_location_path = NeurodesktopStorageLocation + '/runtime_config/run_' + run_id + '_step_' + step_id + '/'+file_location_path.split("/")[-1]
+            file_location_path = NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id + '/'+ file_location_path.split("/")[-1]
 
+        print("file_location_path")
         get_saved_dataset_for_Hypothesis(bucket_name=file_to_download[0], object_name=file_to_download[1], file_location=file_location_path)
     # Info file might be unneeded
     # with open( path_to_save+ '/info.json', 'w', encoding='utf-8') as f:

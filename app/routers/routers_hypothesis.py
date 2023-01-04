@@ -154,8 +154,8 @@ async def load_demo_data(file: Optional[str] | None):
 
 @router.get("/return_columns")
 async def name_columns(workflow_id: str, step_id: str, run_id: str):
-    path_to_storage = get_local_storage_path(run_id, step_id)
-    name_of_file = get_single_file_from_local_temp_storage(run_id, step_id)
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    name_of_file = get_single_file_from_local_temp_storage(workflow_id, run_id, step_id)
     data = load_data_from_csv(path_to_storage + "/" + name_of_file)
 
     columns = data.columns
@@ -183,7 +183,7 @@ async def normal_tests(workflow_id: str, step_id: str, run_id: str,
                        name_test: str | None = Query("Shapiro-Wilk",
                                                    regex="^(Shapiro-Wilk)$|^(Kolmogorov-Smirnov)$|^(Anderson-Darling)$|^(D’Agostino’s K\^2)$|^(Jarque-Bera)$")) -> dict:
 
-    data = load_file_csv_direct(run_id, step_id)
+    data = load_file_csv_direct(workflow_id, run_id, step_id)
     results_to_send = normality_test_content_results(column, data)
 
     # region AmCharts_CODE_REGION
@@ -255,7 +255,7 @@ async def transform_data(workflow_id: str,
                          lmbd: Optional[float] = None,
                          alpha: Optional[float] = None) -> dict:
 
-    data = load_file_csv_direct(run_id, step_id)
+    data = load_file_csv_direct(workflow_id, run_id, step_id)
     newColumnName = "Transf_" + column
     if name_transform == 'Box-Cox':
         if lmbd == None:
@@ -319,7 +319,7 @@ async def transform_data(workflow_id: str,
 
 @router.get("/compute_pearson_correlation", tags=['hypothesis_testing'])
 async def pearson_correlation(workflow_id: str, step_id: str, run_id: str, column_1: str, column_2: str):
-    data = load_file_csv_direct(run_id, step_id)
+    data = load_file_csv_direct(workflow_id, run_id, step_id)
     pearsonr_test = pearsonr(data[str(column_1)], data[str(column_2)])
     return {'Pearson’s correlation coefficient':pearsonr_test[0], 'p-value': pearsonr_test[1]}
 
@@ -361,7 +361,7 @@ async def check_homoskedasticity(workflow_id: str,
                                                                   regex="^(Levene)$|^(Bartlett)$|^(Fligner-Killeen)$"),
                                  center: Optional[str] | None = Query("median",
                                                                       regex="^(trimmed)$|^(median)$|^(mean)$")):
-    data = load_file_csv_direct(run_id, step_id)
+    data = load_file_csv_direct(workflow_id, run_id, step_id)
 
     args = []
     var = []
@@ -529,7 +529,7 @@ async def SVC_function(workflow_id: str, step_id: str, run_id: str,
                        independent_variables: list[str] | None = Query(default=None)):
 
     # dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
-    dataset = load_file_csv_direct(run_id, step_id)
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
 
     df_label = dataset[dependent_variable]
     for columns in dataset.columns:
@@ -819,7 +819,7 @@ async def huber_regressor(workflow_id: str, step_id: str, run_id: str,
                           independent_variables: list[str] | None = Query(default=None)):
 
     # dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
-    dataset = load_file_csv_direct(run_id, step_id)
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
     df_label = dataset[dependent_variable]
     for columns in dataset.columns:
         if columns not in independent_variables:
@@ -1633,7 +1633,7 @@ async def linear_regression_statsmodels(workflow_id: str, step_id: str, run_id: 
                                         check_heteroscedasticity: bool | None = Query(default=True),
                                         regularization: bool | None = Query(default=False),
                                         independent_variables: list[str] | None = Query(default=None)):
-    data = load_file_csv_direct(run_id, step_id)
+    data = load_file_csv_direct(workflow_id, run_id, step_id)
 
     x = data[independent_variables]
     y = data[dependent_variable]
