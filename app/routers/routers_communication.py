@@ -96,6 +96,7 @@ class FunctionNavigationItem(BaseModel):
     Known metadata information
     "files" : [["bucket_name: "string" , "object_name": "string"]]
      """
+    workflow_id: str
     run_id: str
     step_id: str
     function: str
@@ -258,24 +259,28 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
         if "files" in navigation_item.metadata:
             # print("KEY EXISTS")
             # print(navigation_item.metadata)
-            create_local_step(run_id=navigation_item.run_id, step_id=navigation_item.step_id, files_to_download=navigation_item.metadata["files"])
+            create_local_step(workflow_id=navigation_item.workflow_id, run_id=navigation_item.run_id,
+                              step_id=navigation_item.step_id, files_to_download=navigation_item.metadata["files"])
         else:
             # print("NOT EXIST KEY")
             # print(navigation_item.metadata)
-            create_local_step(run_id=navigation_item.run_id, step_id=navigation_item.step_id, files_to_download=[])
+            create_local_step(workflow_id=navigation_item.workflow_id,
+                              run_id=navigation_item.run_id, step_id=navigation_item.step_id, files_to_download=[])
 
     # Add step and run id to the parameters
-    url_to_redirect += "/?run_id="+ navigation_item.run_id+"&step_id=" + navigation_item.step_id
+    url_to_redirect += "/?run_id="+ navigation_item.run_id+"&step_id=" + navigation_item.step_id + \
+                       "&workflow_id=" + navigation_item.workflow_id
     print(url_to_redirect)
     return {"url": url_to_redirect}
 
 
 @router.get("/function/files/", tags=["function_files"])
-async def function_files(step_id: str,
+async def function_files(workflow_id: str,
+                         step_id: str,
                          run_id: str
                          ) -> dict:
     """This function returns the file id needed for a function"""
-    files_to_return = [f for f in os.listdir(NeurodesktopStorageLocation+'/runtime_config/run_' + run_id + '_step_' + step_id) if isfile(join(NeurodesktopStorageLocation+'/runtime_config/run_' + run_id + '_step_' + step_id, f))]
+    files_to_return = [f for f in os.listdir(NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id) if isfile(join(NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id, f))]
     return files_to_return
 
 @router.get("/function/existing", tags=["function_existing"], status_code=200)

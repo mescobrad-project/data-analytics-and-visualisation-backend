@@ -12,7 +12,8 @@ import mpld3
 import numpy as np
 
 from app.utils.utils_general import validate_and_convert_peaks, validate_and_convert_power_spectral_density, \
-    create_notebook_mne_plot, get_neurodesk_display_id, get_local_storage_path, get_single_file_from_local_temp_storage
+    create_notebook_mne_plot, get_neurodesk_display_id, get_local_storage_path, get_single_file_from_local_temp_storage, \
+    NeurodesktopStorageLocation
 
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -75,13 +76,14 @@ if input isn't recognized
 @router.get("/free_surfer/recon", tags=["return_free_surfer_recon"])
 # Validation is done inline in the input of the function
 # Slices are send in a single string and then de
-async def return_free_surfer_recon(run_id: int,
+async def return_free_surfer_recon(workflow_id: int,
+                                   run_id: int,
                                    step_id: int,
                                    input_test_name: str,
                                    # input_file: str,
                                    ) -> dict:
     # Retrieve the paths file from the local storage
-    path_to_storage = '/neurodesktop-storage/runtime_config/run_' + run_id + '_step_' + step_id
+    path_to_storage = NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id
     name_of_file = get_single_file_from_local_temp_storage(run_id, step_id)
 
     # Connect to neurodesktop through ssh
@@ -206,7 +208,8 @@ async def return_free_view(input_test_name: str, input_slices: str,
 @router.get("/free_view/simple/", tags=["return_free_view"])
 # Validation is done inline in the input of the function
 # Slices are send in a single string and then de
-async def return_free_view_simple(step_id: str,
+async def return_free_view_simple( workflow_id: str,
+                                  step_id: str,
                                   run_id: str,
                                   file_to_open: str | None = None) -> dict:
     # CONNECT THROUGH SSH TO DOCKER WITH FREESURFER
