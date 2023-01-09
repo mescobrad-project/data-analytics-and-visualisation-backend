@@ -191,9 +191,9 @@ async def save_hypothesis_output(item: FunctionOutputItem) -> dict:
 
 
 @router.get("/return_columns")
-async def name_columns(step_id: str, run_id: str):
-    path_to_storage = get_local_storage_path(run_id, step_id)
-    name_of_file = get_single_file_from_local_temp_storage(run_id, step_id)
+async def name_columns(workflow_id: str, step_id: str, run_id: str):
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    name_of_file = get_single_file_from_local_temp_storage(workflow_id, run_id, step_id)
     data = load_data_from_csv(path_to_storage + "/" + name_of_file)
 
     # For the testing dataset
@@ -215,7 +215,7 @@ async def name_saved_object_columns(file_name:str):
         return{'columns': {}}
 
 @router.get("/normality_tests", tags=['hypothesis_testing'])
-async def normal_tests(step_id: str, run_id: str,
+async def normal_tests(workflow_id: str, step_id: str, run_id: str,
                        column: str,
                        nan_policy: Optional[str] | None = Query("propagate",
                                                                 regex="^(propagate)$|^(raise)$|^(omit)$"),
@@ -225,10 +225,9 @@ async def normal_tests(step_id: str, run_id: str,
                        name_test: str | None = Query("Shapiro-Wilk",
                                                    regex="^(Shapiro-Wilk)$|^(Kolmogorov-Smirnov)$|^(Anderson-Darling)$|^(D’Agostino’s K\^2)$|^(Jarque-Bera)$")) -> dict:
 
-    data = load_file_csv_direct(run_id, step_id)
+    data = load_file_csv_direct(workflow_id, run_id, step_id)
     if 'Unnamed: 0' in data.columns:
         data = data.drop(['Unnamed: 0'], axis=1)
-
     results_to_send = normality_test_content_results(column, data)
 
     # region AmCharts_CODE_REGION
@@ -291,7 +290,8 @@ async def normal_tests(step_id: str, run_id: str,
 
 
 @router.get("/transform_data", tags=['hypothesis_testing'])
-async def transform_data(step_id: str,
+async def transform_data(workflow_id: str,
+                         step_id: str,
                          run_id: str,
                          column: str,
                          name_transform: str | None = Query("Box-Cox",
@@ -299,7 +299,7 @@ async def transform_data(step_id: str,
                          lmbd: Optional[float] = None,
                          alpha: Optional[float] = None) -> dict:
 
-    data = load_file_csv_direct(run_id, step_id)
+    data = load_file_csv_direct(workflow_id, run_id, step_id)
     newColumnName = "Transf_" + column
     if name_transform == 'Box-Cox':
         if lmbd == None:
@@ -362,8 +362,8 @@ async def transform_data(step_id: str,
 
 
 @router.get("/compute_pearson_correlation", tags=['hypothesis_testing'])
-async def pearson_correlation(step_id: str, run_id: str, column_1: str, column_2: str):
-    data = load_file_csv_direct(run_id, step_id)
+async def pearson_correlation(workflow_id: str, step_id: str, run_id: str, column_1: str, column_2: str):
+    data = load_file_csv_direct(workflow_id, run_id, step_id)
     pearsonr_test = pearsonr(data[str(column_1)], data[str(column_2)])
     return {'Pearson’s correlation coefficient':pearsonr_test[0], 'p-value': pearsonr_test[1]}
 
@@ -387,8 +387,8 @@ async def kendalltau_correlation(column_1: str,
     return {'kendalltau correlation coefficient': kendalltau_test[0], 'p-value': kendalltau_test[1]}
 
 @router.get("/compute_point_biserial_correlation", tags=['hypothesis_testing'])
-async def point_biserial_correlation(step_id: str, run_id: str, column_1: str, column_2: str):
-    data = load_file_csv_direct(run_id, step_id)
+async def point_biserial_correlation(workflow_id: str, step_id: str, run_id: str, column_1: str, column_2: str):
+    data = load_file_csv_direct(workflow_id, run_id, step_id)
     unique_values = np.unique(data[str(column_1)])
     if len(unique_values) == 2:
         pointbiserialr_test = pointbiserialr(data[str(column_1)], data[str(column_2)])
@@ -398,14 +398,15 @@ async def point_biserial_correlation(step_id: str, run_id: str, column_1: str, c
 
 #
 @router.get("/check_homoscedasticity", tags=['hypothesis_testing'])
-async def check_homoskedasticity(step_id: str,
+async def check_homoskedasticity(workflow_id: str,
+                                 step_id: str,
                                  run_id: str,
                                  columns: list[str] | None = Query(default=None),
                                  name_of_test: str | None = Query("Levene",
                                                                   regex="^(Levene)$|^(Bartlett)$|^(Fligner-Killeen)$"),
                                  center: Optional[str] | None = Query("median",
                                                                       regex="^(trimmed)$|^(median)$|^(mean)$")):
-    data = load_file_csv_direct(run_id, step_id)
+    data = load_file_csv_direct(workflow_id, run_id, step_id)
 
     args = []
     var = []
@@ -560,7 +561,7 @@ async def LDA(dependent_variable: str,
                 'dataframe': df.to_json(orient='split')}
 
 @router.get("/SVC_function")
-async def SVC_function(step_id: str, run_id: str,
+async def SVC_function(workflow_id: str, step_id: str, run_id: str,
                        dependent_variable: str,
                        degree: int | None = Query(default=3),
                        max_iter: int | None = Query(default=-1),
@@ -573,7 +574,7 @@ async def SVC_function(step_id: str, run_id: str,
                        independent_variables: list[str] | None = Query(default=None)):
 
     # dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
-    dataset = load_file_csv_direct(run_id, step_id)
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
 
     df_label = dataset[dependent_variable]
     for columns in dataset.columns:
@@ -855,7 +856,7 @@ async def sgd_regressor(dependent_variable: str,
                 'dataframe': df.to_json(orient='split')}
 
 @router.get("/huber_regression")
-async def huber_regressor(step_id: str, run_id: str,
+async def huber_regressor(workflow_id: str, step_id: str, run_id: str,
                           dependent_variable: str,
                           max_iter: int | None = Query(default=1000),
                           epsilon: float | None = Query(default=1.5, gt=1),
@@ -863,7 +864,7 @@ async def huber_regressor(step_id: str, run_id: str,
                           independent_variables: list[str] | None = Query(default=None)):
 
     # dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
-    dataset = load_file_csv_direct(run_id, step_id)
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
     df_label = dataset[dependent_variable]
     for columns in dataset.columns:
         if columns not in independent_variables:
@@ -1672,17 +1673,12 @@ async def logistic_regression_pinguin(dependent_variable: str,
 #         return {'ll'}
 
 @router.get("/linear_regressor_statsmodels")
-async def linear_regression_statsmodels(step_id: str, run_id: str,
+async def linear_regression_statsmodels(workflow_id: str, step_id: str, run_id: str,
                                         dependent_variable: str,
                                         check_heteroscedasticity: bool | None = Query(default=True),
                                         regularization: bool | None = Query(default=False),
                                         independent_variables: list[str] | None = Query(default=None)):
-    data = load_file_csv_direct(run_id, step_id)
-
-    data = load_file_csv_direct(run_id, step_id)
-
-    if 'Unnamed: 0' in data.columns:
-        data.drop(['Unnamed: 0'], axis=1)
+    data = load_file_csv_direct(workflow_id, run_id, step_id)
 
     x = data[independent_variables]
     y = data[dependent_variable]

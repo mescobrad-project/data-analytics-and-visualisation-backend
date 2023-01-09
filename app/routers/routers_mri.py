@@ -12,7 +12,8 @@ import mpld3
 import numpy as np
 
 from app.utils.utils_general import validate_and_convert_peaks, validate_and_convert_power_spectral_density, \
-    create_notebook_mne_plot, get_neurodesk_display_id
+    create_notebook_mne_plot, get_neurodesk_display_id, get_local_storage_path, get_single_file_from_local_temp_storage, \
+    NeurodesktopStorageLocation
 
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -75,20 +76,55 @@ if input isn't recognized
 @router.get("/free_surfer/recon", tags=["return_free_surfer_recon"])
 # Validation is done inline in the input of the function
 # Slices are send in a single string and then de
-async def return_free_surfer_recon(input_test_name: str, input_slices: str,
+async def return_free_surfer_recon(workflow_id: int,
+                                   run_id: int,
+                                   step_id: int,
+                                   input_test_name: str,
+                                   # input_file: str,
                                    ) -> dict:
-    # CONNECT THROUGH SSH TO DOCKER WITH FREESURFER
+    # Retrieve the paths file from the local storage
+    path_to_storage = NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id
+    name_of_file = get_single_file_from_local_temp_storage(run_id, step_id)
+
+    # Connect to neurodesktop through ssh
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect("free-surfer", 22, username ="root" , password="freesurferpwd")
+    ssh.connect("neurodesktop", 22, username="user", password="password")
 
+    channel = ssh.invoke_shell()
+    response = channel.recv(9999)
+    print(channel)
+    print(channel.send_ready())
 
-    # Start recon COMMAND
-    ssh.exec_command("ls > ls.txt")
-    # ssh.exec_command("recon-all -subject subjectname -i /path/to/input_volume -T2 /path/to/T2_volume -T2pial -all")
-    # Redirect output to log.txt in output folder that has been created
+    display_id = get_neurodesk_display_id()
+    channel.send("export DISPLAY=" + display_id + "\n")
+    channel.send("ls > ls2.txt\n")
+    channel.send("cd /neurocommand/local/bin/\n")
+    channel.send("./freesurfer-7_1_1.sh\n")
+    channel.send("echo \"mkontoulis @ epu.ntua.gr\n")
+    channel.send("60631\n")
+    channel.send(" *CctUNyzfwSSs\n")
+    channel.send(" FSNy4xe75KyK.\" >> ~/.license\n")
+    channel.send("export FS_LICENSE=~/.license\n")
+    channel.send("mkdir /neurodesktop-storage/freesurfer-output\n")
+    channel.send("source /opt/freesurfer-7.1.1/SetUpFreeSurfer.sh\n")
+    channel.send("export SUBJECTS_DIR=" + path_to_storage + "\n")
+    channel.send("cd /neurodesktop-storage/freesurfer-output\n")
+    channel.send(
+        "nohup recon-all -subject " + input_test_name + " -i " + name_of_file + " -all > freesurfer_log.txtr &\n")
 
-    # If everything ok return Sucess
+    # # CONNECT THROUGH SSH TO DOCKER WITH FREESURFER
+    # ssh = paramiko.SSHClient()
+    # ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    # ssh.connect("free-surfer", 22, username ="root" , password="freesurferpwd")
+    #
+    #
+    # # Start recon COMMAND
+    # ssh.exec_command("ls > ls.txt")
+    # # ssh.exec_command("recon-all -subject subjectname -i /path/to/input_volume -T2 /path/to/T2_volume -T2pial -all")
+    # # Redirect output to log.txt in output folder that has been created
+    #
+    # # If everything ok return Sucess
     to_return = "Success"
     return to_return
 
@@ -172,7 +208,8 @@ async def return_free_view(input_test_name: str, input_slices: str,
 @router.get("/free_view/simple/", tags=["return_free_view"])
 # Validation is done inline in the input of the function
 # Slices are send in a single string and then de
-async def return_free_view_simple(step_id: str,
+async def return_free_view_simple( workflow_id: str,
+                                  step_id: str,
                                   run_id: str,
                                   file_to_open: str | None = None) -> dict:
     # CONNECT THROUGH SSH TO DOCKER WITH FREESURFER
