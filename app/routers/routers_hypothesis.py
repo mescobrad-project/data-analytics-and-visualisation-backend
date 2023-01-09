@@ -42,7 +42,7 @@ from zepid.base import RiskRatio, RiskDifference, OddsRatio, IncidenceRateRatio,
 from zepid import load_sample_data
 from zepid.calc import risk_ci, incidence_rate_ci, risk_ratio, risk_difference, number_needed_to_treat, odds_ratio, incidence_rate_ratio, incidence_rate_difference
 from app.pydantic_models import ModelMultipleComparisons
-from app.utils.utils_datalake import fget_object, get_saved_dataset_for_Hypothesis
+from app.utils.utils_datalake import fget_object, get_saved_dataset_for_Hypothesis, upload_object
 from app.utils.utils_general import get_local_storage_path, get_single_file_from_local_temp_storage, load_data_from_csv, \
     load_file_csv_direct
 import scipy.stats as st
@@ -171,19 +171,22 @@ class FunctionOutputItem(BaseModel):
 @router.put("/save_hypothesis_output")
 async def save_hypothesis_output(item: FunctionOutputItem) -> dict:
     output_json = json.loads(item.file)
-    print(output_json)
+    # print(output_json)
     try:
         path_to_storage = get_local_storage_path(item.run_id, item.step_id)
         out_filename = path_to_storage + '/output' + '/output.json'
         with open(out_filename, 'w') as fh:
             json.dump(output_json, fh, ensure_ascii=False)
+        upload_object(bucket_name="demo", object_name='expertsystem/workflow/3fa85f64-5717-4562-b3fc-2c963f66afa6'
+                                                     '/3fa85f64-5717-4562-b3fc-2c963f66afa6/3fa85f64-5717-4562-b3fc'
+                                                     '-2c963f66afa6/Analytics_output.json', file=out_filename)
         # print(colorama.Fore.GREEN + "###################### Successfully! created json file. ##############################")
-        print("###################### Successfully! created json file. ##############################")
-        return 200
+        print("###################### Successfully! created json file.")
+        return '200'
     except Exception as e:
         print(e)
         print("Error : The save api")
-        return 500
+        return '500'
 
 
 

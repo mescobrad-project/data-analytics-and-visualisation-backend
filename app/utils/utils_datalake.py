@@ -66,12 +66,14 @@ def get_data_of_object(bucket_name: str, object_name: str):
 
 def upload_object(bucket_name: str, object_name: str, file: str):
     # Upload data .
-    result = new_client.fput_object(
-        bucket_name, object_name, file)
-    print(
-        "created {0} object; etag: {1}, version-id: {2}".format(
-            result.object_name, result.etag, result.version_id))
-
+    try:
+        result = new_client.fput_object(bucket_name, object_name, file)
+        print(
+            "created {0} object; etag: {1}, version-id: {2}".format(
+                result.object_name, result.etag, result.version_id))
+    except Exception as exc:
+        print(exc)
+        print("error")
 
 def object_stat(bucket_name: str, object_name: str):
     result = new_client.stat_object(bucket_name, object_name)
