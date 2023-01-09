@@ -11,7 +11,6 @@ class ModelNotebookAndSelectionConfiguration(BaseModel):
     # Bipolar References
     bipolar_references: list
 
-
     # Type of reference
     type_of_reference: str
     channels_reference: list

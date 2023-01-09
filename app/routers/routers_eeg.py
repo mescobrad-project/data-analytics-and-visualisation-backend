@@ -1345,6 +1345,47 @@ async def mne_open_eeg(workflow_id: str, step_id: str, run_id: str, current_user
     # channel.send("nohup /usr/bin/code -n /home/user/neurodesktop-storage/created_1.ipynb --extensions-dir=/opt/vscode-extensions --disable-workspace-trust &\n")
 
 
+@router.get("/mne/open/mne", tags=["mne_open_eeg"])
+# Validation is done inline in the input of the function
+# Slices are send in a single string and then de
+async def mne_open_mne(workflow_id: str, step_id: str, run_id: str, current_user: str | None = None) -> dict:
+    # # Create a new jupyter notebook with the id of the run and step for recognition
+    # create_notebook_mne_plot(input_run_id, input_step_id)
+
+    # Initiate ssh connection with neurodesk container
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect("neurodesktop", 22, username="user", password="password")
+    channel = ssh.invoke_shell()
+
+    # print("get_neurodesk_display_id()")
+    # print(get_neurodesk_display_id())
+    channel.send("cd /home/user/neurodesktop-storage\n")
+    channel.send("sudo chmod 777 config\n")
+    channel.send("cd /home/user/neurodesktop-storage/config\n")
+    channel.send("sudo bash get_display.sh\n")
+
+    display_id = get_neurodesk_display_id()
+    channel.send("export DISPLAY=" + display_id + "\n")
+    # Close previous isntances of code for the user
+    # TODO !!!!!!!!!!!!!!!!!!!!!!!!!!! THIS USER MUST CHANGE TO CURRENTLY USED USER
+    channel.send("pkill -INT code -u user\n")
+    channel.send("/neurocommand/local/bin/mne-1_0_0.sh\n")
+
+
+    # Get file name to open with EDFBrowser
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    name_of_file = get_single_file_from_local_temp_storage(workflow_id, run_id, step_id)
+    file_full_path = path_to_storage + "/" + name_of_file
+
+    # Give permissions in working folder
+    channel.send(
+        "sudo chmod a+rw /home/user/neurodesktop-storage/runtime_config/workflow_" + workflow_id + "/run_" + run_id + "/step_" + step_id + "/edfbrowser_interim_storage\n")
+
+    channel.send("nohup /usr/bin/code -n /home/user/neurodesktop-storage/runtime_config/workflow_" +workflow_id + "/run_" + run_id + "/step_" + step_id + "/edfbrowser_interim_storage/" + "created_1.ipynb --extensions-dir=/opt/vscode-extensions --disable-workspace-trust &\n")
+
+
+
 # TODO chagne parameter name
 @router.get("/return_signal", tags=["return_signal"])
 # Start date time is returned as miliseconds epoch time
@@ -1373,7 +1414,7 @@ async def return_signal(workflow_id: str, step_id: str, run_id: str,input_name: 
 
 @router.get("/mne/return_annotations", tags=["mne_return_annotations"])
 async def mne_return_annotations(workflow_id: str, step_id: str, run_id: str, file_name: str | None = "annotation_test.csv") -> dict:
-    # Default value proable isnt needed in final implementation
+    # Default value probably isnt needed in final implementation
     annotations = get_annotations_from_csv(file_name)
     return annotations
 
@@ -1392,7 +1433,11 @@ async def receive_notebook_and_selection_configuration(input_config: ModelNotebo
 
     print(input_config)
     # Produce new notebook
-    create_notebook_mne_modular(file_to_save="created_1",
+    create_notebook_mne_modular(
+                                workflow_id=workflow_id,
+                                run_id=run_id,
+                                step_id=step_id,
+                                file_to_save="created_1",
                                 file_to_open="trial_av.edf",
                                 notches_enabled=input_config.notches_enabled,
                                 notches_length= input_config.notches_length,
@@ -1411,11 +1456,10 @@ async def receive_notebook_and_selection_configuration(input_config: ModelNotebo
     # If there is a selection channel we need to crop
     if input_config.selection_channel != "":
         # data.crop(float(input_config.selection_start_time), float(input_config.selection_end_time))
-
         # data.save("/neurodesktop-storage/trial_av_processed.fif", "all", float(input_config.selection_start_time), float(input_config.selection_end_time), overwrite = True, buffer_size_sec=24)
-        data.save( NeurodesktopStorageLocation + "/trial_av_processed.fif", "all", overwrite = True, buffer_size_sec=None)
+        data.save(NeurodesktopStorageLocation + "/trial_av_processed.fif", "all", overwrite=True, buffer_size_sec=None)
     else:
-        data.save(NeurodesktopStorageLocation + "/trial_av_processed.fif", "all", overwrite = True, buffer_size_sec=None)
+        data.save(NeurodesktopStorageLocation + "/trial_av_processed.fif", "all", overwrite=True, buffer_size_sec=None)
 
     return {'Channel not found'}
 
@@ -1498,6 +1542,7 @@ async def test_notebook(input_test_name: str, input_slices: str,
 @router.get("/envelope_trend", tags=["envelope_trend"])
 # Validation is done inline in the input of the function
 async def return_envelopetrend(
+                               workflow_id: str,
                                step_id: str,
                                run_id: str,
                                input_name: str,
