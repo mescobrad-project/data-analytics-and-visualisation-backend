@@ -290,6 +290,14 @@ async def test_add_user(name, password):
     create_neurodesk_user(name, password)
     return "Success"
 
+
+# @app.get("/info", tags=["root"])
+# async def get_info(workflow_id: int,
+#                    run_id: int,
+#                    step_id: int,):
+#
+#     return
+
 # Include routers from other folders
 app.include_router(routers_eeg.router)
 app.include_router(routers_communication.router)

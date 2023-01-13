@@ -20,7 +20,7 @@ NeurodesktopStorageLocation = os.environ.get('NeurodesktopStorageLocation') if o
 
 
 def get_single_file_from_local_temp_storage(workflow_id, run_id, step_id):
-    """Function to lazily retrieve name and path of file from local storage when there is a single file"""
+    """Function to lazily retrieve name of file from local storage when there is a single file"""
     files_to_return = [f for f in os.listdir(NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id) if isfile(join(NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id, f))]
     return files_to_return[0]
 
@@ -118,7 +118,11 @@ def convert_string_to_number_or_array(input):
     return to_return
 
 
-def create_notebook_mne_modular(file_to_save,
+def create_notebook_mne_modular(
+                                workflow_id,
+                                run_id,
+                                step_id,
+                                file_to_save,
                                 file_to_open,
                               notches_enabled,
                               notches_length,
@@ -146,7 +150,7 @@ from mne.preprocessing import ICA
 
 %matplotlib qt5
 
-data = mne.io.read_raw_edf('""" + file_to_open + """', infer_types=True, preload = True)
+data = mne.io.read_raw_edf('../""" + get_single_file_from_local_temp_storage(workflow_id, run_id, step_id) + """', infer_types=True, preload = True)
 """))
 
     if float(selection_start_time) != 0 or float(selection_end_time) != 0:
@@ -231,7 +235,9 @@ fig = data.plot(n_channels=50)
 autosave_annots()
 """))
 
-    nbf.write(nb ,NeurodesktopStorageLocation + "/" + file_to_save + ".ipynb")
+    print("PATH TO SAVE NOTEBOOK")
+    print(get_local_edfbrowser_storage_path(workflow_id, run_id, step_id) + "/" + file_to_save + ".ipynb")
+    nbf.write(nb ,get_local_edfbrowser_storage_path(workflow_id, run_id, step_id) + "/" + file_to_save + ".ipynb")
 
 
 def create_notebook_mne_plot(workflow_id, run_id, step_id):
