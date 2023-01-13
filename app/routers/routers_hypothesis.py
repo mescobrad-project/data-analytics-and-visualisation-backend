@@ -1550,16 +1550,45 @@ async def incidence_rate_difference_function(exposed_with: int,
     return {'incident rate difference': estimated_risk, 'lower bound': lower_bound, 'upper bound': upper_bound, 'standard error': standard_error}
 
 @router.get("/correlations_pingouin")
-async def correlations_pingouin(column_1: str,
-                                column_2: str,
+async def correlations_pingouin(workflow_id: str,
+                                step_id: str,
+                                run_id: str,
+                                # column_1: str,
+                                column_2: list[str] | None = Query(default=None),
                                 alternative: Optional[str] | None = Query("two-sided",
                                                                           regex="^(two-sided)$|^(less)$|^(greater)$"),
                                 method: Optional[str] | None = Query("pearson",
                                                                      regex="^(pearson)$|^(spearman)$|^(kendall)$|^(bicor)$|^(percbend)$|^(shepherd)$|^(skipped)$")):
+    data = load_file_csv_direct(workflow_id, run_id, step_id)
+    all_res = []
+    count=0
+    for i in column_2:
+        for j in column_2:
+            if i == j or column_2.index(j) < column_2.index(i):
+                continue
+            res = pingouin.corr(x=data[i], y=data[j], method=method, alternative=alternative).round(5)
+            res.insert(0,'Cor', i + "-" + j, True)
+            # all_res.append(res)
+            count = count + 1
+            for ind, row in res.iterrows():
+                temp_to_append = {
+                    "id": count,
+                    "Cor": row['Cor'],
+                    "n": row['n'],
+                    "r": row['r'],
+                    "CI95%": "[" + str(row['CI95%'].item(0)) + "," + str(row['CI95%'].item(1)) + "]",
+                    "p-val": row['p-val'],
+                    # if method=='':
+                    #     "BF10": row['BF10']
+                    "power": row['power']
+                }
+                if method == 'pearson':
+                    temp_to_append["BF10"] = row['BF10']
+            all_res.append(temp_to_append)
 
-    df = pingouin.corr(x=data[str(column_1)], y=data[str(column_2)], method=method, alternative=alternative)
-
-    return {'DataFrame': df.to_json(orient='split')}
+    # df = pd.concat(all_res)
+    return {'DataFrame': all_res}
+    # return {'DataFrame': df.to_json(orient='split')}
 
 @router.get("/linear_regressor_pinguin")
 async def linear_regression_pinguin(dependent_variable: str,
