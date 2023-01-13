@@ -1569,6 +1569,7 @@ async def correlations_pingouin(workflow_id: str,
             res = pingouin.corr(x=data[i], y=data[j], method=method, alternative=alternative).round(5)
             res.insert(0,'Cor', i + "-" + j, True)
             # all_res.append(res)
+            print(res)
             count = count + 1
             for ind, row in res.iterrows():
                 temp_to_append = {
@@ -1584,6 +1585,8 @@ async def correlations_pingouin(workflow_id: str,
                 }
                 if method == 'pearson':
                     temp_to_append["BF10"] = row['BF10']
+                if method == 'shepherd':
+                    temp_to_append["outliers"] = row['outliers']
             all_res.append(temp_to_append)
 
     # df = pd.concat(all_res)

@@ -60,6 +60,10 @@ ExistingFunctions = [
     "normality_anderson",
     "data_transform",
     "pearson_correlation",
+    "biweight_midcorrelation",
+    "percentage_bend_correlation",
+    "shepherd_pi_correlation",
+    "skipped_spearman_correlation",
     "point_biserial_correlation",
     "data_transform_anova",
     "homoscedasticity",
@@ -209,6 +213,14 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/Spearman_correlation"
             case "kendalltau_correlation":
                 url_to_redirect += "/Kendalltau_correlation"
+            case "biweight_midcorrelation":
+                url_to_redirect += "/Biweight_midcorrelation"
+            case "percentage_bend_correlation":
+                url_to_redirect += "/Percentage_bend_correlation"
+            case "shepherd_pi_correlation":
+                url_to_redirect += "/Shepherd_pi_correlation"
+            case "skipped_spearman_correlation":
+                url_to_redirect += "/Skipped_spearman_correlation"
             case "welch_t_test":
                 url_to_redirect += "/Welch_t_test"
             case "independent_t_test":
