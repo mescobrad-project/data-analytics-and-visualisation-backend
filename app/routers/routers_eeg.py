@@ -1,6 +1,8 @@
 import os
 from datetime import datetime
 import json
+from os.path import isfile, join
+
 import pingouin as pg
 import seaborn as sns
 import math
@@ -1303,7 +1305,11 @@ async def save_annotation_to_file(
 @router.get("/mne/open/eeg", tags=["mne_open_eeg"])
 # Validation is done inline in the input of the function
 # Slices are send in a single string and then de
-async def mne_open_eeg(workflow_id: str, step_id: str, run_id: str, current_user: str | None = None) -> dict:
+async def mne_open_eeg(workflow_id: str,
+                       step_id: str,
+                       run_id: str,
+                       selected_montage: str | None = "",
+                       current_user: str | None = None) -> dict:
     # # Create a new jupyter notebook with the id of the run and step for recognition
     # create_notebook_mne_plot(input_run_id, input_step_id)
 
@@ -1337,7 +1343,12 @@ async def mne_open_eeg(workflow_id: str, step_id: str, run_id: str, current_user
     # Opening EDFBrowser
     channel.send("cd /home/user/neurodesktop-storage/runtime_config/workflow_" + workflow_id + "/run_" + run_id + "/step_" + step_id +"/edfbrowser_interim_storage\n")
     # print("/home/user/EDFbrowser/edfbrowser /home/user/'" + file_full_path + "'\n")
-    channel.send("/home/user/EDFbrowser/edfbrowser '/home/user" + file_full_path + "'\n")
+    if selected_montage != "":
+        print("Montage selected path")
+        print("/home/user/EDFbrowser/edfbrowser '/home/user" + file_full_path + "' /home/user" + NeurodesktopStorageLocation + "/montages/" + selected_montage + "\n")
+        channel.send("/home/user/EDFbrowser/edfbrowser '/home/user" + file_full_path + "' /home/user" + NeurodesktopStorageLocation + "/montages/" + selected_montage + "\n")
+    else:
+        channel.send("/home/user/EDFbrowser/edfbrowser '/home/user" + file_full_path + "'\n")
 
     # OLD VISUAL STUDIO CODE CALL and terminate
     # channel.send("pkill -INT code -u user\n")
@@ -1529,6 +1540,12 @@ async def test_montage() -> dict:
 
     # create_notebook_mne_plot("hello", "again")
 
+@router.get("/get/montages", tags=["get_montages"])
+async def get_montages() -> dict:
+    """This function returns a list of the existing montages, which are files saved in neurodesktop_strorage montages"""
+    print(NeurodesktopStorageLocation + "/montages")
+    files_to_return = [f for f in os.listdir(NeurodesktopStorageLocation + '/montages') if isfile(join(NeurodesktopStorageLocation + '/montages', f))]
+    return files_to_return
 
 
 @router.get("/test/notebook", tags=["test_notebook"])
@@ -1537,6 +1554,12 @@ async def test_notebook(input_test_name: str, input_slices: str,
                         ) -> dict:
     create_notebook_mne_plot("hello", "again")
 
+
+@router.get("/test/mne", tags=["test_notebook"])
+# Validation is done inline in the input of the function
+async def test_mne() -> dict:
+    mne.export.export_raw(NeurodesktopStorageLocation + "/export_data_fixed.edf", data, physical_range=(-4999.84, 4999.84), overwrite=True)
+    mne.export.export_raw(NeurodesktopStorageLocation + "/export_data_not.edf", data, overwrite=True)
 
 
 @router.get("/envelope_trend", tags=["envelope_trend"])
