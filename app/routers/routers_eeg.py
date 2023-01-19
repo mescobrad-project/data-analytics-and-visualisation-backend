@@ -708,8 +708,11 @@ async def calculate_alpha_delta_ratio(workflow_id: str, step_id: str, run_id: st
                                           noverlap=input_noverlap, nfft=input_nfft,
                                           return_onesided=input_return_onesided, scaling=input_scaling,
                                           axis=input_axis, average=input_average)
+
+            list_power = []
+            peak_f = []
             # Define alpha lower and upper limits
-            low, high = 8, 12
+            low, high = 8, 13
 
             # Find intersecting values in frequency vector
             idx_alpha = np.logical_and(freqs >= low, freqs <= high)
@@ -717,18 +720,189 @@ async def calculate_alpha_delta_ratio(workflow_id: str, step_id: str, run_id: st
 
             # Compute the absolute power by approximating the area under the curve
             alpha_power = simps(psd[idx_alpha], dx=freq_res)
+            new_freqs = []
+            for f in freqs:
+                if f >= low and f<=high:
+                    new_freqs.append(f)
+
+            peak_f.append(new_freqs[np.argmax(psd[idx_alpha])])
+
             #################################################
 
-            #
-            low, high = 0.5, 4
+            # delta power
+            low, high = 0.5, 3.9
 
             # Find intersecting values in frequency vector
             idx_05_4 = np.logical_and(freqs >= low, freqs <= high)
 
             # Compute the absolute power by approximating the area under the curve
             delta_power = simps(psd[idx_05_4], dx=freq_res)
+            new_freqs = []
+            for f in freqs:
+                if f >= low and f <= high:
+                    new_freqs.append(f)
 
-            return {'alpha_delta_ratio': alpha_power/delta_power}
+            peak_f.append(new_freqs[np.argmax(psd[idx_alpha])])
+
+            # theta power
+            low, high = 4, 8
+
+            # Find intersecting values in frequency vector
+            idx_05_4 = np.logical_and(freqs >= low, freqs < high)
+
+            # Compute the absolute power by approximating the area under the curve
+            theta_power = simps(psd[idx_05_4], dx=freq_res)
+            new_freqs = []
+            for f in freqs:
+                if f >= low and f <= high:
+                    new_freqs.append(f)
+
+            peak_f.append(new_freqs[np.argmax(psd[idx_alpha])])
+
+            # beta power
+            low, high = 13, 30
+
+            # Find intersecting values in frequency vector
+            idx_05_4 = np.logical_and(freqs > low, freqs <= high)
+
+            # Compute the absolute power by approximating the area under the curve
+            beta_power = simps(psd[idx_05_4], dx=freq_res)
+            new_freqs = []
+            for f in freqs:
+                if f >= low and f <= high:
+                    new_freqs.append(f)
+
+            peak_f.append(new_freqs[np.argmax(psd[idx_alpha])])
+
+            list_power.append(beta_power)
+            list_power.append(theta_power)
+            list_power.append(alpha_power)
+            list_power.append(delta_power)
+            names_power = ['Beta', 'Theta', 'Alpha','Delta']
+            df_names = pd.DataFrame(names_power, columns=['Band'])
+            df_power = pd.DataFrame(list_power, columns=['Power (uV^2)'])
+            peak_f_new = []
+            peak_f_new.append(peak_f[3])
+            peak_f_new.append(peak_f[2])
+            peak_f_new.append(peak_f[0])
+            peak_f_new.append(peak_f[1])
+            df_peak = pd.DataFrame(peak_f_new, columns=['Peak (Hz)'])
+
+            df = pd.concat([df_names, df_power, df_peak],1)
+
+            return {'alpha_delta_ratio': alpha_power/delta_power, 'DataFrame': df.to_json(orient='split')}
+
+@router.get("/return_alpha_delta_ratio_periodogram", tags=["return_alpha_delta_ratio_periodogram"])
+async def calculate_alpha_delta_ratio_periodogram(workflow_id: str, step_id: str, run_id: str,input_name: str,
+                                                  tmin: float | None = 0,
+                                                  tmax: float | None = None,
+                                                  input_window: str | None = Query("hann",
+                                                                                   regex="^(boxcar)$|^(triang)$|^(blackman)$|^(hamming)$|^(hann)$|^(bartlett)$|^(flattop)$|^(parzen)$|^(bohman)$|^(blackmanharris)$|^(nuttall)$|^(barthann)$|^(cosine)$|^(exponential)$|^(tukey)$|^(taylor)$"),
+                                                  input_nfft: int | None = None,
+                                                  input_return_onesided: bool | None = True,
+                                                  input_scaling: str | None = Query("density", regex="^(density)$|^(spectrum)$"),
+                                                  input_axis: int | None = -1,
+                                                  file_used: str | None = Query("original", regex="^(original)$|^(printed)$")
+                                                  ) -> dict:
+    data = load_file_from_local_or_interim_edfbrowser_storage(file_used, workflow_id, run_id, step_id)
+
+    # data.crop(tmin=tmin, tmax=tmax)
+    raw_data = data.get_data()
+    info = data.info
+    channels = data.ch_names
+    for i in range(len(channels)):
+        if input_name == channels[i]:
+            if input_window == "hann":
+                freqs, psd = signal.periodogram(raw_data[i]*(10**3), info['sfreq'], window=input_window,
+                                                nfft=input_nfft,return_onesided=input_return_onesided,
+                                                scaling=input_scaling, axis=input_axis)
+            else:
+                freqs, psd = signal.periodogram(raw_data[i]*(10**3), info['sfreq'],
+                                                window=signal.get_window(input_window, input_nperseg),
+                                                nfft=input_nfft, return_onesided=input_return_onesided, scaling=input_scaling,
+                                                axis=input_axis)
+
+            list_power = []
+            peak_f = []
+
+            # beta power
+            low, high = 13, 30
+            freq_res = freqs[1] - freqs[0]  # = 1 / 4 = 0.25
+
+            # Find intersecting values in frequency vector
+            idx_05_4 = np.logical_and(freqs > low, freqs <= high)
+
+            # Compute the absolute power by approximating the area under the curve
+            beta_power = simps(psd[idx_05_4], dx=freq_res)
+            new_freqs = []
+            for f in freqs:
+                if f >= low and f <= high:
+                    new_freqs.append(f)
+
+            peak_f.append(new_freqs[np.argmax(psd[idx_05_4])])
+
+            # theta power
+            low, high = 4, 8
+
+            # Find intersecting values in frequency vector
+            idx_05_4 = np.logical_and(freqs >= low, freqs < high)
+
+            # Compute the absolute power by approximating the area under the curve
+            theta_power = simps(psd[idx_05_4], dx=freq_res)
+            new_freqs = []
+            for f in freqs:
+                if f >= low and f <= high:
+                    new_freqs.append(f)
+
+            peak_f.append(new_freqs[np.argmax(psd[idx_05_4])])
+
+            # Define alpha lower and upper limits
+            low, high = 8, 13
+
+            # Find intersecting values in frequency vector
+            idx_alpha = np.logical_and(freqs >= low, freqs <= high)
+            freq_res = freqs[1] - freqs[0]  # = 1 / 4 = 0.25
+
+            # Compute the absolute power by approximating the area under the curve
+            alpha_power = simps(psd[idx_alpha], dx=freq_res)
+            new_freqs = []
+            for f in freqs:
+                if f >= low and f<=high:
+                    new_freqs.append(f)
+
+            peak_f.append(new_freqs[np.argmax(psd[idx_alpha])])
+
+            #################################################
+
+            # delta power
+            low, high = 0.5, 3.9
+
+            # Find intersecting values in frequency vector
+            idx_05_4 = np.logical_and(freqs >= low, freqs <= high)
+
+            # Compute the absolute power by approximating the area under the curve
+            delta_power = simps(psd[idx_05_4], dx=freq_res)
+            new_freqs = []
+            for f in freqs:
+                if f >= low and f <= high:
+                    new_freqs.append(f)
+
+            peak_f.append(new_freqs[np.argmax(psd[idx_05_4])])
+
+
+            list_power.append(beta_power)
+            list_power.append(theta_power)
+            list_power.append(alpha_power)
+            list_power.append(delta_power)
+            names_power = ['Beta', 'Theta', 'Alpha','Delta']
+            df_names = pd.DataFrame(names_power, columns=['Band'])
+            df_power = pd.DataFrame(list_power, columns=['Power (uV^2)'])
+            df_peak = pd.DataFrame(peak_f, columns=['Peak (Hz)'])
+
+            df = pd.concat([df_names, df_power, df_peak],1)
+            print(df)
+
+            return {'alpha_delta_ratio': alpha_power/delta_power, 'DataFrame': df.to_json(orient='split')}
 
 
 @router.get("/return_asymmetry_indices", tags=["return_asymmetry_indices"])
