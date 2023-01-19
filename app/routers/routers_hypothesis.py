@@ -361,30 +361,30 @@ async def transform_data(workflow_id: str,
         return {'Cube-root transformed array': list(cbrt_array), 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
 
 
-@router.get("/compute_pearson_correlation", tags=['hypothesis_testing'])
-async def pearson_correlation(workflow_id: str, step_id: str, run_id: str, column_1: str, column_2: str):
-    data = load_file_csv_direct(workflow_id, run_id, step_id)
-    pearsonr_test = pearsonr(data[str(column_1)], data[str(column_2)])
-    return {'Pearson’s correlation coefficient':pearsonr_test[0], 'p-value': pearsonr_test[1]}
-
-@router.get("/compute_spearman_correlation", tags=['hypothesis_testing'])
-async def spearman_correlation(column_1: str, column_2: str):
-    spearman_test = spearmanr(data[str(column_1)], data[str(column_2)])
-    return {'Spearman correlation coefficient': spearman_test[0], 'p-value': spearman_test[1]}
-
-@router.get("/compute_kendalltau_correlation", tags=['hypothesis_testing'])
-async def kendalltau_correlation(column_1: str,
-                                 column_2: str,
-                                 nan_policy: Optional[str] | None = Query("propagate",
-                                                                           regex="^(propagate)$|^(raise)$|^(omit)$"),
-                                 alternative: Optional[str] | None = Query("two-sided",
-                                                                           regex="^(two-sided)$|^(less)$|^(greater)$"),
-                                 variant: Optional[str] | None = Query("b",
-                                                                       regex="^(b)$|^(c)$"),
-                                 method: Optional[str] | None = Query("auto",
-                                                                      regex="^(auto)$|^(asymptotic)$|^(exact)$")):
-    kendalltau_test = kendalltau(data[str(column_1)], data[str(column_2)], nan_policy=nan_policy, alternative=alternative, variant=variant, method=method)
-    return {'kendalltau correlation coefficient': kendalltau_test[0], 'p-value': kendalltau_test[1]}
+# @router.get("/compute_pearson_correlation", tags=['hypothesis_testing'])
+# async def pearson_correlation(workflow_id: str, step_id: str, run_id: str, column_1: str, column_2: str):
+#     data = load_file_csv_direct(workflow_id, run_id, step_id)
+#     pearsonr_test = pearsonr(data[str(column_1)], data[str(column_2)])
+#     return {'Pearson’s correlation coefficient':pearsonr_test[0], 'p-value': pearsonr_test[1]}
+#
+# @router.get("/compute_spearman_correlation", tags=['hypothesis_testing'])
+# async def spearman_correlation(column_1: str, column_2: str):
+#     spearman_test = spearmanr(data[str(column_1)], data[str(column_2)])
+#     return {'Spearman correlation coefficient': spearman_test[0], 'p-value': spearman_test[1]}
+#
+# @router.get("/compute_kendalltau_correlation", tags=['hypothesis_testing'])
+# async def kendalltau_correlation(column_1: str,
+#                                  column_2: str,
+#                                  nan_policy: Optional[str] | None = Query("propagate",
+#                                                                            regex="^(propagate)$|^(raise)$|^(omit)$"),
+#                                  alternative: Optional[str] | None = Query("two-sided",
+#                                                                            regex="^(two-sided)$|^(less)$|^(greater)$"),
+#                                  variant: Optional[str] | None = Query("b",
+#                                                                        regex="^(b)$|^(c)$"),
+#                                  method: Optional[str] | None = Query("auto",
+#                                                                       regex="^(auto)$|^(asymptotic)$|^(exact)$")):
+#     kendalltau_test = kendalltau(data[str(column_1)], data[str(column_2)], nan_policy=nan_policy, alternative=alternative, variant=variant, method=method)
+#     return {'kendalltau correlation coefficient': kendalltau_test[0], 'p-value': kendalltau_test[1]}
 
 @router.get("/compute_point_biserial_correlation", tags=['hypothesis_testing'])
 async def point_biserial_correlation(workflow_id: str, step_id: str, run_id: str, column_1: str, column_2: str):
