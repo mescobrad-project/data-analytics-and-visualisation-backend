@@ -90,6 +90,9 @@ ExistingFunctions = [
     "RidgeRegression",
     "SGDRegression",
     "HuberRegression",
+    "survivalanalysisriskratiosimple",
+    "survivalanalysisriskdifferencesimple",
+    "survivalanalysisNNTsimple",
     # Dashboard
     "dashboard",
 ]
@@ -263,6 +266,12 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/SGDRegression"
             case "HuberRegression":
                 url_to_redirect += "/HuberRegression"
+            case "survivalanalysisriskratiosimple":
+                url_to_redirect += "/SurvivalAnalysisRiskRatioSimple"
+            case "survivalanalysisriskdifferencesimple":
+                url_to_redirect += "/SurvivalAnalysisRiskDifferenceSimple"
+            case "survivalanalysisNNTsimple":
+                url_to_redirect += "/SurvivalAnalysisNNTSimple"
             # Dashboard
             case "dashboard":
                 url_to_redirect += "/dashboard"

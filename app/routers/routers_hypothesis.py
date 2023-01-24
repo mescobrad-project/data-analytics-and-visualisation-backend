@@ -1369,7 +1369,11 @@ async def conditional_logistic_regression(endog: str,
 
 
 @router.get("/risks")
-async def risk_ratio_1(exposure: str,
+async def risk_ratio_1(
+        # workflow_id: str,
+        # step_id: str,
+        # run_id: str,
+                       exposure: str,
                        outcome: str,
                        time: str | None = Query(default=None),
                        reference: int | None = Query(default=0),
@@ -1382,9 +1386,10 @@ async def risk_ratio_1(exposure: str,
     fig = plt.figure(1)
     ax = plt.subplot(111)
 
-    #dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
-    dataset = load_sample_data(False)
+    # dataset = load_file_csv_direct(workflow_id, run_id, step_id)
 
+    dataset = load_sample_data(False)
+    print(dataset)
     if method == 'risk_ratio':
         rr = RiskRatio(reference=reference, alpha=alpha)
     elif method == 'risk_difference':
@@ -1421,7 +1426,7 @@ async def risk_ratio_1(exposure: str,
 
     rr.fit(dataset, exposure='art', outcome='dead')
     df = rr.results
-
+    print(df)
     rr.plot()
     plt.show()
 
@@ -1460,7 +1465,10 @@ async def two_sided_risk_ci(events: int,
 
 
 @router.get("/risk_ratio_function")
-async def risk_ratio_function(exposed_with: int,
+async def risk_ratio_function(workflow_id: str,
+                              step_id: str,
+                              run_id: str,
+                              exposed_with: int,
                               unexposed_with: int,
                               exposed_without: int,
                               unexposed_without: int,
@@ -1471,15 +1479,18 @@ async def risk_ratio_function(exposed_with: int,
     lower_bound = r.lower_bound
     upper_bound = r.upper_bound
     standard_error = r.standard_error
-
-    return {'risk ratio': estimated_risk, 'lower bound': lower_bound, 'upper bound': upper_bound, 'standard error': standard_error}
+    return {'estimated_risk': estimated_risk, 'lower_bound': lower_bound, 'upper_bound': upper_bound, 'standard_error': standard_error}
 
 @router.get("/risk_difference_function")
-async def risk_difference_function(exposed_with: int,
-                                   unexposed_with: int,
-                                   exposed_without: int,
-                                   unexposed_without: int,
-                                   alpha: float | None = Query(default=0.05)):
+async def risk_difference_function(
+        workflow_id: str,
+        step_id: str,
+        run_id: str,
+        exposed_with: int,
+        unexposed_with: int,
+        exposed_without: int,
+        unexposed_without: int,
+        alpha: float | None = Query(default=0.05)):
 
     r = risk_difference(a=exposed_with, b=unexposed_with, c=exposed_without, d=unexposed_without, alpha=alpha)
     estimated_risk = r.point_estimate
@@ -1487,14 +1498,18 @@ async def risk_difference_function(exposed_with: int,
     upper_bound = r.upper_bound
     standard_error = r.standard_error
 
-    return {'risk difference': estimated_risk, 'lower bound': lower_bound, 'upper bound': upper_bound, 'standard error': standard_error}
+    return {'risk_difference': estimated_risk, 'lower_bound': lower_bound, 'upper_bound': upper_bound, 'standard_error': standard_error}
 
 @router.get("/number_needed_to_treat_function")
-async def number_needed_to_treat_function(exposed_with: int,
-                                          unexposed_with: int,
-                                          exposed_without: int,
-                                          unexposed_without: int,
-                                          alpha: float | None = Query(default=0.05)):
+async def number_needed_to_treat_function(
+        workflow_id: str,
+        step_id: str,
+        run_id: str,
+        exposed_with: int,
+        unexposed_with: int,
+        exposed_without: int,
+        unexposed_without: int,
+        alpha: float | None = Query(default=0.05)):
 
     r = number_needed_to_treat(a=exposed_with, b=unexposed_with, c=exposed_without, d=unexposed_without, alpha=alpha)
     estimated_risk = r.point_estimate
@@ -1502,7 +1517,7 @@ async def number_needed_to_treat_function(exposed_with: int,
     upper_bound = r.upper_bound
     standard_error = r.standard_error
 
-    return {'nnt': estimated_risk, 'lower bound': lower_bound, 'upper bound': upper_bound, 'standard error': standard_error}
+    return {'nnt': estimated_risk, 'lower_bound': lower_bound, 'upper_bound': upper_bound, 'standard_error': standard_error}
 
 @router.get("/odds_ratio_function")
 async def odds_ratio_function(exposed_with: int,
