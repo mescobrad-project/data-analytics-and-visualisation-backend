@@ -93,6 +93,8 @@ ExistingFunctions = [
     "survivalanalysisriskratiosimple",
     "survivalanalysisriskdifferencesimple",
     "survivalanalysisNNTsimple",
+    "survivalanalysisoddsratiosimple",
+    "survivalanalysisincidencerateratiosimple",
     # Dashboard
     "dashboard",
 ]
@@ -272,6 +274,10 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/SurvivalAnalysisRiskDifferenceSimple"
             case "survivalanalysisNNTsimple":
                 url_to_redirect += "/SurvivalAnalysisNNTSimple"
+            case "survivalanalysisoddsratiosimple":
+                url_to_redirect += "/SurvivalAnalysisOddsRatioSimple"
+            case "survivalanalysisincidencerateratiosimple":
+                url_to_redirect += "/SurvivalAnalysisIncidenceRateRatioSimple"
             # Dashboard
             case "dashboard":
                 url_to_redirect += "/dashboard"

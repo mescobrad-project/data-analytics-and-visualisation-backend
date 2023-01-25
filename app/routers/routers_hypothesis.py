@@ -1520,11 +1520,15 @@ async def number_needed_to_treat_function(
     return {'nnt': estimated_risk, 'lower_bound': lower_bound, 'upper_bound': upper_bound, 'standard_error': standard_error}
 
 @router.get("/odds_ratio_function")
-async def odds_ratio_function(exposed_with: int,
-                              unexposed_with: int,
-                              exposed_without: int,
-                              unexposed_without: int,
-                              alpha: float | None = Query(default=0.05)):
+async def odds_ratio_function(
+        workflow_id: str,
+        step_id: str,
+        run_id: str,
+        exposed_with: int,
+        unexposed_with: int,
+        exposed_without: int,
+        unexposed_without: int,
+        alpha: float | None = Query(default=0.05)):
 
     r = odds_ratio(a=exposed_with, b=unexposed_with, c=exposed_without, d=unexposed_without, alpha=alpha)
     estimated_risk = r.point_estimate
@@ -1532,10 +1536,14 @@ async def odds_ratio_function(exposed_with: int,
     upper_bound = r.upper_bound
     standard_error = r.standard_error
 
-    return {'odds ratio': estimated_risk, 'lower bound': lower_bound, 'upper bound': upper_bound, 'standard error': standard_error}
+    return {'odds_ratio': estimated_risk, 'lower_bound': lower_bound, 'upper_bound': upper_bound, 'standard_error': standard_error}
 
 @router.get("/incidence_rate_ratio_function")
-async def incidence_rate_ratio_function(exposed_with: int,
+async def incidence_rate_ratio_function(
+        workflow_id: str,
+        step_id: str,
+        run_id: str,
+        exposed_with: int,
                                         unexposed_with: int,
                                         person_time_exposed: int,
                                         person_time_unexposed: int,
@@ -1547,7 +1555,7 @@ async def incidence_rate_ratio_function(exposed_with: int,
     upper_bound = r.upper_bound
     standard_error = r.standard_error
 
-    return {'incident rate ratio': estimated_risk, 'lower bound': lower_bound, 'upper bound': upper_bound, 'standard error': standard_error}
+    return {'incident_rate_ratio': estimated_risk, 'lower_bound': lower_bound, 'upper_bound': upper_bound, 'standard_error': standard_error}
 
 @router.get("/incidence_rate_difference_function")
 async def incidence_rate_difference_function(exposed_with: int,
