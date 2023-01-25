@@ -1031,17 +1031,34 @@ async def linear_svc_regressor(dependent_variable: str,
                 'dataframe': df.to_json(orient='split')}
 
 @router.get("/ancova")
-async def ancova_2(dv: str,
+async def ancova_2(workflow_id: str,
+                    step_id: str,
+                    run_id: str,
+                   dv: str,
                    between: str,
                    covar: list[str] | None = Query(default=None),
                    effsize: str | None = Query("np2",
                                                regex="^(np2)$|^(n2)$")):
 
-    df_data = pd.read_csv('example_data/mescobrad_dataset.csv')
+    # df_data = pd.read_csv('example_data/mescobrad_dataset.csv')
+    df_data = load_file_csv_direct(workflow_id, run_id, step_id)
 
     df = ancova(data=df_data, dv=dv, covar=covar, between=between, effsize=effsize)
-
-    return {'ANCOVA':df.to_json(orient="split")}
+    df = df.fillna('')
+    all_res = []
+    for ind, row in df.iterrows():
+        temp_to_append = {
+            'id': ind,
+            'Source': row['Source'],
+            'SS': row['SS'],
+            'DF': row['DF'],
+            'F': row['F'],
+            'p-unc': row['p-unc'],
+            'np2': row['np2']
+        }
+        all_res.append(temp_to_append)
+    return {'DataFrame': all_res}
+    # return {'ANCOVA':df.to_json(orient="split")}
 
 @router.get("/linear_mixed_effects_model")
 async def linear_mixed_effects_model(dependent: str,
@@ -1558,11 +1575,15 @@ async def incidence_rate_ratio_function(
     return {'incident_rate_ratio': estimated_risk, 'lower_bound': lower_bound, 'upper_bound': upper_bound, 'standard_error': standard_error}
 
 @router.get("/incidence_rate_difference_function")
-async def incidence_rate_difference_function(exposed_with: int,
-                                             unexposed_with: int,
-                                             person_time_exposed: int,
-                                             person_time_unexposed: int,
-                                             alpha: float | None = Query(default=0.05)):
+async def incidence_rate_difference_function(
+        workflow_id: str,
+        step_id: str,
+        run_id: str,
+        exposed_with: int,
+        unexposed_with: int,
+        person_time_exposed: int,
+        person_time_unexposed: int,
+        alpha: float | None = Query(default=0.05)):
 
     r = incidence_rate_difference(a=exposed_with, c=unexposed_with, t1=person_time_exposed, t2=person_time_unexposed, alpha=alpha)
     estimated_risk = r.point_estimate
@@ -1570,7 +1591,7 @@ async def incidence_rate_difference_function(exposed_with: int,
     upper_bound = r.upper_bound
     standard_error = r.standard_error
 
-    return {'incident rate difference': estimated_risk, 'lower bound': lower_bound, 'upper bound': upper_bound, 'standard error': standard_error}
+    return {'incident_rate_difference': estimated_risk, 'lower_bound': lower_bound, 'upper_bound': upper_bound, 'standard_error': standard_error}
 
 @router.get("/correlations_pingouin")
 async def correlations_pingouin(workflow_id: str,
