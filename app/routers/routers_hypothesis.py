@@ -1544,17 +1544,17 @@ async def incidence_rate_ratio_function(
         step_id: str,
         run_id: str,
         exposed_with: int,
-                                        unexposed_with: int,
-                                        person_time_exposed: int,
-                                        person_time_unexposed: int,
-                                        alpha: float | None = Query(default=0.05)):
+        unexposed_with: int,
+        person_time_exposed: int,
+        person_time_unexposed: int,
+        alpha: float | None = Query(default=0.05)):
 
     r = incidence_rate_ratio(a=exposed_with, c=unexposed_with, t1=person_time_exposed, t2=person_time_unexposed, alpha=alpha)
     estimated_risk = r.point_estimate
     lower_bound = r.lower_bound
     upper_bound = r.upper_bound
     standard_error = r.standard_error
-
+    print(r)
     return {'incident_rate_ratio': estimated_risk, 'lower_bound': lower_bound, 'upper_bound': upper_bound, 'standard_error': standard_error}
 
 @router.get("/incidence_rate_difference_function")
