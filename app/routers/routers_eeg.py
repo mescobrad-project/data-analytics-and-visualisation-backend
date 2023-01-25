@@ -32,7 +32,7 @@ from app.utils.utils_eeg import load_data_from_edf, load_file_from_local_or_inte
 from app.utils.utils_general import validate_and_convert_peaks, validate_and_convert_power_spectral_density, \
     create_notebook_mne_plot, get_neurodesk_display_id, get_annotations_from_csv, create_notebook_mne_modular, \
     get_single_file_from_local_temp_storage, get_local_storage_path, get_local_edfbrowser_storage_path, \
-    get_single_file_from_edfbrowser_interim_storage
+    get_single_file_from_edfbrowser_interim_storage, write_function_data_to_config_file
 
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -180,7 +180,13 @@ async def return_autocorrelation(workflow_id: str, step_id: str, run_id: str,
                     missing=input_missing, alpha=input_alpha,
                     nlags=input_nlags)
 
-            to_return = {}
+            to_return = {
+                'values_autocorrelation': None,
+                'confint': None,
+                'qstat': None,
+                'pvalues': None
+            }
+
             # Parsing the results of acf into a single object
             # Results will change depending on our input
             if input_qstat and input_alpha:
@@ -200,6 +206,26 @@ async def return_autocorrelation(workflow_id: str, step_id: str, run_id: str,
 
             print("RETURNING VALUES")
             print(to_return)
+
+            # Prepare the data to be written to the config file
+            parameter_data = {
+                'name': input_name,
+                'adjusted': input_adjusted,
+                'qstat': input_qstat,
+                'fft': input_fft,
+                'bartlett_confint': input_bartlett_confint,
+                'missing': input_missing,
+                'alpha': input_alpha,
+                'nlags': input_nlags,
+            }
+            result_data = {
+                'values_autocorrelation': to_return['values_autocorrelation'],
+                'confint': to_return['confint'],
+                'qstat': to_return['qstat'],
+                'pvalues': to_return['pvalues']
+            }
+
+            write_function_data_to_config_file(parameter_data, result_data, workflow_id, run_id, step_id)
             return to_return
     return {'Channel not found'}
 
@@ -820,7 +846,7 @@ async def calculate_alpha_delta_ratio_periodogram(workflow_id: str, step_id: str
                                                 scaling=input_scaling, axis=input_axis)
             else:
                 freqs, psd = signal.periodogram(raw_data[i]*(10**3), info['sfreq'],
-                                                window=signal.get_window(input_window, input_nperseg),
+                                                window=signal.get_window(input_window),
                                                 nfft=input_nfft, return_onesided=input_return_onesided, scaling=input_scaling,
                                                 axis=input_axis)
 
