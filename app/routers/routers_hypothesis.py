@@ -574,64 +574,6 @@ async def LDA(workflow_id: str,
 
     return {'coefficients': df_coefs.to_json(orient='split'), 'intercept': df_intercept.to_json(orient='split')}
 
-@router.get("/SVC_function")
-async def SVC_function(workflow_id: str, step_id: str, run_id: str,
-                       dependent_variable: str,
-                       degree: int | None = Query(default=3),
-                       max_iter: int | None = Query(default=-1),
-                       C: float | None = Query(default=1,gt=0),
-                       coef0: float | None = Query(default=0),
-                       gamma: str | None = Query("scale",
-                                                 regex="^(scale)$|^(auto)$"),
-                       kernel: str | None = Query("rbf",
-                                                  regex="^(rbf)$|^(linear)$|^(poly)$|^(sigmoid)$"),
-                       independent_variables: list[str] | None = Query(default=None)):
-
-    # dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
-    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
-
-    df_label = dataset[dependent_variable]
-    for columns in dataset.columns:
-        if columns not in independent_variables:
-            dataset = dataset.drop(str(columns), axis=1)
-
-    X = np.array(dataset)
-    Y = np.array(df_label)
-
-    if kernel == 'poly':
-        clf = SVC(degree=degree, kernel=kernel, gamma=gamma, coef0=coef0, C=C, max_iter=max_iter)
-    elif kernel == 'rbf' or kernel == 'sigmoid':
-        if kernel == 'sigmoid':
-            clf = SVC(gamma=gamma, kernel=kernel, coef0=coef0, C=C, max_iter=max_iter)
-        else:
-            clf = SVC(gamma=gamma, C=C, kernel=kernel, max_iter=max_iter)
-    else:
-        clf = SVC(kernel=kernel, C=C, max_iter=max_iter)
-
-
-    clf.fit(X, Y)
-
-    if kernel == 'linear':
-        if np.shape(X)[1] == 1:
-            coeffs = clf.coef_
-            inter = clf.intercept_
-            df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
-            df_names = pd.DataFrame(dataset.columns, columns=['variables'])
-            df = pd.concat([df_names, df_coeffs], axis=1)
-            return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(), 'dataframe': df.to_json(orient='split')}
-        else:
-            coeffs = np.squeeze(clf.coef_)
-            inter = clf.intercept_
-            df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
-            df_names = pd.DataFrame(dataset.columns, columns=['variables'])
-            df = pd.concat([df_names, df_coeffs], axis=1)
-            return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(),
-                    'dataframe': df.to_json(orient='split')}
-    else:
-        coeffs = np.squeeze(clf.dual_coef_)
-        inter = clf.intercept_
-        return {'Dual coefficients': coeffs.tolist(), 'intercept': inter.tolist()}
-
 
 @router.get("/principal_component_analysis")
 async def principal_component_analysis(n_components_1: int | None = Query(default=None),
