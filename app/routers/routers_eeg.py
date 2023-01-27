@@ -1348,9 +1348,10 @@ async def spindles_detect_two_dataframes(current_sampling_frequency_of_the_hypno
     sf = info['sfreq']
     hypno = yasa.hypno_upsample_to_data(list(hypno['stage']), sf_hypno=current_sampling_frequency_of_the_hypnogram, data=data)
 
-    sp = yasa.spindles_detect(data, hypno=hypno, include=(0,1,2,3))
+    sp = yasa.spindles_detect(raw_data, sf=sf, hypno=hypno, include=(2,3))
     if sp!=None:
         df_1 = sp.summary()
+        print(df_1)
         df_2 = sp.summary(grp_chan=True, grp_stage=True)
 
         to_return = {}
