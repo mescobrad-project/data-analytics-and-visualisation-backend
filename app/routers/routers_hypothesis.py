@@ -1,3 +1,4 @@
+import colorama
 import numpy as np
 import pandas as pd
 import json
@@ -41,7 +42,7 @@ from zepid.base import RiskRatio, RiskDifference, OddsRatio, IncidenceRateRatio,
 from zepid import load_sample_data
 from zepid.calc import risk_ci, incidence_rate_ci, risk_ratio, risk_difference, number_needed_to_treat, odds_ratio, incidence_rate_ratio, incidence_rate_difference
 from app.pydantic_models import ModelMultipleComparisons
-from app.utils.utils_datalake import fget_object, get_saved_dataset_for_Hypothesis
+from app.utils.utils_datalake import fget_object, get_saved_dataset_for_Hypothesis, upload_object
 from app.utils.utils_general import get_local_storage_path, get_single_file_from_local_temp_storage, load_data_from_csv, \
     load_file_csv_direct
 import scipy.stats as st
@@ -64,7 +65,12 @@ def normality_test_content_results(column: str, selected_dataframe):
         html_str_B = mpld3.fig_to_html(fig2)
         #endregion
         # region Creating QQ-plot
-        fig = sm.qqplot(selected_dataframe[str(column)], line='45')
+        fig = plt.figure()
+        ax = fig.add_subplot()
+
+        pingouin.qqplot(selected_dataframe[str(column)], dist='norm', ax=ax)
+        # We changed to Pingouin because it's better
+        # fig = sm.qqplot(selected_dataframe[str(column)], line='45')
         plt.xticks(fontsize=12)
         plt.yticks(fontsize=12)
         plt.show()
@@ -152,11 +158,47 @@ async def load_demo_data(file: Optional[str] | None):
 
     return data
 
+class FunctionOutputItem(BaseModel):
+    """
+    Known metadata information
+    "files" : [["run_id: "string" , "step_id": "string"], "output":"string"]
+     """
+    run_id: str
+    step_id: str
+    file: str
+
+
+@router.put("/save_hypothesis_output")
+async def save_hypothesis_output(item: FunctionOutputItem) -> dict:
+    output_json = json.loads(item.file)
+    # print(output_json)
+    try:
+        path_to_storage = get_local_storage_path(item.run_id, item.step_id)
+        out_filename = path_to_storage + '/output' + '/output.json'
+        with open(out_filename, 'w') as fh:
+            json.dump(output_json, fh, ensure_ascii=False)
+        upload_object(bucket_name="demo", object_name='expertsystem/workflow/3fa85f64-5717-4562-b3fc-2c963f66afa6'
+                                                     '/3fa85f64-5717-4562-b3fc-2c963f66afa6/3fa85f64-5717-4562-b3fc'
+                                                     '-2c963f66afa6/Analytics_output.json', file=out_filename)
+        # print(colorama.Fore.GREEN + "###################### Successfully! created json file. ##############################")
+        print("###################### Successfully! created json file.")
+        return '200'
+    except Exception as e:
+        print(e)
+        print("Error : The save api")
+        return '500'
+
+
+
 @router.get("/return_columns")
 async def name_columns(workflow_id: str, step_id: str, run_id: str):
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
     name_of_file = get_single_file_from_local_temp_storage(workflow_id, run_id, step_id)
     data = load_data_from_csv(path_to_storage + "/" + name_of_file)
+
+    # For the testing dataset
+    if 'Unnamed: 0' in data.columns:
+        data = data.drop(['Unnamed: 0'], axis=1)
 
     columns = data.columns
     return{'columns': list(columns)}
@@ -184,6 +226,8 @@ async def normal_tests(workflow_id: str, step_id: str, run_id: str,
                                                    regex="^(Shapiro-Wilk)$|^(Kolmogorov-Smirnov)$|^(Anderson-Darling)$|^(D’Agostino’s K\^2)$|^(Jarque-Bera)$")) -> dict:
 
     data = load_file_csv_direct(workflow_id, run_id, step_id)
+    if 'Unnamed: 0' in data.columns:
+        data = data.drop(['Unnamed: 0'], axis=1)
     results_to_send = normality_test_content_results(column, data)
 
     # region AmCharts_CODE_REGION
@@ -343,7 +387,8 @@ async def kendalltau_correlation(column_1: str,
     return {'kendalltau correlation coefficient': kendalltau_test[0], 'p-value': kendalltau_test[1]}
 
 @router.get("/compute_point_biserial_correlation", tags=['hypothesis_testing'])
-async def point_biserial_correlation(column_1: str, column_2: str):
+async def point_biserial_correlation(workflow_id: str, step_id: str, run_id: str, column_1: str, column_2: str):
+    data = load_file_csv_direct(workflow_id, run_id, step_id)
     unique_values = np.unique(data[str(column_1)])
     if len(unique_values) == 2:
         pointbiserialr_test = pointbiserialr(data[str(column_1)], data[str(column_2)])
@@ -1508,16 +1553,45 @@ async def incidence_rate_difference_function(exposed_with: int,
     return {'incident rate difference': estimated_risk, 'lower bound': lower_bound, 'upper bound': upper_bound, 'standard error': standard_error}
 
 @router.get("/correlations_pingouin")
-async def correlations_pingouin(column_1: str,
-                                column_2: str,
+async def correlations_pingouin(workflow_id: str,
+                                step_id: str,
+                                run_id: str,
+                                # column_1: str,
+                                column_2: list[str] | None = Query(default=None),
                                 alternative: Optional[str] | None = Query("two-sided",
                                                                           regex="^(two-sided)$|^(less)$|^(greater)$"),
                                 method: Optional[str] | None = Query("pearson",
                                                                      regex="^(pearson)$|^(spearman)$|^(kendall)$|^(bicor)$|^(percbend)$|^(shepherd)$|^(skipped)$")):
+    data = load_file_csv_direct(workflow_id, run_id, step_id)
+    all_res = []
+    count=0
+    for i in column_2:
+        for j in column_2:
+            if i == j or column_2.index(j) < column_2.index(i):
+                continue
+            res = pingouin.corr(x=data[i], y=data[j], method=method, alternative=alternative).round(5)
+            res.insert(0,'Cor', i + "-" + j, True)
+            # all_res.append(res)
+            count = count + 1
+            for ind, row in res.iterrows():
+                temp_to_append = {
+                    "id": count,
+                    "Cor": row['Cor'],
+                    "n": row['n'],
+                    "r": row['r'],
+                    "CI95%": "[" + str(row['CI95%'].item(0)) + "," + str(row['CI95%'].item(1)) + "]",
+                    "p-val": row['p-val'],
+                    # if method=='':
+                    #     "BF10": row['BF10']
+                    "power": row['power']
+                }
+                if method == 'pearson':
+                    temp_to_append["BF10"] = row['BF10']
+            all_res.append(temp_to_append)
 
-    df = pingouin.corr(x=data[str(column_1)], y=data[str(column_2)], method=method, alternative=alternative)
-
-    return {'DataFrame': df.to_json(orient='split')}
+    # df = pd.concat(all_res)
+    return {'DataFrame': all_res}
+    # return {'DataFrame': df.to_json(orient='split')}
 
 @router.get("/linear_regressor_pinguin")
 async def linear_regression_pinguin(dependent_variable: str,
@@ -1655,6 +1729,10 @@ async def linear_regression_statsmodels(workflow_id: str, step_id: str, run_id: 
     else:
         #fig = plt.figure(1)
         model = sm.OLS(y, x).fit()
+        fitted_value = model.fittedvalues
+        df_fitted_value = pd.DataFrame(fitted_value, columns=['fitted_values'])
+        resid_value = model.resid
+        df_resid_value = pd.DataFrame(resid_value, columns=['residuals'])
         # create instance of influence
         influence = model.get_influence()
 
@@ -1665,7 +1743,7 @@ async def linear_regression_statsmodels(workflow_id: str, step_id: str, run_id: 
         standardized_residuals = influence.resid_studentized_internal
         inf_sum = influence.summary_frame()
 
-        df_final_influence = pd.concat([df_features_label,inf_sum], axis=1)
+        df_final_influence = pd.concat([df_features_label,inf_sum,df_fitted_value,df_resid_value], axis=1)
         inf_dict = {}
         for column in df_final_influence.columns:
             inf_dict[column] = list(df_final_influence[column])
@@ -1686,17 +1764,16 @@ async def linear_regression_statsmodels(workflow_id: str, step_id: str, run_id: 
         df_0.index.name = None
         df_0.rename(columns={1: 'Values'}, inplace = True)
         df_0.drop(df_0.tail(2).index,inplace=True)
-        print(list(df_0.values))
-
+        # print(list(df_0.values))
 
         results_as_html = df.tables[1].as_html()
         df_1 = pd.read_html(results_as_html)[0]
         new_header = df_1.iloc[0, 1:]
         df_1 = df_1[1:]
-        print(df_1.columns)
         df_1.set_index(0, inplace=True)
         df_1.columns = new_header
         df_1.index.name = None
+
 
         results_as_html = df.tables[2].as_html()
         df_2 = pd.read_html(results_as_html)[0]

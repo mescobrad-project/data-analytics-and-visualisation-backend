@@ -1,0 +1,40 @@
+<?xml version="1.0"?>
+<EDFbrowser_montage>
+  <signalcomposition>
+    <alias></alias>
+    <num_of_signals>1</num_of_signals>
+    <voltpercm>100.000000</voltpercm>
+    <screen_offset>0.000000</screen_offset>
+    <polarity>1</polarity>
+    <color>12</color>
+    <spike_filter_cnt>0</spike_filter_cnt>
+    <math_func_cnt_before>0</math_func_cnt_before>
+    <math_func_cnt_after>0</math_func_cnt_after>
+    <filter_cnt>0</filter_cnt>
+    <fidfilter_cnt>0</fidfilter_cnt>
+    <ravg_filter_cnt>0</ravg_filter_cnt>
+    <signal>
+      <label>EEG P3-Ref      </label>
+      <factor>1.000000e+00</factor>
+    </signal>
+  </signalcomposition>
+  <signalcomposition>
+    <alias></alias>
+    <num_of_signals>1</num_of_signals>
+    <voltpercm>100.000000</voltpercm>
+    <screen_offset>0.000000</screen_offset>
+    <polarity>1</polarity>
+    <color>8</color>
+    <spike_filter_cnt>0</spike_filter_cnt>
+    <math_func_cnt_before>0</math_func_cnt_before>
+    <math_func_cnt_after>0</math_func_cnt_after>
+    <filter_cnt>0</filter_cnt>
+    <fidfilter_cnt>0</fidfilter_cnt>
+    <ravg_filter_cnt>0</ravg_filter_cnt>
+    <signal>
+      <label>EEG C3-Ref      </label>
+      <factor>1.000000e+00</factor>
+    </signal>
+  </signalcomposition>
+  <pagetime>100000000</pagetime>
+</EDFbrowser_montage>
