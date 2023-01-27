@@ -1073,26 +1073,28 @@ async def ancova_2(workflow_id: str,
     # return {'ANCOVA':df.to_json(orient="split")}
 
 @router.get("/linear_mixed_effects_model")
-async def linear_mixed_effects_model(dependent: str,
-                                     groups: str,
-                                     independent: list[str] | None = Query(default=None),
-                                     use_sqrt: bool | None = Query(default=True)):
+async def linear_mixed_effects_model(workflow_id: str,
+                    step_id: str,
+                    run_id: str,
+                     dependent: str,
+                     groups: str,
+                     independent: list[str] | None = Query(default=None),
+                     use_sqrt: bool | None = Query(default=True)):
 
-    data = pd.read_csv('example_data/mescobrad_dataset.csv')
+    # data = pd.read_csv('example_data/mescobrad_dataset.csv')
+    data = load_file_csv_direct(workflow_id, run_id, step_id)
 
     z = dependent + "~"
     for i in range(len(independent)):
         z = z + "+" + independent[i]
 
     md = smf.mixedlm(z, data, groups=data[groups], use_sqrt=use_sqrt)
-
     mdf = md.fit()
-
     df = mdf.summary()
-
     df_0 = df.tables[0]
     df_1 = df.tables[1]
-
+    print(df_0)
+    print(df_1)
     return {'first table': df_0.to_json(orient='split'), 'second table': df_1.to_json(orient='split')}
 
 @router.get("/poisson_regression")
