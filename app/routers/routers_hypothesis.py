@@ -554,7 +554,6 @@ async def LDA(workflow_id: str,
     features_columns = dataset.columns
     X = np.array(dataset)
     Y = np.array(df_label)
-    print(solver, shrinkage_1, shrinkage_2)
     if solver == 'lsqr' or solver == 'eigen':
         if shrinkage_1 == 'float':
             clf = LinearDiscriminantAnalysis(solver=solver, shrinkage=shrinkage_2)
@@ -568,11 +567,10 @@ async def LDA(workflow_id: str,
     clf.fit(X, Y)
 
     df_coefs = pd.DataFrame(clf.coef_, columns=features_columns)
-
     df_intercept = pd.DataFrame(clf.intercept_, columns=['intercept'])
+    df_coefs['intercept'] = df_intercept['intercept']
+    return {'coefficients': df_coefs.to_html(), 'intercept': df_intercept.to_html()}
 
-
-    return {'coefficients': df_coefs.to_json(orient='split'), 'intercept': df_intercept.to_json(orient='split')}
 
 @router.get("/SVC_function")
 async def SVC_function(workflow_id: str, step_id: str, run_id: str,
