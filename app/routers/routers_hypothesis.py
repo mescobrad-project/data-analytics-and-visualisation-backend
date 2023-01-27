@@ -529,6 +529,8 @@ async def LDA(dependent_variable: str,
         if columns not in independent_variables:
             dataset = dataset.drop(str(columns), axis=1)
 
+
+    features_columns = dataset.columns
     X = np.array(dataset)
     Y = np.array(df_label)
 
@@ -543,25 +545,13 @@ async def LDA(dependent_variable: str,
         clf = LinearDiscriminantAnalysis(solver=solver)
 
     clf.fit(X, Y)
-    print(len(np.unique(Y)))
-    print(np.shape(clf.coef_))
-    print(clf.coef_)
 
-    if np.shape(X)[1] == 1:
-        coeffs = clf.coef_
-        inter = clf.intercept_
-        df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
-        df_names = pd.DataFrame(dataset.columns, columns=['variables'])
-        df = pd.concat([df_names, df_coeffs], axis=1)
-        return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(), 'dataframe': df.to_json(orient='split')}
-    else:
-        coeffs = np.squeeze(clf.coef_)
-        inter = clf.intercept_
-        df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
-        df_names = pd.DataFrame(dataset.columns, columns=['variables'])
-        df = pd.concat([df_names, df_coeffs], axis=1)
-        return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(),
-                'dataframe': df.to_json(orient='split')}
+    df_coefs = pd.DataFrame(clf.coef_, columns=features_columns)
+
+    df_intercept = pd.DataFrame(clf.intercept_, columns=['intercept'])
+
+
+    return {'coefficients': df_coefs.to_json(orient='split'), 'intercept': df_intercept.to_json(orient='split')}
 
 @router.get("/SVC_function")
 async def SVC_function(workflow_id: str, step_id: str, run_id: str,
