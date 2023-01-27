@@ -553,65 +553,6 @@ async def LDA(dependent_variable: str,
 
     return {'coefficients': df_coefs.to_json(orient='split'), 'intercept': df_intercept.to_json(orient='split')}
 
-@router.get("/SVC_function")
-async def SVC_function(workflow_id: str, step_id: str, run_id: str,
-                       dependent_variable: str,
-                       degree: int | None = Query(default=3),
-                       max_iter: int | None = Query(default=-1),
-                       C: float | None = Query(default=1,gt=0),
-                       coef0: float | None = Query(default=0),
-                       gamma: str | None = Query("scale",
-                                                 regex="^(scale)$|^(auto)$"),
-                       kernel: str | None = Query("rbf",
-                                                  regex="^(rbf)$|^(linear)$|^(poly)$|^(sigmoid)$"),
-                       independent_variables: list[str] | None = Query(default=None)):
-
-    # dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
-    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
-
-    df_label = dataset[dependent_variable]
-    for columns in dataset.columns:
-        if columns not in independent_variables:
-            dataset = dataset.drop(str(columns), axis=1)
-
-    X = np.array(dataset)
-    Y = np.array(df_label)
-
-    if kernel == 'poly':
-        clf = SVC(degree=degree, kernel=kernel, gamma=gamma, coef0=coef0, C=C, max_iter=max_iter)
-    elif kernel == 'rbf' or kernel == 'sigmoid':
-        if kernel == 'sigmoid':
-            clf = SVC(gamma=gamma, kernel=kernel, coef0=coef0, C=C, max_iter=max_iter)
-        else:
-            clf = SVC(gamma=gamma, C=C, kernel=kernel, max_iter=max_iter)
-    else:
-        clf = SVC(kernel=kernel, C=C, max_iter=max_iter)
-
-
-    clf.fit(X, Y)
-
-    if kernel == 'linear':
-        if np.shape(X)[1] == 1:
-            coeffs = clf.coef_
-            inter = clf.intercept_
-            df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
-            df_names = pd.DataFrame(dataset.columns, columns=['variables'])
-            df = pd.concat([df_names, df_coeffs], axis=1)
-            return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(), 'dataframe': df.to_json(orient='split')}
-        else:
-            coeffs = np.squeeze(clf.coef_)
-            inter = clf.intercept_
-            df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
-            df_names = pd.DataFrame(dataset.columns, columns=['variables'])
-            df = pd.concat([df_names, df_coeffs], axis=1)
-            return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(),
-                    'dataframe': df.to_json(orient='split')}
-    else:
-        coeffs = np.squeeze(clf.dual_coef_)
-        inter = clf.intercept_
-        return {'Dual coefficients': coeffs.tolist(), 'intercept': inter.tolist()}
-
-
 @router.get("/principal_component_analysis")
 async def principal_component_analysis(n_components_1: int | None = Query(default=None),
                                        n_components_2: float | None = Query(default=None, gt=0, lt=1),
@@ -708,20 +649,53 @@ async def elastic_net(dependent_variable: str,
     clf = ElasticNet(alpha=alpha, l1_ratio=l1_ratio, max_iter=max_iter)
 
     clf.fit(X, Y)
+
+    residuals = Y - clf.predict(X)
+    skew_res = skew(residuals)
+    kurt_res = kurtosis(residuals)
+    jarq_res = jarque_bera(residuals)
+    stat_jarq = jarq_res.statistic
+    p_jarq = jarq_res.pvalue
+    omn_res_stat, omn_res_p = normaltest(residuals)
+    durb_res = durbin_watson(residuals)
+
     if np.shape(X)[1] == 1:
         coeffs = clf.coef_
         inter = clf.intercept_
         df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
         df_names = pd.DataFrame(dataset.columns, columns=['variables'])
         df = pd.concat([df_names, df_coeffs], axis=1)
-        return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(), 'dataframe': df.to_json(orient='split')}
+        return {'skew': skew_res,
+                'kurtosis': kurt_res,
+                'Jarque Bera statistic':stat_jarq,
+                'Jarque-Bera p-value': p_jarq,
+                'Omnibus test statistic': omn_res_stat,
+                'Omnibus test p-value': omn_res_p,
+                'Durbin Watson': durb_res,'actual_values': list(Y),
+                'actual_values': list(Y),
+                'predicted values': list(clf.predict(X)),
+                'residuals': list(Y-clf.predict(X)),
+                'coefficient of determination (R^2)':clf.score(X,Y),
+                'coefficients': coeffs.tolist(),
+                'intercept': inter.tolist(), 'dataframe': df.to_json(orient='split')}
     else:
         coeffs = np.squeeze(clf.coef_)
         inter = clf.intercept_
         df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
         df_names = pd.DataFrame(dataset.columns, columns=['variables'])
         df = pd.concat([df_names, df_coeffs], axis=1)
-        return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(),
+        return {'skew': skew_res,
+                'kurtosis': kurt_res,
+                'Jarque Bera statistic':stat_jarq,
+                'Jarque-Bera p-value': p_jarq,
+                'Omnibus test statistic': omn_res_stat,
+                'Omnibus test p-value': omn_res_p,
+                'Durbin Watson': durb_res,'actual_values': list(Y),
+                'actual_values': list(Y),
+                'predicted values': list(clf.predict(X)),
+                'residuals': list(Y-clf.predict(X)),
+                'coefficient of determination (R^2)':clf.score(X,Y),
+                'coefficients': coeffs.tolist(), 'intercept': inter.tolist(),
                 'dataframe': df.to_json(orient='split')}
 
 # TODO Create frontend
@@ -743,20 +717,50 @@ async def lasso(dependent_variable: str,
     clf = Lasso(alpha=alpha, max_iter=max_iter)
 
     clf.fit(X, Y)
+    residuals = Y - clf.predict(X)
+    skew_res = skew(residuals)
+    kurt_res = kurtosis(residuals)
+    jarq_res = jarque_bera(residuals)
+    stat_jarq = jarq_res.statistic
+    p_jarq = jarq_res.pvalue
+    omn_res_stat, omn_res_p = normaltest(residuals)
+    durb_res = durbin_watson(residuals)
     if np.shape(X)[1] == 1:
         coeffs = clf.coef_
         inter = clf.intercept_
         df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
         df_names = pd.DataFrame(dataset.columns, columns=['variables'])
         df = pd.concat([df_names, df_coeffs], axis=1)
-        return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(), 'dataframe': df.to_json(orient='split')}
+        return {'skew': skew_res,
+                'kurtosis': kurt_res,
+                'Jarque Bera statistic':stat_jarq,
+                'Jarque-Bera p-value': p_jarq,
+                'Omnibus test statistic': omn_res_stat,
+                'Omnibus test p-value': omn_res_p,
+                'Durbin Watson': durb_res,'actual_values': list(Y),
+                'actual_values': list(Y),
+                'predicted values': list(clf.predict(X)),
+                'residuals': list(Y-clf.predict(X)),
+                'coefficient of determination (R^2)':clf.score(X,Y),
+                'coefficients': coeffs.tolist(), 'intercept': inter.tolist(), 'dataframe': df.to_json(orient='split')}
     else:
         coeffs = np.squeeze(clf.coef_)
         inter = clf.intercept_
         df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
         df_names = pd.DataFrame(dataset.columns, columns=['variables'])
         df = pd.concat([df_names, df_coeffs], axis=1)
-        return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(),
+        return {'skew': skew_res,
+                'kurtosis': kurt_res,
+                'Jarque Bera statistic':stat_jarq,
+                'Jarque-Bera p-value': p_jarq,
+                'Omnibus test statistic': omn_res_stat,
+                'Omnibus test p-value': omn_res_p,
+                'Durbin Watson': durb_res,'actual_values': list(Y),
+                'actual_values': list(Y),
+                'predicted values': list(clf.predict(X)),
+                'residuals': list(Y-clf.predict(X)),
+                'coefficient of determination (R^2)':clf.score(X,Y),
+                'coefficients': coeffs.tolist(), 'intercept': inter.tolist(),
                 'dataframe': df.to_json(orient='split')}
 
 # TODO Create frontend
@@ -783,20 +787,50 @@ async def ridge(dependent_variable: str,
         clf = Ridge(alpha=alpha, max_iter=max_iter, solver=solver, positive=True)
 
     clf.fit(X, Y)
+    residuals = Y - clf.predict(X)
+    skew_res = skew(residuals)
+    kurt_res = kurtosis(residuals)
+    jarq_res = jarque_bera(residuals)
+    stat_jarq = jarq_res.statistic
+    p_jarq = jarq_res.pvalue
+    omn_res_stat, omn_res_p = normaltest(residuals)
+    durb_res = durbin_watson(residuals)
     if np.shape(X)[1] == 1:
         coeffs = clf.coef_
         inter = clf.intercept_
         df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
         df_names = pd.DataFrame(dataset.columns, columns=['variables'])
         df = pd.concat([df_names, df_coeffs], axis=1)
-        return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(), 'dataframe': df.to_json(orient='split')}
+        return {'skew': skew_res,
+                'kurtosis': kurt_res,
+                'Jarque Bera statistic':stat_jarq,
+                'Jarque-Bera p-value': p_jarq,
+                'Omnibus test statistic': omn_res_stat,
+                'Omnibus test p-value': omn_res_p,
+                'Durbin Watson': durb_res,'actual_values': list(Y),
+                'actual_values': list(Y),
+                'predicted values': list(clf.predict(X)),
+                'residuals': list(Y-clf.predict(X)),
+                'coefficient of determination (R^2)':clf.score(X,Y),
+                'coefficients': coeffs.tolist(), 'intercept': inter.tolist(), 'dataframe': df.to_json(orient='split')}
     else:
         coeffs = np.squeeze(clf.coef_)
         inter = clf.intercept_
         df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
         df_names = pd.DataFrame(dataset.columns, columns=['variables'])
         df = pd.concat([df_names, df_coeffs], axis=1)
-        return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(),
+        return {'skew': skew_res,
+                'kurtosis': kurt_res,
+                'Jarque Bera statistic':stat_jarq,
+                'Jarque-Bera p-value': p_jarq,
+                'Omnibus test statistic': omn_res_stat,
+                'Omnibus test p-value': omn_res_p,
+                'Durbin Watson': durb_res,'actual_values': list(Y),
+                'actual_values': list(Y),
+                'predicted values': list(clf.predict(X)),
+                'residuals': list(Y-clf.predict(X)),
+                'coefficient of determination (R^2)':clf.score(X,Y),
+                'coefficients': coeffs.tolist(), 'intercept': inter.tolist(),
                 'dataframe': df.to_json(orient='split')}
 
 @router.get("/sgd_regression")
@@ -832,20 +866,52 @@ async def sgd_regressor(dependent_variable: str,
         clf = SGDRegressor(alpha=alpha, max_iter=max_iter, eta0=eta0, penalty=penalty, l1_ratio=l1_ratio, learning_rate=learning_rate)
 
     clf.fit(X, Y)
+
+    residuals = Y - clf.predict(X)
+    skew_res = skew(residuals)
+    kurt_res = kurtosis(residuals)
+    jarq_res = jarque_bera(residuals)
+    stat_jarq = jarq_res.statistic
+    p_jarq = jarq_res.pvalue
+    omn_res_stat, omn_res_p = normaltest(residuals)
+    durb_res = durbin_watson(residuals)
+
     if np.shape(X)[1] == 1:
         coeffs = clf.coef_
         inter = clf.intercept_
         df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
         df_names = pd.DataFrame(dataset.columns, columns=['variables'])
         df = pd.concat([df_names, df_coeffs], axis=1)
-        return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(), 'dataframe': df.to_json(orient='split')}
+        return {'skew': skew_res,
+                'kurtosis': kurt_res,
+                'Jarque Bera statistic':stat_jarq,
+                'Jarque-Bera p-value': p_jarq,
+                'Omnibus test statistic': omn_res_stat,
+                'Omnibus test p-value': omn_res_p,
+                'Durbin Watson': durb_res,'actual_values': list(Y),
+                'actual_values': list(Y),
+                'predicted values': list(clf.predict(X)),
+                'residuals': list(Y-clf.predict(X)),
+                'coefficient of determination (R^2)':clf.score(X,Y),
+                'coefficients': coeffs.tolist(), 'intercept': inter.tolist(), 'dataframe': df.to_json(orient='split')}
     else:
         coeffs = np.squeeze(clf.coef_)
         inter = clf.intercept_
         df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
         df_names = pd.DataFrame(dataset.columns, columns=['variables'])
         df = pd.concat([df_names, df_coeffs], axis=1)
-        return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(),
+        return {'skew': skew_res,
+                'kurtosis': kurt_res,
+                'Jarque Bera statistic':stat_jarq,
+                'Jarque-Bera p-value': p_jarq,
+                'Omnibus test statistic': omn_res_stat,
+                'Omnibus test p-value': omn_res_p,
+                'Durbin Watson': durb_res,'actual_values': list(Y),
+                'actual_values': list(Y),
+                'predicted values': list(clf.predict(X)),
+                'residuals': list(Y-clf.predict(X)),
+                'coefficient of determination (R^2)':clf.score(X,Y),
+                'coefficients': coeffs.tolist(), 'intercept': inter.tolist(),
                 'dataframe': df.to_json(orient='split')}
 
 @router.get("/huber_regression")
@@ -869,6 +935,16 @@ async def huber_regressor(workflow_id: str, step_id: str, run_id: str,
     clf = HuberRegressor(alpha=alpha, epsilon=epsilon, max_iter=max_iter)
 
     clf.fit(X, Y)
+
+    residuals = Y - clf.predict(X)
+    skew_res = skew(residuals)
+    kurt_res = kurtosis(residuals)
+    jarq_res = jarque_bera(residuals)
+    stat_jarq = jarq_res.statistic
+    p_jarq = jarq_res.pvalue
+    omn_res_stat, omn_res_p = normaltest(residuals)
+    durb_res = durbin_watson(residuals)
+
     if np.shape(X)[1] == 1:
         coeffs = clf.coef_
         inter = clf.intercept_
@@ -876,7 +952,18 @@ async def huber_regressor(workflow_id: str, step_id: str, run_id: str,
         df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
         df_names = pd.DataFrame(dataset.columns, columns=['variables'])
         df = pd.concat([df_names, df_coeffs], axis=1)
-        return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(), 'outliers':outliers.tolist(), 'dataframe': df.to_json(orient='split')}
+        return {'skew': skew_res,
+                'kurtosis': kurt_res,
+                'Jarque Bera statistic':stat_jarq,
+                'Jarque-Bera p-value': p_jarq,
+                'Omnibus test statistic': omn_res_stat,
+                'Omnibus test p-value': omn_res_p,
+                'Durbin Watson': durb_res,'actual_values': list(Y),
+                'actual_values': list(Y),
+                'predicted values': list(clf.predict(X)),
+                'residuals': list(Y-clf.predict(X)),
+                'coefficient of determination (R^2)':clf.score(X,Y),
+                'coefficients': coeffs.tolist(), 'intercept': inter.tolist(), 'outliers':outliers.tolist(), 'dataframe': df.to_json(orient='split')}
     else:
         coeffs = np.squeeze(clf.coef_)
         inter = clf.intercept_
@@ -884,65 +971,18 @@ async def huber_regressor(workflow_id: str, step_id: str, run_id: str,
         df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
         df_names = pd.DataFrame(dataset.columns, columns=['variables'])
         df = pd.concat([df_names, df_coeffs], axis=1)
-        return {'coefficients': coeffs.tolist(), 'outliers':outliers.tolist(), 'intercept': inter.tolist(),
+        return {'skew': skew_res,
+                'kurtosis': kurt_res,
+                'Jarque Bera statistic':stat_jarq,
+                'Jarque-Bera p-value': p_jarq,
+                'Omnibus test statistic': omn_res_stat,
+                'Omnibus test p-value': omn_res_p,
+                'Durbin Watson': durb_res,'actual_values': list(Y),
+                'predicted values': list(clf.predict(X)),
+                'residuals': list(Y-clf.predict(X)),
+                'coefficient of determination (R^2)':clf.score(X,Y),
+                'coefficients': coeffs.tolist(), 'outliers':outliers.tolist(), 'intercept': inter.tolist(),
                 'dataframe': df.to_json(orient='split')}
-
-
-@router.get("/svr_regression")
-async def svr_regressor(dependent_variable: str,
-                        degree: int | None = Query(default=3),
-                        max_iter: int | None = Query(default=-1),
-                        epsilon: float | None = Query(default=0.1),
-                        C: float | None = Query(default=1,gt=0),
-                        coef0: float | None = Query(default=0),
-                        gamma: str | None = Query("scale",
-                                                   regex="^(scale)$|^(auto)$"),
-                        kernel: str | None = Query("rbf",
-                                                 regex="^(rbf)$|^(linear)$|^(poly)$|^(sigmoid)$"),
-
-                        independent_variables: list[str] | None = Query(default=None)):
-
-    dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
-    df_label = dataset[dependent_variable]
-    for columns in dataset.columns:
-        if columns not in independent_variables:
-            dataset = dataset.drop(str(columns), axis=1)
-
-    X = np.array(dataset)
-    Y = np.array(df_label)
-
-    if kernel == 'poly':
-        clf = SVR(degree=degree, kernel=kernel, gamma=gamma, coef0=coef0, C=C, epsilon=epsilon, max_iter=max_iter)
-    elif kernel == 'rbf' or kernel == 'sigmoid':
-        if kernel == 'sigmoid':
-            clf = SVR(gamma=gamma, kernel=kernel, coef0=coef0, C=C, epsilon=epsilon, max_iter=max_iter)
-        else:
-            clf = SVR(gamma=gamma, kernel=kernel, C=C, epsilon=epsilon, max_iter=max_iter)
-    else:
-        clf = SVR(C=C, kernel=kernel, epsilon=epsilon, max_iter=max_iter)
-
-    clf.fit(X, Y)
-    if kernel == 'linear':
-        if np.shape(X)[1] == 1:
-            coeffs = clf.coef_
-            inter = clf.intercept_
-            df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
-            df_names = pd.DataFrame(dataset.columns, columns=['variables'])
-            df = pd.concat([df_names, df_coeffs], axis=1)
-            return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(),
-                    'dataframe': df.to_json(orient='split')}
-        else:
-            coeffs = np.squeeze(clf.coef_)
-            inter = clf.intercept_
-            df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
-            df_names = pd.DataFrame(dataset.columns, columns=['variables'])
-            df = pd.concat([df_names, df_coeffs], axis=1)
-            return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(),
-                    'dataframe': df.to_json(orient='split')}
-    else:
-        coeffs = np.squeeze(clf.dual_coef_)
-        inter = clf.intercept_
-        return {'Coefficients of the support vector in the decision function.': coeffs.tolist(), 'intercept': inter.tolist()}
 
 @router.get("/linearsvr_regression")
 async def linear_svr_regressor(dependent_variable: str,
@@ -965,21 +1005,33 @@ async def linear_svr_regressor(dependent_variable: str,
     clf = LinearSVR(loss=loss, C=C, epsilon=epsilon, max_iter=max_iter)
 
     clf.fit(X, Y)
-    if np.shape(X)[1] == 1:
-        coeffs = clf.coef_
-        inter = clf.intercept_
-        df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
-        df_names = pd.DataFrame(dataset.columns, columns=['variables'])
-        df = pd.concat([df_names, df_coeffs], axis=1)
-        return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(), 'dataframe': df.to_json(orient='split')}
-    else:
-        coeffs = np.squeeze(clf.coef_)
-        inter = clf.intercept_
-        df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
-        df_names = pd.DataFrame(dataset.columns, columns=['variables'])
-        df = pd.concat([df_names, df_coeffs], axis=1)
-        return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(),
-                'dataframe': df.to_json(orient='split')}
+    residuals = Y-clf.predict(X)
+    skew_res = skew(residuals)
+    kurt_res = kurtosis(residuals)
+    jarq_res = jarque_bera(residuals)
+    stat_jarq = jarq_res.statistic
+    p_jarq = jarq_res.pvalue
+    omn_res_stat, omn_res_p = normaltest(residuals)
+    durb_res = durbin_watson(residuals)
+
+    coeffs = clf.coef_
+    inter = clf.intercept_
+    df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
+    df_names = pd.DataFrame(dataset.columns, columns=['variables'])
+    df = pd.concat([df_names, df_coeffs], axis=1)
+    return {'skew': skew_res,
+            'kurtosis': kurt_res,
+            'Jarque Bera statistic':stat_jarq,
+            'Jarque-Bera p-value': p_jarq,
+            'Omnibus test statistic': omn_res_stat,
+            'Omnibus test p-value': omn_res_p,
+            'Durbin Watson': durb_res,
+            'actual_values': list(Y),
+            'predicted values': list(clf.predict(X)),
+            'residuals': list(Y-clf.predict(X)),
+            'coefficient of determination (R^2)':clf.score(X,Y),
+            'coefficients': coeffs.tolist(), 'intercept': inter.tolist(), 'dataframe': df.to_json(orient='split')}
+
 
 
 @router.get("/linearsvc_regression")
@@ -993,10 +1045,14 @@ async def linear_svc_regressor(dependent_variable: str,
                                independent_variables: list[str] | None = Query(default=None)):
 
     dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
+
+
     df_label = dataset[dependent_variable]
     for columns in dataset.columns:
         if columns not in independent_variables:
             dataset = dataset.drop(str(columns), axis=1)
+
+    features_columns = dataset.columns
 
     X = np.array(dataset)
     Y = np.array(df_label)
@@ -1007,21 +1063,12 @@ async def linear_svc_regressor(dependent_variable: str,
         clf = LinearSVC(loss=loss, C=C, penalty=penalty, max_iter=max_iter)
 
     clf.fit(X, Y)
-    if np.shape(X)[1] == 1:
-        coeffs = clf.coef_
-        inter = clf.intercept_
-        df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
-        df_names = pd.DataFrame(dataset.columns, columns=['variables'])
-        df = pd.concat([df_names, df_coeffs], axis=1)
-        return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(), 'dataframe': df.to_json(orient='split')}
-    else:
-        coeffs = np.squeeze(clf.coef_)
-        inter = clf.intercept_
-        df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
-        df_names = pd.DataFrame(dataset.columns, columns=['variables'])
-        df = pd.concat([df_names, df_coeffs], axis=1)
-        return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(),
-                'dataframe': df.to_json(orient='split')}
+
+    df_coefs = pd.DataFrame(clf.coef_, columns=features_columns)
+
+    df_intercept = pd.DataFrame(clf.intercept_, columns=['intercept'])
+
+    return {'coefficients': df_coefs.to_json(orient='split'), 'intercept': df_intercept.to_json(orient='split')}
 
 @router.get("/ancova")
 async def ancova_2(dv: str,
