@@ -564,6 +564,10 @@ async def LDA(workflow_id: str,
         clf = LinearDiscriminantAnalysis(solver=solver)
 
     clf.fit(X, Y)
+    print(len(np.unique(Y)))
+    print(np.shape(clf.coef_))
+    print(clf.coef_)
+
     if np.shape(X)[1] == 1:
         coeffs = clf.coef_
         inter = clf.intercept_
