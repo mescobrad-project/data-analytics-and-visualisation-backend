@@ -203,6 +203,23 @@ async def name_columns(workflow_id: str, step_id: str, run_id: str):
     columns = data.columns
     return{'columns': list(columns)}
 
+@router.get("/return_binary_columns")
+async def name_columns(workflow_id: str, step_id: str, run_id: str):
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    name_of_file = get_single_file_from_local_temp_storage(workflow_id, run_id, step_id)
+    data = load_data_from_csv(path_to_storage + "/" + name_of_file)
+
+    # For the testing dataset
+    if 'Unnamed: 0' in data.columns:
+        data = data.drop(['Unnamed: 0'], axis=1)
+    for b_column in data.columns:
+        if data[b_column].unique().shape[0] > 2:
+            data = data.drop([b_column], axis=1)
+
+    columns = data.columns
+    return{'columns': list(columns)}
+
+
 @router.get("/return_saved_object_columns")
 async def name_saved_object_columns(file_name:str):
     print('saved', file_name, 'runtime_config/' + file_name)
@@ -361,30 +378,30 @@ async def transform_data(workflow_id: str,
         return {'Cube-root transformed array': list(cbrt_array), 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
 
 
-@router.get("/compute_pearson_correlation", tags=['hypothesis_testing'])
-async def pearson_correlation(workflow_id: str, step_id: str, run_id: str, column_1: str, column_2: str):
-    data = load_file_csv_direct(workflow_id, run_id, step_id)
-    pearsonr_test = pearsonr(data[str(column_1)], data[str(column_2)])
-    return {'Pearson’s correlation coefficient':pearsonr_test[0], 'p-value': pearsonr_test[1]}
-
-@router.get("/compute_spearman_correlation", tags=['hypothesis_testing'])
-async def spearman_correlation(column_1: str, column_2: str):
-    spearman_test = spearmanr(data[str(column_1)], data[str(column_2)])
-    return {'Spearman correlation coefficient': spearman_test[0], 'p-value': spearman_test[1]}
-
-@router.get("/compute_kendalltau_correlation", tags=['hypothesis_testing'])
-async def kendalltau_correlation(column_1: str,
-                                 column_2: str,
-                                 nan_policy: Optional[str] | None = Query("propagate",
-                                                                           regex="^(propagate)$|^(raise)$|^(omit)$"),
-                                 alternative: Optional[str] | None = Query("two-sided",
-                                                                           regex="^(two-sided)$|^(less)$|^(greater)$"),
-                                 variant: Optional[str] | None = Query("b",
-                                                                       regex="^(b)$|^(c)$"),
-                                 method: Optional[str] | None = Query("auto",
-                                                                      regex="^(auto)$|^(asymptotic)$|^(exact)$")):
-    kendalltau_test = kendalltau(data[str(column_1)], data[str(column_2)], nan_policy=nan_policy, alternative=alternative, variant=variant, method=method)
-    return {'kendalltau correlation coefficient': kendalltau_test[0], 'p-value': kendalltau_test[1]}
+# @router.get("/compute_pearson_correlation", tags=['hypothesis_testing'])
+# async def pearson_correlation(workflow_id: str, step_id: str, run_id: str, column_1: str, column_2: str):
+#     data = load_file_csv_direct(workflow_id, run_id, step_id)
+#     pearsonr_test = pearsonr(data[str(column_1)], data[str(column_2)])
+#     return {'Pearson’s correlation coefficient':pearsonr_test[0], 'p-value': pearsonr_test[1]}
+#
+# @router.get("/compute_spearman_correlation", tags=['hypothesis_testing'])
+# async def spearman_correlation(column_1: str, column_2: str):
+#     spearman_test = spearmanr(data[str(column_1)], data[str(column_2)])
+#     return {'Spearman correlation coefficient': spearman_test[0], 'p-value': spearman_test[1]}
+#
+# @router.get("/compute_kendalltau_correlation", tags=['hypothesis_testing'])
+# async def kendalltau_correlation(column_1: str,
+#                                  column_2: str,
+#                                  nan_policy: Optional[str] | None = Query("propagate",
+#                                                                            regex="^(propagate)$|^(raise)$|^(omit)$"),
+#                                  alternative: Optional[str] | None = Query("two-sided",
+#                                                                            regex="^(two-sided)$|^(less)$|^(greater)$"),
+#                                  variant: Optional[str] | None = Query("b",
+#                                                                        regex="^(b)$|^(c)$"),
+#                                  method: Optional[str] | None = Query("auto",
+#                                                                       regex="^(auto)$|^(asymptotic)$|^(exact)$")):
+#     kendalltau_test = kendalltau(data[str(column_1)], data[str(column_2)], nan_policy=nan_policy, alternative=alternative, variant=variant, method=method)
+#     return {'kendalltau correlation coefficient': kendalltau_test[0], 'p-value': kendalltau_test[1]}
 
 @router.get("/compute_point_biserial_correlation", tags=['hypothesis_testing'])
 async def point_biserial_correlation(workflow_id: str, step_id: str, run_id: str, column_1: str, column_2: str):
@@ -514,16 +531,20 @@ async def p_value_correction(input_config: ModelMultipleComparisons):
 
 
 @router.get("/return_LDA", tags=["return_LDA"])
-async def LDA(dependent_variable: str,
+async def LDA(workflow_id: str,
+                step_id: str,
+                run_id: str,
+              dependent_variable: str,
               solver: str | None = Query("svd",
                                          regex="^(svd)$|^(lsqr)$|^(eigen)$"),
               shrinkage_1: str | None = Query("none",
-                                              regex="^(none)$|^(auto)$"),
-              shrinkage_2: float | None = Query(default=None, gt=0, lt=0),
-              shrinkage_3: float | None = Query(default=None),
+                                              regex="^(none)$|^(auto)$|^(float)$"),
+              shrinkage_2: float | None = Query(default=None, gt=-1, lt=1),
+              # shrinkage_3: float | None = Query(default=None),
               independent_variables: list[str] | None = Query(default=None)):
 
-    dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+    # dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
     df_label = dataset[dependent_variable]
     for columns in dataset.columns:
         if columns not in independent_variables:
@@ -533,25 +554,23 @@ async def LDA(dependent_variable: str,
     features_columns = dataset.columns
     X = np.array(dataset)
     Y = np.array(df_label)
-
     if solver == 'lsqr' or solver == 'eigen':
-        if shrinkage_3==None:
-            clf = LinearDiscriminantAnalysis(solver=solver, shrinkage=shrinkage_3)
-        elif shrinkage_1!=None:
+        if shrinkage_1 == 'float':
+            clf = LinearDiscriminantAnalysis(solver=solver, shrinkage=shrinkage_2)
+        elif shrinkage_1 == 'auto':
             clf = LinearDiscriminantAnalysis(solver=solver, shrinkage=shrinkage_1)
         else:
-            clf = LinearDiscriminantAnalysis(solver=solver, shrinkage=shrinkage_2)
+            clf = LinearDiscriminantAnalysis(solver=solver)
     else:
         clf = LinearDiscriminantAnalysis(solver=solver)
 
     clf.fit(X, Y)
 
     df_coefs = pd.DataFrame(clf.coef_, columns=features_columns)
-
     df_intercept = pd.DataFrame(clf.intercept_, columns=['intercept'])
+    df_coefs['intercept'] = df_intercept['intercept']
+    return {'coefficients': df_coefs.to_html(), 'intercept': df_intercept.to_html()}
 
-
-    return {'coefficients': df_coefs.to_json(orient='split'), 'intercept': df_intercept.to_json(orient='split')}
 
 @router.get("/SVC_function")
 async def SVC_function(workflow_id: str, step_id: str, run_id: str,
@@ -1024,39 +1043,58 @@ async def linear_svc_regressor(dependent_variable: str,
                 'dataframe': df.to_json(orient='split')}
 
 @router.get("/ancova")
-async def ancova_2(dv: str,
+async def ancova_2(workflow_id: str,
+                    step_id: str,
+                    run_id: str,
+                   dv: str,
                    between: str,
                    covar: list[str] | None = Query(default=None),
                    effsize: str | None = Query("np2",
                                                regex="^(np2)$|^(n2)$")):
 
-    df_data = pd.read_csv('example_data/mescobrad_dataset.csv')
+    # df_data = pd.read_csv('example_data/mescobrad_dataset.csv')
+    df_data = load_file_csv_direct(workflow_id, run_id, step_id)
 
     df = ancova(data=df_data, dv=dv, covar=covar, between=between, effsize=effsize)
-
-    return {'ANCOVA':df.to_json(orient="split")}
+    df = df.fillna('')
+    all_res = []
+    for ind, row in df.iterrows():
+        temp_to_append = {
+            'id': ind,
+            'Source': row['Source'],
+            'SS': row['SS'],
+            'DF': row['DF'],
+            'F': row['F'],
+            'p-unc': row['p-unc'],
+            'np2': row['np2']
+        }
+        all_res.append(temp_to_append)
+    return {'DataFrame': all_res}
+    # return {'ANCOVA':df.to_json(orient="split")}
 
 @router.get("/linear_mixed_effects_model")
-async def linear_mixed_effects_model(dependent: str,
-                                     groups: str,
-                                     independent: list[str] | None = Query(default=None),
-                                     use_sqrt: bool | None = Query(default=True)):
+async def linear_mixed_effects_model(workflow_id: str,
+                    step_id: str,
+                    run_id: str,
+                     dependent: str,
+                     groups: str,
+                     independent: list[str] | None = Query(default=None),
+                     use_sqrt: bool | None = Query(default=True)):
 
-    data = pd.read_csv('example_data/mescobrad_dataset.csv')
+    # data = pd.read_csv('example_data/mescobrad_dataset.csv')
+    data = load_file_csv_direct(workflow_id, run_id, step_id)
 
     z = dependent + "~"
     for i in range(len(independent)):
         z = z + "+" + independent[i]
 
     md = smf.mixedlm(z, data, groups=data[groups], use_sqrt=use_sqrt)
-
     mdf = md.fit()
-
     df = mdf.summary()
-
     df_0 = df.tables[0]
     df_1 = df.tables[1]
-
+    print(df_0)
+    print(df_1)
     return {'first table': df_0.to_json(orient='split'), 'second table': df_1.to_json(orient='split')}
 
 @router.get("/poisson_regression")
@@ -1362,7 +1400,11 @@ async def conditional_logistic_regression(endog: str,
 
 
 @router.get("/risks")
-async def risk_ratio_1(exposure: str,
+async def risk_ratio_1(
+        # workflow_id: str,
+        # step_id: str,
+        # run_id: str,
+                       exposure: str,
                        outcome: str,
                        time: str | None = Query(default=None),
                        reference: int | None = Query(default=0),
@@ -1375,9 +1417,10 @@ async def risk_ratio_1(exposure: str,
     fig = plt.figure(1)
     ax = plt.subplot(111)
 
-    #dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
-    dataset = load_sample_data(False)
+    # dataset = load_file_csv_direct(workflow_id, run_id, step_id)
 
+    dataset = load_sample_data(False)
+    print(dataset)
     if method == 'risk_ratio':
         rr = RiskRatio(reference=reference, alpha=alpha)
     elif method == 'risk_difference':
@@ -1414,7 +1457,7 @@ async def risk_ratio_1(exposure: str,
 
     rr.fit(dataset, exposure='art', outcome='dead')
     df = rr.results
-
+    print(df)
     rr.plot()
     plt.show()
 
@@ -1453,7 +1496,10 @@ async def two_sided_risk_ci(events: int,
 
 
 @router.get("/risk_ratio_function")
-async def risk_ratio_function(exposed_with: int,
+async def risk_ratio_function(workflow_id: str,
+                              step_id: str,
+                              run_id: str,
+                              exposed_with: int,
                               unexposed_with: int,
                               exposed_without: int,
                               unexposed_without: int,
@@ -1464,15 +1510,18 @@ async def risk_ratio_function(exposed_with: int,
     lower_bound = r.lower_bound
     upper_bound = r.upper_bound
     standard_error = r.standard_error
-
-    return {'risk ratio': estimated_risk, 'lower bound': lower_bound, 'upper bound': upper_bound, 'standard error': standard_error}
+    return {'estimated_risk': estimated_risk, 'lower_bound': lower_bound, 'upper_bound': upper_bound, 'standard_error': standard_error}
 
 @router.get("/risk_difference_function")
-async def risk_difference_function(exposed_with: int,
-                                   unexposed_with: int,
-                                   exposed_without: int,
-                                   unexposed_without: int,
-                                   alpha: float | None = Query(default=0.05)):
+async def risk_difference_function(
+        workflow_id: str,
+        step_id: str,
+        run_id: str,
+        exposed_with: int,
+        unexposed_with: int,
+        exposed_without: int,
+        unexposed_without: int,
+        alpha: float | None = Query(default=0.05)):
 
     r = risk_difference(a=exposed_with, b=unexposed_with, c=exposed_without, d=unexposed_without, alpha=alpha)
     estimated_risk = r.point_estimate
@@ -1480,14 +1529,18 @@ async def risk_difference_function(exposed_with: int,
     upper_bound = r.upper_bound
     standard_error = r.standard_error
 
-    return {'risk difference': estimated_risk, 'lower bound': lower_bound, 'upper bound': upper_bound, 'standard error': standard_error}
+    return {'risk_difference': estimated_risk, 'lower_bound': lower_bound, 'upper_bound': upper_bound, 'standard_error': standard_error}
 
 @router.get("/number_needed_to_treat_function")
-async def number_needed_to_treat_function(exposed_with: int,
-                                          unexposed_with: int,
-                                          exposed_without: int,
-                                          unexposed_without: int,
-                                          alpha: float | None = Query(default=0.05)):
+async def number_needed_to_treat_function(
+        workflow_id: str,
+        step_id: str,
+        run_id: str,
+        exposed_with: int,
+        unexposed_with: int,
+        exposed_without: int,
+        unexposed_without: int,
+        alpha: float | None = Query(default=0.05)):
 
     r = number_needed_to_treat(a=exposed_with, b=unexposed_with, c=exposed_without, d=unexposed_without, alpha=alpha)
     estimated_risk = r.point_estimate
@@ -1495,14 +1548,18 @@ async def number_needed_to_treat_function(exposed_with: int,
     upper_bound = r.upper_bound
     standard_error = r.standard_error
 
-    return {'nnt': estimated_risk, 'lower bound': lower_bound, 'upper bound': upper_bound, 'standard error': standard_error}
+    return {'nnt': estimated_risk, 'lower_bound': lower_bound, 'upper_bound': upper_bound, 'standard_error': standard_error}
 
 @router.get("/odds_ratio_function")
-async def odds_ratio_function(exposed_with: int,
-                              unexposed_with: int,
-                              exposed_without: int,
-                              unexposed_without: int,
-                              alpha: float | None = Query(default=0.05)):
+async def odds_ratio_function(
+        workflow_id: str,
+        step_id: str,
+        run_id: str,
+        exposed_with: int,
+        unexposed_with: int,
+        exposed_without: int,
+        unexposed_without: int,
+        alpha: float | None = Query(default=0.05)):
 
     r = odds_ratio(a=exposed_with, b=unexposed_with, c=exposed_without, d=unexposed_without, alpha=alpha)
     estimated_risk = r.point_estimate
@@ -1510,29 +1567,37 @@ async def odds_ratio_function(exposed_with: int,
     upper_bound = r.upper_bound
     standard_error = r.standard_error
 
-    return {'odds ratio': estimated_risk, 'lower bound': lower_bound, 'upper bound': upper_bound, 'standard error': standard_error}
+    return {'odds_ratio': estimated_risk, 'lower_bound': lower_bound, 'upper_bound': upper_bound, 'standard_error': standard_error}
 
 @router.get("/incidence_rate_ratio_function")
-async def incidence_rate_ratio_function(exposed_with: int,
-                                        unexposed_with: int,
-                                        person_time_exposed: int,
-                                        person_time_unexposed: int,
-                                        alpha: float | None = Query(default=0.05)):
+async def incidence_rate_ratio_function(
+        workflow_id: str,
+        step_id: str,
+        run_id: str,
+        exposed_with: int,
+        unexposed_with: int,
+        person_time_exposed: int,
+        person_time_unexposed: int,
+        alpha: float | None = Query(default=0.05)):
 
     r = incidence_rate_ratio(a=exposed_with, c=unexposed_with, t1=person_time_exposed, t2=person_time_unexposed, alpha=alpha)
     estimated_risk = r.point_estimate
     lower_bound = r.lower_bound
     upper_bound = r.upper_bound
     standard_error = r.standard_error
-
-    return {'incident rate ratio': estimated_risk, 'lower bound': lower_bound, 'upper bound': upper_bound, 'standard error': standard_error}
+    print(r)
+    return {'incident_rate_ratio': estimated_risk, 'lower_bound': lower_bound, 'upper_bound': upper_bound, 'standard_error': standard_error}
 
 @router.get("/incidence_rate_difference_function")
-async def incidence_rate_difference_function(exposed_with: int,
-                                             unexposed_with: int,
-                                             person_time_exposed: int,
-                                             person_time_unexposed: int,
-                                             alpha: float | None = Query(default=0.05)):
+async def incidence_rate_difference_function(
+        workflow_id: str,
+        step_id: str,
+        run_id: str,
+        exposed_with: int,
+        unexposed_with: int,
+        person_time_exposed: int,
+        person_time_unexposed: int,
+        alpha: float | None = Query(default=0.05)):
 
     r = incidence_rate_difference(a=exposed_with, c=unexposed_with, t1=person_time_exposed, t2=person_time_unexposed, alpha=alpha)
     estimated_risk = r.point_estimate
@@ -1540,7 +1605,7 @@ async def incidence_rate_difference_function(exposed_with: int,
     upper_bound = r.upper_bound
     standard_error = r.standard_error
 
-    return {'incident rate difference': estimated_risk, 'lower bound': lower_bound, 'upper bound': upper_bound, 'standard error': standard_error}
+    return {'incident_rate_difference': estimated_risk, 'lower_bound': lower_bound, 'upper_bound': upper_bound, 'standard_error': standard_error}
 
 @router.get("/correlations_pingouin")
 async def correlations_pingouin(workflow_id: str,
@@ -1562,6 +1627,7 @@ async def correlations_pingouin(workflow_id: str,
             res = pingouin.corr(x=data[i], y=data[j], method=method, alternative=alternative).round(5)
             res.insert(0,'Cor', i + "-" + j, True)
             # all_res.append(res)
+            print(res)
             count = count + 1
             for ind, row in res.iterrows():
                 temp_to_append = {
@@ -1577,6 +1643,8 @@ async def correlations_pingouin(workflow_id: str,
                 }
                 if method == 'pearson':
                     temp_to_append["BF10"] = row['BF10']
+                if method == 'shepherd':
+                    temp_to_append["outliers"] = row['outliers']
             all_res.append(temp_to_append)
 
     # df = pd.concat(all_res)
