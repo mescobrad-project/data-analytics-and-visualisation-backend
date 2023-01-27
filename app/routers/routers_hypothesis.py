@@ -203,6 +203,23 @@ async def name_columns(workflow_id: str, step_id: str, run_id: str):
     columns = data.columns
     return{'columns': list(columns)}
 
+@router.get("/return_binary_columns")
+async def name_columns(workflow_id: str, step_id: str, run_id: str):
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    name_of_file = get_single_file_from_local_temp_storage(workflow_id, run_id, step_id)
+    data = load_data_from_csv(path_to_storage + "/" + name_of_file)
+
+    # For the testing dataset
+    if 'Unnamed: 0' in data.columns:
+        data = data.drop(['Unnamed: 0'], axis=1)
+    for b_column in data.columns:
+        if data[b_column].unique().shape[0] > 2:
+            data = data.drop([b_column], axis=1)
+
+    columns = data.columns
+    return{'columns': list(columns)}
+
+
 @router.get("/return_saved_object_columns")
 async def name_saved_object_columns(file_name:str):
     print('saved', file_name, 'runtime_config/' + file_name)
@@ -514,16 +531,20 @@ async def p_value_correction(input_config: ModelMultipleComparisons):
 
 
 @router.get("/return_LDA", tags=["return_LDA"])
-async def LDA(dependent_variable: str,
+async def LDA(workflow_id: str,
+                step_id: str,
+                run_id: str,
+              dependent_variable: str,
               solver: str | None = Query("svd",
                                          regex="^(svd)$|^(lsqr)$|^(eigen)$"),
               shrinkage_1: str | None = Query("none",
-                                              regex="^(none)$|^(auto)$"),
-              shrinkage_2: float | None = Query(default=None, gt=0, lt=0),
-              shrinkage_3: float | None = Query(default=None),
+                                              regex="^(none)$|^(auto)$|^(float)$"),
+              shrinkage_2: float | None = Query(default=None, gt=-1, lt=1),
+              # shrinkage_3: float | None = Query(default=None),
               independent_variables: list[str] | None = Query(default=None)):
 
-    dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+    # dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
     df_label = dataset[dependent_variable]
     for columns in dataset.columns:
         if columns not in independent_variables:
@@ -531,19 +552,18 @@ async def LDA(dependent_variable: str,
 
     X = np.array(dataset)
     Y = np.array(df_label)
-
+    print(solver, shrinkage_1, shrinkage_2)
     if solver == 'lsqr' or solver == 'eigen':
-        if shrinkage_3==None:
-            clf = LinearDiscriminantAnalysis(solver=solver, shrinkage=shrinkage_3)
-        elif shrinkage_1!=None:
+        if shrinkage_1 == 'float':
+            clf = LinearDiscriminantAnalysis(solver=solver, shrinkage=shrinkage_2)
+        elif shrinkage_1 == 'auto':
             clf = LinearDiscriminantAnalysis(solver=solver, shrinkage=shrinkage_1)
         else:
-            clf = LinearDiscriminantAnalysis(solver=solver, shrinkage=shrinkage_2)
+            clf = LinearDiscriminantAnalysis(solver=solver)
     else:
         clf = LinearDiscriminantAnalysis(solver=solver)
 
     clf.fit(X, Y)
-
     if np.shape(X)[1] == 1:
         coeffs = clf.coef_
         inter = clf.intercept_
