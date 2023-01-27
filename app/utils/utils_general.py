@@ -31,6 +31,25 @@ def get_single_file_from_edfbrowser_interim_storage(workflow_id, run_id, step_id
     return files_to_return[0]
 
 
+def get_files_from_edfbrowser_interim_storage_slowwaves_spindle(workflow_id, run_id, step_id):
+    """
+        Function to retrieve files for the slowaves and spindles functions
+        file name are returned as a dictionary with keys
+        edf and csv respectively
+        currently edf is detected by .edf or .fif
+    """
+    files_existing = [f for f in os.listdir(NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id + '/edfbrowser_interim_storage') if isfile(join(NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id +'/edfbrowser_interim_storage', f))]
+
+    files_to_return = {}
+
+    for file in files_existing:
+        if file.endswith(".csv"):
+            files_to_return["csv"] = file
+        elif file.endswith(".edf") or file.endswith(".fif"):
+            files_to_return["edf"] = file
+
+    return files_to_return
+
 def get_all_files_from_local_temp_storage(workflow_id, run_id, step_id):
     """Function to lazily retrieve name and path of files from local storage when there is a single file"""
     files_to_return = [f for f in os.listdir(NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id) if isfile(join(NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id, f))]
