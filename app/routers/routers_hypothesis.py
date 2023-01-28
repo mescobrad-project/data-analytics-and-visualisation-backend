@@ -1161,7 +1161,6 @@ async def linear_mixed_effects_model(workflow_id: str,
 
     # data = pd.read_csv('example_data/mescobrad_dataset.csv')
     data = load_file_csv_direct(workflow_id, run_id, step_id)
-
     z = dependent + "~"
     for i in range(len(independent)):
         z = z + "+" + independent[i]
@@ -1170,10 +1169,33 @@ async def linear_mixed_effects_model(workflow_id: str,
     mdf = md.fit()
     df = mdf.summary()
     df_0 = df.tables[0]
+    tbl1_res = []
+    for ind, row in df_0.iterrows():
+        temp_to_append = {
+            'id': ind,
+            "col0": row[0],
+            "col1": row[1],
+            "col2": row[2],
+            "col3": row[3],
+        }
+        tbl1_res.append(temp_to_append)
     df_1 = df.tables[1]
-    print(df_0)
-    print(df_1)
-    return {'first table': df_0.to_json(orient='split'), 'second table': df_1.to_json(orient='split')}
+    tbl2_res = []
+    for ind, row in df_1.iterrows():
+        temp_to_append = {
+            'id': ind,
+            "col0": row[0],
+            "col1": row[1],
+            "col2": row[2],
+            "col3": row[3],
+            "col4": row[4],
+            "col5": row[5],
+        }
+        tbl2_res.append(temp_to_append)
+    print(df)
+
+    return {'first_table': tbl1_res, 'second_table': tbl2_res}
+    # return {'first_table': df_0.to_json(orient='split'), 'second_table': df_1.to_json(orient='split')}
 
 @router.get("/poisson_regression")
 async def poisson_regression(workflow_id: str,
