@@ -2,7 +2,8 @@ import os
 from datetime import datetime
 import json
 from os.path import isfile, join
-
+from mne.stats import permutation_cluster_test
+from tensorpac import Pac
 import pingouin as pg
 import seaborn as sns
 import math
@@ -1322,7 +1323,9 @@ async def spectrogram_yasa(name: str,
     return {'Channel not found'}
 
 @router.get("/bandpower_yasa")
-async def bandpower_yasa(name: str,
+async def bandpower_yasa(relative: bool | None = False,
+                         bandpass: bool | None = False,
+                         include: list[int] | None = Query(default=[2,3]),
                          current_sampling_frequency_of_the_hypnogram: float | None = Query(default=1/30)):
 
     data = mne.io.read_raw_fif("example_data/XX_Firsthalf_raw.fif")
@@ -1335,12 +1338,17 @@ async def bandpower_yasa(name: str,
 
     hypno = yasa.hypno_upsample_to_data(list(hypno['stage']), sf_hypno=current_sampling_frequency_of_the_hypnogram, data=data)
 
-    df = yasa.bandpower(data, hypno=hypno)
+    df = yasa.bandpower(data, hypno=hypno, relative=relative, bandpass=bandpass, include=include)
 
     return {'DataFrame':df.to_json(orient='split')}
 
 @router.get("/spindles_detect_two_dataframes")
-async def spindles_detect_two_dataframes(current_sampling_frequency_of_the_hypnogram: float | None = Query(default=1/30)):
+async def spindles_detect_two_dataframes(min_distance: int | None = Query(default=500),
+                                         freq_sp: list[int] | None = Query(default=[12,15]),
+                                         freq_broad: list[int] | None = Query(default=[1,30]),
+                                         include: list[int] | None = Query(default=[2,3]),
+                                         remove_outliers: bool | None = Query(default=False),
+                                         current_sampling_frequency_of_the_hypnogram: float | None = Query(default=1/30)):
 
     data = mne.io.read_raw_fif("example_data/XX_Firsthalf_raw.fif")
     hypno = pd.read_csv('example_data/XX_Firsthalf_Hypno.csv')
@@ -1350,15 +1358,15 @@ async def spindles_detect_two_dataframes(current_sampling_frequency_of_the_hypno
     sf = info['sfreq']
     hypno = yasa.hypno_upsample_to_data(list(hypno['stage']), sf_hypno=current_sampling_frequency_of_the_hypnogram, data=data)
 
-    sp = yasa.spindles_detect(raw_data, sf=sf, hypno=hypno, include=(2,3))
+    sp = yasa.spindles_detect(raw_data, sf=sf, hypno=hypno, include=include, freq_sp=freq_sp, freq_broad=freq_broad,
+                              min_distance=min_distance, remove_outliers=remove_outliers)
     if sp!=None:
         df_1 = sp.summary()
-        print(df_1)
         df_2 = sp.summary(grp_chan=True, grp_stage=True)
 
         to_return = {}
         fig = plt.figure(1)
-        fig = sp.plot_average(center='Peak', time_before=1, time_after=1)
+        sp.plot_average(center='Peak', time_before=1, time_after=1)
         plt.show()
         html_str = mpld3.fig_to_html(fig)
         to_return["figure"] = html_str
@@ -1368,17 +1376,28 @@ async def spindles_detect_two_dataframes(current_sampling_frequency_of_the_hypno
         return {'No spindles detected'}
 
 @router.get("/sw_detect_two_dataframes")
-async def sw_detect_two_dataframes(current_sampling_frequency_of_the_hypnogram: float | None = Query(default=1/30)):
+async def sw_detect_two_dataframes(freq_sw: list[float] | None = Query(default=[0.3,1.5]),
+                                   dur_neg: list[float] | None = Query(default=[0.3,1.5]),
+                                   dur_pos: list[float] | None = Query(default=[0.1,1]),
+                                   amp_neg: list[int] | None = Query(default=[40,200]),
+                                   amp_pos: list[int] | None = Query(default=[10,150]),
+                                   amp_ptp: list[int] | None = Query(default=[75,350]),
+                                   include: list[int] | None = Query(default=[2,3]),
+                                   remove_outliers: bool | None = Query(default=True),
+                                   coupling: bool | None = Query(default=True),
+                                   current_sampling_frequency_of_the_hypnogram: float | None = Query(default=1/30)):
 
-    #data = mne.io.read_raw_fif("example_data/XX_Firsthalf_raw.fif")
-    #hypno = pd.read_csv('example_data/XX_Firsthalf_Hypno.csv')
+    data = mne.io.read_raw_fif("example_data/XX_Firsthalf_raw.fif")
+    hypno = pd.read_csv('example_data/XX_Firsthalf_Hypno.csv')
     raw_data = data.get_data()
     info = data.info
     channels = data.ch_names
     sf = info['sfreq']
-    #hypno = yasa.hypno_upsample_to_data(list(hypno['stage']), sf_hypno=current_sampling_frequency_of_the_hypnogram, data=data)
+    hypno = yasa.hypno_upsample_to_data(list(hypno['stage']), sf_hypno=current_sampling_frequency_of_the_hypnogram, data=data)
 
-    sw = yasa.sw_detect(data, coupling=True,remove_outliers=True)
+    sw = yasa.sw_detect(raw_data, sf=sf, hypno=hypno,
+                        coupling=coupling,remove_outliers=remove_outliers, include=include, freq_sw=freq_sw, dur_pos=dur_pos,
+                        dur_neg=dur_neg, amp_neg=amp_neg, amp_pos=amp_pos, amp_ptp=amp_ptp)
     if sw!=None:
         df_1 = sw.summary()
         df_2 = sw.summary(grp_chan=True, grp_stage=True)
@@ -1402,6 +1421,134 @@ async def sw_detect_two_dataframes(current_sampling_frequency_of_the_hypnogram: 
                 'Vector length (rad):': pg.circ_r(df_1['PhaseAtSigmaPeak'])}
     else:
         return {'No slow-waves detected'}
+
+@router.get("/PAC_values")
+async def calculate_pac_values(window: int | None = Query(default=15),
+                               step: int | None = Query(default=15),
+                               current_sampling_frequency_of_the_hypnogram: float | None = Query(default=1/30)):
+
+
+    to_return = {}
+    fig = plt.figure(1)
+    data = mne.io.read_raw_fif("example_data/XX_Firsthalf_raw.fif")
+    hypno = pd.read_csv('example_data/XX_Firsthalf_Hypno.csv')
+    raw_data = data.get_data()
+    info = data.info
+    channels = data.ch_names
+    sf = info['sfreq']
+    hypno = yasa.hypno_upsample_to_data(list(hypno['stage']), sf_hypno=current_sampling_frequency_of_the_hypnogram, data=data)
+    hypnoN2index = hypno == 2
+    hypnoN3index = hypno == 3
+    hypnoN2N3 = hypnoN2index + hypnoN3index
+
+    # Segment N2 sleep into 15-seconds  non-overlapping epochs
+    _, data_N2N3 = yasa.sliding_window(raw_data[0, hypnoN2N3], sf, window=window, step=step)
+
+    # First, let's define our array of frequencies for phase and amplitude
+    f_pha = np.arange(0.125, 4.25, 0.25)  # Frequency for phase
+    f_amp = np.arange(7.25, 25.5, 0.5)  # Frequency for amplitude
+
+    # Define a PAC object
+    p = Pac(idpac=(2, 0, 0), f_pha=f_pha, f_amp=f_amp, verbose='WARNING')  # PAC method (2) equal to Modulation Index
+
+    # Filter the data and extract the PAC values
+    xpac = p.filterfit(sf, data_N2N3)
+
+    sns.set(font_scale=1.1, style='white')
+
+    # Plot the comodulogram
+    p.comodulogram(xpac.mean(-1), title=str(p), vmin=0, plotas='contour', ncontours=100)
+    plt.gca()
+    plt.show()
+
+    html_str = mpld3.fig_to_html(fig)
+    to_return["figure"] = html_str
+
+
+    return {'Figure':to_return}
+
+@router.get("/extra_PAC_values")
+async def calculate_extra_pac_values(window: int | None = Query(default=15),
+                                     step: int | None = Query(default=15),
+                                     current_sampling_frequency_of_the_hypnogram: float | None = Query(default=1/30)):
+
+    to_return = {}
+    fig = plt.figure(1)
+    data = mne.io.read_raw_fif("example_data/XX_Firsthalf_raw.fif")
+    hypno = pd.read_csv('example_data/XX_Firsthalf_Hypno.csv')
+    channels = data.ch_names
+    raw_data = data.get_data(channels[0])
+    info = data.info
+    sf = info['sfreq']
+    hypno = yasa.hypno_upsample_to_data(list(hypno['stage']), sf_hypno=current_sampling_frequency_of_the_hypnogram, data=data)
+    hypnoN2index = hypno == 2
+    hypnoN3index = hypno == 3
+    hypnoN2N3 = hypnoN2index + hypnoN3index
+
+    # Segment N2 sleep into 15-seconds  non-overlapping epochs
+    _, data_N2N3 = yasa.sliding_window(raw_data[0, hypnoN2N3], sf, window=window, step=step)
+
+    # First, let's define our array of frequencies for phase and amplitude
+    f_pha = np.arange(0.125, 4.25, 0.25)  # Frequency for phase
+    f_amp = np.arange(7.25, 25.5, 0.5)  # Frequency for amplitude
+
+    # Define a PAC object
+    p = Pac(idpac=(2, 0, 0), f_pha=f_pha, f_amp=f_amp, verbose='WARNING')  # PAC method (2) equal to Modulation Index
+
+    # Filter the data and extract the PAC values
+    xpac = p.filterfit(sf, data_N2N3)
+
+    ################################################################################################
+    ################################################################################################
+    ################################################################################################
+
+    raw_data = data.get_data(channels[1])
+    info = data.info
+    sf = info['sfreq']
+
+    # Segment N2 sleep into 15-seconds  non-overlapping epochs
+    _, data_N2N3 = yasa.sliding_window(raw_data[0, hypnoN2N3], sf, window=window, step=step)
+
+    # First, let's define our array of frequencies for phase and amplitude
+    f_pha = np.arange(0.125, 4.25, 0.25)  # Frequency for phase
+    f_amp = np.arange(7.25, 25.5, 0.5)  # Frequency for amplitude
+
+    # Define a PAC object
+    p = Pac(idpac=(2, 0, 0), f_pha=f_pha, f_amp=f_amp, verbose='WARNING')  # PAC method (2) equal to Modulation Index
+
+    # Filter the data and extract the PAC values
+    ypac = p.filterfit(sf, data_N2N3)
+
+    ###############################################
+
+    # mne requires that the first is represented by the number of trials (n_epochs)
+    # Therefore, we transpose the output PACs of both conditions
+    pac_r1 = np.transpose(xpac, (2, 0, 1))
+    pac_r2 = np.transpose(ypac, (2, 0, 1))
+
+    n_perm = 1000  # number of permutations
+    tail = 1  # only inspect the upper tail of the distribution
+    # perform the correction
+    t_obs, clusters, cluster_p_values, h0 = permutation_cluster_test(
+        [pac_r1, pac_r2], n_permutations=n_perm, tail=tail)
+
+    # create new stats image with only significant clusters
+    t_obs_plot = np.nan * np.ones_like(t_obs)
+    for c, p_val in zip(clusters, cluster_p_values):
+        if p_val <= 0.001:
+            t_obs_plot[c] = t_obs[c]
+            t_obs[c] = np.nan
+
+    title = 'Cluster-based corrected differences\nbetween central electrodes from both sessions'
+    p.comodulogram(t_obs, cmap='gray', vmin=0, vmax=0.5, colorbar=True)
+    p.comodulogram(t_obs_plot, cmap='viridis', vmin=0, vmax=0.5, title=title, colorbar=False)
+    plt.gca().invert_yaxis()
+    plt.show()
+
+    html_str = mpld3.fig_to_html(fig)
+    to_return["figure"] = html_str
+
+    return {'Figure': to_return}
 
 
 

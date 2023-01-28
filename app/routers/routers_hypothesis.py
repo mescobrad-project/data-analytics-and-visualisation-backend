@@ -454,7 +454,10 @@ async def transform_data_anova(column_1: str, column_2: str):
 
 
 @router.get("/statistical_tests", tags=['hypothesis_testing'])
-async def statistical_tests(column_1: str,
+async def statistical_tests(workflow_id: str,
+                            step_id: str,
+                            run_id: str,
+                            column_1: str,
                             column_2: str,
                             correction: bool = True,
                             nan_policy: Optional[str] | None = Query("propagate",
@@ -469,6 +472,7 @@ async def statistical_tests(column_1: str,
                                                                  regex="^(auto)$|^(approx)$|^(exact)$"),
                             zero_method: Optional[str] | None = Query("pratt",
                                                                  regex="^(pratt)$|^(wilcox)$|^(zsplit)$")):
+    data = load_file_csv_direct(workflow_id, run_id, step_id)
 
     if statistical_test == "Welch t-test":
         statistic, p_value = ttest_ind(data[str(column_1)], data[str(column_2)], nan_policy=nan_policy, equal_var=False, alternative=alternative)
@@ -576,10 +580,13 @@ async def LDA(workflow_id: str,
 
 
 @router.get("/principal_component_analysis")
-async def principal_component_analysis(n_components_1: int | None = Query(default=None),
+async def principal_component_analysis(workflow_id: str,
+                                       step_id: str,
+                                       run_id: str,
+                                       n_components_1: int | None = Query(default=None),
                                        n_components_2: float | None = Query(default=None, gt=0, lt=1),
                                        independent_variables: list[str] | None = Query(default=None)):
-    dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
     for columns in dataset.columns:
         if columns not in independent_variables:
             dataset = dataset.drop(str(columns), axis=1)
@@ -604,9 +611,12 @@ async def principal_component_analysis(n_components_1: int | None = Query(defaul
             'Principal axes in feature space, representing the directions of maximum variance in the data.' : pca.components_.tolist()}
 
 @router.get("/kmeans_clustering")
-async def kmeans_clustering(n_clusters: int,
+async def kmeans_clustering(workflow_id: str,
+                            step_id: str,
+                            run_id: str,
+                            n_clusters: int,
                             independent_variables: list[str] | None = Query(default=None)):
-    dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
     for columns in dataset.columns:
         if columns not in independent_variables:
             dataset = dataset.drop(str(columns), axis=1)
@@ -653,13 +663,16 @@ async def kmeans_clustering(n_clusters: int,
 
 # TODO Create frontend
 @router.get("/elastic_net")
-async def elastic_net(dependent_variable: str,
+async def elastic_net(workflow_id: str,
+                      step_id: str,
+                      run_id: str,
+                      dependent_variable: str,
                       alpha: float | None = Query(default=1.0),
                       l1_ratio: float | None = Query(default=0.5, ge=0, le=1),
                       max_iter: int | None = Query(default=1000),
                       independent_variables: list[str] | None = Query(default=None)):
 
-    dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
     df_label = dataset[dependent_variable]
     for columns in dataset.columns:
         if columns not in independent_variables:
@@ -722,12 +735,15 @@ async def elastic_net(dependent_variable: str,
 
 # TODO Create frontend
 @router.get("/lasso_regression")
-async def lasso(dependent_variable: str,
+async def lasso(workflow_id: str,
+                step_id: str,
+                run_id: str,
+                dependent_variable: str,
                 alpha: float | None = Query(default=1.0, gt=0),
                 max_iter: int | None = Query(default=1000),
                 independent_variables: list[str] | None = Query(default=None)):
 
-    dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
     df_label = dataset[dependent_variable]
     for columns in dataset.columns:
         if columns not in independent_variables:
@@ -787,14 +803,17 @@ async def lasso(dependent_variable: str,
 
 # TODO Create frontend
 @router.get("/ridge_regression")
-async def ridge(dependent_variable: str,
+async def ridge(workflow_id: str,
+                step_id: str,
+                run_id: str,
+                dependent_variable: str,
                 alpha: float | None = Query(default=1.0, gt=0),
                 max_iter: int | None = Query(default=None),
                 solver: str | None = Query("auto",
                                            regex="^(auto)$|^(svd)$|^(cholesky)$|^(sparse_cg)$|^(lsqr)$|^(sag)$|^(lbfgs)$"),
                 independent_variables: list[str] | None = Query(default=None)):
 
-    dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
     df_label = dataset[dependent_variable]
     for columns in dataset.columns:
         if columns not in independent_variables:
@@ -856,7 +875,10 @@ async def ridge(dependent_variable: str,
                 'dataframe': df.to_json(orient='split')}
 
 @router.get("/sgd_regression")
-async def sgd_regressor(dependent_variable: str,
+async def sgd_regressor(workflow_id: str,
+                        step_id: str,
+                        run_id: str,
+                        dependent_variable: str,
                         alpha: float | None = Query(default=0.0001),
                         max_iter: int | None = Query(default=1000),
                         epsilon: float | None = Query(default=0.1),
@@ -870,7 +892,7 @@ async def sgd_regressor(dependent_variable: str,
                                                  regex="^(l2)$|^(l1)$|^(elasticnet)$"),
                         independent_variables: list[str] | None = Query(default=None)):
 
-    dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
     df_label = dataset[dependent_variable]
     for columns in dataset.columns:
         if columns not in independent_variables:
@@ -1007,7 +1029,10 @@ async def huber_regressor(workflow_id: str, step_id: str, run_id: str,
                 'dataframe': df.to_json(orient='split')}
 
 @router.get("/linearsvr_regression")
-async def linear_svr_regressor(dependent_variable: str,
+async def linear_svr_regressor(workflow_id: str,
+                               step_id: str,
+                               run_id: str,
+                               dependent_variable: str,
                                max_iter: int | None = Query(default=1000),
                                epsilon: float | None = Query(default=0),
                                C: float | None = Query(default=1,gt=0),
@@ -1015,7 +1040,7 @@ async def linear_svr_regressor(dependent_variable: str,
                                                          regex="^(epsilon_insensitive)$|^(squared_epsilon_insensitive)$"),
                                independent_variables: list[str] | None = Query(default=None)):
 
-    dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
     df_label = dataset[dependent_variable]
     for columns in dataset.columns:
         if columns not in independent_variables:
@@ -1057,7 +1082,10 @@ async def linear_svr_regressor(dependent_variable: str,
 
 
 @router.get("/linearsvc_regression")
-async def linear_svc_regressor(dependent_variable: str,
+async def linear_svc_regressor(workflow_id: str,
+                               step_id: str,
+                               run_id: str,
+                               dependent_variable: str,
                                max_iter: int | None = Query(default=1000),
                                C: float | None = Query(default=1,gt=0),
                                loss: str | None = Query("hinge",
@@ -1066,7 +1094,7 @@ async def linear_svc_regressor(dependent_variable: str,
                                                          regex="^(l1)$|^(l2)$"),
                                independent_variables: list[str] | None = Query(default=None)):
 
-    dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
 
 
     df_label = dataset[dependent_variable]
@@ -1148,12 +1176,15 @@ async def linear_mixed_effects_model(workflow_id: str,
     return {'first table': df_0.to_json(orient='split'), 'second table': df_1.to_json(orient='split')}
 
 @router.get("/poisson_regression")
-async def poisson_regression(dependent_variable: str,
+async def poisson_regression(workflow_id: str,
+                             step_id: str,
+                             run_id: str,
+                             dependent_variable: str,
                              alpha: float | None = Query(default=1.0, ge=0),
                              max_iter: int | None = Query(default=1000),
                              independent_variables: list[str] | None = Query(default=None)):
 
-    dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
 
     df_label = dataset[dependent_variable]
     for columns in dataset.columns:
@@ -1303,7 +1334,10 @@ async def anova_rm(dependent_variable: str,
         return {"Unbalanced"}
 
 @router.get("/generalized_estimating_equations")
-async def generalized_estimating_equations(dependent: str,
+async def generalized_estimating_equations(workflow_id: str,
+                                           step_id: str,
+                                           run_id: str,
+                                           dependent: str,
                                            groups: str,
                                            independent: list[str] | None = Query(default=None),
                                            conv_struct: str | None = Query("independence",
@@ -1311,7 +1345,7 @@ async def generalized_estimating_equations(dependent: str,
                                            family: str | None = Query("poisson",
                                                                       regex="^(poisson)$|^(gamma)$|^(gaussian)$|^(inverse_gaussian)$|^(negative_binomial)$|^(binomial)$|^(tweedie)$")):
 
-    data = pd.read_csv('example_data/mescobrad_dataset.csv')
+    data = load_file_csv_direct(workflow_id, run_id, step_id)
 
     z = dependent + "~"
     for i in range(len(independent)):
