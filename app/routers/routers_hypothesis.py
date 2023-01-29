@@ -26,7 +26,7 @@ from sklearn.svm import SVC
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
-from sklearn.linear_model import LinearRegression, Ridge, Lasso, ElasticNet, SGDRegressor, SGDClassifier, HuberRegressor,Lars, PoissonRegressor
+from sklearn.linear_model import LinearRegression, Ridge, Lasso, ElasticNet, SGDRegressor, SGDClassifier, HuberRegressor,Lars, PoissonRegressor, LogisticRegression
 from sklearn.svm import SVR, LinearSVR, LinearSVC
 from pingouin import ancova
 import statsmodels.api as sm
@@ -873,6 +873,89 @@ async def ridge(workflow_id: str,
                 'coefficient of determination (R^2)':clf.score(X,Y),
                 'coefficients': coeffs.tolist(), 'intercept': inter.tolist(),
                 'dataframe': df.to_json(orient='split')}
+
+def full_log_likelihood(w, X, y):
+    score = np.dot(X, w).reshape(1, X.shape[0])
+    return np.sum(-np.log(1 + np.exp(score))) + np.sum(y * score)
+
+def null_log_likelihood(w, X, y):
+    z = np.array([w if i == 0 else 0.0 for i, w in enumerate(w.reshape(1, X.shape[1])[0])]).reshape(X.shape[1], 1)
+    score = np.dot(X, z).reshape(1, X.shape[0])
+    return np.sum(-np.log(1 + np.exp(score))) + np.sum(y * score)
+
+def mcfadden_rsquare(w, X, y):
+    return 1.0 - (full_log_likelihood(w, X, y) / null_log_likelihood(w, X, y))
+
+
+@router.get("/logistic_regression_sklearn")
+async def sklearn_logistic_regression(workflow_id: str,
+                                      step_id: str,
+                                      run_id: str,
+                                      dependent_variable: str,
+                                      C: float | None = Query(default=1.0),
+                                      l1_ratio: float | None = Query(default=None, gt=0, le=1),
+                                      max_iter: int | None = Query(default=100),
+                                      penalty: str | None = Query("l2",
+                                                                 regex="^(l2)$|^(l1)$|^(elasticnet)$|^(None)$"),
+                                      solver: str | None = Query("lbfgs",
+                                                                 regex="^(lbfgs)$|^(liblinear)$|^(newton-cg)$|^(newton-cholesky)$|^(sag)$|^(saga)$"),
+                                      independent_variables: list[str] | None = Query(default=None)):
+
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+    df_label = dataset[dependent_variable]
+    for columns in dataset.columns:
+        if columns not in independent_variables:
+            dataset = dataset.drop(str(columns), axis=1)
+
+    dataset_names = dataset.columns
+    X = np.array(dataset)
+    Y = np.array(df_label)
+
+    if solver == 'lbfgs':
+        if penalty == 'l2' or penalty == 'None':
+            clf = LogisticRegression(penalty=penalty, max_iter=max_iter, solver=solver, C=C)
+        else:
+            return {'This combination is not supported'}
+    elif solver == 'liblinear':
+        if penalty == 'l1' or penalty == 'l2':
+            clf = LogisticRegression(penalty=penalty, max_iter=max_iter, solver=solver, C=C)
+        else:
+            return {'This combination is not supported'}
+    elif solver == 'newton-cg':
+        if penalty == 'l2' or penalty == 'None':
+            clf = LogisticRegression(penalty=penalty, max_iter=max_iter, solver=solver, C=C)
+        else:
+            return {'This combination is not supported'}
+    elif solver == 'newton-cholesky':
+        if penalty == 'l2' or penalty == 'None':
+            clf = LogisticRegression(penalty=penalty, max_iter=max_iter, solver=solver, C=C)
+        else:
+            return {'This combination is not supported'}
+    elif solver == 'sag':
+        if penalty == 'l2' or penalty == 'None':
+            clf = LogisticRegression(penalty=penalty, max_iter=max_iter, solver=solver, C=C)
+        else:
+            return {'This combination is not supported'}
+    else:
+        if penalty == 'elasticnet':
+            clf = LogisticRegression(penalty=penalty, max_iter=max_iter, solver=solver, C=C, l1_ratio=l1_ratio)
+        else:
+            clf = LogisticRegression(penalty=penalty, max_iter=max_iter, solver=solver, C=C)
+
+    clf.fit(X, Y)
+
+    coeffs = clf.coef_
+    inter = clf.intercept_
+    df_coeffs = pd.DataFrame(coeffs, columns=dataset_names)
+
+    w = np.array(coeffs).transpose()
+
+    return {'Log-Likelihood (full)':full_log_likelihood(w, X, Y),
+            'Log-Likelihood (Null - model with only intercept)': null_log_likelihood(w, X, Y),
+            'Pseudo R-squar. (McFadden’s R^2)': mcfadden_rsquare(w, X, Y),
+            'intercept': inter.tolist(), 'dataframe': df_coeffs.to_json(orient='split')}
+
+
 
 @router.get("/sgd_regression")
 async def sgd_regressor(workflow_id: str,
@@ -1746,9 +1829,12 @@ async def linear_regression_pinguin(dependent_variable: str,
     return {'residuals': lm.residuals_.tolist(), 'degrees of freedom of the model': lm.df_model_, 'degrees of freedom of the residuals': lm.df_resid_ , 'dataframe': lm.to_json(orient='split')}
 
 @router.get("/logistic_regressor_pinguin")
-async def logistic_regression_pinguin(dependent_variable: str,
+async def logistic_regression_pinguin(workflow_id: str, step_id: str, run_id: str,
+                                      dependent_variable: str,
                                       alpha: float | None=Query(default=0.05),
                                       independent_variables: list[str] | None = Query(default=None)):
+
+    data = load_file_csv_direct(workflow_id, run_id, step_id)
 
     lm = pingouin.logistic_regression(data[independent_variables], data[dependent_variable], as_dataframe=True, alpha=alpha)
 
@@ -2003,34 +2089,28 @@ async def z_score(dependent_variable: str):
     return {'z_score': list(z_score_res)}
 
 @router.get("/logistic_regressor_statsmodels")
-async def logistic_regression_statsmodels(dependent_variable: str,
-                                          check_heteroscedasticity: bool | None = Query(default=True),
-                                          regularization: bool | None = Query(default=True),
+async def logistic_regression_statsmodels(workflow_id: str, step_id: str, run_id: str,
+                                          dependent_variable: str,
                                           independent_variables: list[str] | None = Query(default=None)):
+
+    data = load_file_csv_direct(workflow_id, run_id, step_id)
 
     x = data[independent_variables]
     y = data[dependent_variable]
 
     x = sm.add_constant(x)
 
-    if regularization:
-        model = sm.Logit(y,x).fit_regularized(method='elastic_net')
-    else:
-        model = sm.Logit(y, x).fit()
+    model = sm.Logit(y, x).fit()
 
-        df = model.summary()
+    df = model.summary()
 
-        results_as_html = df.tables[0].as_html()
-        df_0 = pd.read_html(results_as_html)[0]
+    results_as_html = df.tables[0].as_html()
+    df_0 = pd.read_html(results_as_html)[0]
 
-        results_as_html = df.tables[1].as_html()
-        df_1 = pd.read_html(results_as_html)[0]
+    results_as_html = df.tables[1].as_html()
+    df_1 = pd.read_html(results_as_html)[0]
 
-    if regularization==False:
-
-        return {'first_table': df_0.to_json(orient="split"), 'second table': df_1.to_json(orient="split")}
-    else:
-        return {'ll'}
+    return {'first_table': df_0.to_json(orient="split"), 'second table': df_1.to_json(orient="split")}
 
 @router.get("/jarqueberatest")
 async def jarqueberatest(dependent_variable: str):
