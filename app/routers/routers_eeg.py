@@ -33,7 +33,8 @@ from app.utils.utils_eeg import load_data_from_edf, load_file_from_local_or_inte
 from app.utils.utils_general import validate_and_convert_peaks, validate_and_convert_power_spectral_density, \
     create_notebook_mne_plot, get_neurodesk_display_id, get_annotations_from_csv, create_notebook_mne_modular, \
     get_single_file_from_local_temp_storage, get_local_storage_path, get_local_edfbrowser_storage_path, \
-    get_single_file_from_edfbrowser_interim_storage, write_function_data_to_config_file
+    get_single_file_from_edfbrowser_interim_storage, write_function_data_to_config_file, \
+    get_files_from_edfbrowser_interim_storage_slowwaves_spindle
 
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -156,6 +157,26 @@ async def list_channels(workflow_id: str,
 
     channels = data.ch_names
     return {'channels': channels}
+
+
+@router.get("/list/channels/slowwave", tags=["list_channels"])
+async def list_channels_slowwave(
+                        workflow_id: str,
+                        step_id: str,
+                        run_id: str
+                        ) -> dict:
+
+    files = get_files_from_edfbrowser_interim_storage_slowwaves_spindle(workflow_id, run_id, step_id)
+    path_to_storage = get_local_edfbrowser_storage_path(workflow_id, run_id, step_id)
+    data = load_data_from_edf(path_to_storage + "/" + files["edf"])
+
+    # path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    # name_of_file = get_single_file_from_local_temp_storage(workflow_id, run_id, step_id)
+    # data = load_data_from_edf(path_to_storage + "/" + name_of_file)
+
+    channels = data.ch_names
+    return {'channels': channels}
+
 
 
 @router.get("/return_autocorrelation", tags=["return_autocorrelation"])
@@ -1374,23 +1395,34 @@ async def detect_slow_waves(
     return {'Channel not found'}
 
 @router.get("/sleep_statistics_hypnogram")
-async def sleep_statistics_hypnogram(sampling_frequency: float | None = Query(default=1/30)):
+async def sleep_statistics_hypnogram(
+                                    workflow_id: str,
+                                    step_id: str,
+                                    run_id: str,
+                                     sampling_frequency: float | None = Query(default=1/30)):
+    files = get_files_from_edfbrowser_interim_storage_slowwaves_spindle(workflow_id, run_id, step_id)
+    path_to_storage = get_local_edfbrowser_storage_path(workflow_id, run_id, step_id)
 
-    hypno = pd.read_csv('example_data/XX_Firsthalf_Hypno.csv')
+    hypno = pd.read_csv(path_to_storage + "/" + files["csv"])
 
     df = pd.DataFrame.from_dict(sleep_statistics(list(hypno['stage']), sf_hyp=sampling_frequency), orient='index', columns=['value'])
 
     return{'sleep statistics': df.to_json(orient='split')}
 
 @router.get("/sleep_transition_matrix")
-async def sleep_transition_matrix():
+async def sleep_transition_matrix(workflow_id: str,
+                                    step_id: str,
+                                    run_id: str,):
     #fig = plt.figure(1)
     #ax = plt.subplot(111)
+
+    files = get_files_from_edfbrowser_interim_storage_slowwaves_spindle(workflow_id, run_id, step_id)
+    path_to_storage = get_local_edfbrowser_storage_path(workflow_id, run_id, step_id)
 
     to_return = {}
     fig = plt.figure(1)
 
-    hypno = pd.read_csv('example_data/XX_Firsthalf_Hypno.csv')
+    hypno = pd.read_csv(path_to_storage + "/" + files["csv"])
 
     counts, probs = yasa.transition_matrix(list(hypno['stage']))
 
@@ -1416,20 +1448,33 @@ async def sleep_transition_matrix():
            'figure': to_return}
 
 @router.get("/sleep_stability_extraction")
-async def sleep_stability_extraction():
+async def sleep_stability_extraction(workflow_id: str,
+                                    step_id: str,
+                                    run_id: str,):
+    files = get_files_from_edfbrowser_interim_storage_slowwaves_spindle(workflow_id, run_id, step_id)
+    path_to_storage = get_local_edfbrowser_storage_path(workflow_id, run_id, step_id)
 
-    hypno = pd.read_csv('example_data/XX_Firsthalf_Hypno.csv')
+    hypno = pd.read_csv(path_to_storage + "/" + files["csv"])
 
     counts, probs = yasa.transition_matrix(list(hypno['stage']))
 
     return{'stability of sleep stages': np.diag(probs.loc[2:, 2:]).mean().round(3)}
 
 @router.get("/spectrogram_yasa")
-async def spectrogram_yasa(name: str,
+async def spectrogram_yasa(
+                           workflow_id: str,
+                           step_id: str,
+                           run_id: str,
+                           name: str,
                            current_sampling_frequency_of_the_hypnogram: float | None = Query(default=1/30)):
 
-    data = mne.io.read_raw_fif("example_data/XX_Firsthalf_raw.fif")
-    hypno = pd.read_csv('example_data/XX_Firsthalf_Hypno.csv')
+    files = get_files_from_edfbrowser_interim_storage_slowwaves_spindle(workflow_id, run_id, step_id)
+    path_to_storage = get_local_edfbrowser_storage_path(workflow_id, run_id, step_id)
+
+    data = mne.io.read_raw_fif(path_to_storage + "/" + files["edf"])
+    hypno = pd.read_csv(path_to_storage + "/" + files["csv"])
+
+
     raw_data = data.get_data()
     info = data.info
     channels = data.ch_names
@@ -1452,7 +1497,10 @@ async def spectrogram_yasa(name: str,
     return {'Channel not found'}
 
 @router.get("/bandpower_yasa")
-async def bandpower_yasa(relative: bool | None = False,
+async def bandpower_yasa(workflow_id: str,
+                         step_id: str,
+                         run_id: str,
+                         relative: bool | None = False,
                          bandpass: bool | None = False,
                          include: list[int] | None = Query(default=[2,3]),
                          current_sampling_frequency_of_the_hypnogram: float | None = Query(default=1/30)):
@@ -1472,7 +1520,11 @@ async def bandpower_yasa(relative: bool | None = False,
     return {'DataFrame':df.to_json(orient='split')}
 
 @router.get("/spindles_detect_two_dataframes")
-async def spindles_detect_two_dataframes(min_distance: int | None = Query(default=500),
+async def spindles_detect_two_dataframes(
+                                         workflow_id: str,
+                                         step_id: str,
+                                         run_id: str,
+                                         min_distance: int | None = Query(default=500),
                                          freq_sp: list[int] | None = Query(default=[12,15]),
                                          freq_broad: list[int] | None = Query(default=[1,30]),
                                          include: list[int] | None = Query(default=[2,3]),
