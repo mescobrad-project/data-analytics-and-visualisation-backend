@@ -556,7 +556,7 @@ async def LDA(workflow_id: str,
 
     features_columns = dataset.columns
     X = np.array(dataset)
-    Y = np.array(df_label)
+    Y = np.array(df_label.astype('float64'))
     if solver == 'lsqr' or solver == 'eigen':
         if shrinkage_1 == 'float':
             clf = LinearDiscriminantAnalysis(solver=solver, shrinkage=shrinkage_2)
@@ -677,8 +677,10 @@ async def elastic_net(workflow_id: str,
         if columns not in independent_variables:
             dataset = dataset.drop(str(columns), axis=1)
 
+
     X = np.array(dataset)
-    Y = np.array(df_label)
+    Y = np.array(df_label.astype('float64'))
+
 
     clf = ElasticNet(alpha=alpha, l1_ratio=l1_ratio, max_iter=max_iter)
 
@@ -749,7 +751,7 @@ async def lasso(workflow_id: str,
             dataset = dataset.drop(str(columns), axis=1)
 
     X = np.array(dataset)
-    Y = np.array(df_label)
+    Y = np.array(df_label.astype('float64'))
 
     clf = Lasso(alpha=alpha, max_iter=max_iter)
 
@@ -819,7 +821,7 @@ async def ridge(workflow_id: str,
             dataset = dataset.drop(str(columns), axis=1)
 
     X = np.array(dataset)
-    Y = np.array(df_label)
+    Y = np.array(df_label.astype('float64'))
 
     if solver!='lbfgs':
         clf = Ridge(alpha=alpha, max_iter=max_iter, solver=solver)
@@ -908,7 +910,7 @@ async def sklearn_logistic_regression(workflow_id: str,
 
     dataset_names = dataset.columns
     X = np.array(dataset)
-    Y = np.array(df_label)
+    Y = np.array(df_label.astype('float64'))
 
     if solver == 'lbfgs':
         if penalty == 'l2' or penalty == 'None':
@@ -981,7 +983,7 @@ async def sgd_regressor(workflow_id: str,
             dataset = dataset.drop(str(columns), axis=1)
 
     X = np.array(dataset)
-    Y = np.array(df_label)
+    Y = np.array(df_label.astype('float64'))
 
     if loss == 'huber' or loss == 'epsilon_insensitive' or loss == 'squared_epsilon_insensitive':
         if learning_rate == 'constant' or learning_rate == 'invscaling' or learning_rate == 'adaptive':
@@ -1056,7 +1058,7 @@ async def huber_regressor(workflow_id: str, step_id: str, run_id: str,
             dataset = dataset.drop(str(columns), axis=1)
 
     X = np.array(dataset)
-    Y = np.array(df_label)
+    Y = np.array(df_label.astype('float64'))
 
     clf = HuberRegressor(alpha=alpha, epsilon=epsilon, max_iter=max_iter)
 
@@ -1129,7 +1131,7 @@ async def linear_svr_regressor(workflow_id: str,
             dataset = dataset.drop(str(columns), axis=1)
 
     X = np.array(dataset)
-    Y = np.array(df_label)
+    Y = np.array(df_label.astype('float64'))
 
     clf = LinearSVR(loss=loss, C=C, epsilon=epsilon, max_iter=max_iter)
 
@@ -1187,7 +1189,7 @@ async def linear_svc_regressor(workflow_id: str,
     features_columns = dataset.columns
 
     X = np.array(dataset)
-    Y = np.array(df_label)
+    Y = np.array(df_label.astype('float64'))
 
     if loss == 'hinge' and penalty == 'l1':
         return {'This combination is not supported.'}
@@ -1296,7 +1298,7 @@ async def poisson_regression(workflow_id: str,
             dataset = dataset.drop(str(columns), axis=1)
 
     X = np.array(dataset)
-    Y = np.array(df_label)
+    Y = np.array(df_label.astype('float64'))
 
     clf = PoissonRegressor(alpha=alpha, max_iter=max_iter)
 
