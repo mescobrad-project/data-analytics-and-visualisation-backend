@@ -99,6 +99,8 @@ ExistingFunctions = [
     "survivalanalysisincidenceratedifferencesimple",
     "ancova",
     "linearmixedeffectsmodel",
+    "survivalanalysiscoxregression",
+    "survivalanalysistimevaryingcovariates",
     # Dashboard
     "dashboard",
 ]
@@ -290,6 +292,10 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/Ancova"
             case "linearmixedeffectsmodel":
                 url_to_redirect += "/LinearMixedEffectsModel"
+            case "survivalanalysiscoxregression":
+                url_to_redirect += "/SurvivalAnalysisCoxRegression"
+            case "survivalanalysistimevaryingcovariates":
+                url_to_redirect += "/SurvivalAnalysisTimeVaryingCovariates"
             # Dashboard
             case "dashboard":
                 url_to_redirect += "/dashboard"
