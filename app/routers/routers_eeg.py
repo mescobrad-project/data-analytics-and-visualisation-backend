@@ -29,12 +29,13 @@ import lxml
 from yasa import sleep_statistics
 import logging
 
-from app.utils.utils_eeg import load_data_from_edf, load_file_from_local_or_interim_edfbrowser_storage
+from app.utils.utils_eeg import load_data_from_edf, load_file_from_local_or_interim_edfbrowser_storage, \
+    load_data_from_edf_fif
 from app.utils.utils_general import validate_and_convert_peaks, validate_and_convert_power_spectral_density, \
     create_notebook_mne_plot, get_neurodesk_display_id, get_annotations_from_csv, create_notebook_mne_modular, \
     get_single_file_from_local_temp_storage, get_local_storage_path, get_local_edfbrowser_storage_path, \
     get_single_file_from_edfbrowser_interim_storage, write_function_data_to_config_file, \
-    get_files_from_edfbrowser_interim_storage_slowwaves_spindle
+    get_files_for_slowwaves_spindle
 
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -159,6 +160,7 @@ async def list_channels(workflow_id: str,
     return {'channels': channels}
 
 
+# TODO Functions might need change in future check it afterwards
 @router.get("/list/channels/slowwave", tags=["list_channels"])
 async def list_channels_slowwave(
                         workflow_id: str,
@@ -166,9 +168,9 @@ async def list_channels_slowwave(
                         run_id: str
                         ) -> dict:
 
-    files = get_files_from_edfbrowser_interim_storage_slowwaves_spindle(workflow_id, run_id, step_id)
-    path_to_storage = get_local_edfbrowser_storage_path(workflow_id, run_id, step_id)
-    data = load_data_from_edf(path_to_storage + "/" + files["edf"])
+    files = get_files_for_slowwaves_spindle(workflow_id, run_id, step_id)
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    data = load_data_from_edf_fif(path_to_storage + "/" + files["edf"])
 
     # path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
     # name_of_file = get_single_file_from_local_temp_storage(workflow_id, run_id, step_id)
@@ -1400,14 +1402,14 @@ async def sleep_statistics_hypnogram(
                                     step_id: str,
                                     run_id: str,
                                      sampling_frequency: float | None = Query(default=1/30)):
-    files = get_files_from_edfbrowser_interim_storage_slowwaves_spindle(workflow_id, run_id, step_id)
-    path_to_storage = get_local_edfbrowser_storage_path(workflow_id, run_id, step_id)
+    files = get_files_for_slowwaves_spindle(workflow_id, run_id, step_id)
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
 
     hypno = pd.read_csv(path_to_storage + "/" + files["csv"])
 
     df = pd.DataFrame.from_dict(sleep_statistics(list(hypno['stage']), sf_hyp=sampling_frequency), orient='index', columns=['value'])
 
-    return{'sleep statistics': df.to_json(orient='split')}
+    return{'sleep_statistics': df.to_json(orient='split')}
 
 @router.get("/sleep_transition_matrix")
 async def sleep_transition_matrix(workflow_id: str,
@@ -1416,8 +1418,8 @@ async def sleep_transition_matrix(workflow_id: str,
     #fig = plt.figure(1)
     #ax = plt.subplot(111)
 
-    files = get_files_from_edfbrowser_interim_storage_slowwaves_spindle(workflow_id, run_id, step_id)
-    path_to_storage = get_local_edfbrowser_storage_path(workflow_id, run_id, step_id)
+    files = get_files_for_slowwaves_spindle(workflow_id, run_id, step_id)
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
 
     to_return = {}
     fig = plt.figure(1)
@@ -1439,26 +1441,30 @@ async def sleep_transition_matrix(workflow_id: str,
     ax.set_ylabel("From sleep stage")
     ax.xaxis.set_label_position('top')
     plt.show()
+    #  Temporarilly saved in root directory should change to commented
+    # fig.savefig( path_to_storage + "/output/" + 'sleep_transition_matrix.png')
+    fig.savefig( NeurodesktopStorageLocation + '/sleep_transition_matrix.png')
+
 
     html_str = mpld3.fig_to_html(fig)
     to_return["figure"] = html_str
 
-    return{'Counts transition matrix (number of transitions from stage A to stage B).':counts.to_json(orient='split'),
-           'Conditional probability transition matrix, i.e. given that current state is A, what is the probability that the next state is B.':probs.to_json(orient='split'),
+    return{'counts_transition_matrix':counts.to_json(orient='split'),  # Counts transition matrix (number of transitions from stage A to stage B).
+           'conditional_probability_transition_matrix':probs.to_json(orient='split'), # Conditional probability transition matrix, i.e. given that current state is A, what is the probability that the next state is B.
            'figure': to_return}
 
 @router.get("/sleep_stability_extraction")
 async def sleep_stability_extraction(workflow_id: str,
                                     step_id: str,
                                     run_id: str,):
-    files = get_files_from_edfbrowser_interim_storage_slowwaves_spindle(workflow_id, run_id, step_id)
-    path_to_storage = get_local_edfbrowser_storage_path(workflow_id, run_id, step_id)
+    files = get_files_for_slowwaves_spindle(workflow_id, run_id, step_id)
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
 
     hypno = pd.read_csv(path_to_storage + "/" + files["csv"])
 
     counts, probs = yasa.transition_matrix(list(hypno['stage']))
 
-    return{'stability of sleep stages': np.diag(probs.loc[2:, 2:]).mean().round(3)}
+    return{'sleep_stage_stability': np.diag(probs.loc[2:, 2:]).mean().round(3)} # stability of sleep stages
 
 @router.get("/spectrogram_yasa")
 async def spectrogram_yasa(
@@ -1468,8 +1474,8 @@ async def spectrogram_yasa(
                            name: str,
                            current_sampling_frequency_of_the_hypnogram: float | None = Query(default=1/30)):
 
-    files = get_files_from_edfbrowser_interim_storage_slowwaves_spindle(workflow_id, run_id, step_id)
-    path_to_storage = get_local_edfbrowser_storage_path(workflow_id, run_id, step_id)
+    files = get_files_for_slowwaves_spindle(workflow_id, run_id, step_id)
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
 
     data = mne.io.read_raw_fif(path_to_storage + "/" + files["edf"])
     hypno = pd.read_csv(path_to_storage + "/" + files["csv"])
@@ -1492,8 +1498,12 @@ async def spectrogram_yasa(
 
             html_str = mpld3.fig_to_html(fig)
             to_return["figure"] = html_str
+            #  Temporarilly saved in root directory should change to commented
 
-            return {'Figure': to_return}
+            # fig.savefig(path_to_storage + "/output/" + 'spectrogram.png')
+            fig.savefig(NeurodesktopStorageLocation + '/spectrogram.png')
+
+            return {'figure': to_return}
     return {'Channel not found'}
 
 @router.get("/bandpower_yasa")
@@ -1504,9 +1514,14 @@ async def bandpower_yasa(workflow_id: str,
                          bandpass: bool | None = False,
                          include: list[int] | None = Query(default=[2,3]),
                          current_sampling_frequency_of_the_hypnogram: float | None = Query(default=1/30)):
+    files = get_files_for_slowwaves_spindle(workflow_id, run_id, step_id)
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
 
-    data = mne.io.read_raw_fif("example_data/XX_Firsthalf_raw.fif")
-    hypno = pd.read_csv('example_data/XX_Firsthalf_Hypno.csv')
+    data = mne.io.read_raw_fif(path_to_storage + "/" + files["edf"])
+    hypno = pd.read_csv(path_to_storage + "/" + files["csv"])
+
+    # data = mne.io.read_raw_fif("example_data/XX_Firsthalf_raw.fif")
+    # hypno = pd.read_csv('example_data/XX_Firsthalf_Hypno.csv')
     raw_data = data.get_data()
     info = data.info
     channels = data.ch_names
@@ -1517,7 +1532,7 @@ async def bandpower_yasa(workflow_id: str,
 
     df = yasa.bandpower(data, hypno=hypno, relative=relative, bandpass=bandpass, include=include)
 
-    return {'DataFrame':df.to_json(orient='split')}
+    return {'bandpower':df.to_json(orient='split')}
 
 @router.get("/spindles_detect_two_dataframes")
 async def spindles_detect_two_dataframes(
@@ -1552,7 +1567,7 @@ async def spindles_detect_two_dataframes(
         html_str = mpld3.fig_to_html(fig)
         to_return["figure"] = html_str
 
-        return {'DataFrame_1':df_1.to_json(orient='split'), 'DataFrame_2':df_2.to_json(orient='split'),'Figure':to_return}
+        return {'data_frame_1':df_1.to_json(orient='split'), 'data_frame_2':df_2.to_json(orient='split'),'figure':to_return}
     else:
         return {'No spindles detected'}
 
@@ -1597,9 +1612,9 @@ async def sw_detect_two_dataframes(freq_sw: list[float] | None = Query(default=[
         html_str = mpld3.fig_to_html(fig)
         to_return["figure"] = html_str
 
-        return {'DataFrame_1':df_1.to_json(orient='split'), 'DataFrame_2':df_2.to_json(orient='split'),'Figure':to_return,
-                'Circular mean (rad):': pg.circ_mean(df_1['PhaseAtSigmaPeak']),
-                'Vector length (rad):': pg.circ_r(df_1['PhaseAtSigmaPeak'])}
+        return {'data_frame_1':df_1.to_json(orient='split'), 'data_frame_2':df_2.to_json(orient='split'),'figure':to_return,
+                'circular_mean:': pg.circ_mean(df_1['PhaseAtSigmaPeak']), # Circular mean (rad)
+                'vector_length:': pg.circ_r(df_1['PhaseAtSigmaPeak'])} # Vector length (rad)
     else:
         return {'No slow-waves detected'}
 

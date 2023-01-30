@@ -31,14 +31,14 @@ def get_single_file_from_edfbrowser_interim_storage(workflow_id, run_id, step_id
     return files_to_return[0]
 
 
-def get_files_from_edfbrowser_interim_storage_slowwaves_spindle(workflow_id, run_id, step_id):
+def get_files_for_slowwaves_spindle(workflow_id, run_id, step_id):
     """
         Function to retrieve files for the slowaves and spindles functions
         file name are returned as a dictionary with keys
         edf and csv respectively
         currently edf is detected by .edf or .fif
     """
-    files_existing = [f for f in os.listdir(NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id + '/edfbrowser_interim_storage') if isfile(join(NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id +'/edfbrowser_interim_storage', f))]
+    files_existing = [f for f in os.listdir(NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id) if isfile(join(NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id, f))]
 
     files_to_return = {}
 
