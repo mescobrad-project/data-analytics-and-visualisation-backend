@@ -33,7 +33,7 @@ from app.utils.utils_eeg import load_data_from_edf, load_file_from_local_or_inte
 from app.utils.utils_general import validate_and_convert_peaks, validate_and_convert_power_spectral_density, \
     create_notebook_mne_plot, get_neurodesk_display_id, get_annotations_from_csv, create_notebook_mne_modular, \
     get_single_file_from_local_temp_storage, get_local_storage_path, get_local_edfbrowser_storage_path, \
-    get_single_file_from_edfbrowser_interim_storage
+    get_single_file_from_edfbrowser_interim_storage, write_function_data_to_config_file
 
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -181,7 +181,13 @@ async def return_autocorrelation(workflow_id: str, step_id: str, run_id: str,
                     missing=input_missing, alpha=input_alpha,
                     nlags=input_nlags)
 
-            to_return = {}
+            to_return = {
+                'values_autocorrelation': None,
+                'confint': None,
+                'qstat': None,
+                'pvalues': None
+            }
+
             # Parsing the results of acf into a single object
             # Results will change depending on our input
             if input_qstat and input_alpha:
@@ -201,6 +207,26 @@ async def return_autocorrelation(workflow_id: str, step_id: str, run_id: str,
 
             print("RETURNING VALUES")
             print(to_return)
+
+            # Prepare the data to be written to the config file
+            parameter_data = {
+                'name': input_name,
+                'adjusted': input_adjusted,
+                'qstat': input_qstat,
+                'fft': input_fft,
+                'bartlett_confint': input_bartlett_confint,
+                'missing': input_missing,
+                'alpha': input_alpha,
+                'nlags': input_nlags,
+            }
+            result_data = {
+                'data_values_autocorrelation': to_return['values_autocorrelation'],
+                'data_confint': to_return['confint'],
+                'data_qstat': to_return['qstat'],
+                'data_pvalues': to_return['pvalues']
+            }
+
+            write_function_data_to_config_file(parameter_data, result_data, workflow_id, run_id, step_id)
             return to_return
     return {'Channel not found'}
 
@@ -226,7 +252,11 @@ async def return_partial_autocorrelation(workflow_id: str, step_id: str, run_id:
         if input_name == channels[i]:
             z = pacf(raw_data[i], method=input_method, alpha=input_alpha, nlags=input_nlags)
 
-            to_return = {}
+            to_return = {
+                'values_partial_autocorrelation': None,
+                'confint': None
+            }
+
             # Parsing the results of acf into a single object
             # Results will change depending on our input
             if input_alpha:
@@ -237,6 +267,20 @@ async def return_partial_autocorrelation(workflow_id: str, step_id: str, run_id:
 
             print("RETURNING VALUES")
             print(to_return)
+
+            # Prepare the data to be written to the config file
+            parameter_data = {
+                'name': input_name,
+                'method': input_method,
+                'alpha': input_alpha,
+                'nlags': input_nlags,
+            }
+            result_data = {
+                'data_values_partial_autocorrelation': to_return['values_partial_autocorrelation'],
+                'data_confint': to_return['confint'],
+            }
+
+            write_function_data_to_config_file(parameter_data, result_data, workflow_id, run_id, step_id)
             return to_return
     return {'Channel not found'}
 
@@ -342,6 +386,7 @@ async def return_filters(
 
             print("RESULTS TO RETURN IS")
             print(to_return)
+
             return to_return
 
 
@@ -384,7 +429,32 @@ async def estimate_welch(
                                           noverlap=input_noverlap, nfft=input_nfft,
                                           return_onesided=input_return_onesided, scaling=input_scaling,
                                           axis=input_axis, average=input_average)
-            return {'frequencies': f.tolist(), 'power spectral density': pxx_den.tolist()}
+
+            to_return = {
+                "frequencies": f.tolist(),
+                "power spectral density": pxx_den.tolist()
+            }
+
+            # Prepare the data to be written to the config file
+            parameter_data = {
+                "window": input_window,
+                "nperseg": input_nperseg,
+                "noverlap": input_noverlap,
+                "nfft": input_nfft,
+                "return_onesided": input_return_onesided,
+                "scaling": input_scaling,
+                "axis": input_axis,
+                "average": input_average,
+            }
+
+            result_data = {
+                "data_frequencies": to_return["frequencies"],
+                "data_power spectral density": to_return["power spectral density"]
+            }
+
+            write_function_data_to_config_file(workflow_id, step_id, run_id, parameter_data, result_data)
+
+            return to_return
     return {'Channel not found'}
 
 @router.get("/return_stft", tags=["return_stft"])
@@ -436,9 +506,30 @@ async def estimate_stft(
             plt.xlabel('Time [sec]')
             plt.show()
 
+            # Convert the plot to HTML
             html_str = mpld3.fig_to_html(fig)
-            plt.savefig(get_local_storage_path(workflow_id, step_id, run_id) + "/output/" + 'plot.png')
             to_return["figure"] = html_str
+
+            # Save the plot to the local storage
+            plt.savefig(get_local_storage_path(workflow_id, step_id, run_id) + "/output/" + 'plot.png')
+
+            # Prepare the data to be written to the config file
+            parameter_data = {
+                "window": input_window,
+                "nperseg": input_nperseg,
+                "noverlap": input_noverlap,
+                "nfft": input_nfft,
+                "return_onesided": input_return_onesided,
+                "boundary": input_boundary,
+                "padded": input_padded,
+                "axis": input_axis,
+            }
+
+            result_data = {
+                "path_stft_figure": "plot.png",
+            }
+
+            write_function_data_to_config_file(workflow_id, step_id, run_id, parameter_data, result_data)
             return to_return
     return {'Channel not found'}
 
@@ -490,7 +581,24 @@ async def return_peaks(workflow_id: str, step_id: str, run_id: str,
             print("--------RESULTS----")
             print(find_peaks_result)
             # print(_)n
-            to_return = {}
+            to_return = {
+                "signal": None,
+                "signal_time": None,
+                "start_date_time": None,
+                "peaks": None,
+                "peak_heights": None,
+                "left_thresholds": None,
+                "right_thresholds": None,
+                "prominences": None,
+                "left_bases": None,
+                "right_bases": None,
+                "width_heights": None,
+                "left_ips": None,
+                "right_ips": None,
+                "left_edges": None,
+                "right_edges": None,
+                "plateau_sizes": None,
+            }
             to_return["signal"] = raw_data[0][i].tolist()
             to_return["signal_time"] = raw_data[1].tolist()
             to_return["start_date_time"] = data.info["meas_date"].timestamp()
@@ -547,12 +655,33 @@ async def return_peaks(workflow_id: str, step_id: str, run_id: str,
             plt.plot(np.zeros_like(raw_data[0][i]), "--", color="red")
             plt.show()
 
+            # Convert plot to html
             html_str = mpld3.fig_to_html(fig)
+
+            # Save plot to local storage
+            plt.savefig(get_local_storage_path(workflow_id, step_id, run_id) + "/output/" + 'plot.png')
+
             to_return["figure"] = html_str
-            # Html_file = open("index.html", "w")
-            # Html_file.write(html_str)
-            # Html_file.close()
-            # print(to_return)
+
+            # Prepare the data to be written to the config file
+            parameter_data = {
+                "name": input_name,
+                "height": input_height,
+                "threshold": input_threshold,
+                "distance": input_distance,
+                "prominence": input_prominence,
+                "width": input_width,
+                "wlen": input_wlen,
+                "rel_height": input_rel_height,
+                "plateau_size": input_plateau_size,
+            }
+
+            result_data = {
+                "path_peaks_plot" : "plot.png",
+            }
+
+            write_function_data_to_config_file(workflow_id, step_id, run_id, parameter_data, result_data)
+
             return to_return
     return {'Channel not found'}
 
@@ -821,7 +950,7 @@ async def calculate_alpha_delta_ratio_periodogram(workflow_id: str, step_id: str
                                                 scaling=input_scaling, axis=input_axis)
             else:
                 freqs, psd = signal.periodogram(raw_data[i]*(10**3), info['sfreq'],
-                                                window=signal.get_window(input_window, input_nperseg),
+                                                window=signal.get_window(input_window),
                                                 nfft=input_nfft, return_onesided=input_return_onesided, scaling=input_scaling,
                                                 axis=input_axis)
 
@@ -1251,7 +1380,7 @@ async def sleep_statistics_hypnogram(sampling_frequency: float | None = Query(de
 
     df = pd.DataFrame.from_dict(sleep_statistics(list(hypno['stage']), sf_hyp=sampling_frequency), orient='index', columns=['value'])
 
-    return{'sleep statistics':df.to_json(orient='split')}
+    return{'sleep statistics': df.to_json(orient='split')}
 
 @router.get("/sleep_transition_matrix")
 async def sleep_transition_matrix():
@@ -1293,7 +1422,7 @@ async def sleep_stability_extraction():
 
     counts, probs = yasa.transition_matrix(list(hypno['stage']))
 
-    return{'stability of sleep stages':np.diag(probs.loc[2:, 2:]).mean().round(3)}
+    return{'stability of sleep stages': np.diag(probs.loc[2:, 2:]).mean().round(3)}
 
 @router.get("/spectrogram_yasa")
 async def spectrogram_yasa(name: str,

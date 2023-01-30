@@ -1,4 +1,3 @@
-import colorama
 import numpy as np
 import pandas as pd
 import json
@@ -1322,7 +1321,10 @@ async def poisson_regression(workflow_id: str,
                 'dataframe': df.to_json(orient='split')}
 
 @router.get("/cox_regression")
-async def cox_regression(duration_col: str,
+async def cox_regression(workflow_id: str,
+                         step_id: str,
+                         run_id: str,
+                         duration_col: str,
                          covariates: str,
                          alpha: float | None = Query(default=0.05),
                          penalizer: float | None = Query(default=0.0),
@@ -1339,12 +1341,13 @@ async def cox_regression(duration_col: str,
                          baseline_estimation_method: str | None = Query("breslow",
                                                                        regex="^(breslow)$|^(spline)$|^(piecewise)$")):
 
-    to_return = {}
+    to_return = []
 
     fig = plt.figure(1)
     ax = plt.subplot(111)
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
 
-    dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
+    # dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
 
     if baseline_estimation_method == "spline":
         cph = CoxPHFitter(alpha=alpha, baseline_estimation_method=baseline_estimation_method,penalizer=penalizer,l1_ratio=l1_ratio,strata=strata,
@@ -1358,13 +1361,29 @@ async def cox_regression(duration_col: str,
     cph.fit(dataset, duration_col=duration_col, event_col=event_col,weights_col=weights_col,cluster_col=cluster_col,entry_col=entry_col)
 
     df = cph.summary
-
+    tbl1_res = []
+    for ind, row in df.iterrows():
+        temp_to_append = {
+            'id': ind,
+            "col0": row[0],
+            "col1": row[1],
+            "col2": row[2],
+            "col3": row[3],
+            "col4": row[4],
+            "col5": row[5],
+            "col6": row[6],
+            "col7": row[7],
+            "col8": row[8],
+            "col9": row[9],
+            "col10": row[10],
+        }
+        tbl1_res.append(temp_to_append)
     #fig = plt.figure(figsize=(18, 12))
     cph.plot(hazard_ratios=hazard_ratios, ax=ax)
     plt.show()
 
     html_str = mpld3.fig_to_html(fig)
-    to_return["figure_1"] = html_str
+    to_return.append({"figure_1": html_str})
     #plt.close(1)
     #fig = plt.figure(2)
     #ax = plt.subplot(121)
@@ -1373,33 +1392,49 @@ async def cox_regression(duration_col: str,
         cph.plot_partial_effects_on_outcome(covariates=covariates, values=values, cmap='coolwarm')
         plt.show()
         html_str = mpld3.fig_to_html(fig)
-        to_return["figure_2"] = html_str
+        to_return.append({"figure_2": html_str})
+        # to_return["figure_2"] = html_str
 
     results = proportional_hazard_test(cph, dataset, time_transform='rank')
 
     df_1 = results.summary
+    tbl2_res = []
+    for ind, row in df_1.iterrows():
+        temp_to_append = {
+            'id': ind,
+            "test_statistic": row[0],
+            "p": row[1],
+            "-log2(p)": row[2]
+        }
+        tbl2_res.append(temp_to_append)
+
     AIC = cph.AIC_partial_
-    return {'Concordance Index':cph.concordance_index_ ,'Akaike information criterion (AIC) (partial log-likelihood)': AIC,'Dataframe of the coefficients, p-values, CIs, etc.':df.to_json(orient="split"), 'figure': to_return, 'proportional hazard test': df_1.to_json(orient='split')}
+    return {'Concordance_Index':cph.concordance_index_,'AIC': AIC, 'Dataframe': tbl1_res, 'figure': to_return, 'proportional_hazard_test': tbl2_res}
+    # return {'Concordance Index':cph.concordance_index_ ,'Akaike information criterion (AIC) (partial log-likelihood)': AIC,'Dataframe of the coefficients, p-values, CIs, etc.':df.to_json(orient="split"), 'figure': to_return, 'proportional hazard test': df_1.to_json(orient='split')}
 
 @router.get("/time_varying_covariates")
-async def time_varying_covariates(event_col: str,
-                                  duration_col:str,
-                                  column_1:str | None = Query(default=None),
-                                  column_2:str | None = Query(default=None),
-                                  correction_columns: bool | None = Query(default=False),
-                                  time_gaps: float | None = Query(default=1.),
-                                  alpha: float | None = Query(default=0.05),
-                                  penalizer: float | None = Query(default=0.0),
-                                  l1_ratio: float | None = Query(default=0.0),
-                                  weights_col: str | None = Query(default=None),
-                                  strata: list[str] | None = Query(default=None)):
+async def time_varying_covariates(
+        workflow_id: str,
+         step_id: str,
+         run_id: str,
+          event_col: str,
+          duration_col:str,
+          column_1:str | None = Query(default=None),
+          column_2:str | None = Query(default=None),
+          correction_columns: bool | None = Query(default=False),
+          time_gaps: float | None = Query(default=1.),
+          alpha: float | None = Query(default=0.05),
+          penalizer: float | None = Query(default=0.0),
+          l1_ratio: float | None = Query(default=0.0),
+          weights_col: str | None = Query(default=None),
+          strata: list[str] | None = Query(default=None)):
 
-    to_return = {}
+    to_return = []
 
     fig = plt.figure(1)
     ax = plt.subplot(111)
-
-    dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+    # dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
 
     dataset_long = to_episodic_format(dataset, duration_col=duration_col, event_col=event_col, time_gaps=time_gaps)
 
@@ -1411,15 +1446,32 @@ async def time_varying_covariates(event_col: str,
     cph.fit(dataset_long, event_col=event_col, id_col='id', weights_col=weights_col,start_col='start', stop_col='stop',strata=strata)
 
     df = cph.summary
-
+    tbl1_res = []
+    for ind, row in df.iterrows():
+        temp_to_append = {
+            'id': ind,
+            "col0": row[0],
+            "col1": row[1],
+            "col2": row[2],
+            "col3": row[3],
+            "col4": row[4],
+            "col5": row[5],
+            "col6": row[6],
+            "col7": row[7],
+            "col8": row[8],
+            "col9": row[9],
+            "col10": row[10],
+        }
+        tbl1_res.append(temp_to_append)
     #fig = plt.figure(figsize=(18, 12))
     cph.plot(ax=ax)
     plt.show()
 
     html_str = mpld3.fig_to_html(fig)
-    to_return["figure_1"] = html_str
+    to_return.append({"figure_1": html_str})
 
-    return {'Akaike information criterion (AIC) (partial log-likelihood)':cph.AIC_partial_,'Dataframe of the coefficients, p-values, CIs, etc.':df.to_json(orient="split"), 'figure': to_return}
+    return {'AIC':cph.AIC_partial_,'Dataframe':tbl1_res, 'figure': to_return}
+    # return {'Akaike information criterion (AIC) (partial log-likelihood)':cph.AIC_partial_,'Dataframe of the coefficients, p-values, CIs, etc.':df.to_json(orient="split"), 'figure': to_return}
 
 @router.get("/anova_repeated_measures")
 async def anova_rm(dependent_variable: str,
