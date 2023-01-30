@@ -31,11 +31,34 @@ def get_single_file_from_edfbrowser_interim_storage(workflow_id, run_id, step_id
     return files_to_return[0]
 
 
+def get_files_from_edfbrowser_interim_storage_slowwaves_spindle(workflow_id, run_id, step_id):
+    """
+        Function to retrieve files for the slowaves and spindles functions
+        file name are returned as a dictionary with keys
+        edf and csv respectively
+        currently edf is detected by .edf or .fif
+    """
+    files_existing = [f for f in os.listdir(NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id + '/edfbrowser_interim_storage') if isfile(join(NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id +'/edfbrowser_interim_storage', f))]
+
+    files_to_return = {}
+
+    for file in files_existing:
+        if file.endswith(".csv"):
+            files_to_return["csv"] = file
+        elif file.endswith(".edf") or file.endswith(".fif"):
+            files_to_return["edf"] = file
+
+    return files_to_return
+
 def get_all_files_from_local_temp_storage(workflow_id, run_id, step_id):
     """Function to lazily retrieve name and path of files from local storage when there is a single file"""
     files_to_return = [f for f in os.listdir(NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id) if isfile(join(NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id, f))]
     return files_to_return
 
+def get_output_info_path(workflow_id, run_id, step_id):
+    """Function to retrieve path of info file of single run"""
+    info_file_to_return = NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id + '/output/info.json'
+    return info_file_to_return
 
 def get_local_storage_path(workflow_id, run_id, step_id):
     """Function returns path with / at the end"""
@@ -81,8 +104,9 @@ def create_local_step(workflow_id, run_id, step_id, files_to_download):
         print("file_location_path")
         get_saved_dataset_for_Hypothesis(bucket_name=file_to_download[0], object_name=file_to_download[1], file_location=file_location_path)
     # Info file might be unneeded
-    # with open( path_to_save+ '/info.json', 'w', encoding='utf-8') as f:
-    #     pass
+    with open( path_to_save + '/output/info.json', 'w', encoding='utf-8') as f:
+        json.dump({}, f)
+        pass
 
 def validate_and_convert_peaks(input_height, input_threshold, input_prominence, input_width, input_plateau_size):
     to_return = {
@@ -403,4 +427,44 @@ def get_annotations_from_csv(annotation_file="annotation_test.csv"):
         # lines = file.read().splitlines()
         # print(lines[0])
     # return lines[0]
+
+
+def write_function_data_to_config_file(parameter_data: dict | list, result_data: dict | list, workflow_id, run_id, step_id,):
+    """This function gets the parameters and results of the applications' functions as either a list or dict with
+    parameter_data
+        <name_of_parameter>: <value_of_parameter>
+        do we also need type of parameter?? like int or str
+    result_data
+        if result contains data:
+            data_<name_of_result> -> <data>
+        if results is file:
+            path_<name_of_result> -> <path>
+     and writes it to the config file in the output folder
+
+     if parameter_data or result_data is a list then each entry represents a different iteration (only in functions where
+     it's applicable to do multiple iterations with different data in the same run)
+      and each entry in the list should contain one dict as described above
+     """
+
+    # Record misc information about the run
+    run_data = {
+       "workflow_id": workflow_id,
+       "step_id": step_id,
+       "run_id": run_id
+    }
+
+    if (type(parameter_data) is dict and type(result_data) is dict ) or (type(parameter_data) is list and type(result_data) is list):
+        data_to_write = {"run_data": run_data,
+                         "parameter_data": parameter_data,
+                         "result_data": result_data}
+
+        with open(get_output_info_path(workflow_id, run_id, step_id), "w") as info_file:
+            info_file.seek(0)
+            json.dump(data_to_write, info_file)
+    else:
+        return "error: parameter_data and result_data type should the same"
+
+
+
+
 
