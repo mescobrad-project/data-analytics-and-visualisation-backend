@@ -29,11 +29,13 @@ import lxml
 from yasa import sleep_statistics
 import logging
 
-from app.utils.utils_eeg import load_data_from_edf, load_file_from_local_or_interim_edfbrowser_storage
+from app.utils.utils_eeg import load_data_from_edf, load_file_from_local_or_interim_edfbrowser_storage, \
+    load_data_from_edf_fif
 from app.utils.utils_general import validate_and_convert_peaks, validate_and_convert_power_spectral_density, \
     create_notebook_mne_plot, get_neurodesk_display_id, get_annotations_from_csv, create_notebook_mne_modular, \
     get_single_file_from_local_temp_storage, get_local_storage_path, get_local_edfbrowser_storage_path, \
-    get_single_file_from_edfbrowser_interim_storage
+    get_single_file_from_edfbrowser_interim_storage, write_function_data_to_config_file, \
+    get_files_for_slowwaves_spindle
 
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -158,6 +160,27 @@ async def list_channels(workflow_id: str,
     return {'channels': channels}
 
 
+# TODO Functions might need change in future check it afterwards
+@router.get("/list/channels/slowwave", tags=["list_channels"])
+async def list_channels_slowwave(
+                        workflow_id: str,
+                        step_id: str,
+                        run_id: str
+                        ) -> dict:
+
+    files = get_files_for_slowwaves_spindle(workflow_id, run_id, step_id)
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    data = load_data_from_edf_fif(path_to_storage + "/" + files["edf"])
+
+    # path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    # name_of_file = get_single_file_from_local_temp_storage(workflow_id, run_id, step_id)
+    # data = load_data_from_edf(path_to_storage + "/" + name_of_file)
+
+    channels = data.ch_names
+    return {'channels': channels}
+
+
+
 @router.get("/return_autocorrelation", tags=["return_autocorrelation"])
 # Validation is done inline in the input of the function
 async def return_autocorrelation(workflow_id: str, step_id: str, run_id: str,
@@ -181,7 +204,13 @@ async def return_autocorrelation(workflow_id: str, step_id: str, run_id: str,
                     missing=input_missing, alpha=input_alpha,
                     nlags=input_nlags)
 
-            to_return = {}
+            to_return = {
+                'values_autocorrelation': None,
+                'confint': None,
+                'qstat': None,
+                'pvalues': None
+            }
+
             # Parsing the results of acf into a single object
             # Results will change depending on our input
             if input_qstat and input_alpha:
@@ -201,6 +230,26 @@ async def return_autocorrelation(workflow_id: str, step_id: str, run_id: str,
 
             print("RETURNING VALUES")
             print(to_return)
+
+            # Prepare the data to be written to the config file
+            parameter_data = {
+                'name': input_name,
+                'adjusted': input_adjusted,
+                'qstat': input_qstat,
+                'fft': input_fft,
+                'bartlett_confint': input_bartlett_confint,
+                'missing': input_missing,
+                'alpha': input_alpha,
+                'nlags': input_nlags,
+            }
+            result_data = {
+                'data_values_autocorrelation': to_return['values_autocorrelation'],
+                'data_confint': to_return['confint'],
+                'data_qstat': to_return['qstat'],
+                'data_pvalues': to_return['pvalues']
+            }
+
+            write_function_data_to_config_file(parameter_data, result_data, workflow_id, run_id, step_id)
             return to_return
     return {'Channel not found'}
 
@@ -226,7 +275,11 @@ async def return_partial_autocorrelation(workflow_id: str, step_id: str, run_id:
         if input_name == channels[i]:
             z = pacf(raw_data[i], method=input_method, alpha=input_alpha, nlags=input_nlags)
 
-            to_return = {}
+            to_return = {
+                'values_partial_autocorrelation': None,
+                'confint': None
+            }
+
             # Parsing the results of acf into a single object
             # Results will change depending on our input
             if input_alpha:
@@ -237,6 +290,20 @@ async def return_partial_autocorrelation(workflow_id: str, step_id: str, run_id:
 
             print("RETURNING VALUES")
             print(to_return)
+
+            # Prepare the data to be written to the config file
+            parameter_data = {
+                'name': input_name,
+                'method': input_method,
+                'alpha': input_alpha,
+                'nlags': input_nlags,
+            }
+            result_data = {
+                'data_values_partial_autocorrelation': to_return['values_partial_autocorrelation'],
+                'data_confint': to_return['confint'],
+            }
+
+            write_function_data_to_config_file(parameter_data, result_data, workflow_id, run_id, step_id)
             return to_return
     return {'Channel not found'}
 
@@ -342,6 +409,7 @@ async def return_filters(
 
             print("RESULTS TO RETURN IS")
             print(to_return)
+
             return to_return
 
 
@@ -384,7 +452,32 @@ async def estimate_welch(
                                           noverlap=input_noverlap, nfft=input_nfft,
                                           return_onesided=input_return_onesided, scaling=input_scaling,
                                           axis=input_axis, average=input_average)
-            return {'frequencies': f.tolist(), 'power spectral density': pxx_den.tolist()}
+
+            to_return = {
+                "frequencies": f.tolist(),
+                "power spectral density": pxx_den.tolist()
+            }
+
+            # Prepare the data to be written to the config file
+            parameter_data = {
+                "window": input_window,
+                "nperseg": input_nperseg,
+                "noverlap": input_noverlap,
+                "nfft": input_nfft,
+                "return_onesided": input_return_onesided,
+                "scaling": input_scaling,
+                "axis": input_axis,
+                "average": input_average,
+            }
+
+            result_data = {
+                "data_frequencies": to_return["frequencies"],
+                "data_power spectral density": to_return["power spectral density"]
+            }
+
+            write_function_data_to_config_file(workflow_id, step_id, run_id, parameter_data, result_data)
+
+            return to_return
     return {'Channel not found'}
 
 @router.get("/return_stft", tags=["return_stft"])
@@ -436,9 +529,30 @@ async def estimate_stft(
             plt.xlabel('Time [sec]')
             plt.show()
 
+            # Convert the plot to HTML
             html_str = mpld3.fig_to_html(fig)
-            plt.savefig(get_local_storage_path(workflow_id, step_id, run_id) + "/output/" + 'plot.png')
             to_return["figure"] = html_str
+
+            # Save the plot to the local storage
+            plt.savefig(get_local_storage_path(workflow_id, step_id, run_id) + "/output/" + 'plot.png')
+
+            # Prepare the data to be written to the config file
+            parameter_data = {
+                "window": input_window,
+                "nperseg": input_nperseg,
+                "noverlap": input_noverlap,
+                "nfft": input_nfft,
+                "return_onesided": input_return_onesided,
+                "boundary": input_boundary,
+                "padded": input_padded,
+                "axis": input_axis,
+            }
+
+            result_data = {
+                "path_stft_figure": "plot.png",
+            }
+
+            write_function_data_to_config_file(workflow_id, step_id, run_id, parameter_data, result_data)
             return to_return
     return {'Channel not found'}
 
@@ -490,7 +604,24 @@ async def return_peaks(workflow_id: str, step_id: str, run_id: str,
             print("--------RESULTS----")
             print(find_peaks_result)
             # print(_)n
-            to_return = {}
+            to_return = {
+                "signal": None,
+                "signal_time": None,
+                "start_date_time": None,
+                "peaks": None,
+                "peak_heights": None,
+                "left_thresholds": None,
+                "right_thresholds": None,
+                "prominences": None,
+                "left_bases": None,
+                "right_bases": None,
+                "width_heights": None,
+                "left_ips": None,
+                "right_ips": None,
+                "left_edges": None,
+                "right_edges": None,
+                "plateau_sizes": None,
+            }
             to_return["signal"] = raw_data[0][i].tolist()
             to_return["signal_time"] = raw_data[1].tolist()
             to_return["start_date_time"] = data.info["meas_date"].timestamp()
@@ -547,12 +678,33 @@ async def return_peaks(workflow_id: str, step_id: str, run_id: str,
             plt.plot(np.zeros_like(raw_data[0][i]), "--", color="red")
             plt.show()
 
+            # Convert plot to html
             html_str = mpld3.fig_to_html(fig)
+
+            # Save plot to local storage
+            plt.savefig(get_local_storage_path(workflow_id, step_id, run_id) + "/output/" + 'plot.png')
+
             to_return["figure"] = html_str
-            # Html_file = open("index.html", "w")
-            # Html_file.write(html_str)
-            # Html_file.close()
-            # print(to_return)
+
+            # Prepare the data to be written to the config file
+            parameter_data = {
+                "name": input_name,
+                "height": input_height,
+                "threshold": input_threshold,
+                "distance": input_distance,
+                "prominence": input_prominence,
+                "width": input_width,
+                "wlen": input_wlen,
+                "rel_height": input_rel_height,
+                "plateau_size": input_plateau_size,
+            }
+
+            result_data = {
+                "path_peaks_plot" : "plot.png",
+            }
+
+            write_function_data_to_config_file(workflow_id, step_id, run_id, parameter_data, result_data)
+
             return to_return
     return {'Channel not found'}
 
@@ -821,7 +973,7 @@ async def calculate_alpha_delta_ratio_periodogram(workflow_id: str, step_id: str
                                                 scaling=input_scaling, axis=input_axis)
             else:
                 freqs, psd = signal.periodogram(raw_data[i]*(10**3), info['sfreq'],
-                                                window=signal.get_window(input_window, input_nperseg),
+                                                window=signal.get_window(input_window),
                                                 nfft=input_nfft, return_onesided=input_return_onesided, scaling=input_scaling,
                                                 axis=input_axis)
 
@@ -1245,23 +1397,34 @@ async def detect_slow_waves(
     return {'Channel not found'}
 
 @router.get("/sleep_statistics_hypnogram")
-async def sleep_statistics_hypnogram(sampling_frequency: float | None = Query(default=1/30)):
+async def sleep_statistics_hypnogram(
+                                    workflow_id: str,
+                                    step_id: str,
+                                    run_id: str,
+                                     sampling_frequency: float | None = Query(default=1/30)):
+    files = get_files_for_slowwaves_spindle(workflow_id, run_id, step_id)
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
 
-    hypno = pd.read_csv('example_data/XX_Firsthalf_Hypno.csv')
+    hypno = pd.read_csv(path_to_storage + "/" + files["csv"])
 
     df = pd.DataFrame.from_dict(sleep_statistics(list(hypno['stage']), sf_hyp=sampling_frequency), orient='index', columns=['value'])
 
-    return{'sleep statistics':df.to_json(orient='split')}
+    return{'sleep_statistics': df.to_json(orient='split')}
 
 @router.get("/sleep_transition_matrix")
-async def sleep_transition_matrix():
+async def sleep_transition_matrix(workflow_id: str,
+                                    step_id: str,
+                                    run_id: str,):
     #fig = plt.figure(1)
     #ax = plt.subplot(111)
+
+    files = get_files_for_slowwaves_spindle(workflow_id, run_id, step_id)
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
 
     to_return = {}
     fig = plt.figure(1)
 
-    hypno = pd.read_csv('example_data/XX_Firsthalf_Hypno.csv')
+    hypno = pd.read_csv(path_to_storage + "/" + files["csv"])
 
     counts, probs = yasa.transition_matrix(list(hypno['stage']))
 
@@ -1278,29 +1441,46 @@ async def sleep_transition_matrix():
     ax.set_ylabel("From sleep stage")
     ax.xaxis.set_label_position('top')
     plt.show()
+    #  Temporarilly saved in root directory should change to commented
+    # fig.savefig( path_to_storage + "/output/" + 'sleep_transition_matrix.png')
+    fig.savefig( NeurodesktopStorageLocation + '/sleep_transition_matrix.png')
+
 
     html_str = mpld3.fig_to_html(fig)
     to_return["figure"] = html_str
 
-    return{'Counts transition matrix (number of transitions from stage A to stage B).':counts.to_json(orient='split'),
-           'Conditional probability transition matrix, i.e. given that current state is A, what is the probability that the next state is B.':probs.to_json(orient='split'),
+    return{'counts_transition_matrix':counts.to_json(orient='split'),  # Counts transition matrix (number of transitions from stage A to stage B).
+           'conditional_probability_transition_matrix':probs.to_json(orient='split'), # Conditional probability transition matrix, i.e. given that current state is A, what is the probability that the next state is B.
            'figure': to_return}
 
 @router.get("/sleep_stability_extraction")
-async def sleep_stability_extraction():
+async def sleep_stability_extraction(workflow_id: str,
+                                    step_id: str,
+                                    run_id: str,):
+    files = get_files_for_slowwaves_spindle(workflow_id, run_id, step_id)
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
 
-    hypno = pd.read_csv('example_data/XX_Firsthalf_Hypno.csv')
+    hypno = pd.read_csv(path_to_storage + "/" + files["csv"])
 
     counts, probs = yasa.transition_matrix(list(hypno['stage']))
 
-    return{'stability of sleep stages':np.diag(probs.loc[2:, 2:]).mean().round(3)}
+    return{'sleep_stage_stability': np.diag(probs.loc[2:, 2:]).mean().round(3)} # stability of sleep stages
 
 @router.get("/spectrogram_yasa")
-async def spectrogram_yasa(name: str,
+async def spectrogram_yasa(
+                           workflow_id: str,
+                           step_id: str,
+                           run_id: str,
+                           name: str,
                            current_sampling_frequency_of_the_hypnogram: float | None = Query(default=1/30)):
 
-    data = mne.io.read_raw_fif("example_data/XX_Firsthalf_raw.fif")
-    hypno = pd.read_csv('example_data/XX_Firsthalf_Hypno.csv')
+    files = get_files_for_slowwaves_spindle(workflow_id, run_id, step_id)
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+
+    data = mne.io.read_raw_fif(path_to_storage + "/" + files["edf"])
+    hypno = pd.read_csv(path_to_storage + "/" + files["csv"])
+
+
     raw_data = data.get_data()
     info = data.info
     channels = data.ch_names
@@ -1318,18 +1498,30 @@ async def spectrogram_yasa(name: str,
 
             html_str = mpld3.fig_to_html(fig)
             to_return["figure"] = html_str
+            #  Temporarilly saved in root directory should change to commented
 
-            return {'Figure': to_return}
+            # fig.savefig(path_to_storage + "/output/" + 'spectrogram.png')
+            fig.savefig(NeurodesktopStorageLocation + '/spectrogram.png')
+
+            return {'figure': to_return}
     return {'Channel not found'}
 
 @router.get("/bandpower_yasa")
-async def bandpower_yasa(relative: bool | None = False,
+async def bandpower_yasa(workflow_id: str,
+                         step_id: str,
+                         run_id: str,
+                         relative: bool | None = False,
                          bandpass: bool | None = False,
                          include: list[int] | None = Query(default=[2,3]),
                          current_sampling_frequency_of_the_hypnogram: float | None = Query(default=1/30)):
+    files = get_files_for_slowwaves_spindle(workflow_id, run_id, step_id)
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
 
-    data = mne.io.read_raw_fif("example_data/XX_Firsthalf_raw.fif")
-    hypno = pd.read_csv('example_data/XX_Firsthalf_Hypno.csv')
+    data = mne.io.read_raw_fif(path_to_storage + "/" + files["edf"])
+    hypno = pd.read_csv(path_to_storage + "/" + files["csv"])
+
+    # data = mne.io.read_raw_fif("example_data/XX_Firsthalf_raw.fif")
+    # hypno = pd.read_csv('example_data/XX_Firsthalf_Hypno.csv')
     raw_data = data.get_data()
     info = data.info
     channels = data.ch_names
@@ -1340,10 +1532,14 @@ async def bandpower_yasa(relative: bool | None = False,
 
     df = yasa.bandpower(data, hypno=hypno, relative=relative, bandpass=bandpass, include=include)
 
-    return {'DataFrame':df.to_json(orient='split')}
+    return {'bandpower':df.to_json(orient='split')}
 
 @router.get("/spindles_detect_two_dataframes")
-async def spindles_detect_two_dataframes(min_distance: int | None = Query(default=500),
+async def spindles_detect_two_dataframes(
+                                         workflow_id: str,
+                                         step_id: str,
+                                         run_id: str,
+                                         min_distance: int | None = Query(default=500),
                                          freq_sp: list[int] | None = Query(default=[12,15]),
                                          freq_broad: list[int] | None = Query(default=[1,30]),
                                          include: list[int] | None = Query(default=[2,3]),
@@ -1371,7 +1567,7 @@ async def spindles_detect_two_dataframes(min_distance: int | None = Query(defaul
         html_str = mpld3.fig_to_html(fig)
         to_return["figure"] = html_str
 
-        return {'DataFrame_1':df_1.to_json(orient='split'), 'DataFrame_2':df_2.to_json(orient='split'),'Figure':to_return}
+        return {'data_frame_1':df_1.to_json(orient='split'), 'data_frame_2':df_2.to_json(orient='split'),'figure':to_return}
     else:
         return {'No spindles detected'}
 
@@ -1416,9 +1612,9 @@ async def sw_detect_two_dataframes(freq_sw: list[float] | None = Query(default=[
         html_str = mpld3.fig_to_html(fig)
         to_return["figure"] = html_str
 
-        return {'DataFrame_1':df_1.to_json(orient='split'), 'DataFrame_2':df_2.to_json(orient='split'),'Figure':to_return,
-                'Circular mean (rad):': pg.circ_mean(df_1['PhaseAtSigmaPeak']),
-                'Vector length (rad):': pg.circ_r(df_1['PhaseAtSigmaPeak'])}
+        return {'data_frame_1':df_1.to_json(orient='split'), 'data_frame_2':df_2.to_json(orient='split'),'figure':to_return,
+                'circular_mean:': pg.circ_mean(df_1['PhaseAtSigmaPeak']), # Circular mean (rad)
+                'vector_length:': pg.circ_r(df_1['PhaseAtSigmaPeak'])} # Vector length (rad)
     else:
         return {'No slow-waves detected'}
 
