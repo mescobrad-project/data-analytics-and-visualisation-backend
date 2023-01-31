@@ -605,10 +605,23 @@ async def principal_component_analysis(workflow_id: str,
     else:
         pca = PCA(n_components=n_components_2)
         pca.fit(X)
-
-    return {'Percentage of variance explained by each of the selected components': pca.explained_variance_ratio_.tolist(),
-            'The singular values corresponding to each of the selected components. ': pca.singular_values_.tolist(),
-            'Principal axes in feature space, representing the directions of maximum variance in the data.' : pca.components_.tolist()}
+    dataset.columns
+    return {
+        'columns': dataset.columns.tolist(),
+        'n_features_': pca.n_features_,
+            'n_features_in_': pca.n_features_in_,
+            'n_samples_': pca.n_samples_,
+            'random_state': pca.random_state,
+            'iterated_power': pca.iterated_power,
+            'mean_': pca.mean_.tolist(),
+            'explained_variance_': pca.explained_variance_.tolist(),
+            'noise_variance_': pca.noise_variance_,
+            'pve': pca.explained_variance_ratio_.tolist(),
+            'singular_values': pca.singular_values_.tolist(),
+            'principal_axes': pca.components_[0].tolist()}
+    # return {'Percentage of variance explained by each of the selected components': pca.explained_variance_ratio_.tolist(),
+    #             'The singular values corresponding to each of the selected components. ': pca.singular_values_.tolist(),
+    #             'Principal axes in feature space, representing the directions of maximum variance in the data.' : pca.components_.tolist()}
 
 @router.get("/kmeans_clustering")
 async def kmeans_clustering(workflow_id: str,
