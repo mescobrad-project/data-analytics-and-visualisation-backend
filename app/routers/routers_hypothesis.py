@@ -600,11 +600,19 @@ async def principal_component_analysis(workflow_id: str,
         if n_components_1 > dim:
             return {'Error: n_components must be between 0 and min(n_samples, n_features)=': dim}
         pca = PCA(n_components=n_components_1)
+        pca_t = pca.fit_transform(X)
+        principal_Df = pd.DataFrame(data=pca_t, columns=["principalcomponent1", "principalcomponent2"])
+        # principal_Df = pd.DataFrame(data=pca_t,
+        #                             columns=['principal component 1', 'principal component 2'])
+        print(principal_Df)
+        print(dataset)
         pca.fit(X)
     else:
         pca = PCA(n_components=n_components_2)
         pca.fit(X)
-    dataset.columns
+
+    # principal_Df = pd.DataFrame(data=pca, columns=['principal component 1', 'principal component 2'])
+
     return {
         'columns': dataset.columns.tolist(),
         'n_features_': pca.n_features_,
