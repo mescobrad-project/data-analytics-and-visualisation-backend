@@ -200,7 +200,7 @@ async def name_columns(workflow_id: str, step_id: str, run_id: str):
         data = data.drop(['Unnamed: 0'], axis=1)
 
     columns = data.columns
-    return{'columns': list(columns)}
+    return{'columns': list(columns), 'dataFrame': data.to_json(orient='records')}
 
 @router.get("/return_binary_columns")
 async def name_columns(workflow_id: str, step_id: str, run_id: str):
@@ -572,10 +572,10 @@ async def LDA(workflow_id: str,
     df_coefs = pd.DataFrame(clf.coef_, columns=features_columns)
     df_intercept = pd.DataFrame(clf.intercept_, columns=['intercept'])
     df_coefs['intercept'] = df_intercept['intercept']
-    return {'coefficients': df_coefs.to_html(), 'intercept': df_intercept.to_html()}
+    return {'coefficients': df_coefs.to_json(orient='records'), 'intercept': df_coefs.to_json(orient='records')}
 
 
-    return {'coefficients': df_coefs.to_json(orient='split'), 'intercept': df_intercept.to_json(orient='split')}
+    # return {'coefficients': df_coefs.to_json(orient='split'), 'intercept': df_intercept.to_json(orient='split')}
 
 
 @router.get("/principal_component_analysis")
