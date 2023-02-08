@@ -200,7 +200,7 @@ async def name_columns(workflow_id: str, step_id: str, run_id: str):
         data = data.drop(['Unnamed: 0'], axis=1)
 
     columns = data.columns
-    return{'columns': list(columns)}
+    return{'columns': list(columns), 'dataFrame': data.to_json(orient='records')}
 
 @router.get("/return_binary_columns")
 async def name_columns(workflow_id: str, step_id: str, run_id: str):
@@ -572,10 +572,10 @@ async def LDA(workflow_id: str,
     df_coefs = pd.DataFrame(clf.coef_, columns=features_columns)
     df_intercept = pd.DataFrame(clf.intercept_, columns=['intercept'])
     df_coefs['intercept'] = df_intercept['intercept']
-    return {'coefficients': df_coefs.to_html(), 'intercept': df_intercept.to_html()}
+    return {'coefficients': df_coefs.to_json(orient='records'), 'intercept': df_coefs.to_json(orient='records')}
 
 
-    return {'coefficients': df_coefs.to_json(orient='split'), 'intercept': df_intercept.to_json(orient='split')}
+    # return {'coefficients': df_coefs.to_json(orient='split'), 'intercept': df_intercept.to_json(orient='split')}
 
 
 @router.get("/principal_component_analysis")
@@ -600,14 +600,35 @@ async def principal_component_analysis(workflow_id: str,
         if n_components_1 > dim:
             return {'Error: n_components must be between 0 and min(n_samples, n_features)=': dim}
         pca = PCA(n_components=n_components_1)
+        pca_t = pca.fit_transform(X)
+        principal_Df = pd.DataFrame(data=pca_t, columns=["principalcomponent1", "principalcomponent2"])
+        # principal_Df = pd.DataFrame(data=pca_t,
+        #                             columns=['principal component 1', 'principal component 2'])
+        print(principal_Df)
+        print(dataset)
         pca.fit(X)
     else:
         pca = PCA(n_components=n_components_2)
         pca.fit(X)
 
-    return {'Percentage of variance explained by each of the selected components': pca.explained_variance_ratio_.tolist(),
-            'The singular values corresponding to each of the selected components. ': pca.singular_values_.tolist(),
-            'Principal axes in feature space, representing the directions of maximum variance in the data.' : pca.components_.tolist()}
+    # principal_Df = pd.DataFrame(data=pca, columns=['principal component 1', 'principal component 2'])
+
+    return {
+        'columns': dataset.columns.tolist(),
+        'n_features_': pca.n_features_,
+            'n_features_in_': pca.n_features_in_,
+            'n_samples_': pca.n_samples_,
+            'random_state': pca.random_state,
+            'iterated_power': pca.iterated_power,
+            'mean_': pca.mean_.tolist(),
+            'explained_variance_': pca.explained_variance_.tolist(),
+            'noise_variance_': pca.noise_variance_,
+            'pve': pca.explained_variance_ratio_.tolist(),
+            'singular_values': pca.singular_values_.tolist(),
+            'principal_axes': pca.components_[0].tolist()}
+    # return {'Percentage of variance explained by each of the selected components': pca.explained_variance_ratio_.tolist(),
+    #             'The singular values corresponding to each of the selected components. ': pca.singular_values_.tolist(),
+    #             'Principal axes in feature space, representing the directions of maximum variance in the data.' : pca.components_.tolist()}
 
 @router.get("/kmeans_clustering")
 async def kmeans_clustering(workflow_id: str,
