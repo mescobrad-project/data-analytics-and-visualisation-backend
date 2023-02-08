@@ -1545,9 +1545,12 @@ async def spindles_detect_two_dataframes(
                                          include: list[int] | None = Query(default=[2,3]),
                                          remove_outliers: bool | None = Query(default=False),
                                          current_sampling_frequency_of_the_hypnogram: float | None = Query(default=1/30)):
+    files = get_files_for_slowwaves_spindle(workflow_id, run_id, step_id)
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
 
-    data = mne.io.read_raw_fif("example_data/XX_Firsthalf_raw.fif")
-    hypno = pd.read_csv('example_data/XX_Firsthalf_Hypno.csv')
+    data = mne.io.read_raw_fif(path_to_storage + "/" + files["edf"])
+    hypno = pd.read_csv(path_to_storage + "/" + files["csv"])
+
     raw_data = data.get_data()
     info = data.info
     channels = data.ch_names
@@ -1566,13 +1569,18 @@ async def spindles_detect_two_dataframes(
         plt.show()
         html_str = mpld3.fig_to_html(fig)
         to_return["figure"] = html_str
+        #  Temporarilly saved in root directory should change to commented
+        fig.savefig(NeurodesktopStorageLocation + '/spindles.png')
 
         return {'data_frame_1':df_1.to_json(orient='split'), 'data_frame_2':df_2.to_json(orient='split'),'figure':to_return}
     else:
         return {'No spindles detected'}
 
 @router.get("/sw_detect_two_dataframes")
-async def sw_detect_two_dataframes(freq_sw: list[float] | None = Query(default=[0.3,1.5]),
+async def sw_detect_two_dataframes(workflow_id: str,
+                                   step_id: str,
+                                   run_id: str,
+                                   freq_sw: list[float] | None = Query(default=[0.3,1.5]),
                                    dur_neg: list[float] | None = Query(default=[0.3,1.5]),
                                    dur_pos: list[float] | None = Query(default=[0.1,1]),
                                    amp_neg: list[int] | None = Query(default=[40,200]),
@@ -1582,9 +1590,12 @@ async def sw_detect_two_dataframes(freq_sw: list[float] | None = Query(default=[
                                    remove_outliers: bool | None = Query(default=True),
                                    coupling: bool | None = Query(default=True),
                                    current_sampling_frequency_of_the_hypnogram: float | None = Query(default=1/30)):
+    files = get_files_for_slowwaves_spindle(workflow_id, run_id, step_id)
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
 
-    data = mne.io.read_raw_fif("example_data/XX_Firsthalf_raw.fif")
-    hypno = pd.read_csv('example_data/XX_Firsthalf_Hypno.csv')
+    data = mne.io.read_raw_fif(path_to_storage + "/" + files["edf"])
+    hypno = pd.read_csv(path_to_storage + "/" + files["csv"])
+
     raw_data = data.get_data()
     info = data.info
     channels = data.ch_names
@@ -1611,6 +1622,8 @@ async def sw_detect_two_dataframes(freq_sw: list[float] | None = Query(default=[
         plt.show()
         html_str = mpld3.fig_to_html(fig)
         to_return["figure"] = html_str
+        #  Temporarilly saved in root directory should change to commented
+        fig.savefig(NeurodesktopStorageLocation + '/slowwaves.png')
 
         return {'data_frame_1':df_1.to_json(orient='split'), 'data_frame_2':df_2.to_json(orient='split'),'figure':to_return,
                 'circular_mean:': pg.circ_mean(df_1['PhaseAtSigmaPeak']), # Circular mean (rad)
@@ -1619,15 +1632,24 @@ async def sw_detect_two_dataframes(freq_sw: list[float] | None = Query(default=[
         return {'No slow-waves detected'}
 
 @router.get("/PAC_values")
-async def calculate_pac_values(window: int | None = Query(default=15),
+async def calculate_pac_values(workflow_id: str,
+                               step_id: str,
+                               run_id: str,
+                               window: int | None = Query(default=15),
                                step: int | None = Query(default=15),
                                current_sampling_frequency_of_the_hypnogram: float | None = Query(default=1/30)):
 
 
     to_return = {}
     fig = plt.figure(1)
-    data = mne.io.read_raw_fif("example_data/XX_Firsthalf_raw.fif")
-    hypno = pd.read_csv('example_data/XX_Firsthalf_Hypno.csv')
+
+    files = get_files_for_slowwaves_spindle(workflow_id, run_id, step_id)
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+
+    data = mne.io.read_raw_fif(path_to_storage + "/" + files["edf"])
+    hypno = pd.read_csv(path_to_storage + "/" + files["csv"])
+
+
     raw_data = data.get_data()
     info = data.info
     channels = data.ch_names
@@ -1659,19 +1681,28 @@ async def calculate_pac_values(window: int | None = Query(default=15),
 
     html_str = mpld3.fig_to_html(fig)
     to_return["figure"] = html_str
-
+    #  Temporarilly saved in root directory should change to commented
+    fig.savefig(NeurodesktopStorageLocation + '/pac_values.png')
 
     return {'Figure':to_return}
 
 @router.get("/extra_PAC_values")
-async def calculate_extra_pac_values(window: int | None = Query(default=15),
+async def calculate_extra_pac_values(workflow_id: str,
+                                     step_id: str,
+                                     run_id: str,
+                                     window: int | None = Query(default=15),
                                      step: int | None = Query(default=15),
                                      current_sampling_frequency_of_the_hypnogram: float | None = Query(default=1/30)):
 
     to_return = {}
     fig = plt.figure(1)
-    data = mne.io.read_raw_fif("example_data/XX_Firsthalf_raw.fif")
-    hypno = pd.read_csv('example_data/XX_Firsthalf_Hypno.csv')
+
+    files = get_files_for_slowwaves_spindle(workflow_id, run_id, step_id)
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+
+    data = mne.io.read_raw_fif(path_to_storage + "/" + files["edf"])
+    hypno = pd.read_csv(path_to_storage + "/" + files["csv"])
+
     channels = data.ch_names
     raw_data = data.get_data(channels[0])
     info = data.info
@@ -1744,16 +1775,10 @@ async def calculate_extra_pac_values(window: int | None = Query(default=15),
     html_str = mpld3.fig_to_html(fig)
     to_return["figure"] = html_str
 
+    #  Temporarilly saved in root directory should change to commented
+    fig.savefig(NeurodesktopStorageLocation + '/extra_pac_values.png')
+
     return {'Figure': to_return}
-
-
-
-
-
-
-
-
-
 
 
 # Spindles detection
