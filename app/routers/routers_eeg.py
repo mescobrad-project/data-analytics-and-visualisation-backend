@@ -110,8 +110,10 @@ def rose_plot(ax, angles, bins=12, density=None, offset=0, lab_unit="degrees",
                   r'$\pi$', r'$5\pi/4$', r'$3\pi/2$', r'$7\pi/4$']
         ax.set_xticklabels(label)
 
-    html_str = mpld3.fig_to_html(fig)
-    return html_str
+    # html_str = mpld3.fig_to_html(fig)
+    fig.savefig(NeurodesktopStorageLocation + '/rose_plot.png')
+
+    return
 
 def calcsmape(actual, forecast):
     return 1/len(actual) * np.sum(2 * np.abs(forecast-actual) / (np.abs(actual) + np.abs(forecast)))
@@ -1446,8 +1448,8 @@ async def sleep_transition_matrix(workflow_id: str,
     fig.savefig( NeurodesktopStorageLocation + '/sleep_transition_matrix.png')
 
 
-    html_str = mpld3.fig_to_html(fig)
-    to_return["figure"] = html_str
+    # html_str = mpld3.fig_to_html(fig)
+    # to_return["figure"] = html_str
 
     return{'counts_transition_matrix':counts.to_json(orient='split'),  # Counts transition matrix (number of transitions from stage A to stage B).
            'conditional_probability_transition_matrix':probs.to_json(orient='split'), # Conditional probability transition matrix, i.e. given that current state is A, what is the probability that the next state is B.
@@ -1496,8 +1498,8 @@ async def spectrogram_yasa(
             fig = yasa.plot_spectrogram(array_data, sf, hypno, cmap='Spectral_r')
             plt.show()
 
-            html_str = mpld3.fig_to_html(fig)
-            to_return["figure"] = html_str
+            # html_str = mpld3.fig_to_html(fig)
+            # to_return["figure"] = html_str
             #  Temporarilly saved in root directory should change to commented
 
             # fig.savefig(path_to_storage + "/output/" + 'spectrogram.png')
@@ -1567,12 +1569,12 @@ async def spindles_detect_two_dataframes(
         fig = plt.figure(1)
         sp.plot_average(center='Peak', time_before=1, time_after=1)
         plt.show()
-        html_str = mpld3.fig_to_html(fig)
-        to_return["figure"] = html_str
+        # html_str = mpld3.fig_to_html(fig)
+        # to_return["figure"] = html_str
         #  Temporarilly saved in root directory should change to commented
         fig.savefig(NeurodesktopStorageLocation + '/spindles.png')
 
-        return {'data_frame_1':df_1.to_json(orient='split'), 'data_frame_2':df_2.to_json(orient='split'),'figure':to_return}
+        return {'data_frame_1':df_1.to_json(orient='split'), 'data_frame_2':df_2.to_json(orient='split')}
     else:
         return {'No spindles detected'}
 
@@ -1620,12 +1622,12 @@ async def sw_detect_two_dataframes(workflow_id: str,
         print('Circular mean: %.3f rad' % pg.circ_mean(df_1['PhaseAtSigmaPeak']))
         print('Vector length: %.3f' % pg.circ_r(df_1['PhaseAtSigmaPeak']))
         plt.show()
-        html_str = mpld3.fig_to_html(fig)
-        to_return["figure"] = html_str
+        # html_str = mpld3.fig_to_html(fig)
+        # to_return["figure"] = html_str
         #  Temporarilly saved in root directory should change to commented
         fig.savefig(NeurodesktopStorageLocation + '/slowwaves.png')
 
-        return {'data_frame_1':df_1.to_json(orient='split'), 'data_frame_2':df_2.to_json(orient='split'),'figure':to_return,
+        return {'data_frame_1':df_1.to_json(orient='split'), 'data_frame_2':df_2.to_json(orient='split'),
                 'circular_mean:': pg.circ_mean(df_1['PhaseAtSigmaPeak']), # Circular mean (rad)
                 'vector_length:': pg.circ_r(df_1['PhaseAtSigmaPeak'])} # Vector length (rad)
     else:
@@ -1679,8 +1681,8 @@ async def calculate_pac_values(workflow_id: str,
     plt.gca()
     plt.show()
 
-    html_str = mpld3.fig_to_html(fig)
-    to_return["figure"] = html_str
+    # html_str = mpld3.fig_to_html(fig)
+    # to_return["figure"] = html_str
     #  Temporarilly saved in root directory should change to commented
     fig.savefig(NeurodesktopStorageLocation + '/pac_values.png')
 
@@ -1772,8 +1774,8 @@ async def calculate_extra_pac_values(workflow_id: str,
     plt.gca().invert_yaxis()
     plt.show()
 
-    html_str = mpld3.fig_to_html(fig)
-    to_return["figure"] = html_str
+    # html_str = mpld3.fig_to_html(fig)
+    # to_return["figure"] = html_str
 
     #  Temporarilly saved in root directory should change to commented
     fig.savefig(NeurodesktopStorageLocation + '/extra_pac_values.png')
