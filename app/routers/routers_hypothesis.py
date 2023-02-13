@@ -7,8 +7,6 @@ from scipy.stats import jarque_bera, fisher_exact, ranksums, chisquare, kruskal,
 from typing import Optional, Union, List
 from statsmodels.stats.multitest import multipletests
 import statsmodels.api as sm
-import matplotlib.pyplot as plt
-import mpld3
 from enum import Enum
 from statsmodels.compat import lzip
 import statsmodels.stats.api as sms
@@ -48,6 +46,8 @@ import scipy.stats as st
 import statistics
 from tabulate import tabulate
 
+from app.utils.utils_hypothesis import create_plots, compute_skewness
+
 router = APIRouter()
 data = pd.read_csv('example_data/mescobrad_dataset.csv')
 data = data.drop(["Unnamed: 0"], axis=1)
@@ -55,63 +55,17 @@ data = data.drop(["Unnamed: 0"], axis=1)
 
 def normality_test_content_results(column: str, selected_dataframe):
     if (column):
-        # region Creating Box-plot
-        fig2 = plt.figure()
-        plt.boxplot(selected_dataframe[str(column)])
-        plt.ylabel("", fontsize=14)
-        # show plot
-        plt.show()
-        html_str_B = mpld3.fig_to_html(fig2)
-        #endregion
-        # region Creating QQ-plot
-        fig = plt.figure()
-        ax = fig.add_subplot()
-
-        pingouin.qqplot(selected_dataframe[str(column)], dist='norm', ax=ax)
-        # We changed to Pingouin because it's better
-        # fig = sm.qqplot(selected_dataframe[str(column)], line='45')
-        plt.xticks(fontsize=12)
-        plt.yticks(fontsize=12)
-        plt.show()
-        html_str = mpld3.fig_to_html(fig)
-        # endregion
-        # region Creating Probability-plot
-        fig3 = plt.figure()
-        ax1 = fig3.add_subplot()
-        prob =  probplot(selected_dataframe[str(column)], dist=st.norm, plot=ax1)
-        ax1.set_title('Probplot against normal distribution')
-        plt.xticks(fontsize=12)
-        plt.yticks(fontsize=12)
-        plt.show()
-        html_str_P = mpld3.fig_to_html(fig3)
-        # endregion
-        #region Creating histogram
-        fig1, axs = plt.subplots(1, 1,
-                                 # figsize=(640, 480),
-                                 tight_layout=True)
-
-        ## q25, q75 = np.percentile(data[str(column)], [25, 75])
-        ## bin_width = 2 * (q75 - q25) * len(data[str(column)]) ** (-1 / 3)
-        ## bins = round((data[str(column)].max() - data[str(column)].min()) / bin_width)
-        axs.hist(selected_dataframe[str(column)], density=True, bins=30, label="Data", rwidth=0.9,
-                 color='#607c8e')
-
-        mn, mx = plt.xlim()
-        plt.xlim(mn, mx)
-        kde_xs = np.linspace(mn, mx, 300)
-        kde = st.gaussian_kde(selected_dataframe[str(column)])
-        plt.plot(kde_xs, kde.pdf(kde_xs), label="PDF")
-        plt.legend(loc="upper left")
-        plt.ylabel("Probability", fontsize=14)
-        plt.xlabel("Data", fontsize=14)
-        plt.title("Histogram", fontsize=16)
-        plt.xticks(fontsize=12)
-        plt.yticks(fontsize=12)
-        plt.show()
-        html_str_H = mpld3.fig_to_html(fig1)
-        #endregion
+        # Creating Box-plot
+        html_str_B = create_plots('BoxPlot', column, selected_dataframe)
+        # Creating QQ-plot
+        html_str = create_plots('QQPlot', column, selected_dataframe)
+        # Creating Probability-plot
+        html_str_P = create_plots('PPlot', column, selected_dataframe)
+        #Creating histogram
+        html_str_H = create_plots('HistogramPlot', column, selected_dataframe)
         #region Calculate skew, kurtosis, median, std, etc.
-        skewtosend = skew(selected_dataframe[str(column)], axis=0, bias=True)
+        skewtosend = compute_skewness(column, selected_dataframe, '[axis=0, bias=True]')
+            # skew(selected_dataframe[str(column)], axis=0, bias=True)
         kurtosistosend = kurtosis(selected_dataframe[str(column)], axis=0, bias=True)
         st_dev = np.std(selected_dataframe[str(column)])
         # Used Statistics lib for cross-checking
@@ -136,7 +90,6 @@ def transformation_extra_content_results(column_In: str, column_Out:str, selecte
     fig = plt.figure()
     plt.plot(selected_dataframe[str(column_In)], selected_dataframe[str(column_In)],
              color='blue', marker="*")
-    # red for numpy.log()
     plt.plot(selected_dataframe[str(column_Out)], selected_dataframe[str(column_In)],
              color='red', marker="o")
     plt.title("Transformed data Comparison")
@@ -403,9 +356,20 @@ async def transform_data(workflow_id: str,
 #     return {'kendalltau correlation coefficient': kendalltau_test[0], 'p-value': kendalltau_test[1]}
 
 @router.get("/compute_point_biserial_correlation", tags=['hypothesis_testing'])
-async def point_biserial_correlation(workflow_id: str, step_id: str, run_id: str, column_1: str, column_2: str):
+async def point_biserial_correlation(workflow_id: str, step_id: str, run_id: str,
+                                     column_1: str, column_2: str):
     data = load_file_csv_direct(workflow_id, run_id, step_id)
     unique_values = np.unique(data[str(column_1)])
+    fig = plt.figure()
+    plt.plot(data[str(column_2)],
+             color='blue', marker="*")
+    plt.plot(unique_values,
+             color='red', marker="o")
+    plt.title("Transformed data Comparison")
+    plt.xlabel("out_array")
+    plt.ylabel("in_array")
+    plt.show()
+
     if len(unique_values) == 2:
         pointbiserialr_test = pointbiserialr(data[str(column_1)], data[str(column_2)])
     else:
