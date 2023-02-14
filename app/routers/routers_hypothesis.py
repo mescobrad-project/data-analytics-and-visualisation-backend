@@ -46,7 +46,7 @@ import scipy.stats as st
 import statistics
 from tabulate import tabulate
 
-from app.utils.utils_hypothesis import create_plots, compute_skewness
+from app.utils.utils_hypothesis import create_plots, compute_skewness, outliers_removal
 
 router = APIRouter()
 data = pd.read_csv('example_data/mescobrad_dataset.csv')
@@ -360,21 +360,39 @@ async def point_biserial_correlation(workflow_id: str, step_id: str, run_id: str
                                      column_1: str, column_2: str):
     data = load_file_csv_direct(workflow_id, run_id, step_id)
     unique_values = np.unique(data[str(column_1)])
-    fig = plt.figure()
-    plt.plot(data[str(column_2)],
-             color='blue', marker="*")
-    plt.plot(unique_values,
-             color='red', marker="o")
-    plt.title("Transformed data Comparison")
-    plt.xlabel("out_array")
-    plt.ylabel("in_array")
-    plt.show()
-
     if len(unique_values) == 2:
+        html_scr = create_plots(plot_type='Scatter_Two_Variables', column=column_1, second_column=column_2, selected_dataframe=data)
+        sub_set_a = data[data[str(column_1)] != unique_values[0]]
+        sub_set_a = outliers_removal(column_2, sub_set_a, [])
+        # print(sub_set_a)
+        sub_set_b = data[data[str(column_1)] != unique_values[1]]
+        sub_set_b = outliers_removal(column_2, sub_set_b, [])
+        # print(sub_set_b)
+        html_box_1 = create_plots(plot_type='BoxPlot', column=column_2, second_column=column_1, selected_dataframe=sub_set_a)
+        html_hist_1 = create_plots(plot_type='HistogramPlot', column=column_2, second_column='', selected_dataframe=sub_set_a)
+        html_box_2 = create_plots(plot_type='BoxPlot', column=column_2, second_column=column_1, selected_dataframe=sub_set_b)
+        html_hist_2 = create_plots(plot_type='HistogramPlot', column=column_2, second_column='', selected_dataframe=sub_set_b)
+
         pointbiserialr_test = pointbiserialr(data[str(column_1)], data[str(column_2)])
     else:
-        pointbiserialr_test = pointbiserialr(data[str(column_2)], data[str(column_1)])
-    return {'correlation':pointbiserialr_test[0], 'p-value': pointbiserialr_test[1]}
+        return {'status': 'Error',
+                'error_descr': 'The selected variable is not dichotomous.',
+                'scatter_plot': '',
+                'html_box_1': '',
+                'html_box_2': '',
+                'html_hist_1': '',
+                'html_hist_2': '',
+                'correlation': '',
+                'p_value': ''}
+    return {'status': 'OK',
+            'error_descr': '',
+            'scatter_plot': html_scr,
+            'html_box_1': html_box_1,
+            'html_box_2': html_box_2,
+            'html_hist_1': html_hist_1,
+            'html_hist_2': html_hist_2,
+            'correlation': pointbiserialr_test[0],
+            'p_value': pointbiserialr_test[1]}
 
 #
 @router.get("/check_homoscedasticity", tags=['hypothesis_testing'])

@@ -1,11 +1,12 @@
 import matplotlib.pyplot as plt
 import mpld3
 import pingouin
-from scipy.stats import probplot, skew
+from scipy.stats import probplot, skew, kurtosis
 import scipy.stats as st
 import numpy as np
 
-def create_plots(plot_type: str, column: str, selected_dataframe):
+
+def create_plots(plot_type: str, column: str, second_column: str, selected_dataframe):
     if plot_type == 'BoxPlot':
         try:
             fig = plt.figure()
@@ -16,7 +17,7 @@ def create_plots(plot_type: str, column: str, selected_dataframe):
             return html_str
         except Exception as e:
             print(e)
-            print("Error : Creating BoxPlot function")
+            print("Error : Creating BoxPlot")
             return {}
     if plot_type == "QQPlot":
         try:
@@ -32,7 +33,7 @@ def create_plots(plot_type: str, column: str, selected_dataframe):
             return html_str
         except Exception as e:
             print(e)
-            print("Error : Creating BoxPlot function")
+            print("Error : Creating QQPlot")
             return {}
     if plot_type == 'PPlot':
         try:
@@ -47,7 +48,7 @@ def create_plots(plot_type: str, column: str, selected_dataframe):
             return html_str
         except Exception as e:
             print(e)
-            print("Error : Creating BoxPlot function")
+            print("Error : Creating PPlot")
             return {}
     if plot_type == 'HistogramPlot':
         try:
@@ -76,10 +77,28 @@ def create_plots(plot_type: str, column: str, selected_dataframe):
             return html_str
         except Exception as e:
             print(e)
-            print("Error : Creating BoxPlot function")
+            print("Error : Creating HistogramPlot")
+            return {}
+    if plot_type == 'Scatter_Two_Variables':
+        try:
+            fig = plt.figure()
+            ax1 = fig.add_subplot()
+            prob = plt.scatter(selected_dataframe[str(column)], selected_dataframe[str(second_column)],
+                    color='blue', marker="*")
+            ax1.set_title('Scatter plot')
+            plt.xticks(fontsize=12)
+            plt.yticks(fontsize=12)
+            plt.xticks(np.arange(min(selected_dataframe[str(column)]), max(selected_dataframe[str(column)])+1, 1.0))
+            plt.show()
+            html_str = mpld3.fig_to_html(fig)
+            return html_str
+        except Exception as e:
+            print(e)
+            print("Error : Creating Scatter Plot")
             return {}
     else:
         return -1
+
 
 def compute_skewness(column: str, selected_dataframe, args):
     try:
@@ -87,5 +106,34 @@ def compute_skewness(column: str, selected_dataframe, args):
         return result
     except Exception as e:
         print(e)
-        print("Error : Creating BoxPlot function")
+        print("Error : Failed to compute skew")
+        return {}
+
+
+def compute_kurtosis(column: str, selected_dataframe, args):
+    try:
+        result = kurtosis(selected_dataframe[str(column)], *args)
+        return result
+    except Exception as e:
+        print(e)
+        print("Error : Failed to compute kurtosis")
+        return {}
+
+
+def outliers_removal(column: str, selected_dataframe, args):
+    try:
+        for x in [column]:
+            q75, q25 = np.percentile(selected_dataframe.loc[:, x], [75, 25])
+            intr_qr = q75 - q25
+            print(x)
+            max = q75 + (1.5 * intr_qr)
+            min = q25 - (1.5 * intr_qr)
+            print(selected_dataframe.loc[selected_dataframe[x] < min, x])
+            selected_dataframe.loc[selected_dataframe[x] < min, x] = np.nan
+            selected_dataframe.loc[selected_dataframe[x] > max, x] = np.nan
+            selected_dataframe = selected_dataframe.dropna(axis=0)
+            return selected_dataframe
+    except Exception as e:
+        print(e)
+        print("Error : Failed to remove outliers")
         return {}
