@@ -1,10 +1,8 @@
 edflib-python==1.0.6
+factor-analyzer==0.4.1
 fastapi==0.74.0
-fqdn==1.5.1
 freesurfer-stats==1.2.1
 httptools==0.3.0
-isoduration==20.11.0
-jsonpointer==2.3
 jupyter==1.0.0
 lifelines==0.27.3
 minio==7.1.12
@@ -20,13 +18,9 @@ pyqt5==5.15.7
 pyreadstat==1.1.9
 python-dotenv==0.19.2
 pywavelets==1.4.1
-rfc3339-validator==0.1.4
-rfc3986-validator==0.1.1
-uri-template==1.2.0
 uvicorn==0.17.5
 watchdog==2.1.9
 watchgod==0.7
-webcolors==1.12
 websockets==10.1
 yasa==0.6.1
 zepid==0.9.1

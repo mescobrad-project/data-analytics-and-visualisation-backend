@@ -1,6 +1,10 @@
 import numpy as np
 import pandas as pd
 import json
+from factor_analyzer.factor_analyzer import calculate_bartlett_sphericity
+from factor_analyzer.factor_analyzer import calculate_kmo
+from factor_analyzer.utils import corr, cov
+from factor_analyzer import FactorAnalyzer
 from scipy.stats import jarque_bera, fisher_exact, ranksums, chisquare, kruskal, alexandergovern, kendalltau, f_oneway, shapiro, \
     kstest, anderson, normaltest, boxcox, yeojohnson, bartlett, levene, fligner, obrientransform, pearsonr, spearmanr, \
     pointbiserialr, ttest_ind, mannwhitneyu, wilcoxon, ttest_rel, skew, kurtosis, probplot, zscore
@@ -2223,6 +2227,233 @@ async def jarqueberatest(dependent_variable: str):
         return {'statistic': statistic, 'pvalue': pvalue, 'Since this p-value is not less than .05, we fail to reject the null hypothesis. We don’t have sufficient evidence to say that this data has skewness and kurtosis that is significantly different from a normal distribution.':''}
     else:
         return {'statistic': statistic, 'pvalue': pvalue,'Since this p-value is less than .05, we reject the null hypothesis. Thus, we have sufficient evidence to say that this data has skewness and kurtosis that is significantly different from a normal distribution.':''}
+
+
+@router.get("/correlation_matrix")
+async def correlation(workflow_id: str,
+                      step_id: str,
+                      run_id: str,
+                      independent_variables: list[str] | None = Query(default=None)):
+
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+
+    for columns in dataset.columns:
+        if columns not in independent_variables:
+            dataset = dataset.drop(str(columns), axis=1)
+
+    r = corr(dataset)
+
+    return {'Correlation Matrix': r.tolist()}
+
+
+@router.get("/covariance_matrix")
+async def covariance(workflow_id: str,
+                     step_id: str,
+                     run_id: str,
+                     ddof : int | None = Query(default=0),
+                     independent_variables: list[str] | None = Query(default=None)):
+
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+
+    for columns in dataset.columns:
+        if columns not in independent_variables:
+            dataset = dataset.drop(str(columns), axis=1)
+
+    r = cov(dataset, ddof=ddof)
+
+    return {'Covariance Matrix': r.tolist()}
+
+@router.get("/choose_number_of_factors")
+async def choose_number_of_factors(workflow_id: str,
+                                   step_id: str,
+                                   run_id: str,
+                                   use_smc : bool | None = Query(default=True),
+                                   n_factors: int | None = Query(default=3),
+                                   rotation : str | None = Query("None",
+                                                                 regex="^(None)$|^(varimax)$|^(promax)$|^(oblimin)$|^(oblimax)$|^(quartimin)$|^(quartimax)$|^(equamax)$"),
+                                   method: str | None = Query("minres",
+                                                              regex="^(minres)$|^(ml)$|^(principal)$"),
+                                   impute: str | None = Query("drop",
+                                                              regex="^(drop)$|^(mean)$|^(median)$"),
+                                   independent_variables: list[str] | None = Query(default=None)):
+
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+
+    for columns in dataset.columns:
+        if columns not in independent_variables:
+            dataset = dataset.drop(str(columns), axis=1)
+
+
+    if rotation == str(None):
+        fa = FactorAnalyzer(n_factors=n_factors, rotation=None, method=method, use_smc=use_smc, impute=impute)
+    else:
+        fa = FactorAnalyzer(n_factors=n_factors, rotation=rotation, method=method, use_smc=use_smc, impute=impute)
+
+
+    fa.fit(dataset)
+
+    original_eigen_values, common_factor_eigen_values = fa.get_eigenvalues()
+
+    to_return = {}
+
+    fig = plt.figure(1)
+
+    plt.scatter(range(1, dataset.shape[1] + 1), original_eigen_values)
+    plt.plot(range(1, dataset.shape[1] + 1), original_eigen_values)
+    plt.title('Scree Plot')
+    plt.xlabel('Factors')
+    plt.ylabel('Eigenvalue')
+    plt.grid()
+    plt.show()
+
+    html_str = mpld3.fig_to_html(fig)
+    to_return["figure_1"] = html_str
+
+    return {'Original Eigenvalues': original_eigen_values.tolist(),
+            'Figure': to_return}
+
+
+@router.get("/calculate_factor_analysis")
+async def compute_factor_analysis(workflow_id: str,
+                                  step_id: str,
+                                  run_id: str,
+                                  use_smc : bool | None = Query(default=True),
+                                  n_factors: int | None = Query(default=3),
+                                  rotation : str | None = Query("None",
+                                                                regex="^(None)$|^(varimax)$|^(promax)$|^(oblimin)$|^(oblimax)$|^(quartimin)$|^(quartimax)$|^(equamax)$"),
+                                  method: str | None = Query("minres",
+                                                             regex="^(minres)$|^(ml)$|^(principal)$"),
+                                  impute: str | None = Query("drop",
+                                                             regex="^(drop)$|^(mean)$|^(median)$"),
+                                  independent_variables: list[str] | None = Query(default=None)):
+
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+
+    for columns in dataset.columns:
+        if columns not in independent_variables:
+            dataset = dataset.drop(str(columns), axis=1)
+
+
+    if rotation == str(None):
+        fa = FactorAnalyzer(n_factors=n_factors, rotation=None, method=method, use_smc=use_smc, impute=impute)
+    else:
+        fa = FactorAnalyzer(n_factors=n_factors, rotation=rotation, method=method, use_smc=use_smc, impute=impute)
+
+
+    fa.fit(dataset)
+
+    original_eigen_values, common_factor_eigen_values = fa.get_eigenvalues()
+    factor_variance, proportional_factor_variance, cumulative_variance = fa.get_factor_variance()
+    uniquenesses = fa.get_uniquenesses()
+
+    new_dataset = fa.transform(dataset)
+
+
+
+    if rotation == str(None):
+        return{'Factor Loadings matrix': fa.loadings_.tolist(),
+               'Original Correlation Matrix': fa.corr_.tolist(),
+               'Communalities': fa.get_communalities().tolist(),
+               'Original Eigenvalues': original_eigen_values.tolist(),
+               'Common Factor Eigenvalues': common_factor_eigen_values.tolist(),
+               'Factor variances': factor_variance.tolist(),
+               'Proportional Factor Variance': proportional_factor_variance.tolist(),
+               'Cumulative Factor Variance': cumulative_variance.tolist(),
+               'uniquenesses from the factor loading matrix': uniquenesses.tolist(),
+               'Factor scores for a new dataset': new_dataset.tolist()}
+    elif rotation == "promax":
+        return {'Factor Loadings matrix': fa.loadings_.tolist(),
+                'Original Correlation Matrix': fa.corr_.tolist(),
+                'Structure Loading Matrix': fa.structure_.tolist(),
+                'Rotation Matrix': fa.rotation_matrix_.tolist(),
+               'Communalities': fa.get_communalities().tolist(),
+               'Original Eigenvalues': original_eigen_values.tolist(),
+               'Common Factor Eigenvalues': common_factor_eigen_values.tolist(),
+               'Factor variances': factor_variance.tolist(),
+               'Proportional Factor Variance': proportional_factor_variance.tolist(),
+               'Cumulative Factor Variance': cumulative_variance.tolist(),
+               'uniquenesses from the factor loading matrix': uniquenesses.tolist(),
+               'Factor scores for a new dataset': new_dataset.tolist()}
+    elif rotation == 'oblique':
+        return {'Factor Loadings matrix': fa.loadings_.tolist(),
+                'Original Correlation Matrix': fa.corr_.tolist(),
+                'Structure Loading Matrix': fa.structure_.tolist(),
+                'Factor Correlations Matrix': fa.phi_.tolist(),
+                'Rotation Matrix': fa.rotation_matrix_.tolist(),
+               'Communalities': fa.get_communalities().tolist(),
+               'Original Eigenvalues': original_eigen_values.tolist(),
+               'Common Factor Eigenvalues': common_factor_eigen_values.tolist(),
+               'Factor variances': factor_variance.tolist(),
+               'Proportional Factor Variance': proportional_factor_variance.tolist(),
+               'Cumulative Factor Variance': cumulative_variance.tolist(),
+               'uniquenesses from the factor loading matrix': uniquenesses.tolist(),
+               'Factor scores for a new dataset': new_dataset.tolist()}
+    else:
+        return {'Factor Loadings matrix': fa.loadings_.tolist(),
+                'Original Correlation Matrix': fa.corr_.tolist(),
+                'Rotation Matrix': fa.rotation_matrix_.tolist(),
+               'Communalities': fa.get_communalities().tolist(),
+               'Original Eigenvalues': original_eigen_values.tolist(),
+               'Common Factor Eigenvalues': common_factor_eigen_values.tolist(),
+               'Factor variances': factor_variance.tolist(),
+               'Proportional Factor Variance': proportional_factor_variance.tolist(),
+               'Cumulative Factor Variance': cumulative_variance.tolist(),
+               'uniquenesses from the factor loading matrix': uniquenesses.tolist(),
+               'Factor scores for a new dataset': new_dataset.tolist()}
+
+
+@router.get("/adequacy_test_factor_analysis_bartlett")
+async def compute_adequacy_test_bartlett(workflow_id: str,
+                                         step_id: str,
+                                         run_id: str,
+                                         independent_variables: list[str] | None = Query(default=None)):
+
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+
+    for columns in dataset.columns:
+        if columns not in independent_variables:
+            dataset = dataset.drop(str(columns), axis=1)
+
+    chi_square_value, p_value = calculate_bartlett_sphericity(dataset)
+
+    if p_value < 0.05:
+        return {'p-value': p_value, "Interpretation": "Bartlett’s test of sphericity checks whether or not the observed variables intercorrelate at all using the observed correlation matrix against the identity matrix. If the test found statistically insignificant, you should not employ a factor analysis.",
+                'Interpretation of this result': "The test was statistically significant, indicating that the observed correlation matrix is not an identity matrix.",
+                'chi_square_value': chi_square_value}
+    else:
+        return {'p-value': p_value,
+                "Interpretation": "Bartlett’s test of sphericity checks whether or not the observed variables intercorrelate at all using the observed correlation matrix against the identity matrix. If the test found statistically insignificant, you should not employ a factor analysis.",
+                'Interpretation of this result': "The test was statistically insignificant, indicating that the observed correlation matrix is an identity matrix.",
+                'chi_square_value': chi_square_value}
+
+@router.get("/adequacy_test_factor_analysis_kmo")
+async def compute_adequacy_test_kmo(workflow_id: str,
+                                    step_id: str,
+                                    run_id: str,
+                                    independent_variables: list[str] | None = Query(default=None)):
+
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+
+    for columns in dataset.columns:
+        if columns not in independent_variables:
+            dataset = dataset.drop(str(columns), axis=1)
+
+    kmo_all,kmo_model = calculate_kmo(dataset)
+
+    if kmo_model < 0.6:
+        return {'KMO score per item': kmo_all.tolist(),
+                'Interpretation': 'This statistic represents the degree to which each observed variable is predicted, without error, by the other variables in the dataset. In general, a KMO < 0.6 is considered inadequate.',
+                'Overall KMO score': kmo_model,
+                'Interpretation here': 'Inadequate'}
+    else:
+        return {'KMO score per item': kmo_all.tolist(),
+                'Interpretation': 'This statistic represents the degree to which each observed variable is predicted, without error, by the other variables in the dataset. In general, a KMO < 0.6 is considered inadequate.',
+                'Overall KMO score': kmo_model,
+                'Interpretation here': 'The overall KMO for our data is greater than 0.6, which is excellent. This value indicates that you can proceed with your planned factor analysis.'}
+
+
+
+
 
 
 
