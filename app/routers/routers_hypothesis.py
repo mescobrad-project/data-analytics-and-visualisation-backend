@@ -4,12 +4,14 @@ import json
 from factor_analyzer.factor_analyzer import calculate_bartlett_sphericity
 from factor_analyzer.factor_analyzer import calculate_kmo
 from factor_analyzer.utils import corr, cov
+from factor_analyzer.confirmatory_factor_analyzer import ModelSpecification, ConfirmatoryFactorAnalyzer
 from factor_analyzer import FactorAnalyzer
 from scipy.stats import jarque_bera, fisher_exact, ranksums, chisquare, kruskal, alexandergovern, kendalltau, f_oneway, shapiro, \
     kstest, anderson, normaltest, boxcox, yeojohnson, bartlett, levene, fligner, obrientransform, pearsonr, spearmanr, \
     pointbiserialr, ttest_ind, mannwhitneyu, wilcoxon, ttest_rel, skew, kurtosis, probplot, zscore
 from typing import Optional, Union, List
 from statsmodels.stats.multitest import multipletests
+from statsmodels.stats.mediation import Mediation
 import statsmodels.api as sm
 import matplotlib.pyplot as plt
 import mpld3
@@ -2452,6 +2454,80 @@ async def compute_adequacy_test_kmo(workflow_id: str,
                 'Interpretation here': 'The overall KMO for our data is greater than 0.6, which is excellent. This value indicates that you can proceed with your planned factor analysis.'}
 
 
+
+@router.get("/calculate_confirmatory_factor_analysis")
+async def compute_confirmatory_factor_analysis(workflow_id: str,
+                                               step_id: str,
+                                               run_id: str,
+                                               use_smc : bool | None = Query(default=True),
+                                               n_factors: int | None = Query(default=3),
+                                               rotation : str | None = Query("None",
+                                                                             regex="^(None)$|^(varimax)$|^(promax)$|^(oblimin)$|^(oblimax)$|^(quartimin)$|^(quartimax)$|^(equamax)$|^(geomin_obl)$|^(geomin_ort)$"),
+                                               method: str | None = Query("minres",
+                                                                          regex="^(minres)$|^(ml)$|^(principal)$"),
+                                               impute: str | None = Query("drop",
+                                                                          regex="^(drop)$|^(mean)$|^(median)$"),
+                                               independent_variables: list[str] | None = Query(default=None)):
+
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+
+    for columns in dataset.columns:
+        if columns not in independent_variables:
+            dataset = dataset.drop(str(columns), axis=1)
+
+
+    if rotation == str(None):
+        fa = FactorAnalyzer(n_factors=n_factors, rotation=None, method=method, use_smc=use_smc, impute=impute)
+    else:
+        fa = FactorAnalyzer(n_factors=n_factors, rotation=rotation, method=method, use_smc=use_smc, impute=impute)
+
+
+    fa.fit(dataset)
+
+    loadings = fa.loadings_
+    specification = ModelSpecification(loadings=loadings, n_factors=n_factors, n_variables=len(dataset.columns))
+
+    cfa = ConfirmatoryFactorAnalyzer(specification, disp=False)
+    cfa.fit(dataset)
+
+    print(cfa.get_standard_errors())
+
+
+@router.get("/mediation_analysis")
+async def analysis_mediation(workflow_id: str,
+                             step_id: str,
+                             run_id: str,
+                             dependent_1: str,
+                             exposure: str,
+                             mediator: str,
+                             independent_1: list[str] | None = Query(default=None),
+                             independent_2: list[str] | None = Query(default=None)):
+
+    # data = pd.read_csv('example_data/mescobrad_dataset.csv')
+    data = load_file_csv_direct(workflow_id, run_id, step_id)
+    z = dependent_1 + "~"
+    for i in range(len(independent_1)):
+        z = z + "+" + independent_1[i]
+
+
+    if mediator not in z:
+        z = z + "+" + mediator
+
+    if exposure not in z:
+        z = z + "+" + exposure
+    outcome_model = sm.GLM.from_formula(z, data)
+
+    z = mediator + "~"
+    for i in range(len(independent_2)):
+        z = z + "+" + independent_2[i]
+
+    if exposure not in z:
+        z = z + "+" + exposure
+
+    mediator_model = sm.OLS.from_formula(z, data)
+    med = Mediation(outcome_model, mediator_model, exposure, mediator).fit()
+
+    print(med.summary())
 
 
 
