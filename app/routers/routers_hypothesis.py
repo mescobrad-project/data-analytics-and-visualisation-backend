@@ -46,7 +46,7 @@ import scipy.stats as st
 import statistics
 from tabulate import tabulate
 
-from app.utils.utils_hypothesis import create_plots, compute_skewness, outliers_removal
+from app.utils.utils_hypothesis import create_plots, compute_skewness, outliers_removal, compute_kurtosis
 
 router = APIRouter()
 data = pd.read_csv('example_data/mescobrad_dataset.csv')
@@ -56,17 +56,15 @@ data = data.drop(["Unnamed: 0"], axis=1)
 def normality_test_content_results(column: str, selected_dataframe):
     if (column):
         # Creating Box-plot
-        html_str_B = create_plots('BoxPlot', column, selected_dataframe)
+        html_str_B = create_plots(plot_type='BoxPlot', column=column,second_column='', selected_dataframe=selected_dataframe)
         # Creating QQ-plot
-        html_str = create_plots('QQPlot', column, selected_dataframe)
+        html_str = create_plots(plot_type='QQPlot', column=column, second_column='', selected_dataframe=selected_dataframe)
         # Creating Probability-plot
-        html_str_P = create_plots('PPlot', column, selected_dataframe)
+        html_str_P = create_plots(plot_type='PPlot', column=column, second_column='', selected_dataframe=selected_dataframe)
         #Creating histogram
-        html_str_H = create_plots('HistogramPlot', column, selected_dataframe)
-        #region Calculate skew, kurtosis, median, std, etc.
-        skewtosend = compute_skewness(column, selected_dataframe, '[axis=0, bias=True]')
-            # skew(selected_dataframe[str(column)], axis=0, bias=True)
-        kurtosistosend = kurtosis(selected_dataframe[str(column)], axis=0, bias=True)
+        html_str_H = create_plots(plot_type='HistogramPlot', column=column, second_column='', selected_dataframe=selected_dataframe)
+        skewtosend = compute_skewness(column, selected_dataframe)
+        kurtosistosend = compute_kurtosis(column, selected_dataframe)
         st_dev = np.std(selected_dataframe[str(column)])
         # Used Statistics lib for cross-checking
         # standard_deviation = statistics.stdev(data[str(column)])
@@ -78,7 +76,6 @@ def normality_test_content_results(column: str, selected_dataframe):
         num_rows = selected_dataframe[str(column)].shape
         top5 = sorted(selected_dataframe[str(column)].tolist(), reverse=True)[:5]
         last5 = sorted(selected_dataframe[str(column)].tolist(), reverse=True)[-5:]
-        #endregion
         return {'plot_column': column, 'qqplot': html_str, 'histogramplot': html_str_H, 'boxplot': html_str_B, 'probplot': html_str_P, 'skew': skewtosend, 'kurtosis': kurtosistosend, 'standard_deviation': st_dev, "median": median_value, "mean": mean_value, "sample_N": num_rows, "top_5": top5, "last_5": last5}
     else:
         return {'plot_column': "", 'qqplot': "", 'histogramplot': "", 'boxplot': "", 'probplot': "",
@@ -357,42 +354,48 @@ async def transform_data(workflow_id: str,
 
 @router.get("/compute_point_biserial_correlation", tags=['hypothesis_testing'])
 async def point_biserial_correlation(workflow_id: str, step_id: str, run_id: str,
-                                     column_1: str, column_2: str):
+                                     column_1: str, column_2: str,
+                                     # remove_outliers: bool | None = Query(default=True)
+                                     ):
     data = load_file_csv_direct(workflow_id, run_id, step_id)
+    print("data ", len(data))
     unique_values = np.unique(data[str(column_1)])
+    unique_values.sort()
     if len(unique_values) == 2:
         html_scr = create_plots(plot_type='Scatter_Two_Variables', column=column_1, second_column=column_2, selected_dataframe=data)
-        sub_set_a = data[data[str(column_1)] != unique_values[0]]
-        sub_set_a = outliers_removal(column_2, sub_set_a, [])
-        # print(sub_set_a)
-        sub_set_b = data[data[str(column_1)] != unique_values[1]]
-        sub_set_b = outliers_removal(column_2, sub_set_b, [])
-        # print(sub_set_b)
-        html_box_1 = create_plots(plot_type='BoxPlot', column=column_2, second_column=column_1, selected_dataframe=sub_set_a)
-        html_hist_1 = create_plots(plot_type='HistogramPlot', column=column_2, second_column='', selected_dataframe=sub_set_a)
-        html_box_2 = create_plots(plot_type='BoxPlot', column=column_2, second_column=column_1, selected_dataframe=sub_set_b)
-        html_hist_2 = create_plots(plot_type='HistogramPlot', column=column_2, second_column='', selected_dataframe=sub_set_b)
+        sub_set_a = data[data[str(column_1)] != unique_values[1]]
+        sub_set_b = data[data[str(column_1)] != unique_values[0]]
+        new_dataset_for_bp = [sub_set_a[str(column_2)], sub_set_b[str(column_2)]]
+        html_box_1 = create_plots(plot_type='BoxPlot', column=column_2, second_column=column_1, selected_dataframe=new_dataset_for_bp)
+        # if (remove_outliers):
+        sub_set_a_clean, outliers_a = outliers_removal(column_2, sub_set_a)
+        sub_set_b_clean, outliers_b = outliers_removal(column_2, sub_set_b)
+        html_hist_a = create_plots(plot_type='HistogramPlot', column=column_2, second_column='', selected_dataframe=sub_set_a)
+        html_hist_b = create_plots(plot_type='HistogramPlot', column=column_2, second_column='', selected_dataframe=sub_set_b)
 
-        pointbiserialr_test = pointbiserialr(data[str(column_1)], data[str(column_2)])
+        df = sub_set_a_clean.append(sub_set_b_clean)
+        print("xx ", len(df))
+        pointbiserialr_test = pointbiserialr(df[str(column_1)], df[str(column_2)])
+        return {'status': 'OK',
+                'error_descr': '',
+                'scatter_plot': html_scr,
+                'html_box_1': html_box_1,
+                'outliersA': outliers_a[column_2].to_json(orient='records'),
+                'html_hist_1': html_hist_a,
+                'html_hist_2': html_hist_b,
+                'correlation': pointbiserialr_test[0],
+                'p_value': pointbiserialr_test[1],
+                'new_dataset': df.to_json(orient='records')}
     else:
         return {'status': 'Error',
                 'error_descr': 'The selected variable is not dichotomous.',
                 'scatter_plot': '',
                 'html_box_1': '',
-                'html_box_2': '',
                 'html_hist_1': '',
                 'html_hist_2': '',
                 'correlation': '',
-                'p_value': ''}
-    return {'status': 'OK',
-            'error_descr': '',
-            'scatter_plot': html_scr,
-            'html_box_1': html_box_1,
-            'html_box_2': html_box_2,
-            'html_hist_1': html_hist_1,
-            'html_hist_2': html_hist_2,
-            'correlation': pointbiserialr_test[0],
-            'p_value': pointbiserialr_test[1]}
+                'p_value': '',
+                'new_dataset': []}
 
 #
 @router.get("/check_homoscedasticity", tags=['hypothesis_testing'])
@@ -418,7 +421,7 @@ async def check_homoskedasticity(workflow_id: str,
         }
         var.append(temp_to_append)
         i = i + 1
-
+    print(*args)
     if name_of_test == "Bartlett":
         statistic, p_value = bartlett(*args)
     elif name_of_test == "Fligner-Killeen":

@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import mpld3
+import pandas
 import pingouin
 from scipy.stats import probplot, skew, kurtosis
 import scipy.stats as st
@@ -9,16 +10,24 @@ import numpy as np
 def create_plots(plot_type: str, column: str, second_column: str, selected_dataframe):
     if plot_type == 'BoxPlot':
         try:
-            fig = plt.figure()
-            plt.boxplot(selected_dataframe[str(column)])
+            fig, ax1 = plt.subplots()
+            ax1.set_title('Box Plot')
+            if len(selected_dataframe) == 2:
+                # TODO: For Biserial, but in an other case if it finds 2 it will do the same
+                plt.boxplot(selected_dataframe, positions=[0, 1])
+            else:
+                plt.boxplot(selected_dataframe[str(column)])
+                # plt.boxplot(selected_dataframe[str(column)], showfliers=False)
             plt.ylabel("", fontsize=14)
+            plt.xticks(fontsize=12)
+            plt.yticks(fontsize=12)
             plt.show()
             html_str = mpld3.fig_to_html(fig)
             return html_str
         except Exception as e:
             print(e)
             print("Error : Creating BoxPlot")
-            return {}
+            return {"Error : Creating BoxPlot", e}
     if plot_type == "QQPlot":
         try:
             fig = plt.figure()
@@ -100,9 +109,9 @@ def create_plots(plot_type: str, column: str, second_column: str, selected_dataf
         return -1
 
 
-def compute_skewness(column: str, selected_dataframe, args):
+def compute_skewness(column: str, selected_dataframe):
     try:
-        result = skew(selected_dataframe[str(column)], *args)
+        result = skew(selected_dataframe[str(column)], axis=0, bias=True)
         return result
     except Exception as e:
         print(e)
@@ -110,9 +119,9 @@ def compute_skewness(column: str, selected_dataframe, args):
         return {}
 
 
-def compute_kurtosis(column: str, selected_dataframe, args):
+def compute_kurtosis(column: str, selected_dataframe):
     try:
-        result = kurtosis(selected_dataframe[str(column)], *args)
+        result = kurtosis(selected_dataframe[str(column)], axis=0, bias=True)
         return result
     except Exception as e:
         print(e)
@@ -120,19 +129,21 @@ def compute_kurtosis(column: str, selected_dataframe, args):
         return {}
 
 
-def outliers_removal(column: str, selected_dataframe, args):
+def outliers_removal(column: str, selected_dataframe):
     try:
         for x in [column]:
             q75, q25 = np.percentile(selected_dataframe.loc[:, x], [75, 25])
             intr_qr = q75 - q25
-            print(x)
             max = q75 + (1.5 * intr_qr)
             min = q25 - (1.5 * intr_qr)
-            print(selected_dataframe.loc[selected_dataframe[x] < min, x])
-            selected_dataframe.loc[selected_dataframe[x] < min, x] = np.nan
-            selected_dataframe.loc[selected_dataframe[x] > max, x] = np.nan
-            selected_dataframe = selected_dataframe.dropna(axis=0)
-            return selected_dataframe
+            outliers = selected_dataframe[(selected_dataframe[x] < min) | (selected_dataframe[x] > max)]
+            selected_dataframe = selected_dataframe[(selected_dataframe[x] >= min) & (selected_dataframe[x] <= max)]
+            # selected_dataframe.loc[selected_dataframe[x] < min, x] = np.nan
+            # selected_dataframe.loc[selected_dataframe[x] > max, x] = np.nan
+            # selected_dataframe = selected_dataframe.dropna(axis=0)
+            print("Inside Selected", len(selected_dataframe))
+            print("Inside outliers", len(outliers))
+            return selected_dataframe, outliers
     except Exception as e:
         print(e)
         print("Error : Failed to remove outliers")
