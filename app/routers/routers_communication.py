@@ -46,6 +46,7 @@ ExistingFunctions = [
     "eeg_viewer",
     "eeg_viewer_old",
     "envelop_trend_analysis",
+    "slowwave_spindle",
     #  Actigraphy
     "actigraphy_viewer",
     "actigraphy_viewer_general",
@@ -60,6 +61,10 @@ ExistingFunctions = [
     "normality_anderson",
     "data_transform",
     "pearson_correlation",
+    "biweight_midcorrelation",
+    "percentage_bend_correlation",
+    "shepherd_pi_correlation",
+    "skipped_spearman_correlation",
     "point_biserial_correlation",
     "data_transform_anova",
     "homoscedasticity",
@@ -86,6 +91,17 @@ ExistingFunctions = [
     "RidgeRegression",
     "SGDRegression",
     "HuberRegression",
+    "survivalanalysisriskratiosimple",
+    "survivalanalysisriskdifferencesimple",
+    "survivalanalysisNNTsimple",
+    "survivalanalysisoddsratiosimple",
+    "survivalanalysisincidencerateratiosimple",
+    "survivalanalysisincidenceratedifferencesimple",
+    "ancova",
+    "linearmixedeffectsmodel",
+    "survivalanalysiscoxregression",
+    "survivalanalysistimevaryingcovariates",
+    "principalcomponentanalysis",
     "LinearSVR",
     "LinearSVC",
     "LogisticRegressionPinguin",
@@ -173,6 +189,8 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/slowwaves"
             case "spindles":
                 url_to_redirect += "/spindles"
+            case "slowwave_spindle":
+                url_to_redirect += "/slowwave_spindle"
             case "eeg_viewer":
                 url_to_redirect += "/eeg"
             case "eeg_viewer_old":
@@ -214,6 +232,14 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/Spearman_correlation"
             case "kendalltau_correlation":
                 url_to_redirect += "/Kendalltau_correlation"
+            case "biweight_midcorrelation":
+                url_to_redirect += "/Biweight_midcorrelation"
+            case "percentage_bend_correlation":
+                url_to_redirect += "/Percentage_bend_correlation"
+            case "shepherd_pi_correlation":
+                url_to_redirect += "/Shepherd_pi_correlation"
+            case "skipped_spearman_correlation":
+                url_to_redirect += "/Skipped_spearman_correlation"
             case "welch_t_test":
                 url_to_redirect += "/Welch_t_test"
             case "independent_t_test":
@@ -266,6 +292,28 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/LogisticRegressionStatsmodels"
             case "LogisticRegressionSklearn":
                 url_to_redirect += "/LogisticRegressionSklearn"
+            case "survivalanalysisriskratiosimple":
+                url_to_redirect += "/SurvivalAnalysisRiskRatioSimple"
+            case "survivalanalysisriskdifferencesimple":
+                url_to_redirect += "/SurvivalAnalysisRiskDifferenceSimple"
+            case "survivalanalysisNNTsimple":
+                url_to_redirect += "/SurvivalAnalysisNNTSimple"
+            case "survivalanalysisoddsratiosimple":
+                url_to_redirect += "/SurvivalAnalysisOddsRatioSimple"
+            case "survivalanalysisincidencerateratiosimple":
+                url_to_redirect += "/SurvivalAnalysisIncidenceRateRatioSimple"
+            case "survivalanalysisincidenceratedifferencesimple":
+                url_to_redirect += "/SurvivalAnalysisIncidenceRateDifferenceSimple"
+            case "ancova":
+                url_to_redirect += "/Ancova"
+            case "linearmixedeffectsmodel":
+                url_to_redirect += "/LinearMixedEffectsModel"
+            case "survivalanalysiscoxregression":
+                url_to_redirect += "/SurvivalAnalysisCoxRegression"
+            case "survivalanalysistimevaryingcovariates":
+                url_to_redirect += "/SurvivalAnalysisTimeVaryingCovariates"
+            case "principalcomponentanalysis":
+                url_to_redirect += "/PrincipalComponentAnalysis"
             # Dashboard
             case "dashboard":
                 url_to_redirect += "/dashboard"

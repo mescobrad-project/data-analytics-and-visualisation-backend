@@ -1,14 +1,15 @@
 edflib-python==1.0.6
+factor-analyzer==0.4.1
 fastapi==0.74.0
 freesurfer-stats==1.2.1
 httptools==0.3.0
 jupyter==1.0.0
 lifelines==0.27.3
-lxml==4.9.1
 minio==7.1.12
 mne-qt-browser==0.4.0
 mpld3==0.5.7
 paramiko==2.11.0
+pingouin==0.5.2
 pip-chill==1.0.1
 pmdarima==1.8.5
 pyactigraphy==1.0
@@ -17,7 +18,6 @@ pyqt5==5.15.7
 pyreadstat==1.1.9
 python-dotenv==0.19.2
 pywavelets==1.4.1
-pyyaml==6.0
 uvicorn==0.17.5
 watchdog==2.1.9
 watchgod==0.7

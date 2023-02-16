@@ -1,11 +1,19 @@
 import numpy as np
 import pandas as pd
 import json
+from sklearn.cross_decomposition import CCA
+from statsmodels.tsa.stattools import grangercausalitytests
+from factor_analyzer.factor_analyzer import calculate_bartlett_sphericity
+from factor_analyzer.factor_analyzer import calculate_kmo
+from factor_analyzer.utils import corr, cov
+from factor_analyzer.confirmatory_factor_analyzer import ModelSpecification, ConfirmatoryFactorAnalyzer
+from factor_analyzer import FactorAnalyzer
 from scipy.stats import jarque_bera, fisher_exact, ranksums, chisquare, kruskal, alexandergovern, kendalltau, f_oneway, shapiro, \
     kstest, anderson, normaltest, boxcox, yeojohnson, bartlett, levene, fligner, obrientransform, pearsonr, spearmanr, \
     pointbiserialr, ttest_ind, mannwhitneyu, wilcoxon, ttest_rel, skew, kurtosis, probplot, zscore
 from typing import Optional, Union, List
 from statsmodels.stats.multitest import multipletests
+from statsmodels.stats.mediation import Mediation
 import statsmodels.api as sm
 import matplotlib.pyplot as plt
 import mpld3
@@ -200,7 +208,24 @@ async def name_columns(workflow_id: str, step_id: str, run_id: str):
         data = data.drop(['Unnamed: 0'], axis=1)
 
     columns = data.columns
+    return{'columns': list(columns), 'dataFrame': data.to_json(orient='records')}
+
+@router.get("/return_binary_columns")
+async def name_columns(workflow_id: str, step_id: str, run_id: str):
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    name_of_file = get_single_file_from_local_temp_storage(workflow_id, run_id, step_id)
+    data = load_data_from_csv(path_to_storage + "/" + name_of_file)
+
+    # For the testing dataset
+    if 'Unnamed: 0' in data.columns:
+        data = data.drop(['Unnamed: 0'], axis=1)
+    for b_column in data.columns:
+        if data[b_column].unique().shape[0] > 2:
+            data = data.drop([b_column], axis=1)
+
+    columns = data.columns
     return{'columns': list(columns)}
+
 
 @router.get("/return_binary_columns")
 async def name_columns(workflow_id: str, step_id: str, run_id: str):
@@ -572,10 +597,10 @@ async def LDA(workflow_id: str,
     df_coefs = pd.DataFrame(clf.coef_, columns=features_columns)
     df_intercept = pd.DataFrame(clf.intercept_, columns=['intercept'])
     df_coefs['intercept'] = df_intercept['intercept']
-    return {'coefficients': df_coefs.to_html(), 'intercept': df_intercept.to_html()}
+    return {'coefficients': df_coefs.to_json(orient='records'), 'intercept': df_coefs.to_json(orient='records')}
 
 
-    return {'coefficients': df_coefs.to_json(orient='split'), 'intercept': df_intercept.to_json(orient='split')}
+    # return {'coefficients': df_coefs.to_json(orient='split'), 'intercept': df_intercept.to_json(orient='split')}
 
 
 @router.get("/principal_component_analysis")
@@ -600,14 +625,35 @@ async def principal_component_analysis(workflow_id: str,
         if n_components_1 > dim:
             return {'Error: n_components must be between 0 and min(n_samples, n_features)=': dim}
         pca = PCA(n_components=n_components_1)
+        pca_t = pca.fit_transform(X)
+        principal_Df = pd.DataFrame(data=pca_t, columns=["principalcomponent1", "principalcomponent2"])
+        # principal_Df = pd.DataFrame(data=pca_t,
+        #                             columns=['principal component 1', 'principal component 2'])
+        print(principal_Df)
+        print(dataset)
         pca.fit(X)
     else:
         pca = PCA(n_components=n_components_2)
         pca.fit(X)
 
-    return {'Percentage of variance explained by each of the selected components': pca.explained_variance_ratio_.tolist(),
-            'The singular values corresponding to each of the selected components. ': pca.singular_values_.tolist(),
-            'Principal axes in feature space, representing the directions of maximum variance in the data.' : pca.components_.tolist()}
+    # principal_Df = pd.DataFrame(data=pca, columns=['principal component 1', 'principal component 2'])
+
+    return {
+        'columns': dataset.columns.tolist(),
+        'n_features_': pca.n_features_,
+            'n_features_in_': pca.n_features_in_,
+            'n_samples_': pca.n_samples_,
+            'random_state': pca.random_state,
+            'iterated_power': pca.iterated_power,
+            'mean_': pca.mean_.tolist(),
+            'explained_variance_': pca.explained_variance_.tolist(),
+            'noise_variance_': pca.noise_variance_,
+            'pve': pca.explained_variance_ratio_.tolist(),
+            'singular_values': pca.singular_values_.tolist(),
+            'principal_axes': pca.components_[0].tolist()}
+    # return {'Percentage of variance explained by each of the selected components': pca.explained_variance_ratio_.tolist(),
+    #             'The singular values corresponding to each of the selected components. ': pca.singular_values_.tolist(),
+    #             'Principal axes in feature space, representing the directions of maximum variance in the data.' : pca.components_.tolist()}
 
 @router.get("/kmeans_clustering")
 async def kmeans_clustering(workflow_id: str,
@@ -985,6 +1031,89 @@ async def sklearn_logistic_regression(workflow_id: str,
             'Log-Likelihood (Null - model with only intercept)': null_log_likelihood(w, X, Y),
             'Pseudo R-squar. (McFadden’s R^2)': mcfadden_rsquare(w, X, Y),
             'intercept': inter.tolist(), 'dataframe': df_coeffs.to_html()}
+
+
+
+def full_log_likelihood(w, X, y):
+    score = np.dot(X, w).reshape(1, X.shape[0])
+    return np.sum(-np.log(1 + np.exp(score))) + np.sum(y * score)
+
+def null_log_likelihood(w, X, y):
+    z = np.array([w if i == 0 else 0.0 for i, w in enumerate(w.reshape(1, X.shape[1])[0])]).reshape(X.shape[1], 1)
+    score = np.dot(X, z).reshape(1, X.shape[0])
+    return np.sum(-np.log(1 + np.exp(score))) + np.sum(y * score)
+
+def mcfadden_rsquare(w, X, y):
+    return 1.0 - (full_log_likelihood(w, X, y) / null_log_likelihood(w, X, y))
+
+
+@router.get("/logistic_regression_sklearn")
+async def sklearn_logistic_regression(workflow_id: str,
+                                      step_id: str,
+                                      run_id: str,
+                                      dependent_variable: str,
+                                      C: float | None = Query(default=1.0),
+                                      l1_ratio: float | None = Query(default=None, gt=0, le=1),
+                                      max_iter: int | None = Query(default=100),
+                                      penalty: str | None = Query("l2",
+                                                                 regex="^(l2)$|^(l1)$|^(elasticnet)$|^(None)$"),
+                                      solver: str | None = Query("lbfgs",
+                                                                 regex="^(lbfgs)$|^(liblinear)$|^(newton-cg)$|^(newton-cholesky)$|^(sag)$|^(saga)$"),
+                                      independent_variables: list[str] | None = Query(default=None)):
+
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+    df_label = dataset[dependent_variable]
+    for columns in dataset.columns:
+        if columns not in independent_variables:
+            dataset = dataset.drop(str(columns), axis=1)
+
+    dataset_names = dataset.columns
+    X = np.array(dataset)
+    Y = np.array(df_label.astype('float64'))
+
+    if solver == 'lbfgs':
+        if penalty == 'l2' or penalty == 'None':
+            clf = LogisticRegression(penalty=penalty, max_iter=max_iter, solver=solver, C=C)
+        else:
+            return {'This combination is not supported'}
+    elif solver == 'liblinear':
+        if penalty == 'l1' or penalty == 'l2':
+            clf = LogisticRegression(penalty=penalty, max_iter=max_iter, solver=solver, C=C)
+        else:
+            return {'This combination is not supported'}
+    elif solver == 'newton-cg':
+        if penalty == 'l2' or penalty == 'None':
+            clf = LogisticRegression(penalty=penalty, max_iter=max_iter, solver=solver, C=C)
+        else:
+            return {'This combination is not supported'}
+    elif solver == 'newton-cholesky':
+        if penalty == 'l2' or penalty == 'None':
+            clf = LogisticRegression(penalty=penalty, max_iter=max_iter, solver=solver, C=C)
+        else:
+            return {'This combination is not supported'}
+    elif solver == 'sag':
+        if penalty == 'l2' or penalty == 'None':
+            clf = LogisticRegression(penalty=penalty, max_iter=max_iter, solver=solver, C=C)
+        else:
+            return {'This combination is not supported'}
+    else:
+        if penalty == 'elasticnet':
+            clf = LogisticRegression(penalty=penalty, max_iter=max_iter, solver=solver, C=C, l1_ratio=l1_ratio)
+        else:
+            clf = LogisticRegression(penalty=penalty, max_iter=max_iter, solver=solver, C=C)
+
+    clf.fit(X, Y)
+
+    coeffs = clf.coef_
+    inter = clf.intercept_
+    df_coeffs = pd.DataFrame(coeffs, columns=dataset_names)
+
+    w = np.array(coeffs).transpose()
+
+    return {'Log-Likelihood (full)':full_log_likelihood(w, X, Y),
+            'Log-Likelihood (Null - model with only intercept)': null_log_likelihood(w, X, Y),
+            'Pseudo R-squar. (McFadden’s R^2)': mcfadden_rsquare(w, X, Y),
+            'intercept': inter.tolist(), 'dataframe': df_coeffs.to_json(orient='split')}
 
 
 
@@ -2304,3 +2433,354 @@ async def jarqueberatest(dependent_variable: str):
         return {'statistic': statistic, 'pvalue': pvalue, 'Since this p-value is not less than .05, we fail to reject the null hypothesis. We don’t have sufficient evidence to say that this data has skewness and kurtosis that is significantly different from a normal distribution.':''}
     else:
         return {'statistic': statistic, 'pvalue': pvalue,'Since this p-value is less than .05, we reject the null hypothesis. Thus, we have sufficient evidence to say that this data has skewness and kurtosis that is significantly different from a normal distribution.':''}
+
+
+@router.get("/correlation_matrix")
+async def correlation(workflow_id: str,
+                      step_id: str,
+                      run_id: str,
+                      independent_variables: list[str] | None = Query(default=None)):
+
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+
+    for columns in dataset.columns:
+        if columns not in independent_variables:
+            dataset = dataset.drop(str(columns), axis=1)
+
+    r = corr(dataset)
+
+    return {'Correlation Matrix': r.tolist()}
+
+
+@router.get("/covariance_matrix")
+async def covariance(workflow_id: str,
+                     step_id: str,
+                     run_id: str,
+                     ddof : int | None = Query(default=0),
+                     independent_variables: list[str] | None = Query(default=None)):
+
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+
+    for columns in dataset.columns:
+        if columns not in independent_variables:
+            dataset = dataset.drop(str(columns), axis=1)
+
+    r = cov(dataset, ddof=ddof)
+
+    return {'Covariance Matrix': r.tolist()}
+
+@router.get("/choose_number_of_factors")
+async def choose_number_of_factors(workflow_id: str,
+                                   step_id: str,
+                                   run_id: str,
+                                   use_smc : bool | None = Query(default=True),
+                                   n_factors: int | None = Query(default=3),
+                                   rotation : str | None = Query("None",
+                                                                 regex="^(None)$|^(varimax)$|^(promax)$|^(oblimin)$|^(oblimax)$|^(quartimin)$|^(quartimax)$|^(equamax)$|^(geomin_obl)$|^(geomin_ort)$"),
+                                   method: str | None = Query("minres",
+                                                              regex="^(minres)$|^(ml)$|^(principal)$"),
+                                   impute: str | None = Query("drop",
+                                                              regex="^(drop)$|^(mean)$|^(median)$"),
+                                   independent_variables: list[str] | None = Query(default=None)):
+
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+
+    for columns in dataset.columns:
+        if columns not in independent_variables:
+            dataset = dataset.drop(str(columns), axis=1)
+
+
+    if rotation == str(None):
+        fa = FactorAnalyzer(n_factors=n_factors, rotation=None, method=method, use_smc=use_smc, impute=impute)
+    else:
+        fa = FactorAnalyzer(n_factors=n_factors, rotation=rotation, method=method, use_smc=use_smc, impute=impute)
+
+
+    fa.fit(dataset)
+
+    original_eigen_values, common_factor_eigen_values = fa.get_eigenvalues()
+
+    to_return = {}
+
+    fig = plt.figure(1)
+
+    plt.scatter(range(1, dataset.shape[1] + 1), original_eigen_values)
+    plt.plot(range(1, dataset.shape[1] + 1), original_eigen_values)
+    plt.title('Scree Plot')
+    plt.xlabel('Factors')
+    plt.ylabel('Eigenvalue')
+    plt.grid()
+    plt.show()
+
+    html_str = mpld3.fig_to_html(fig)
+    to_return["figure_1"] = html_str
+
+    return {'Original Eigenvalues': original_eigen_values.tolist(),
+            'Figure': to_return}
+
+
+@router.get("/calculate_factor_analysis")
+async def compute_factor_analysis(workflow_id: str,
+                                  step_id: str,
+                                  run_id: str,
+                                  use_smc : bool | None = Query(default=True),
+                                  n_factors: int | None = Query(default=3),
+                                  rotation : str | None = Query("None",
+                                                                regex="^(None)$|^(varimax)$|^(promax)$|^(oblimin)$|^(oblimax)$|^(quartimin)$|^(quartimax)$|^(equamax)$|^(geomin_obl)$|^(geomin_ort)$"),
+                                  method: str | None = Query("minres",
+                                                             regex="^(minres)$|^(ml)$|^(principal)$"),
+                                  impute: str | None = Query("drop",
+                                                             regex="^(drop)$|^(mean)$|^(median)$"),
+                                  independent_variables: list[str] | None = Query(default=None)):
+
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+
+    for columns in dataset.columns:
+        if columns not in independent_variables:
+            dataset = dataset.drop(str(columns), axis=1)
+
+
+    if rotation == str(None):
+        fa = FactorAnalyzer(n_factors=n_factors, rotation=None, method=method, use_smc=use_smc, impute=impute)
+    else:
+        fa = FactorAnalyzer(n_factors=n_factors, rotation=rotation, method=method, use_smc=use_smc, impute=impute)
+
+
+    fa.fit(dataset)
+
+    original_eigen_values, common_factor_eigen_values = fa.get_eigenvalues()
+    factor_variance, proportional_factor_variance, cumulative_variance = fa.get_factor_variance()
+    uniquenesses = fa.get_uniquenesses()
+
+    new_dataset = fa.transform(dataset)
+
+
+
+    if rotation == str(None):
+        return{'Factor Loadings matrix': fa.loadings_.tolist(),
+               'Original Correlation Matrix': fa.corr_.tolist(),
+               'Communalities': fa.get_communalities().tolist(),
+               'Original Eigenvalues': original_eigen_values.tolist(),
+               'Common Factor Eigenvalues': common_factor_eigen_values.tolist(),
+               'Factor variances': factor_variance.tolist(),
+               'Proportional Factor Variance': proportional_factor_variance.tolist(),
+               'Cumulative Factor Variance': cumulative_variance.tolist(),
+               'uniquenesses from the factor loading matrix': uniquenesses.tolist(),
+               'Factor scores for a new dataset': new_dataset.tolist()}
+    elif rotation == "promax":
+        return {'Factor Loadings matrix': fa.loadings_.tolist(),
+                'Original Correlation Matrix': fa.corr_.tolist(),
+                'Structure Loading Matrix': fa.structure_.tolist(),
+                'Rotation Matrix': fa.rotation_matrix_.tolist(),
+               'Communalities': fa.get_communalities().tolist(),
+               'Original Eigenvalues': original_eigen_values.tolist(),
+               'Common Factor Eigenvalues': common_factor_eigen_values.tolist(),
+               'Factor variances': factor_variance.tolist(),
+               'Proportional Factor Variance': proportional_factor_variance.tolist(),
+               'Cumulative Factor Variance': cumulative_variance.tolist(),
+               'uniquenesses from the factor loading matrix': uniquenesses.tolist(),
+               'Factor scores for a new dataset': new_dataset.tolist()}
+    elif rotation == 'oblique':
+        return {'Factor Loadings matrix': fa.loadings_.tolist(),
+                'Original Correlation Matrix': fa.corr_.tolist(),
+                'Structure Loading Matrix': fa.structure_.tolist(),
+                'Factor Correlations Matrix': fa.phi_.tolist(),
+                'Rotation Matrix': fa.rotation_matrix_.tolist(),
+               'Communalities': fa.get_communalities().tolist(),
+               'Original Eigenvalues': original_eigen_values.tolist(),
+               'Common Factor Eigenvalues': common_factor_eigen_values.tolist(),
+               'Factor variances': factor_variance.tolist(),
+               'Proportional Factor Variance': proportional_factor_variance.tolist(),
+               'Cumulative Factor Variance': cumulative_variance.tolist(),
+               'uniquenesses from the factor loading matrix': uniquenesses.tolist(),
+               'Factor scores for a new dataset': new_dataset.tolist()}
+    else:
+        return {'Factor Loadings matrix': fa.loadings_.tolist(),
+                'Original Correlation Matrix': fa.corr_.tolist(),
+                'Rotation Matrix': fa.rotation_matrix_.tolist(),
+               'Communalities': fa.get_communalities().tolist(),
+               'Original Eigenvalues': original_eigen_values.tolist(),
+               'Common Factor Eigenvalues': common_factor_eigen_values.tolist(),
+               'Factor variances': factor_variance.tolist(),
+               'Proportional Factor Variance': proportional_factor_variance.tolist(),
+               'Cumulative Factor Variance': cumulative_variance.tolist(),
+               'uniquenesses from the factor loading matrix': uniquenesses.tolist(),
+               'Factor scores for a new dataset': new_dataset.tolist()}
+
+
+@router.get("/adequacy_test_factor_analysis_bartlett")
+async def compute_adequacy_test_bartlett(workflow_id: str,
+                                         step_id: str,
+                                         run_id: str,
+                                         independent_variables: list[str] | None = Query(default=None)):
+
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+
+    for columns in dataset.columns:
+        if columns not in independent_variables:
+            dataset = dataset.drop(str(columns), axis=1)
+
+    chi_square_value, p_value = calculate_bartlett_sphericity(dataset)
+
+    if p_value < 0.05:
+        return {'p-value': p_value, "Interpretation": "Bartlett’s test of sphericity checks whether or not the observed variables intercorrelate at all using the observed correlation matrix against the identity matrix. If the test found statistically insignificant, you should not employ a factor analysis.",
+                'Interpretation of this result': "The test was statistically significant, indicating that the observed correlation matrix is not an identity matrix.",
+                'chi_square_value': chi_square_value}
+    else:
+        return {'p-value': p_value,
+                "Interpretation": "Bartlett’s test of sphericity checks whether or not the observed variables intercorrelate at all using the observed correlation matrix against the identity matrix. If the test found statistically insignificant, you should not employ a factor analysis.",
+                'Interpretation of this result': "The test was statistically insignificant, indicating that the observed correlation matrix is an identity matrix.",
+                'chi_square_value': chi_square_value}
+
+@router.get("/adequacy_test_factor_analysis_kmo")
+async def compute_adequacy_test_kmo(workflow_id: str,
+                                    step_id: str,
+                                    run_id: str,
+                                    independent_variables: list[str] | None = Query(default=None)):
+
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+
+    for columns in dataset.columns:
+        if columns not in independent_variables:
+            dataset = dataset.drop(str(columns), axis=1)
+
+    kmo_all,kmo_model = calculate_kmo(dataset)
+
+    if kmo_model < 0.6:
+        return {'KMO score per item': kmo_all.tolist(),
+                'Interpretation': 'This statistic represents the degree to which each observed variable is predicted, without error, by the other variables in the dataset. In general, a KMO < 0.6 is considered inadequate.',
+                'Overall KMO score': kmo_model,
+                'Interpretation here': 'Inadequate'}
+    else:
+        return {'KMO score per item': kmo_all.tolist(),
+                'Interpretation': 'This statistic represents the degree to which each observed variable is predicted, without error, by the other variables in the dataset. In general, a KMO < 0.6 is considered inadequate.',
+                'Overall KMO score': kmo_model,
+                'Interpretation here': 'The overall KMO for our data is greater than 0.6, which is excellent. This value indicates that you can proceed with your planned factor analysis.'}
+
+
+
+@router.get("/calculate_confirmatory_factor_analysis")
+async def compute_confirmatory_factor_analysis(workflow_id: str,
+                                               step_id: str,
+                                               run_id: str,
+                                               use_smc : bool | None = Query(default=True),
+                                               n_factors: int | None = Query(default=3),
+                                               rotation : str | None = Query("None",
+                                                                             regex="^(None)$|^(varimax)$|^(promax)$|^(oblimin)$|^(oblimax)$|^(quartimin)$|^(quartimax)$|^(equamax)$|^(geomin_obl)$|^(geomin_ort)$"),
+                                               method: str | None = Query("minres",
+                                                                          regex="^(minres)$|^(ml)$|^(principal)$"),
+                                               impute: str | None = Query("drop",
+                                                                          regex="^(drop)$|^(mean)$|^(median)$"),
+                                               independent_variables: list[str] | None = Query(default=None)):
+
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+
+    for columns in dataset.columns:
+        if columns not in independent_variables:
+            dataset = dataset.drop(str(columns), axis=1)
+
+
+    if rotation == str(None):
+        fa = FactorAnalyzer(n_factors=n_factors, rotation=None, method=method, use_smc=use_smc, impute=impute)
+    else:
+        fa = FactorAnalyzer(n_factors=n_factors, rotation=rotation, method=method, use_smc=use_smc, impute=impute)
+
+
+    fa.fit(dataset)
+
+    loadings = fa.loadings_
+    specification = ModelSpecification(loadings=loadings, n_factors=n_factors, n_variables=len(dataset.columns))
+
+    cfa = ConfirmatoryFactorAnalyzer(specification, disp=False)
+    cfa.fit(dataset)
+
+    print(cfa.get_standard_errors())
+
+
+@router.get("/mediation_analysis")
+async def analysis_mediation(workflow_id: str,
+                             step_id: str,
+                             run_id: str,
+                             dependent_1: str,
+                             exposure: str,
+                             mediator: str,
+                             independent_1: list[str] | None = Query(default=None),
+                             independent_2: list[str] | None = Query(default=None)):
+
+    # data = pd.read_csv('example_data/mescobrad_dataset.csv')
+    data = load_file_csv_direct(workflow_id, run_id, step_id)
+    z = dependent_1 + "~"
+    for i in range(len(independent_1)):
+        z = z + "+" + independent_1[i]
+
+
+    if mediator not in z:
+        z = z + "+" + mediator
+
+    if exposure not in z:
+        z = z + "+" + exposure
+    outcome_model = sm.GLM.from_formula(z, data)
+
+    z = mediator + "~"
+    for i in range(len(independent_2)):
+        z = z + "+" + independent_2[i]
+
+    if exposure not in z:
+        z = z + "+" + exposure
+
+    mediator_model = sm.OLS.from_formula(z, data)
+    med = Mediation(outcome_model, mediator_model, exposure, mediator).fit()
+
+    print(med.summary())
+
+
+@router.get("/canonical_correlation_analysis")
+async def canonical_correlation(workflow_id: str,
+                                step_id: str,
+                                run_id: str,
+                                n_components: int | None = Query(default=2),
+                                independent_variables_1: list[str] | None = Query(default=None),
+                                independent_variables_2: list[str] | None = Query(default=None)):
+
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+
+    for columns in dataset.columns:
+        if columns not in independent_variables_1:
+            X = dataset.drop(str(columns), axis=1)
+
+    for columns in dataset.columns:
+        if columns not in independent_variables_2:
+            Y = dataset.drop(str(columns), axis=1)
+
+    my_cca = CCA(n_components=n_components)
+
+    # Fit the model
+    my_cca.fit(X, Y)
+
+    X_c, Y_c = my_cca.transform(X, Y)
+
+    return {'The left singular vectors of the cross-covariance matrices of each iteration.': my_cca.x_weights_.tolist(),
+            'The right singular vectors of the cross-covariance matrices of each iteration.': my_cca.y_weights_.tolist(),
+            'The loadings of X.': my_cca.x_loadings_.tolist(),
+            'The loadings of Y.': my_cca.y_loadings_.tolist(),
+            'The projection matrix used to transform X.': my_cca.x_rotations_.tolist(),
+            'The projection matrix used to transform Y.': my_cca.y_rotations_.tolist(),
+            'The coefficients of the linear model.': my_cca.coef_.tolist(),
+            'Transformed X': X_c.tolist(),
+            'Transformed Y': Y_c.tolist()}
+
+@router.get("/granger_analysis")
+async def compute_granger_analysis(workflow_id: str,
+                                   step_id: str,
+                                   run_id: str,
+                                   num_lags: int,
+                                   predictor_variable: str,
+                                   response_variable: str,
+                                   all_lags_up_to : bool | None = Query(default=False)):
+
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+
+    if all_lags_up_to==False:
+        print(grangercausalitytests(dataset[[response_variable, predictor_variable]], maxlag=[num_lags]))
+    else:
+        print(grangercausalitytests(dataset[[response_variable, predictor_variable]], maxlag=num_lags))
