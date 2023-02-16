@@ -1,4 +1,3 @@
-import colorama
 import numpy as np
 import pandas as pd
 import json
@@ -26,7 +25,7 @@ from sklearn.svm import SVC
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
-from sklearn.linear_model import LinearRegression, Ridge, Lasso, ElasticNet, SGDRegressor, SGDClassifier, HuberRegressor,Lars, PoissonRegressor
+from sklearn.linear_model import LinearRegression, Ridge, Lasso, ElasticNet, SGDRegressor, SGDClassifier, HuberRegressor,Lars, PoissonRegressor, LogisticRegression
 from sklearn.svm import SVR, LinearSVR, LinearSVC
 from pingouin import ancova
 import statsmodels.api as sm
@@ -203,6 +202,23 @@ async def name_columns(workflow_id: str, step_id: str, run_id: str):
     columns = data.columns
     return{'columns': list(columns)}
 
+@router.get("/return_binary_columns")
+async def name_columns(workflow_id: str, step_id: str, run_id: str):
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    name_of_file = get_single_file_from_local_temp_storage(workflow_id, run_id, step_id)
+    data = load_data_from_csv(path_to_storage + "/" + name_of_file)
+
+    # For the testing dataset
+    if 'Unnamed: 0' in data.columns:
+        data = data.drop(['Unnamed: 0'], axis=1)
+    for b_column in data.columns:
+        if data[b_column].unique().shape[0] > 2:
+            data = data.drop([b_column], axis=1)
+
+    columns = data.columns
+    return{'columns': list(columns)}
+
+
 @router.get("/return_saved_object_columns")
 async def name_saved_object_columns(file_name:str):
     print('saved', file_name, 'runtime_config/' + file_name)
@@ -361,30 +377,30 @@ async def transform_data(workflow_id: str,
         return {'Cube-root transformed array': list(cbrt_array), 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
 
 
-@router.get("/compute_pearson_correlation", tags=['hypothesis_testing'])
-async def pearson_correlation(workflow_id: str, step_id: str, run_id: str, column_1: str, column_2: str):
-    data = load_file_csv_direct(workflow_id, run_id, step_id)
-    pearsonr_test = pearsonr(data[str(column_1)], data[str(column_2)])
-    return {'Pearson’s correlation coefficient':pearsonr_test[0], 'p-value': pearsonr_test[1]}
-
-@router.get("/compute_spearman_correlation", tags=['hypothesis_testing'])
-async def spearman_correlation(column_1: str, column_2: str):
-    spearman_test = spearmanr(data[str(column_1)], data[str(column_2)])
-    return {'Spearman correlation coefficient': spearman_test[0], 'p-value': spearman_test[1]}
-
-@router.get("/compute_kendalltau_correlation", tags=['hypothesis_testing'])
-async def kendalltau_correlation(column_1: str,
-                                 column_2: str,
-                                 nan_policy: Optional[str] | None = Query("propagate",
-                                                                           regex="^(propagate)$|^(raise)$|^(omit)$"),
-                                 alternative: Optional[str] | None = Query("two-sided",
-                                                                           regex="^(two-sided)$|^(less)$|^(greater)$"),
-                                 variant: Optional[str] | None = Query("b",
-                                                                       regex="^(b)$|^(c)$"),
-                                 method: Optional[str] | None = Query("auto",
-                                                                      regex="^(auto)$|^(asymptotic)$|^(exact)$")):
-    kendalltau_test = kendalltau(data[str(column_1)], data[str(column_2)], nan_policy=nan_policy, alternative=alternative, variant=variant, method=method)
-    return {'kendalltau correlation coefficient': kendalltau_test[0], 'p-value': kendalltau_test[1]}
+# @router.get("/compute_pearson_correlation", tags=['hypothesis_testing'])
+# async def pearson_correlation(workflow_id: str, step_id: str, run_id: str, column_1: str, column_2: str):
+#     data = load_file_csv_direct(workflow_id, run_id, step_id)
+#     pearsonr_test = pearsonr(data[str(column_1)], data[str(column_2)])
+#     return {'Pearson’s correlation coefficient':pearsonr_test[0], 'p-value': pearsonr_test[1]}
+#
+# @router.get("/compute_spearman_correlation", tags=['hypothesis_testing'])
+# async def spearman_correlation(column_1: str, column_2: str):
+#     spearman_test = spearmanr(data[str(column_1)], data[str(column_2)])
+#     return {'Spearman correlation coefficient': spearman_test[0], 'p-value': spearman_test[1]}
+#
+# @router.get("/compute_kendalltau_correlation", tags=['hypothesis_testing'])
+# async def kendalltau_correlation(column_1: str,
+#                                  column_2: str,
+#                                  nan_policy: Optional[str] | None = Query("propagate",
+#                                                                            regex="^(propagate)$|^(raise)$|^(omit)$"),
+#                                  alternative: Optional[str] | None = Query("two-sided",
+#                                                                            regex="^(two-sided)$|^(less)$|^(greater)$"),
+#                                  variant: Optional[str] | None = Query("b",
+#                                                                        regex="^(b)$|^(c)$"),
+#                                  method: Optional[str] | None = Query("auto",
+#                                                                       regex="^(auto)$|^(asymptotic)$|^(exact)$")):
+#     kendalltau_test = kendalltau(data[str(column_1)], data[str(column_2)], nan_policy=nan_policy, alternative=alternative, variant=variant, method=method)
+#     return {'kendalltau correlation coefficient': kendalltau_test[0], 'p-value': kendalltau_test[1]}
 
 @router.get("/compute_point_biserial_correlation", tags=['hypothesis_testing'])
 async def point_biserial_correlation(workflow_id: str, step_id: str, run_id: str, column_1: str, column_2: str):
@@ -437,7 +453,10 @@ async def transform_data_anova(column_1: str, column_2: str):
 
 
 @router.get("/statistical_tests", tags=['hypothesis_testing'])
-async def statistical_tests(column_1: str,
+async def statistical_tests(workflow_id: str,
+                            step_id: str,
+                            run_id: str,
+                            column_1: str,
                             column_2: str,
                             correction: bool = True,
                             nan_policy: Optional[str] | None = Query("propagate",
@@ -452,6 +471,7 @@ async def statistical_tests(column_1: str,
                                                                  regex="^(auto)$|^(approx)$|^(exact)$"),
                             zero_method: Optional[str] | None = Query("pratt",
                                                                  regex="^(pratt)$|^(wilcox)$|^(zsplit)$")):
+    data = load_file_csv_direct(workflow_id, run_id, step_id)
 
     if statistical_test == "Welch t-test":
         statistic, p_value = ttest_ind(data[str(column_1)], data[str(column_2)], nan_policy=nan_policy, equal_var=False, alternative=alternative)
@@ -514,116 +534,58 @@ async def p_value_correction(input_config: ModelMultipleComparisons):
 
 
 @router.get("/return_LDA", tags=["return_LDA"])
-async def LDA(dependent_variable: str,
+async def LDA(workflow_id: str,
+                step_id: str,
+                run_id: str,
+              dependent_variable: str,
               solver: str | None = Query("svd",
                                          regex="^(svd)$|^(lsqr)$|^(eigen)$"),
               shrinkage_1: str | None = Query("none",
-                                              regex="^(none)$|^(auto)$"),
-              shrinkage_2: float | None = Query(default=None, gt=0, lt=0),
-              shrinkage_3: float | None = Query(default=None),
+                                              regex="^(none)$|^(auto)$|^(float)$"),
+              shrinkage_2: float | None = Query(default=None, gt=-1, lt=1),
+              # shrinkage_3: float | None = Query(default=None),
               independent_variables: list[str] | None = Query(default=None)):
 
-    dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+    # dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
     df_label = dataset[dependent_variable]
     for columns in dataset.columns:
         if columns not in independent_variables:
             dataset = dataset.drop(str(columns), axis=1)
 
-    X = np.array(dataset)
-    Y = np.array(df_label)
 
+    features_columns = dataset.columns
+    X = np.array(dataset)
+    Y = np.array(df_label.astype('float64'))
     if solver == 'lsqr' or solver == 'eigen':
-        if shrinkage_3==None:
-            clf = LinearDiscriminantAnalysis(solver=solver, shrinkage=shrinkage_3)
-        elif shrinkage_1!=None:
+        if shrinkage_1 == 'float':
+            clf = LinearDiscriminantAnalysis(solver=solver, shrinkage=shrinkage_2)
+        elif shrinkage_1 == 'auto':
             clf = LinearDiscriminantAnalysis(solver=solver, shrinkage=shrinkage_1)
         else:
-            clf = LinearDiscriminantAnalysis(solver=solver, shrinkage=shrinkage_2)
+            clf = LinearDiscriminantAnalysis(solver=solver)
     else:
         clf = LinearDiscriminantAnalysis(solver=solver)
 
     clf.fit(X, Y)
 
-    if np.shape(X)[1] == 1:
-        coeffs = clf.coef_
-        inter = clf.intercept_
-        df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
-        df_names = pd.DataFrame(dataset.columns, columns=['variables'])
-        df = pd.concat([df_names, df_coeffs], axis=1)
-        return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(), 'dataframe': df.to_json(orient='split')}
-    else:
-        coeffs = np.squeeze(clf.coef_)
-        inter = clf.intercept_
-        df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
-        df_names = pd.DataFrame(dataset.columns, columns=['variables'])
-        df = pd.concat([df_names, df_coeffs], axis=1)
-        return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(),
-                'dataframe': df.to_json(orient='split')}
-
-@router.get("/SVC_function")
-async def SVC_function(workflow_id: str, step_id: str, run_id: str,
-                       dependent_variable: str,
-                       degree: int | None = Query(default=3),
-                       max_iter: int | None = Query(default=-1),
-                       C: float | None = Query(default=1,gt=0),
-                       coef0: float | None = Query(default=0),
-                       gamma: str | None = Query("scale",
-                                                 regex="^(scale)$|^(auto)$"),
-                       kernel: str | None = Query("rbf",
-                                                  regex="^(rbf)$|^(linear)$|^(poly)$|^(sigmoid)$"),
-                       independent_variables: list[str] | None = Query(default=None)):
-
-    # dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
-    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
-
-    df_label = dataset[dependent_variable]
-    for columns in dataset.columns:
-        if columns not in independent_variables:
-            dataset = dataset.drop(str(columns), axis=1)
-
-    X = np.array(dataset)
-    Y = np.array(df_label)
-
-    if kernel == 'poly':
-        clf = SVC(degree=degree, kernel=kernel, gamma=gamma, coef0=coef0, C=C, max_iter=max_iter)
-    elif kernel == 'rbf' or kernel == 'sigmoid':
-        if kernel == 'sigmoid':
-            clf = SVC(gamma=gamma, kernel=kernel, coef0=coef0, C=C, max_iter=max_iter)
-        else:
-            clf = SVC(gamma=gamma, C=C, kernel=kernel, max_iter=max_iter)
-    else:
-        clf = SVC(kernel=kernel, C=C, max_iter=max_iter)
+    df_coefs = pd.DataFrame(clf.coef_, columns=features_columns)
+    df_intercept = pd.DataFrame(clf.intercept_, columns=['intercept'])
+    df_coefs['intercept'] = df_intercept['intercept']
+    return {'coefficients': df_coefs.to_html(), 'intercept': df_intercept.to_html()}
 
 
-    clf.fit(X, Y)
-
-    if kernel == 'linear':
-        if np.shape(X)[1] == 1:
-            coeffs = clf.coef_
-            inter = clf.intercept_
-            df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
-            df_names = pd.DataFrame(dataset.columns, columns=['variables'])
-            df = pd.concat([df_names, df_coeffs], axis=1)
-            return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(), 'dataframe': df.to_json(orient='split')}
-        else:
-            coeffs = np.squeeze(clf.coef_)
-            inter = clf.intercept_
-            df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
-            df_names = pd.DataFrame(dataset.columns, columns=['variables'])
-            df = pd.concat([df_names, df_coeffs], axis=1)
-            return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(),
-                    'dataframe': df.to_json(orient='split')}
-    else:
-        coeffs = np.squeeze(clf.dual_coef_)
-        inter = clf.intercept_
-        return {'Dual coefficients': coeffs.tolist(), 'intercept': inter.tolist()}
+    return {'coefficients': df_coefs.to_json(orient='split'), 'intercept': df_intercept.to_json(orient='split')}
 
 
 @router.get("/principal_component_analysis")
-async def principal_component_analysis(n_components_1: int | None = Query(default=None),
+async def principal_component_analysis(workflow_id: str,
+                                       step_id: str,
+                                       run_id: str,
+                                       n_components_1: int | None = Query(default=None),
                                        n_components_2: float | None = Query(default=None, gt=0, lt=1),
                                        independent_variables: list[str] | None = Query(default=None)):
-    dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
     for columns in dataset.columns:
         if columns not in independent_variables:
             dataset = dataset.drop(str(columns), axis=1)
@@ -648,9 +610,12 @@ async def principal_component_analysis(n_components_1: int | None = Query(defaul
             'Principal axes in feature space, representing the directions of maximum variance in the data.' : pca.components_.tolist()}
 
 @router.get("/kmeans_clustering")
-async def kmeans_clustering(n_clusters: int,
+async def kmeans_clustering(workflow_id: str,
+                            step_id: str,
+                            run_id: str,
+                            n_clusters: int,
                             independent_variables: list[str] | None = Query(default=None)):
-    dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
     for columns in dataset.columns:
         if columns not in independent_variables:
             dataset = dataset.drop(str(columns), axis=1)
@@ -697,92 +662,186 @@ async def kmeans_clustering(n_clusters: int,
 
 # TODO Create frontend
 @router.get("/elastic_net")
-async def elastic_net(dependent_variable: str,
+async def elastic_net(workflow_id: str,
+                      step_id: str,
+                      run_id: str,
+                      dependent_variable: str,
                       alpha: float | None = Query(default=1.0),
                       l1_ratio: float | None = Query(default=0.5, ge=0, le=1),
                       max_iter: int | None = Query(default=1000),
                       independent_variables: list[str] | None = Query(default=None)):
 
-    dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
     df_label = dataset[dependent_variable]
     for columns in dataset.columns:
         if columns not in independent_variables:
             dataset = dataset.drop(str(columns), axis=1)
 
+
     X = np.array(dataset)
-    Y = np.array(df_label)
+    Y = np.array(df_label.astype('float64'))
+
 
     clf = ElasticNet(alpha=alpha, l1_ratio=l1_ratio, max_iter=max_iter)
 
     clf.fit(X, Y)
+
+    residuals = Y - clf.predict(X)
+    skew_res = skew(residuals)
+    kurt_res = kurtosis(residuals)
+    jarq_res = jarque_bera(residuals)
+    stat_jarq = jarq_res.statistic
+    p_jarq = jarq_res.pvalue
+    omn_res_stat, omn_res_p = normaltest(residuals)
+    durb_res = durbin_watson(residuals)
+
+    df_for_scatter = pd.DataFrame(data={'Actual Values': list(Y), 'Predicted Values': list(clf.predict(X)),
+                                        'Residuals': list(Y - clf.predict(X))})
+    values_dict = {}
+    for column in df_for_scatter.columns:
+        values_dict[column] = list(df_for_scatter[column])
+
+
     if np.shape(X)[1] == 1:
         coeffs = clf.coef_
         inter = clf.intercept_
         df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
         df_names = pd.DataFrame(dataset.columns, columns=['variables'])
         df = pd.concat([df_names, df_coeffs], axis=1)
-        return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(), 'dataframe': df.to_json(orient='split')}
+        return {'skew': skew_res,
+                'kurtosis': kurt_res,
+                'Jarque Bera statistic':stat_jarq,
+                'Jarque-Bera p-value': p_jarq,
+                'Omnibus test statistic': omn_res_stat,
+                'Omnibus test p-value': omn_res_p,
+                'Durbin Watson': durb_res,
+                'actual_values': list(Y),
+                'predicted values': list(clf.predict(X)),
+                'residuals': list(Y-clf.predict(X)),
+                'coefficient of determination (R^2)':clf.score(X,Y),
+                'coefficients': coeffs.tolist(),
+                'intercept': inter.tolist(), 'dataframe': df.to_html(), 'values_dict': values_dict,
+                'values_columns': list(df_for_scatter.columns),
+                'values_df': df_for_scatter.to_html()}
     else:
         coeffs = np.squeeze(clf.coef_)
         inter = clf.intercept_
         df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
         df_names = pd.DataFrame(dataset.columns, columns=['variables'])
         df = pd.concat([df_names, df_coeffs], axis=1)
-        return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(),
-                'dataframe': df.to_json(orient='split')}
+        return {'skew': skew_res,
+                'kurtosis': kurt_res,
+                'Jarque Bera statistic':stat_jarq,
+                'Jarque-Bera p-value': p_jarq,
+                'Omnibus test statistic': omn_res_stat,
+                'Omnibus test p-value': omn_res_p,
+                'Durbin Watson': durb_res,
+                'actual_values': list(Y),
+                'predicted values': list(clf.predict(X)),
+                'residuals': list(Y-clf.predict(X)),
+                'coefficient of determination (R^2)':clf.score(X,Y),
+                'coefficients': coeffs.tolist(), 'intercept': inter.tolist(),
+                'dataframe': df.to_html(), 'values_dict': values_dict, 'values_columns': list(df_for_scatter.columns),
+                'values_df': df_for_scatter.to_html()}
 
 # TODO Create frontend
 @router.get("/lasso_regression")
-async def lasso(dependent_variable: str,
+async def lasso(workflow_id: str,
+                step_id: str,
+                run_id: str,
+                dependent_variable: str,
                 alpha: float | None = Query(default=1.0, gt=0),
                 max_iter: int | None = Query(default=1000),
                 independent_variables: list[str] | None = Query(default=None)):
 
-    dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
     df_label = dataset[dependent_variable]
     for columns in dataset.columns:
         if columns not in independent_variables:
             dataset = dataset.drop(str(columns), axis=1)
 
     X = np.array(dataset)
-    Y = np.array(df_label)
+    Y = np.array(df_label.astype('float64'))
 
     clf = Lasso(alpha=alpha, max_iter=max_iter)
 
     clf.fit(X, Y)
+    residuals = Y - clf.predict(X)
+    skew_res = skew(residuals)
+    kurt_res = kurtosis(residuals)
+    jarq_res = jarque_bera(residuals)
+    stat_jarq = jarq_res.statistic
+    p_jarq = jarq_res.pvalue
+    omn_res_stat, omn_res_p = normaltest(residuals)
+    durb_res = durbin_watson(residuals)
+
+    df_for_scatter = pd.DataFrame(data={'Actual Values': list(Y), 'Predicted Values': list(clf.predict(X)),
+                                        'Residuals': list(Y - clf.predict(X))})
+    values_dict = {}
+    for column in df_for_scatter.columns:
+        values_dict[column] = list(df_for_scatter[column])
+
     if np.shape(X)[1] == 1:
         coeffs = clf.coef_
         inter = clf.intercept_
         df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
         df_names = pd.DataFrame(dataset.columns, columns=['variables'])
         df = pd.concat([df_names, df_coeffs], axis=1)
-        return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(), 'dataframe': df.to_json(orient='split')}
+        return {'skew': skew_res,
+                'kurtosis': kurt_res,
+                'Jarque Bera statistic':stat_jarq,
+                'Jarque-Bera p-value': p_jarq,
+                'Omnibus test statistic': omn_res_stat,
+                'Omnibus test p-value': omn_res_p,
+                'Durbin Watson': durb_res,
+                'actual_values': list(Y),
+                'predicted values': list(clf.predict(X)),
+                'residuals': list(Y-clf.predict(X)),
+                'coefficient of determination (R^2)':clf.score(X,Y),
+                'coefficients': coeffs.tolist(), 'intercept': inter.tolist(), 'dataframe': df.to_html(),
+                'values_dict': values_dict, 'values_columns': list(df_for_scatter.columns),
+                'values_df': df_for_scatter.to_html()}
     else:
         coeffs = np.squeeze(clf.coef_)
         inter = clf.intercept_
         df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
         df_names = pd.DataFrame(dataset.columns, columns=['variables'])
         df = pd.concat([df_names, df_coeffs], axis=1)
-        return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(),
-                'dataframe': df.to_json(orient='split')}
+        return {'skew': skew_res,
+                'kurtosis': kurt_res,
+                'Jarque Bera statistic':stat_jarq,
+                'Jarque-Bera p-value': p_jarq,
+                'Omnibus test statistic': omn_res_stat,
+                'Omnibus test p-value': omn_res_p,
+                'Durbin Watson': durb_res,
+                'actual_values': list(Y),
+                'predicted values': list(clf.predict(X)),
+                'residuals': list(Y-clf.predict(X)),
+                'coefficient of determination (R^2)':clf.score(X,Y),
+                'coefficients': coeffs.tolist(), 'intercept': inter.tolist(),
+                'dataframe': df.to_html(), 'values_dict': values_dict, 'values_columns': list(df_for_scatter.columns),
+                'values_df': df_for_scatter.to_html()}
 
 # TODO Create frontend
 @router.get("/ridge_regression")
-async def ridge(dependent_variable: str,
+async def ridge(workflow_id: str,
+                step_id: str,
+                run_id: str,
+                dependent_variable: str,
                 alpha: float | None = Query(default=1.0, gt=0),
                 max_iter: int | None = Query(default=None),
                 solver: str | None = Query("auto",
                                            regex="^(auto)$|^(svd)$|^(cholesky)$|^(sparse_cg)$|^(lsqr)$|^(sag)$|^(lbfgs)$"),
                 independent_variables: list[str] | None = Query(default=None)):
 
-    dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
     df_label = dataset[dependent_variable]
     for columns in dataset.columns:
         if columns not in independent_variables:
             dataset = dataset.drop(str(columns), axis=1)
 
     X = np.array(dataset)
-    Y = np.array(df_label)
+    Y = np.array(df_label.astype('float64'))
 
     if solver!='lbfgs':
         clf = Ridge(alpha=alpha, max_iter=max_iter, solver=solver)
@@ -790,24 +849,150 @@ async def ridge(dependent_variable: str,
         clf = Ridge(alpha=alpha, max_iter=max_iter, solver=solver, positive=True)
 
     clf.fit(X, Y)
+    residuals = Y - clf.predict(X)
+    skew_res = skew(residuals)
+    kurt_res = kurtosis(residuals)
+    jarq_res = jarque_bera(residuals)
+    stat_jarq = jarq_res.statistic
+    p_jarq = jarq_res.pvalue
+    omn_res_stat, omn_res_p = normaltest(residuals)
+    durb_res = durbin_watson(residuals)
+
+    df_for_scatter = pd.DataFrame(data={'Actual Values': list(Y), 'Predicted Values': list(clf.predict(X)),
+                                        'Residuals': list(Y - clf.predict(X))})
+    values_dict = {}
+    for column in df_for_scatter.columns:
+        values_dict[column] = list(df_for_scatter[column])
+
     if np.shape(X)[1] == 1:
         coeffs = clf.coef_
         inter = clf.intercept_
         df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
         df_names = pd.DataFrame(dataset.columns, columns=['variables'])
         df = pd.concat([df_names, df_coeffs], axis=1)
-        return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(), 'dataframe': df.to_json(orient='split')}
+        return {'skew': skew_res,
+                'kurtosis': kurt_res,
+                'Jarque Bera statistic':stat_jarq,
+                'Jarque-Bera p-value': p_jarq,
+                'Omnibus test statistic': omn_res_stat,
+                'Omnibus test p-value': omn_res_p,
+                'Durbin Watson': durb_res,
+                'actual_values': list(Y),
+                'predicted values': list(clf.predict(X)),
+                'residuals': list(Y-clf.predict(X)),
+                'coefficient of determination (R^2)':clf.score(X,Y),
+                'coefficients': coeffs.tolist(), 'intercept': inter.tolist(), 'dataframe': df.to_html(),
+                'values_dict': values_dict, 'values_columns': list(df_for_scatter.columns),
+                'values_df': df_for_scatter.to_html()}
     else:
         coeffs = np.squeeze(clf.coef_)
         inter = clf.intercept_
         df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
         df_names = pd.DataFrame(dataset.columns, columns=['variables'])
         df = pd.concat([df_names, df_coeffs], axis=1)
-        return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(),
-                'dataframe': df.to_json(orient='split')}
+        return {'skew': skew_res,
+                'kurtosis': kurt_res,
+                'Jarque Bera statistic':stat_jarq,
+                'Jarque-Bera p-value': p_jarq,
+                'Omnibus test statistic': omn_res_stat,
+                'Omnibus test p-value': omn_res_p,
+                'Durbin Watson': durb_res,
+                'actual_values': list(Y),
+                'predicted values': list(clf.predict(X)),
+                'residuals': list(Y-clf.predict(X)),
+                'coefficient of determination (R^2)':clf.score(X,Y),
+                'coefficients': coeffs.tolist(), 'intercept': inter.tolist(),
+                'dataframe': df.to_html(), 'values_dict': values_dict, 'values_columns': list(df_for_scatter.columns),
+                'values_df': df_for_scatter.to_html()}
+
+def full_log_likelihood(w, X, y):
+    score = np.dot(X, w).reshape(1, X.shape[0])
+    return np.sum(-np.log(1 + np.exp(score))) + np.sum(y * score)
+
+def null_log_likelihood(w, X, y):
+    z = np.array([w if i == 0 else 0.0 for i, w in enumerate(w.reshape(1, X.shape[1])[0])]).reshape(X.shape[1], 1)
+    score = np.dot(X, z).reshape(1, X.shape[0])
+    return np.sum(-np.log(1 + np.exp(score))) + np.sum(y * score)
+
+def mcfadden_rsquare(w, X, y):
+    return 1.0 - (full_log_likelihood(w, X, y) / null_log_likelihood(w, X, y))
+
+
+@router.get("/logistic_regression_sklearn")
+async def sklearn_logistic_regression(workflow_id: str,
+                                      step_id: str,
+                                      run_id: str,
+                                      dependent_variable: str,
+                                      C: float | None = Query(default=1.0),
+                                      l1_ratio: float | None = Query(default=None, gt=0, le=1),
+                                      max_iter: int | None = Query(default=100),
+                                      penalty: str | None = Query("l2",
+                                                                 regex="^(l2)$|^(l1)$|^(elasticnet)$|^(None)$"),
+                                      solver: str | None = Query("lbfgs",
+                                                                 regex="^(lbfgs)$|^(liblinear)$|^(newton-cg)$|^(newton-cholesky)$|^(sag)$|^(saga)$"),
+                                      independent_variables: list[str] | None = Query(default=None)):
+
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+    df_label = dataset[dependent_variable]
+    for columns in dataset.columns:
+        if columns not in independent_variables:
+            dataset = dataset.drop(str(columns), axis=1)
+
+    dataset_names = dataset.columns
+    X = np.array(dataset)
+    Y = np.array(df_label.astype('float64'))
+
+    if solver == 'lbfgs':
+        if penalty == 'l2' or penalty == 'None':
+            clf = LogisticRegression(penalty=penalty, max_iter=max_iter, solver=solver, C=C)
+        else:
+            return {'This combination is not supported'}
+    elif solver == 'liblinear':
+        if penalty == 'l1' or penalty == 'l2':
+            clf = LogisticRegression(penalty=penalty, max_iter=max_iter, solver=solver, C=C)
+        else:
+            return {'This combination is not supported'}
+    elif solver == 'newton-cg':
+        if penalty == 'l2' or penalty == 'None':
+            clf = LogisticRegression(penalty=penalty, max_iter=max_iter, solver=solver, C=C)
+        else:
+            return {'This combination is not supported'}
+    elif solver == 'newton-cholesky':
+        if penalty == 'l2' or penalty == 'None':
+            clf = LogisticRegression(penalty=penalty, max_iter=max_iter, solver=solver, C=C)
+        else:
+            return {'This combination is not supported'}
+    elif solver == 'sag':
+        if penalty == 'l2' or penalty == 'None':
+            clf = LogisticRegression(penalty=penalty, max_iter=max_iter, solver=solver, C=C)
+        else:
+            return {'This combination is not supported'}
+    else:
+        if penalty == 'elasticnet':
+            clf = LogisticRegression(penalty=penalty, max_iter=max_iter, solver=solver, C=C, l1_ratio=l1_ratio)
+        else:
+            clf = LogisticRegression(penalty=penalty, max_iter=max_iter, solver=solver, C=C)
+
+    clf.fit(X, Y)
+
+    coeffs = clf.coef_
+    inter = clf.intercept_
+    df_coeffs = pd.DataFrame(coeffs, columns=dataset_names)
+
+    w = np.array(coeffs).transpose()
+
+    return {'Log-Likelihood (full)':full_log_likelihood(w, X, Y),
+            'Log-Likelihood (Null - model with only intercept)': null_log_likelihood(w, X, Y),
+            'Pseudo R-squar. (McFadden’s R^2)': mcfadden_rsquare(w, X, Y),
+            'intercept': inter.tolist(), 'dataframe': df_coeffs.to_html()}
+
+
 
 @router.get("/sgd_regression")
-async def sgd_regressor(dependent_variable: str,
+async def sgd_regressor(workflow_id: str,
+                        step_id: str,
+                        run_id: str,
+                        dependent_variable: str,
                         alpha: float | None = Query(default=0.0001),
                         max_iter: int | None = Query(default=1000),
                         epsilon: float | None = Query(default=0.1),
@@ -821,14 +1006,14 @@ async def sgd_regressor(dependent_variable: str,
                                                  regex="^(l2)$|^(l1)$|^(elasticnet)$"),
                         independent_variables: list[str] | None = Query(default=None)):
 
-    dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
     df_label = dataset[dependent_variable]
     for columns in dataset.columns:
         if columns not in independent_variables:
             dataset = dataset.drop(str(columns), axis=1)
 
     X = np.array(dataset)
-    Y = np.array(df_label)
+    Y = np.array(df_label.astype('float64'))
 
     if loss == 'huber' or loss == 'epsilon_insensitive' or loss == 'squared_epsilon_insensitive':
         if learning_rate == 'constant' or learning_rate == 'invscaling' or learning_rate == 'adaptive':
@@ -839,21 +1024,62 @@ async def sgd_regressor(dependent_variable: str,
         clf = SGDRegressor(alpha=alpha, max_iter=max_iter, eta0=eta0, penalty=penalty, l1_ratio=l1_ratio, learning_rate=learning_rate)
 
     clf.fit(X, Y)
+
+    residuals = Y - clf.predict(X)
+    skew_res = skew(residuals)
+    kurt_res = kurtosis(residuals)
+    jarq_res = jarque_bera(residuals)
+    stat_jarq = jarq_res.statistic
+    p_jarq = jarq_res.pvalue
+    omn_res_stat, omn_res_p = normaltest(residuals)
+    durb_res = durbin_watson(residuals)
+
+    df_for_scatter = pd.DataFrame(data={'Actual Values': list(Y), 'Predicted Values': list(clf.predict(X)),
+                                        'Residuals': list(Y - clf.predict(X))})
+    values_dict = {}
+    for column in df_for_scatter.columns:
+        values_dict[column] = list(df_for_scatter[column])
+
     if np.shape(X)[1] == 1:
         coeffs = clf.coef_
         inter = clf.intercept_
         df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
         df_names = pd.DataFrame(dataset.columns, columns=['variables'])
         df = pd.concat([df_names, df_coeffs], axis=1)
-        return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(), 'dataframe': df.to_json(orient='split')}
+        return {'skew': skew_res,
+                'kurtosis': kurt_res,
+                'Jarque Bera statistic':stat_jarq,
+                'Jarque-Bera p-value': p_jarq,
+                'Omnibus test statistic': omn_res_stat,
+                'Omnibus test p-value': omn_res_p,
+                'Durbin Watson': durb_res,
+                'actual_values': list(Y),
+                'predicted values': list(clf.predict(X)),
+                'residuals': list(Y-clf.predict(X)),
+                'coefficient of determination (R^2)':clf.score(X,Y),
+                'coefficients': coeffs.tolist(), 'intercept': inter.tolist(), 'dataframe': df.to_html(),
+                'values_dict': values_dict, 'values_columns': list(df_for_scatter.columns),
+                'values_df': df_for_scatter.to_html()}
     else:
         coeffs = np.squeeze(clf.coef_)
         inter = clf.intercept_
         df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
         df_names = pd.DataFrame(dataset.columns, columns=['variables'])
         df = pd.concat([df_names, df_coeffs], axis=1)
-        return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(),
-                'dataframe': df.to_json(orient='split')}
+        return {'skew': skew_res,
+                'kurtosis': kurt_res,
+                'Jarque Bera statistic':stat_jarq,
+                'Jarque-Bera p-value': p_jarq,
+                'Omnibus test statistic': omn_res_stat,
+                'Omnibus test p-value': omn_res_p,
+                'Durbin Watson': durb_res,
+                'actual_values': list(Y),
+                'predicted values': list(clf.predict(X)),
+                'residuals': list(Y-clf.predict(X)),
+                'coefficient of determination (R^2)':clf.score(X,Y),
+                'coefficients': coeffs.tolist(), 'intercept': inter.tolist(),
+                'dataframe': df.to_html(), 'values_dict': values_dict, 'values_columns': list(df_for_scatter.columns),
+                'values_df': df_for_scatter.to_html()}
 
 @router.get("/huber_regression")
 async def huber_regressor(workflow_id: str, step_id: str, run_id: str,
@@ -871,11 +1097,27 @@ async def huber_regressor(workflow_id: str, step_id: str, run_id: str,
             dataset = dataset.drop(str(columns), axis=1)
 
     X = np.array(dataset)
-    Y = np.array(df_label)
+    Y = np.array(df_label.astype('float64'))
 
     clf = HuberRegressor(alpha=alpha, epsilon=epsilon, max_iter=max_iter)
 
     clf.fit(X, Y)
+
+    residuals = Y - clf.predict(X)
+    skew_res = skew(residuals)
+    kurt_res = kurtosis(residuals)
+    jarq_res = jarque_bera(residuals)
+    stat_jarq = jarq_res.statistic
+    p_jarq = jarq_res.pvalue
+    omn_res_stat, omn_res_p = normaltest(residuals)
+    durb_res = durbin_watson(residuals)
+
+    df_for_scatter = pd.DataFrame(data={'Actual Values': list(Y), 'Predicted Values': list(clf.predict(X)),
+                                        'Residuals': list(Y - clf.predict(X))})
+    values_dict = {}
+    for column in df_for_scatter.columns:
+        values_dict[column] = list(df_for_scatter[column])
+
     if np.shape(X)[1] == 1:
         coeffs = clf.coef_
         inter = clf.intercept_
@@ -883,7 +1125,20 @@ async def huber_regressor(workflow_id: str, step_id: str, run_id: str,
         df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
         df_names = pd.DataFrame(dataset.columns, columns=['variables'])
         df = pd.concat([df_names, df_coeffs], axis=1)
-        return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(), 'outliers':outliers.tolist(), 'dataframe': df.to_json(orient='split')}
+        return {'skew': skew_res,
+                'kurtosis': kurt_res,
+                'Jarque Bera statistic':stat_jarq,
+                'Jarque-Bera p-value': p_jarq,
+                'Omnibus test statistic': omn_res_stat,
+                'Omnibus test p-value': omn_res_p,
+                'Durbin Watson': durb_res,
+                'actual_values': list(Y),
+                'predicted values': list(clf.predict(X)),
+                'residuals': list(Y-clf.predict(X)),
+                'coefficient of determination (R^2)':clf.score(X,Y),
+                'coefficients': coeffs.tolist(), 'intercept': inter.tolist(), 'outliers':outliers.tolist(), 'dataframe': df.to_html(),
+                'values_dict': values_dict, 'values_columns': list(df_for_scatter.columns),
+                'values_df': df_for_scatter.to_html()}
     else:
         coeffs = np.squeeze(clf.coef_)
         inter = clf.intercept_
@@ -891,68 +1146,26 @@ async def huber_regressor(workflow_id: str, step_id: str, run_id: str,
         df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
         df_names = pd.DataFrame(dataset.columns, columns=['variables'])
         df = pd.concat([df_names, df_coeffs], axis=1)
-        return {'coefficients': coeffs.tolist(), 'outliers':outliers.tolist(), 'intercept': inter.tolist(),
-                'dataframe': df.to_json(orient='split')}
-
-
-@router.get("/svr_regression")
-async def svr_regressor(dependent_variable: str,
-                        degree: int | None = Query(default=3),
-                        max_iter: int | None = Query(default=-1),
-                        epsilon: float | None = Query(default=0.1),
-                        C: float | None = Query(default=1,gt=0),
-                        coef0: float | None = Query(default=0),
-                        gamma: str | None = Query("scale",
-                                                   regex="^(scale)$|^(auto)$"),
-                        kernel: str | None = Query("rbf",
-                                                 regex="^(rbf)$|^(linear)$|^(poly)$|^(sigmoid)$"),
-
-                        independent_variables: list[str] | None = Query(default=None)):
-
-    dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
-    df_label = dataset[dependent_variable]
-    for columns in dataset.columns:
-        if columns not in independent_variables:
-            dataset = dataset.drop(str(columns), axis=1)
-
-    X = np.array(dataset)
-    Y = np.array(df_label)
-
-    if kernel == 'poly':
-        clf = SVR(degree=degree, kernel=kernel, gamma=gamma, coef0=coef0, C=C, epsilon=epsilon, max_iter=max_iter)
-    elif kernel == 'rbf' or kernel == 'sigmoid':
-        if kernel == 'sigmoid':
-            clf = SVR(gamma=gamma, kernel=kernel, coef0=coef0, C=C, epsilon=epsilon, max_iter=max_iter)
-        else:
-            clf = SVR(gamma=gamma, kernel=kernel, C=C, epsilon=epsilon, max_iter=max_iter)
-    else:
-        clf = SVR(C=C, kernel=kernel, epsilon=epsilon, max_iter=max_iter)
-
-    clf.fit(X, Y)
-    if kernel == 'linear':
-        if np.shape(X)[1] == 1:
-            coeffs = clf.coef_
-            inter = clf.intercept_
-            df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
-            df_names = pd.DataFrame(dataset.columns, columns=['variables'])
-            df = pd.concat([df_names, df_coeffs], axis=1)
-            return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(),
-                    'dataframe': df.to_json(orient='split')}
-        else:
-            coeffs = np.squeeze(clf.coef_)
-            inter = clf.intercept_
-            df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
-            df_names = pd.DataFrame(dataset.columns, columns=['variables'])
-            df = pd.concat([df_names, df_coeffs], axis=1)
-            return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(),
-                    'dataframe': df.to_json(orient='split')}
-    else:
-        coeffs = np.squeeze(clf.dual_coef_)
-        inter = clf.intercept_
-        return {'Coefficients of the support vector in the decision function.': coeffs.tolist(), 'intercept': inter.tolist()}
+        return {'skew': skew_res,
+                'kurtosis': kurt_res,
+                'Jarque Bera statistic':stat_jarq,
+                'Jarque-Bera p-value': p_jarq,
+                'Omnibus test statistic': omn_res_stat,
+                'Omnibus test p-value': omn_res_p,
+                'Durbin Watson': durb_res,
+                'actual_values': list(Y),
+                'predicted values': list(clf.predict(X)),
+                'residuals': list(Y-clf.predict(X)),
+                'coefficient of determination (R^2)':clf.score(X,Y),
+                'coefficients': coeffs.tolist(), 'outliers':outliers.tolist(), 'intercept': inter.tolist(),
+                'dataframe': df.to_html(), 'values_dict': values_dict, 'values_columns': list(df_for_scatter.columns),
+                'values_df': df_for_scatter.to_html()}
 
 @router.get("/linearsvr_regression")
-async def linear_svr_regressor(dependent_variable: str,
+async def linear_svr_regressor(workflow_id: str,
+                               step_id: str,
+                               run_id: str,
+                               dependent_variable: str,
                                max_iter: int | None = Query(default=1000),
                                epsilon: float | None = Query(default=0),
                                C: float | None = Query(default=1,gt=0),
@@ -960,37 +1173,60 @@ async def linear_svr_regressor(dependent_variable: str,
                                                          regex="^(epsilon_insensitive)$|^(squared_epsilon_insensitive)$"),
                                independent_variables: list[str] | None = Query(default=None)):
 
-    dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
     df_label = dataset[dependent_variable]
     for columns in dataset.columns:
         if columns not in independent_variables:
             dataset = dataset.drop(str(columns), axis=1)
 
     X = np.array(dataset)
-    Y = np.array(df_label)
+    Y = np.array(df_label.astype('float64'))
 
     clf = LinearSVR(loss=loss, C=C, epsilon=epsilon, max_iter=max_iter)
 
     clf.fit(X, Y)
-    if np.shape(X)[1] == 1:
-        coeffs = clf.coef_
-        inter = clf.intercept_
-        df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
-        df_names = pd.DataFrame(dataset.columns, columns=['variables'])
-        df = pd.concat([df_names, df_coeffs], axis=1)
-        return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(), 'dataframe': df.to_json(orient='split')}
-    else:
-        coeffs = np.squeeze(clf.coef_)
-        inter = clf.intercept_
-        df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
-        df_names = pd.DataFrame(dataset.columns, columns=['variables'])
-        df = pd.concat([df_names, df_coeffs], axis=1)
-        return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(),
-                'dataframe': df.to_json(orient='split')}
+    residuals = Y-clf.predict(X)
+    skew_res = skew(residuals)
+    kurt_res = kurtosis(residuals)
+    jarq_res = jarque_bera(residuals)
+    stat_jarq = jarq_res.statistic
+    p_jarq = jarq_res.pvalue
+    omn_res_stat, omn_res_p = normaltest(residuals)
+    durb_res = durbin_watson(residuals)
+
+    df_for_scatter = pd.DataFrame(data={'Actual Values': list(Y), 'Predicted Values': list(clf.predict(X)),
+                                        'Residuals': list(Y - clf.predict(X))})
+    values_dict = {}
+    for column in df_for_scatter.columns:
+        values_dict[column] = list(df_for_scatter[column])
+
+    coeffs = clf.coef_
+    inter = clf.intercept_
+    df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
+    df_names = pd.DataFrame(dataset.columns, columns=['variables'])
+    df = pd.concat([df_names, df_coeffs], axis=1)
+    return {'skew': skew_res,
+            'kurtosis': kurt_res,
+            'Jarque Bera statistic':stat_jarq,
+            'Jarque-Bera p-value': p_jarq,
+            'Omnibus test statistic': omn_res_stat,
+            'Omnibus test p-value': omn_res_p,
+            'Durbin Watson': durb_res,
+            'actual_values': list(Y),
+            'predicted values': list(clf.predict(X)),
+            'residuals': list(Y-clf.predict(X)),
+            'coefficient of determination (R^2)':clf.score(X,Y),
+            'coefficients': coeffs.tolist(), 'intercept': inter.tolist(), 'dataframe': df.to_html(),
+            'values_dict': values_dict, 'values_columns': list(df_for_scatter.columns),
+            'values_df': df_for_scatter.to_html()}
+
 
 
 @router.get("/linearsvc_regression")
-async def linear_svc_regressor(dependent_variable: str,
+async def linear_svc_regressor(workflow_id: str,
+                               step_id: str,
+                               run_id: str,
+                               dependent_variable: str,
                                max_iter: int | None = Query(default=1000),
                                C: float | None = Query(default=1,gt=0),
                                loss: str | None = Query("hinge",
@@ -999,14 +1235,18 @@ async def linear_svc_regressor(dependent_variable: str,
                                                          regex="^(l1)$|^(l2)$"),
                                independent_variables: list[str] | None = Query(default=None)):
 
-    dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+
+
     df_label = dataset[dependent_variable]
     for columns in dataset.columns:
         if columns not in independent_variables:
             dataset = dataset.drop(str(columns), axis=1)
 
+    features_columns = dataset.columns
+
     X = np.array(dataset)
-    Y = np.array(df_label)
+    Y = np.array(df_label.astype('float64'))
 
     if loss == 'hinge' and penalty == 'l1':
         return {'This combination is not supported.'}
@@ -1014,65 +1254,110 @@ async def linear_svc_regressor(dependent_variable: str,
         clf = LinearSVC(loss=loss, C=C, penalty=penalty, max_iter=max_iter)
 
     clf.fit(X, Y)
-    if np.shape(X)[1] == 1:
-        coeffs = clf.coef_
-        inter = clf.intercept_
-        df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
-        df_names = pd.DataFrame(dataset.columns, columns=['variables'])
-        df = pd.concat([df_names, df_coeffs], axis=1)
-        return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(), 'dataframe': df.to_json(orient='split')}
-    else:
-        coeffs = np.squeeze(clf.coef_)
-        inter = clf.intercept_
-        df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
-        df_names = pd.DataFrame(dataset.columns, columns=['variables'])
-        df = pd.concat([df_names, df_coeffs], axis=1)
-        return {'coefficients': coeffs.tolist(), 'intercept': inter.tolist(),
-                'dataframe': df.to_json(orient='split')}
+
+    df_coefs = pd.DataFrame(clf.coef_, columns=features_columns)
+
+    df_intercept = pd.DataFrame(clf.intercept_, columns=['intercept'])
+
+    df_for_scatter = pd.concat([df_coefs, df_intercept], axis=1)
+
+    # df_for_scatter = df_for_scatter.fillna('')
+
+    values_dict = {}
+    for column in df_for_scatter.columns:
+        values_dict[column] = list(df_for_scatter[column])
+
+    return {'coefficients': df_coefs.to_html(), 'intercept': df_intercept.to_html(), 'values_dict': values_dict,
+            'values_columns': list(df_for_scatter.columns),
+            'values_df': df_for_scatter.to_html(), 'dataframe': df_for_scatter.to_html()}
 
 @router.get("/ancova")
-async def ancova_2(dv: str,
+async def ancova_2(workflow_id: str,
+                    step_id: str,
+                    run_id: str,
+                   dv: str,
                    between: str,
                    covar: list[str] | None = Query(default=None),
                    effsize: str | None = Query("np2",
                                                regex="^(np2)$|^(n2)$")):
 
-    df_data = pd.read_csv('example_data/mescobrad_dataset.csv')
+    # df_data = pd.read_csv('example_data/mescobrad_dataset.csv')
+    df_data = load_file_csv_direct(workflow_id, run_id, step_id)
 
     df = ancova(data=df_data, dv=dv, covar=covar, between=between, effsize=effsize)
-
-    return {'ANCOVA':df.to_json(orient="split")}
+    df = df.fillna('')
+    all_res = []
+    for ind, row in df.iterrows():
+        temp_to_append = {
+            'id': ind,
+            'Source': row['Source'],
+            'SS': row['SS'],
+            'DF': row['DF'],
+            'F': row['F'],
+            'p-unc': row['p-unc'],
+            'np2': row['np2']
+        }
+        all_res.append(temp_to_append)
+    return {'DataFrame': all_res}
+    # return {'ANCOVA':df.to_json(orient="split")}
 
 @router.get("/linear_mixed_effects_model")
-async def linear_mixed_effects_model(dependent: str,
-                                     groups: str,
-                                     independent: list[str] | None = Query(default=None),
-                                     use_sqrt: bool | None = Query(default=True)):
+async def linear_mixed_effects_model(workflow_id: str,
+                    step_id: str,
+                    run_id: str,
+                     dependent: str,
+                     groups: str,
+                     independent: list[str] | None = Query(default=None),
+                     use_sqrt: bool | None = Query(default=True)):
 
-    data = pd.read_csv('example_data/mescobrad_dataset.csv')
-
+    # data = pd.read_csv('example_data/mescobrad_dataset.csv')
+    data = load_file_csv_direct(workflow_id, run_id, step_id)
     z = dependent + "~"
     for i in range(len(independent)):
         z = z + "+" + independent[i]
 
     md = smf.mixedlm(z, data, groups=data[groups], use_sqrt=use_sqrt)
-
     mdf = md.fit()
-
     df = mdf.summary()
-
     df_0 = df.tables[0]
+    tbl1_res = []
+    for ind, row in df_0.iterrows():
+        temp_to_append = {
+            'id': ind,
+            "col0": row[0],
+            "col1": row[1],
+            "col2": row[2],
+            "col3": row[3],
+        }
+        tbl1_res.append(temp_to_append)
     df_1 = df.tables[1]
+    tbl2_res = []
+    for ind, row in df_1.iterrows():
+        temp_to_append = {
+            'id': ind,
+            "col0": row[0],
+            "col1": row[1],
+            "col2": row[2],
+            "col3": row[3],
+            "col4": row[4],
+            "col5": row[5],
+        }
+        tbl2_res.append(temp_to_append)
+    print(df)
 
-    return {'first table': df_0.to_json(orient='split'), 'second table': df_1.to_json(orient='split')}
+    return {'first_table': tbl1_res, 'second_table': tbl2_res}
+    # return {'first_table': df_0.to_json(orient='split'), 'second_table': df_1.to_json(orient='split')}
 
 @router.get("/poisson_regression")
-async def poisson_regression(dependent_variable: str,
+async def poisson_regression(workflow_id: str,
+                             step_id: str,
+                             run_id: str,
+                             dependent_variable: str,
                              alpha: float | None = Query(default=1.0, ge=0),
                              max_iter: int | None = Query(default=1000),
                              independent_variables: list[str] | None = Query(default=None)):
 
-    dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
 
     df_label = dataset[dependent_variable]
     for columns in dataset.columns:
@@ -1080,7 +1365,7 @@ async def poisson_regression(dependent_variable: str,
             dataset = dataset.drop(str(columns), axis=1)
 
     X = np.array(dataset)
-    Y = np.array(df_label)
+    Y = np.array(df_label.astype('float64'))
 
     clf = PoissonRegressor(alpha=alpha, max_iter=max_iter)
 
@@ -1103,7 +1388,10 @@ async def poisson_regression(dependent_variable: str,
                 'dataframe': df.to_json(orient='split')}
 
 @router.get("/cox_regression")
-async def cox_regression(duration_col: str,
+async def cox_regression(workflow_id: str,
+                         step_id: str,
+                         run_id: str,
+                         duration_col: str,
                          covariates: str,
                          alpha: float | None = Query(default=0.05),
                          penalizer: float | None = Query(default=0.0),
@@ -1120,12 +1408,13 @@ async def cox_regression(duration_col: str,
                          baseline_estimation_method: str | None = Query("breslow",
                                                                        regex="^(breslow)$|^(spline)$|^(piecewise)$")):
 
-    to_return = {}
+    to_return = []
 
     fig = plt.figure(1)
     ax = plt.subplot(111)
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
 
-    dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
+    # dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
 
     if baseline_estimation_method == "spline":
         cph = CoxPHFitter(alpha=alpha, baseline_estimation_method=baseline_estimation_method,penalizer=penalizer,l1_ratio=l1_ratio,strata=strata,
@@ -1139,13 +1428,29 @@ async def cox_regression(duration_col: str,
     cph.fit(dataset, duration_col=duration_col, event_col=event_col,weights_col=weights_col,cluster_col=cluster_col,entry_col=entry_col)
 
     df = cph.summary
-
+    tbl1_res = []
+    for ind, row in df.iterrows():
+        temp_to_append = {
+            'id': ind,
+            "col0": row[0],
+            "col1": row[1],
+            "col2": row[2],
+            "col3": row[3],
+            "col4": row[4],
+            "col5": row[5],
+            "col6": row[6],
+            "col7": row[7],
+            "col8": row[8],
+            "col9": row[9],
+            "col10": row[10],
+        }
+        tbl1_res.append(temp_to_append)
     #fig = plt.figure(figsize=(18, 12))
     cph.plot(hazard_ratios=hazard_ratios, ax=ax)
     plt.show()
 
     html_str = mpld3.fig_to_html(fig)
-    to_return["figure_1"] = html_str
+    to_return.append({"figure_1": html_str})
     #plt.close(1)
     #fig = plt.figure(2)
     #ax = plt.subplot(121)
@@ -1154,33 +1459,49 @@ async def cox_regression(duration_col: str,
         cph.plot_partial_effects_on_outcome(covariates=covariates, values=values, cmap='coolwarm')
         plt.show()
         html_str = mpld3.fig_to_html(fig)
-        to_return["figure_2"] = html_str
+        to_return.append({"figure_2": html_str})
+        # to_return["figure_2"] = html_str
 
     results = proportional_hazard_test(cph, dataset, time_transform='rank')
 
     df_1 = results.summary
+    tbl2_res = []
+    for ind, row in df_1.iterrows():
+        temp_to_append = {
+            'id': ind,
+            "test_statistic": row[0],
+            "p": row[1],
+            "-log2(p)": row[2]
+        }
+        tbl2_res.append(temp_to_append)
+
     AIC = cph.AIC_partial_
-    return {'Concordance Index':cph.concordance_index_ ,'Akaike information criterion (AIC) (partial log-likelihood)': AIC,'Dataframe of the coefficients, p-values, CIs, etc.':df.to_json(orient="split"), 'figure': to_return, 'proportional hazard test': df_1.to_json(orient='split')}
+    return {'Concordance_Index':cph.concordance_index_,'AIC': AIC, 'Dataframe': tbl1_res, 'figure': to_return, 'proportional_hazard_test': tbl2_res}
+    # return {'Concordance Index':cph.concordance_index_ ,'Akaike information criterion (AIC) (partial log-likelihood)': AIC,'Dataframe of the coefficients, p-values, CIs, etc.':df.to_json(orient="split"), 'figure': to_return, 'proportional hazard test': df_1.to_json(orient='split')}
 
 @router.get("/time_varying_covariates")
-async def time_varying_covariates(event_col: str,
-                                  duration_col:str,
-                                  column_1:str | None = Query(default=None),
-                                  column_2:str | None = Query(default=None),
-                                  correction_columns: bool | None = Query(default=False),
-                                  time_gaps: float | None = Query(default=1.),
-                                  alpha: float | None = Query(default=0.05),
-                                  penalizer: float | None = Query(default=0.0),
-                                  l1_ratio: float | None = Query(default=0.0),
-                                  weights_col: str | None = Query(default=None),
-                                  strata: list[str] | None = Query(default=None)):
+async def time_varying_covariates(
+        workflow_id: str,
+         step_id: str,
+         run_id: str,
+          event_col: str,
+          duration_col:str,
+          column_1:str | None = Query(default=None),
+          column_2:str | None = Query(default=None),
+          correction_columns: bool | None = Query(default=False),
+          time_gaps: float | None = Query(default=1.),
+          alpha: float | None = Query(default=0.05),
+          penalizer: float | None = Query(default=0.0),
+          l1_ratio: float | None = Query(default=0.0),
+          weights_col: str | None = Query(default=None),
+          strata: list[str] | None = Query(default=None)):
 
-    to_return = {}
+    to_return = []
 
     fig = plt.figure(1)
     ax = plt.subplot(111)
-
-    dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+    # dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
 
     dataset_long = to_episodic_format(dataset, duration_col=duration_col, event_col=event_col, time_gaps=time_gaps)
 
@@ -1192,15 +1513,32 @@ async def time_varying_covariates(event_col: str,
     cph.fit(dataset_long, event_col=event_col, id_col='id', weights_col=weights_col,start_col='start', stop_col='stop',strata=strata)
 
     df = cph.summary
-
+    tbl1_res = []
+    for ind, row in df.iterrows():
+        temp_to_append = {
+            'id': ind,
+            "col0": row[0],
+            "col1": row[1],
+            "col2": row[2],
+            "col3": row[3],
+            "col4": row[4],
+            "col5": row[5],
+            "col6": row[6],
+            "col7": row[7],
+            "col8": row[8],
+            "col9": row[9],
+            "col10": row[10],
+        }
+        tbl1_res.append(temp_to_append)
     #fig = plt.figure(figsize=(18, 12))
     cph.plot(ax=ax)
     plt.show()
 
     html_str = mpld3.fig_to_html(fig)
-    to_return["figure_1"] = html_str
+    to_return.append({"figure_1": html_str})
 
-    return {'Akaike information criterion (AIC) (partial log-likelihood)':cph.AIC_partial_,'Dataframe of the coefficients, p-values, CIs, etc.':df.to_json(orient="split"), 'figure': to_return}
+    return {'AIC':cph.AIC_partial_,'Dataframe':tbl1_res, 'figure': to_return}
+    # return {'Akaike information criterion (AIC) (partial log-likelihood)':cph.AIC_partial_,'Dataframe of the coefficients, p-values, CIs, etc.':df.to_json(orient="split"), 'figure': to_return}
 
 @router.get("/anova_repeated_measures")
 async def anova_rm(dependent_variable: str,
@@ -1222,7 +1560,10 @@ async def anova_rm(dependent_variable: str,
         return {"Unbalanced"}
 
 @router.get("/generalized_estimating_equations")
-async def generalized_estimating_equations(dependent: str,
+async def generalized_estimating_equations(workflow_id: str,
+                                           step_id: str,
+                                           run_id: str,
+                                           dependent: str,
                                            groups: str,
                                            independent: list[str] | None = Query(default=None),
                                            conv_struct: str | None = Query("independence",
@@ -1230,7 +1571,7 @@ async def generalized_estimating_equations(dependent: str,
                                            family: str | None = Query("poisson",
                                                                       regex="^(poisson)$|^(gamma)$|^(gaussian)$|^(inverse_gaussian)$|^(negative_binomial)$|^(binomial)$|^(tweedie)$")):
 
-    data = pd.read_csv('example_data/mescobrad_dataset.csv')
+    data = load_file_csv_direct(workflow_id, run_id, step_id)
 
     z = dependent + "~"
     for i in range(len(independent)):
@@ -1277,7 +1618,7 @@ async def generalized_estimating_equations(dependent: str,
     results_as_html = df.tables[2].as_html()
     df_2 = pd.read_html(results_as_html)[0]
 
-    return {'first_table':df_0.to_json(orient="split"), 'second table':df_1.to_json(orient="split"), 'third table':df_2.to_json(orient="split")}
+    return {'first_table':df_0.to_html(), 'second table':df_1.to_html(), 'third table':df_2.to_html()}
 
 @router.get("/kaplan_meier")
 async def kaplan_meier(column_1: str,
@@ -1369,7 +1710,11 @@ async def conditional_logistic_regression(endog: str,
 
 
 @router.get("/risks")
-async def risk_ratio_1(exposure: str,
+async def risk_ratio_1(
+        # workflow_id: str,
+        # step_id: str,
+        # run_id: str,
+                       exposure: str,
                        outcome: str,
                        time: str | None = Query(default=None),
                        reference: int | None = Query(default=0),
@@ -1382,9 +1727,10 @@ async def risk_ratio_1(exposure: str,
     fig = plt.figure(1)
     ax = plt.subplot(111)
 
-    #dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
-    dataset = load_sample_data(False)
+    # dataset = load_file_csv_direct(workflow_id, run_id, step_id)
 
+    dataset = load_sample_data(False)
+    print(dataset)
     if method == 'risk_ratio':
         rr = RiskRatio(reference=reference, alpha=alpha)
     elif method == 'risk_difference':
@@ -1421,7 +1767,7 @@ async def risk_ratio_1(exposure: str,
 
     rr.fit(dataset, exposure='art', outcome='dead')
     df = rr.results
-
+    print(df)
     rr.plot()
     plt.show()
 
@@ -1460,7 +1806,10 @@ async def two_sided_risk_ci(events: int,
 
 
 @router.get("/risk_ratio_function")
-async def risk_ratio_function(exposed_with: int,
+async def risk_ratio_function(workflow_id: str,
+                              step_id: str,
+                              run_id: str,
+                              exposed_with: int,
                               unexposed_with: int,
                               exposed_without: int,
                               unexposed_without: int,
@@ -1471,15 +1820,18 @@ async def risk_ratio_function(exposed_with: int,
     lower_bound = r.lower_bound
     upper_bound = r.upper_bound
     standard_error = r.standard_error
-
-    return {'risk ratio': estimated_risk, 'lower bound': lower_bound, 'upper bound': upper_bound, 'standard error': standard_error}
+    return {'estimated_risk': estimated_risk, 'lower_bound': lower_bound, 'upper_bound': upper_bound, 'standard_error': standard_error}
 
 @router.get("/risk_difference_function")
-async def risk_difference_function(exposed_with: int,
-                                   unexposed_with: int,
-                                   exposed_without: int,
-                                   unexposed_without: int,
-                                   alpha: float | None = Query(default=0.05)):
+async def risk_difference_function(
+        workflow_id: str,
+        step_id: str,
+        run_id: str,
+        exposed_with: int,
+        unexposed_with: int,
+        exposed_without: int,
+        unexposed_without: int,
+        alpha: float | None = Query(default=0.05)):
 
     r = risk_difference(a=exposed_with, b=unexposed_with, c=exposed_without, d=unexposed_without, alpha=alpha)
     estimated_risk = r.point_estimate
@@ -1487,14 +1839,18 @@ async def risk_difference_function(exposed_with: int,
     upper_bound = r.upper_bound
     standard_error = r.standard_error
 
-    return {'risk difference': estimated_risk, 'lower bound': lower_bound, 'upper bound': upper_bound, 'standard error': standard_error}
+    return {'risk_difference': estimated_risk, 'lower_bound': lower_bound, 'upper_bound': upper_bound, 'standard_error': standard_error}
 
 @router.get("/number_needed_to_treat_function")
-async def number_needed_to_treat_function(exposed_with: int,
-                                          unexposed_with: int,
-                                          exposed_without: int,
-                                          unexposed_without: int,
-                                          alpha: float | None = Query(default=0.05)):
+async def number_needed_to_treat_function(
+        workflow_id: str,
+        step_id: str,
+        run_id: str,
+        exposed_with: int,
+        unexposed_with: int,
+        exposed_without: int,
+        unexposed_without: int,
+        alpha: float | None = Query(default=0.05)):
 
     r = number_needed_to_treat(a=exposed_with, b=unexposed_with, c=exposed_without, d=unexposed_without, alpha=alpha)
     estimated_risk = r.point_estimate
@@ -1502,14 +1858,18 @@ async def number_needed_to_treat_function(exposed_with: int,
     upper_bound = r.upper_bound
     standard_error = r.standard_error
 
-    return {'nnt': estimated_risk, 'lower bound': lower_bound, 'upper bound': upper_bound, 'standard error': standard_error}
+    return {'nnt': estimated_risk, 'lower_bound': lower_bound, 'upper_bound': upper_bound, 'standard_error': standard_error}
 
 @router.get("/odds_ratio_function")
-async def odds_ratio_function(exposed_with: int,
-                              unexposed_with: int,
-                              exposed_without: int,
-                              unexposed_without: int,
-                              alpha: float | None = Query(default=0.05)):
+async def odds_ratio_function(
+        workflow_id: str,
+        step_id: str,
+        run_id: str,
+        exposed_with: int,
+        unexposed_with: int,
+        exposed_without: int,
+        unexposed_without: int,
+        alpha: float | None = Query(default=0.05)):
 
     r = odds_ratio(a=exposed_with, b=unexposed_with, c=exposed_without, d=unexposed_without, alpha=alpha)
     estimated_risk = r.point_estimate
@@ -1517,29 +1877,37 @@ async def odds_ratio_function(exposed_with: int,
     upper_bound = r.upper_bound
     standard_error = r.standard_error
 
-    return {'odds ratio': estimated_risk, 'lower bound': lower_bound, 'upper bound': upper_bound, 'standard error': standard_error}
+    return {'odds_ratio': estimated_risk, 'lower_bound': lower_bound, 'upper_bound': upper_bound, 'standard_error': standard_error}
 
 @router.get("/incidence_rate_ratio_function")
-async def incidence_rate_ratio_function(exposed_with: int,
-                                        unexposed_with: int,
-                                        person_time_exposed: int,
-                                        person_time_unexposed: int,
-                                        alpha: float | None = Query(default=0.05)):
+async def incidence_rate_ratio_function(
+        workflow_id: str,
+        step_id: str,
+        run_id: str,
+        exposed_with: int,
+        unexposed_with: int,
+        person_time_exposed: int,
+        person_time_unexposed: int,
+        alpha: float | None = Query(default=0.05)):
 
     r = incidence_rate_ratio(a=exposed_with, c=unexposed_with, t1=person_time_exposed, t2=person_time_unexposed, alpha=alpha)
     estimated_risk = r.point_estimate
     lower_bound = r.lower_bound
     upper_bound = r.upper_bound
     standard_error = r.standard_error
-
-    return {'incident rate ratio': estimated_risk, 'lower bound': lower_bound, 'upper bound': upper_bound, 'standard error': standard_error}
+    print(r)
+    return {'incident_rate_ratio': estimated_risk, 'lower_bound': lower_bound, 'upper_bound': upper_bound, 'standard_error': standard_error}
 
 @router.get("/incidence_rate_difference_function")
-async def incidence_rate_difference_function(exposed_with: int,
-                                             unexposed_with: int,
-                                             person_time_exposed: int,
-                                             person_time_unexposed: int,
-                                             alpha: float | None = Query(default=0.05)):
+async def incidence_rate_difference_function(
+        workflow_id: str,
+        step_id: str,
+        run_id: str,
+        exposed_with: int,
+        unexposed_with: int,
+        person_time_exposed: int,
+        person_time_unexposed: int,
+        alpha: float | None = Query(default=0.05)):
 
     r = incidence_rate_difference(a=exposed_with, c=unexposed_with, t1=person_time_exposed, t2=person_time_unexposed, alpha=alpha)
     estimated_risk = r.point_estimate
@@ -1547,7 +1915,7 @@ async def incidence_rate_difference_function(exposed_with: int,
     upper_bound = r.upper_bound
     standard_error = r.standard_error
 
-    return {'incident rate difference': estimated_risk, 'lower bound': lower_bound, 'upper bound': upper_bound, 'standard error': standard_error}
+    return {'incident_rate_difference': estimated_risk, 'lower_bound': lower_bound, 'upper_bound': upper_bound, 'standard_error': standard_error}
 
 @router.get("/correlations_pingouin")
 async def correlations_pingouin(workflow_id: str,
@@ -1569,6 +1937,7 @@ async def correlations_pingouin(workflow_id: str,
             res = pingouin.corr(x=data[i], y=data[j], method=method, alternative=alternative).round(5)
             res.insert(0,'Cor', i + "-" + j, True)
             # all_res.append(res)
+            print(res)
             count = count + 1
             for ind, row in res.iterrows():
                 temp_to_append = {
@@ -1584,6 +1953,8 @@ async def correlations_pingouin(workflow_id: str,
                 }
                 if method == 'pearson':
                     temp_to_append["BF10"] = row['BF10']
+                if method == 'shepherd':
+                    temp_to_append["outliers"] = row['outliers']
             all_res.append(temp_to_append)
 
     # df = pd.concat(all_res)
@@ -1601,13 +1972,20 @@ async def linear_regression_pinguin(dependent_variable: str,
     return {'residuals': lm.residuals_.tolist(), 'degrees of freedom of the model': lm.df_model_, 'degrees of freedom of the residuals': lm.df_resid_ , 'dataframe': lm.to_json(orient='split')}
 
 @router.get("/logistic_regressor_pinguin")
-async def logistic_regression_pinguin(dependent_variable: str,
+async def logistic_regression_pinguin(workflow_id: str, step_id: str, run_id: str,
+                                      dependent_variable: str,
                                       alpha: float | None=Query(default=0.05),
                                       independent_variables: list[str] | None = Query(default=None)):
 
-    lm = pingouin.logistic_regression(data[independent_variables], data[dependent_variable], as_dataframe=True, alpha=alpha)
+    data = load_file_csv_direct(workflow_id, run_id, step_id)
 
-    return {'dataframe': lm.to_json(orient='split')}
+    lm = pingouin.logistic_regression(data[independent_variables], data[dependent_variable], as_dataframe=True, alpha=alpha)
+    print(lm.columns)
+    values_dict = {}
+    for column in lm.columns:
+        values_dict[column] = list(lm[column])
+
+    return {'dataframe': lm.to_html(), 'values_dict': values_dict, 'values_columns': list(lm.columns)}
 
 # @router.get("/linear_regressor_statsmodels")
 # async def linear_regression_statsmodels(dependent_variable: str,
@@ -1858,34 +2236,59 @@ async def z_score(dependent_variable: str):
     return {'z_score': list(z_score_res)}
 
 @router.get("/logistic_regressor_statsmodels")
-async def logistic_regression_statsmodels(dependent_variable: str,
-                                          check_heteroscedasticity: bool | None = Query(default=True),
-                                          regularization: bool | None = Query(default=True),
+async def logistic_regression_statsmodels(workflow_id: str, step_id: str, run_id: str,
+                                          dependent_variable: str,
                                           independent_variables: list[str] | None = Query(default=None)):
+
+    data = load_file_csv_direct(workflow_id, run_id, step_id)
 
     x = data[independent_variables]
     y = data[dependent_variable]
 
     x = sm.add_constant(x)
 
-    if regularization:
-        model = sm.Logit(y,x).fit_regularized(method='elastic_net')
-    else:
-        model = sm.Logit(y, x).fit()
+    model = sm.Logit(y, x).fit()
 
-        df = model.summary()
+    df = model.summary()
 
-        results_as_html = df.tables[0].as_html()
-        df_0 = pd.read_html(results_as_html)[0]
 
-        results_as_html = df.tables[1].as_html()
-        df_1 = pd.read_html(results_as_html)[0]
 
-    if regularization==False:
+    results_as_html = df.tables[0].as_html()
+    df_0 = pd.read_html(results_as_html)[0]
+    df_new = df_0[[2, 3]]
+    df_0.drop(columns=[2, 3], inplace=True)
+    df_0 = pd.concat([df_0, df_new.rename(columns={2: 0, 3: 1})], ignore_index=True)
+    df_0.set_index(0, inplace=True)
+    df_0.index.name = None
+    df_0.rename(columns={1: 'Values'}, inplace=True)
 
-        return {'first_table': df_0.to_json(orient="split"), 'second table': df_1.to_json(orient="split")}
-    else:
-        return {'ll'}
+    results_as_html = df.tables[1].as_html()
+    df_1 = pd.read_html(results_as_html)[0]
+    new_header = df_1.iloc[0, 1:]
+    df_1 = df_1[1:]
+    df_1.set_index(0, inplace=True)
+    df_1.columns = new_header
+    df_1.index.name = None
+
+
+
+    df_1.fillna('', inplace=True)
+    values_dict = {}
+    for column in df_1.columns:
+        values_dict[column] = list(df_1[column])
+
+    print(df_0.index)
+
+    return {'first_table': df_0.to_html(), 'second table': df_1.to_html(),
+            'values_dict': values_dict, 'values_columns': list(df_1.columns),
+            'dep': df_0.loc['Dep. Variable:'][0], 'model': df_0.loc['Model:'][0],
+            'method': df_0.loc['Method:'][0], 'date': df_0.loc['Date:'][0],
+            'time': df_0.loc['Time:'][0], 'no_obs': df_0.loc['No. Observations:'][0],
+            'resid': df_0.loc['Df Residuals:'][0],
+            'df_model': df_0.loc['Df Model:'][0], 'cov_type': df_0.loc['Covariance Type:'][0],
+            'pseudo_r_squared': df_0.loc['Pseudo R-squ.:'][0], 'log_like': df_0.loc['Log-Likelihood:'][0],
+            'LL-Null': df_0.loc['LL-Null:'][0], 'LLR p-value': df_0.loc['LLR p-value:'][0],
+            'converged': df_0.loc['converged:'][0]}
 
 @router.get("/jarqueberatest")
 async def jarqueberatest(dependent_variable: str):
@@ -1901,6 +2304,3 @@ async def jarqueberatest(dependent_variable: str):
         return {'statistic': statistic, 'pvalue': pvalue, 'Since this p-value is not less than .05, we fail to reject the null hypothesis. We don’t have sufficient evidence to say that this data has skewness and kurtosis that is significantly different from a normal distribution.':''}
     else:
         return {'statistic': statistic, 'pvalue': pvalue,'Since this p-value is less than .05, we reject the null hypothesis. Thus, we have sufficient evidence to say that this data has skewness and kurtosis that is significantly different from a normal distribution.':''}
-
-
-
