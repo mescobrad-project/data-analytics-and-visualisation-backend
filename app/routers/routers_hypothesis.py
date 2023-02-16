@@ -1,6 +1,8 @@
 import numpy as np
 import pandas as pd
 import json
+from sklearn.cross_decomposition import CCA
+from statsmodels.tsa.stattools import grangercausalitytests
 from factor_analyzer.factor_analyzer import calculate_bartlett_sphericity
 from factor_analyzer.factor_analyzer import calculate_kmo
 from factor_analyzer.utils import corr, cov
@@ -2530,6 +2532,53 @@ async def analysis_mediation(workflow_id: str,
     print(med.summary())
 
 
+@router.get("/canonical_correlation_analysis")
+async def canonical_correlation(workflow_id: str,
+                                step_id: str,
+                                run_id: str,
+                                n_components: int | None = Query(default=2),
+                                independent_variables_1: list[str] | None = Query(default=None),
+                                independent_variables_2: list[str] | None = Query(default=None)):
 
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
 
+    for columns in dataset.columns:
+        if columns not in independent_variables_1:
+            X = dataset.drop(str(columns), axis=1)
 
+    for columns in dataset.columns:
+        if columns not in independent_variables_2:
+            Y = dataset.drop(str(columns), axis=1)
+
+    my_cca = CCA(n_components=n_components)
+
+    # Fit the model
+    my_cca.fit(X, Y)
+
+    X_c, Y_c = my_cca.transform(X, Y)
+
+    return {'The left singular vectors of the cross-covariance matrices of each iteration.': my_cca.x_weights_.tolist(),
+            'The right singular vectors of the cross-covariance matrices of each iteration.': my_cca.y_weights_.tolist(),
+            'The loadings of X.': my_cca.x_loadings_.tolist(),
+            'The loadings of Y.': my_cca.y_loadings_.tolist(),
+            'The projection matrix used to transform X.': my_cca.x_rotations_.tolist(),
+            'The projection matrix used to transform Y.': my_cca.y_rotations_.tolist(),
+            'The coefficients of the linear model.': my_cca.coef_.tolist(),
+            'Transformed X': X_c.tolist(),
+            'Transformed Y': Y_c.tolist()}
+
+@router.get("/granger_analysis")
+async def compute_granger_analysis(workflow_id: str,
+                                   step_id: str,
+                                   run_id: str,
+                                   num_lags: int,
+                                   predictor_variable: str,
+                                   response_variable: str,
+                                   all_lags_up_to : bool | None = Query(default=False)):
+
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+
+    if all_lags_up_to==False:
+        print(grangercausalitytests(dataset[[response_variable, predictor_variable]], maxlag=[num_lags]))
+    else:
+        print(grangercausalitytests(dataset[[response_variable, predictor_variable]], maxlag=num_lags))
