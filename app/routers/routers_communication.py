@@ -46,6 +46,8 @@ ExistingFunctions = [
     "eeg_viewer",
     "eeg_viewer_old",
     "envelop_trend_analysis",
+    "sleep_statistic",
+    "spectogram_bandpower",
     "slowwave_spindle",
     #  Actigraphy
     "actigraphy_viewer",
@@ -183,6 +185,10 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/slowwaves"
             case "spindles":
                 url_to_redirect += "/spindles"
+            case "sleep_statistic":
+                url_to_redirect += "/sleep_statistic"
+            case "spectogram_bandpower":
+                url_to_redirect += "/spectogram_bandpower"
             case "slowwave_spindle":
                 url_to_redirect += "/slowwave_spindle"
             case "eeg_viewer":

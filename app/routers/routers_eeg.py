@@ -1424,7 +1424,7 @@ async def sleep_transition_matrix(workflow_id: str,
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
 
     to_return = {}
-    fig = plt.figure(1)
+    plt.figure("sleep_transition_matrix")
 
     hypno = pd.read_csv(path_to_storage + "/" + files["csv"])
 
@@ -1442,10 +1442,10 @@ async def sleep_transition_matrix(workflow_id: str,
     ax.xaxis.tick_top()
     ax.set_ylabel("From sleep stage")
     ax.xaxis.set_label_position('top')
-    plt.show()
+    # plt.show()
     #  Temporarilly saved in root directory should change to commented
     # fig.savefig( path_to_storage + "/output/" + 'sleep_transition_matrix.png')
-    fig.savefig( NeurodesktopStorageLocation + '/sleep_transition_matrix.png')
+    plt.savefig(NeurodesktopStorageLocation + '/sleep_transition_matrix.png')
 
 
     # html_str = mpld3.fig_to_html(fig)
@@ -1468,6 +1468,7 @@ async def sleep_stability_extraction(workflow_id: str,
 
     return{'sleep_stage_stability': np.diag(probs.loc[2:, 2:]).mean().round(3)} # stability of sleep stages
 
+# 2nd page
 @router.get("/spectrogram_yasa")
 async def spectrogram_yasa(
                            workflow_id: str,
@@ -1494,16 +1495,16 @@ async def spectrogram_yasa(
             array_data = raw_data[i]
             hypno = yasa.hypno_upsample_to_data(list(hypno['stage']), sf_hypno=current_sampling_frequency_of_the_hypnogram, data=data)
             to_return = {}
-            fig = plt.figure(1)
-            fig = yasa.plot_spectrogram(array_data, sf, hypno, cmap='Spectral_r')
-            plt.show()
+            plt.figure("spectrogram_plot")
+            yasa.plot_spectrogram(array_data, sf, hypno, cmap='Spectral_r')
+            # plt.show()
 
             # html_str = mpld3.fig_to_html(fig)
             # to_return["figure"] = html_str
             #  Temporarilly saved in root directory should change to commented
 
             # fig.savefig(path_to_storage + "/output/" + 'spectrogram.png')
-            fig.savefig(NeurodesktopStorageLocation + '/spectrogram.png')
+            plt.savefig(NeurodesktopStorageLocation + '/spectrogram.png')
 
             return {'figure': to_return}
     return {'Channel not found'}
@@ -1536,6 +1537,7 @@ async def bandpower_yasa(workflow_id: str,
 
     return {'bandpower':df.to_json(orient='split')}
 
+#  3rd page
 @router.get("/spindles_detect_two_dataframes")
 async def spindles_detect_two_dataframes(
                                          workflow_id: str,
@@ -1566,13 +1568,13 @@ async def spindles_detect_two_dataframes(
         df_2 = sp.summary(grp_chan=True, grp_stage=True)
 
         to_return = {}
-        fig = plt.figure(1)
+        plt.figure("spindles_plot")
         sp.plot_average(center='Peak', time_before=1, time_after=1)
-        plt.show()
+        # plt.show()
         # html_str = mpld3.fig_to_html(fig)
         # to_return["figure"] = html_str
         #  Temporarilly saved in root directory should change to commented
-        fig.savefig(NeurodesktopStorageLocation + '/spindles.png')
+        plt.savefig(NeurodesktopStorageLocation + '/spindles.png')
 
         return {'data_frame_1':df_1.to_json(orient='split'), 'data_frame_2':df_2.to_json(orient='split')}
     else:
@@ -1617,15 +1619,15 @@ async def sw_detect_two_dataframes(workflow_id: str,
         to_return['figure_2'] = figure_2
 
 
-        fig = plt.figure(1)
+        plt.figure("slowwaves_plot")
         pg.plot_circmean(df_1['PhaseAtSigmaPeak'])
         print('Circular mean: %.3f rad' % pg.circ_mean(df_1['PhaseAtSigmaPeak']))
         print('Vector length: %.3f' % pg.circ_r(df_1['PhaseAtSigmaPeak']))
-        plt.show()
+        # plt.show()
         # html_str = mpld3.fig_to_html(fig)
         # to_return["figure"] = html_str
         #  Temporarilly saved in root directory should change to commented
-        fig.savefig(NeurodesktopStorageLocation + '/slowwaves.png')
+        plt.savefig(NeurodesktopStorageLocation + '/slowwaves.png')
 
         return {'data_frame_1':df_1.to_json(orient='split'), 'data_frame_2':df_2.to_json(orient='split'),
                 'circular_mean:': pg.circ_mean(df_1['PhaseAtSigmaPeak']), # Circular mean (rad)
@@ -1643,7 +1645,7 @@ async def calculate_pac_values(workflow_id: str,
 
 
     to_return = {}
-    fig = plt.figure(1)
+    plt.figure("pac_values_plot")
 
     files = get_files_for_slowwaves_spindle(workflow_id, run_id, step_id)
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
@@ -1679,12 +1681,12 @@ async def calculate_pac_values(workflow_id: str,
     # Plot the comodulogram
     p.comodulogram(xpac.mean(-1), title=str(p), vmin=0, plotas='contour', ncontours=100)
     plt.gca()
-    plt.show()
+    # plt.show()
 
     # html_str = mpld3.fig_to_html(fig)
     # to_return["figure"] = html_str
     #  Temporarilly saved in root directory should change to commented
-    fig.savefig(NeurodesktopStorageLocation + '/pac_values.png')
+    plt.savefig(NeurodesktopStorageLocation + '/pac_values.png')
 
     return {'Figure':to_return}
 
@@ -1697,7 +1699,7 @@ async def calculate_extra_pac_values(workflow_id: str,
                                      current_sampling_frequency_of_the_hypnogram: float | None = Query(default=1/30)):
 
     to_return = {}
-    fig = plt.figure(1)
+    plt.figure("extra_pac_values_plot")
 
     files = get_files_for_slowwaves_spindle(workflow_id, run_id, step_id)
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
@@ -1772,13 +1774,13 @@ async def calculate_extra_pac_values(workflow_id: str,
     p.comodulogram(t_obs, cmap='gray', vmin=0, vmax=0.5, colorbar=True)
     p.comodulogram(t_obs_plot, cmap='viridis', vmin=0, vmax=0.5, title=title, colorbar=False)
     plt.gca().invert_yaxis()
-    plt.show()
+    # plt.show()
 
     # html_str = mpld3.fig_to_html(fig)
     # to_return["figure"] = html_str
 
     #  Temporarilly saved in root directory should change to commented
-    fig.savefig(NeurodesktopStorageLocation + '/extra_pac_values.png')
+    plt.savefig(NeurodesktopStorageLocation + '/extra_pac_values.png')
 
     return {'Figure': to_return}
 
