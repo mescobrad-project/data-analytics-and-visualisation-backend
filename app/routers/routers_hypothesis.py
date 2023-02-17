@@ -366,7 +366,6 @@ async def point_biserial_correlation(workflow_id: str, step_id: str, run_id: str
                                      # remove_outliers: bool | None = Query(default=True)
                                      ):
     data = load_file_csv_direct(workflow_id, run_id, step_id)
-    print("data ", len(data))
     unique_values = np.unique(data[str(column_1)])
     unique_values.sort()
     if len(unique_values) == 2:
@@ -374,38 +373,84 @@ async def point_biserial_correlation(workflow_id: str, step_id: str, run_id: str
         sub_set_a = data[data[str(column_1)] != unique_values[1]]
         sub_set_b = data[data[str(column_1)] != unique_values[0]]
         new_dataset_for_bp = [sub_set_a[str(column_2)], sub_set_b[str(column_2)]]
-        html_box_1 = create_plots(plot_type='BoxPlot', column=column_2, second_column=column_1, selected_dataframe=new_dataset_for_bp)
-        # if (remove_outliers):
+        html_box = create_plots(plot_type='BoxPlot', column=column_2, second_column=column_1, selected_dataframe=new_dataset_for_bp)
+        html_hist_A = create_plots(plot_type='HistogramPlot', column=column_2, second_column='',
+                                   selected_dataframe=sub_set_a)
+        html_hist_B = create_plots(plot_type='HistogramPlot', column=column_2, second_column='',
+                                   selected_dataframe=sub_set_b)
+        # find outliers
         sub_set_a_clean, outliers_a = outliers_removal(column_2, sub_set_a)
         sub_set_b_clean, outliers_b = outliers_removal(column_2, sub_set_b)
-        html_hist_a = create_plots(plot_type='HistogramPlot', column=column_2, second_column='', selected_dataframe=sub_set_a)
-        html_hist_b = create_plots(plot_type='HistogramPlot', column=column_2, second_column='', selected_dataframe=sub_set_b)
-
+        # check Normality per sample
+        shapiro_test_A = shapiro(sub_set_a[str(column_2)])
+        shapiro_test_B = shapiro(sub_set_b[str(column_2)])
+        # check homoscedasticity per sample
+        Levene_A = levene(sub_set_a[str(column_2)], sub_set_b[str(column_2)], center='median')
+        # Levene_B = ''
         df = sub_set_a_clean.append(sub_set_b_clean)
-        print("xx ", len(df))
         pointbiserialr_test = pointbiserialr(df[str(column_1)], df[str(column_2)])
         return {'status': 'OK',
                 'error_descr': '',
                 'scatter_plot': html_scr,
-                'html_box_1': html_box_1,
-                'outliersA': outliers_a[column_2].to_json(orient='records'),
-                'html_hist_1': html_hist_a,
-                'html_hist_2': html_hist_b,
+                'html_box': html_box,
+                'sample_A': {
+                    'value': str(unique_values[0]),
+                    'N': len(sub_set_a),
+                    'N_clean':  len(sub_set_a_clean),
+                    'outliers': outliers_a[column_2].to_json(orient='records'),
+                    'html_hist': html_hist_A,
+                    'Norm_statistic': shapiro_test_A.statistic,
+                    'Norm_p_value': shapiro_test_A.pvalue,
+                    'Hom_statistic': Levene_A.statistic,
+                    'Hom_p_value': Levene_A.pvalue
+                },
+                'sample_B': {
+                    'value': str(unique_values[1]),
+                    'N': len(sub_set_b),
+                    'N_clean': len(sub_set_b_clean),
+                    'outliers': outliers_b[column_2].to_json(orient='records'),
+                    'html_hist': html_hist_B,
+                    'Norm_statistic': shapiro_test_B.statistic,
+                    'Norm_p_value': shapiro_test_B.pvalue,
+                    # 'Hom_statistic': Levene_B.statistic,
+                    # 'Hom_p_value': Levene_B.pvalue
+                },
                 'correlation': pointbiserialr_test[0],
                 'p_value': pointbiserialr_test[1],
-                'new_dataset': df.to_json(orient='records')}
+                'new_dataset': df.to_json(orient='records')
+                }
     else:
         return {'status': 'Error',
                 'error_descr': 'The selected variable is not dichotomous.',
                 'scatter_plot': '',
-                'html_box_1': '',
-                'html_hist_1': '',
-                'html_hist_2': '',
+                'html_box': '',
+                'sample_A': {
+                    'value': '',
+                    'N': '',
+                    'N_clean':  '',
+                    'outliers': '',
+                    'html_hist': '',
+                    'Norm_statistic': '',
+                    'Norm_p_value': '',
+                    'Hom_statistic': '',
+                    'Hom_p_value': '',
+                },
+                'sample_B': {
+                    'value': '',
+                    'N': '',
+                    'N_clean': '',
+                    'outliers': '',
+                    'html_hist': '',
+                    'Norm_statistic': '',
+                    'Norm_p_value': '',
+                    'Hom_statistic': '',
+                    'Hom_p_value': '',
+                },
                 'correlation': '',
                 'p_value': '',
                 'new_dataset': []}
 
-#
+
 @router.get("/check_homoscedasticity", tags=['hypothesis_testing'])
 async def check_homoskedasticity(workflow_id: str,
                                  step_id: str,
@@ -542,12 +587,14 @@ async def LDA(workflow_id: str,
     dataset = load_file_csv_direct(workflow_id, run_id, step_id)
     # dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
     df_label = dataset[dependent_variable]
+    df_label.sort_values
     for columns in dataset.columns:
         if columns not in independent_variables:
             dataset = dataset.drop(str(columns), axis=1)
 
 
     features_columns = dataset.columns
+    print(df_label.sort_values)
     X = np.array(dataset)
     Y = np.array(df_label.astype('float64'))
     if solver == 'lsqr' or solver == 'eigen':
@@ -563,8 +610,11 @@ async def LDA(workflow_id: str,
     clf.fit(X, Y)
 
     df_coefs = pd.DataFrame(clf.coef_, columns=features_columns)
+    print(df_coefs)
     df_intercept = pd.DataFrame(clf.intercept_, columns=['intercept'])
+    print(df_intercept)
     df_coefs['intercept'] = df_intercept['intercept']
+    print(df_coefs)
     return {'coefficients': df_coefs.to_json(orient='records'), 'intercept': df_coefs.to_json(orient='records')}
 
 

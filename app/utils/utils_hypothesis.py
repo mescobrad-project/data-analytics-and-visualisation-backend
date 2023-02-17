@@ -15,6 +15,8 @@ def create_plots(plot_type: str, column: str, second_column: str, selected_dataf
             if len(selected_dataframe) == 2:
                 # TODO: For Biserial, but in an other case if it finds 2 it will do the same
                 plt.boxplot(selected_dataframe, positions=[0, 1])
+                plt.ylabel(column, fontsize=14)
+                plt.xlabel(second_column, fontsize=14)
             else:
                 plt.boxplot(selected_dataframe[str(column)])
                 # plt.boxplot(selected_dataframe[str(column)], showfliers=False)
@@ -94,9 +96,11 @@ def create_plots(plot_type: str, column: str, second_column: str, selected_dataf
             ax1 = fig.add_subplot()
             prob = plt.scatter(selected_dataframe[str(column)], selected_dataframe[str(second_column)],
                     color='blue', marker="*")
-            ax1.set_title('Scatter plot')
+            ax1.set_title('Selected variables plot')
             plt.xticks(fontsize=12)
             plt.yticks(fontsize=12)
+            plt.ylabel(second_column, fontsize=14)
+            plt.xlabel(column, fontsize=14)
             plt.xticks(np.arange(min(selected_dataframe[str(column)]), max(selected_dataframe[str(column)])+1, 1.0))
             plt.show()
             html_str = mpld3.fig_to_html(fig)
@@ -141,8 +145,6 @@ def outliers_removal(column: str, selected_dataframe):
             # selected_dataframe.loc[selected_dataframe[x] < min, x] = np.nan
             # selected_dataframe.loc[selected_dataframe[x] > max, x] = np.nan
             # selected_dataframe = selected_dataframe.dropna(axis=0)
-            print("Inside Selected", len(selected_dataframe))
-            print("Inside outliers", len(outliers))
             return selected_dataframe, outliers
     except Exception as e:
         print(e)
