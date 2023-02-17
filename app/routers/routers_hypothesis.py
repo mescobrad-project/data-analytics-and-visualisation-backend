@@ -1320,11 +1320,12 @@ async def linear_svr_regressor(workflow_id: str,
     jarq_res = jarque_bera(residuals)
     stat_jarq = jarq_res.statistic
     p_jarq = jarq_res.pvalue
+    print(p_jarq)
     omn_res_stat, omn_res_p = normaltest(residuals)
     durb_res = durbin_watson(residuals)
 
-    df_for_scatter = pd.DataFrame(data={'Actual Values': list(Y), 'Predicted Values': list(clf.predict(X)),
-                                        'Residuals': list(Y - clf.predict(X))})
+    df_for_scatter = pd.concat([pd.DataFrame(data={'Actual Values': list(Y), 'Predicted Values': list(clf.predict(X)),
+                                        'Residuals': list(Y - clf.predict(X))}), dataset], axis=1)
     values_dict = {}
     for column in df_for_scatter.columns:
         values_dict[column] = list(df_for_scatter[column])
@@ -1345,9 +1346,9 @@ async def linear_svr_regressor(workflow_id: str,
             'predicted values': list(clf.predict(X)),
             'residuals': list(Y-clf.predict(X)),
             'coefficient of determination (R^2)':clf.score(X,Y),
-            'coefficients': coeffs.tolist(), 'intercept': inter.tolist(), 'dataframe': df.to_html(),
+            'coefficients': coeffs.tolist(), 'intercept': inter.tolist(), 'dataframe': df.to_json(orient='records'),
             'values_dict': values_dict, 'values_columns': list(df_for_scatter.columns),
-            'values_df': df_for_scatter.to_html()}
+            'values_df': df_for_scatter.to_json(orient='records')}
 
 
 
