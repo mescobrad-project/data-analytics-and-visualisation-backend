@@ -1411,7 +1411,17 @@ async def sleep_statistics_hypnogram(
 
     df = pd.DataFrame.from_dict(sleep_statistics(list(hypno['stage']), sf_hyp=sampling_frequency), orient='index', columns=['value'])
 
-    return{'sleep_statistics': df.to_json(orient='split')}
+    # print("DF Altered")
+    # print(df)
+    # print(df.T)
+    # print(df.T.to_json(orient='records'))
+    # print("DF original")
+    # print(df.to_json(orient='records'))
+    # print(df.to_json(orient='split'))
+    df = df.T
+    # df['index'] = df.index
+    df.insert(0, 'id', range(1, 1 + len(df)))
+    return{'sleep_statistics': df.to_json(orient='records')}
 
 @router.get("/sleep_transition_matrix")
 async def sleep_transition_matrix(workflow_id: str,
