@@ -61,7 +61,7 @@ NeurodesktopStorageLocation = os.environ.get('NeurodesktopStorageLocation') if o
 
 # endregion
 
-def rose_plot(ax, angles, bins=12, density=None, offset=0, lab_unit="degrees",
+def rose_plot( angles, bins=12, density=None, offset=0, lab_unit="degrees",
               start_zero=False, **param_dict):
     """
     Plot polar histogram of angles on ax. ax must have been created using
@@ -69,7 +69,8 @@ def rose_plot(ax, angles, bins=12, density=None, offset=0, lab_unit="degrees",
     """
     # Wrap angles to [-pi, pi)
 
-    fig = plt.figure(1)
+    plt.figure("rose_plot")
+    ax = plt.subplot(projection='polar')
 
     angles = (angles + np.pi) % (2*np.pi) - np.pi
 
@@ -111,9 +112,11 @@ def rose_plot(ax, angles, bins=12, density=None, offset=0, lab_unit="degrees",
         ax.set_xticklabels(label)
 
     # html_str = mpld3.fig_to_html(fig)
-    fig.savefig(NeurodesktopStorageLocation + '/rose_plot.png')
+    # ax.savefig(NeurodesktopStorageLocation + '/rose_plot.png')
+    # plt.show()
+    plt.savefig(NeurodesktopStorageLocation + '/rose_plot.png')
 
-    return
+    return ax
 
 def calcsmape(actual, forecast):
     return 1/len(actual) * np.sum(2 * np.abs(forecast-actual) / (np.abs(actual) + np.abs(forecast)))
@@ -1586,7 +1589,13 @@ async def spindles_detect_two_dataframes(
         #  Temporarilly saved in root directory should change to commented
         plt.savefig(NeurodesktopStorageLocation + '/spindles.png')
 
-        return {'data_frame_1':df_1.to_json(orient='split'), 'data_frame_2':df_2.to_json(orient='split')}
+        # Transpose dataframes and add id column
+        # df_1 = df_1.T
+        df_1.insert(0, 'id', range(1, 1 + len(df_1)))
+
+        # df_2 = df_2.T
+        df_2.insert(0, 'id', range(1, 1 + len(df_2)))
+        return {'data_frame_1':df_1.to_json(orient='records'), 'data_frame_2':df_2.to_json(orient='records')}
     else:
         return {'No spindles detected'}
 
@@ -1624,8 +1633,11 @@ async def sw_detect_two_dataframes(workflow_id: str,
         df_2 = sw.summary(grp_chan=True, grp_stage=True)
 
         to_return = {}
-        ax = plt.subplot(projection='polar')
-        figure_2 = rose_plot(ax, df_1['PhaseAtSigmaPeak'], density=False, offset=0, lab_unit='degrees', start_zero=False)
+        # plt.figure("rose_plot")
+        # ax = plt.subplot(projection='polar')
+        figure_2 = rose_plot( df_1['PhaseAtSigmaPeak'], density=False, offset=0, lab_unit='degrees', start_zero=False)
+
+        # plt.savefig(NeurodesktopStorageLocation + '/rose_plot.png')
         to_return['figure_2'] = figure_2
 
 
@@ -1639,9 +1651,18 @@ async def sw_detect_two_dataframes(workflow_id: str,
         #  Temporarilly saved in root directory should change to commented
         plt.savefig(NeurodesktopStorageLocation + '/slowwaves.png')
 
-        return {'data_frame_1':df_1.to_json(orient='split'), 'data_frame_2':df_2.to_json(orient='split'),
-                'circular_mean:': pg.circ_mean(df_1['PhaseAtSigmaPeak']), # Circular mean (rad)
-                'vector_length:': pg.circ_r(df_1['PhaseAtSigmaPeak'])} # Vector length (rad)
+        # Transpose dataframes and add id column
+        df_1_old = df_1
+        # df_1 = df_1.T
+        df_1.insert(0, 'id', range(1, 1 + len(df_1)))
+
+        df_2_old = df_2
+        # df_2 = df_2.T
+        df_2.insert(0, 'id', range(1, 1 + len(df_2)))
+
+        return {'data_frame_1':df_1.to_json(orient='records'), 'data_frame_2':df_2.to_json(orient='records'),
+                'circular_mean:': pg.circ_mean(df_1_old['PhaseAtSigmaPeak']), # Circular mean (rad)
+                'vector_length:': pg.circ_r(df_2_old['PhaseAtSigmaPeak'])} # Vector length (rad)
     else:
         return {'No slow-waves detected'}
 
