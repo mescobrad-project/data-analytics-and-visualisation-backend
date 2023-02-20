@@ -1,3 +1,5 @@
+import random
+
 import numpy as np
 import pandas as pd
 import json
@@ -29,6 +31,7 @@ from lifelines.utils import to_episodic_format
 import matplotlib.pyplot as plt
 from sklearn.svm import SVC
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
 from sklearn.linear_model import LinearRegression, Ridge, Lasso, ElasticNet, SGDRegressor, SGDClassifier, HuberRegressor,Lars, PoissonRegressor, LogisticRegression
@@ -587,16 +590,23 @@ async def LDA(workflow_id: str,
     dataset = load_file_csv_direct(workflow_id, run_id, step_id)
     # dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
     df_label = dataset[dependent_variable]
-    df_label.sort_values
     for columns in dataset.columns:
         if columns not in independent_variables:
             dataset = dataset.drop(str(columns), axis=1)
 
 
     features_columns = dataset.columns
-    print(df_label.sort_values)
     X = np.array(dataset)
     Y = np.array(df_label.astype('float64'))
+
+    # target_names = np.unique(Y)
+    # sc = StandardScaler()
+    # X = sc.fit_transform(X)
+    # # print(X)
+    # le = LabelEncoder()
+    # Y = le.fit_transform(Y)
+    # # print(Y)
+
     if solver == 'lsqr' or solver == 'eigen':
         if shrinkage_1 == 'float':
             clf = LinearDiscriminantAnalysis(solver=solver, shrinkage=shrinkage_2)
@@ -606,15 +616,60 @@ async def LDA(workflow_id: str,
             clf = LinearDiscriminantAnalysis(solver=solver)
     else:
         clf = LinearDiscriminantAnalysis(solver=solver)
-
-    clf.fit(X, Y)
+    # print(solver)
+    clf.fit(X,Y)
+    # print('Features:' )
+    # print(clf.n_features_in_)
+    # print('Classes:')
+    # classes = clf.classes_
+    # number_of_classes = len(clf.classes_)
+    # print(clf.classes_)
+    # number_of_components = min(len(clf.classes_) - 1, clf.n_features_in_)
+    # print('number_of_components :')
+    # print(number_of_components)
+    # X_train = clf.fit_transform(X, Y)
+    # # print('X_train:')
+    # # print(X_train)
+    # # colors = ["navy", "turquoise", "darkorange"]
+    # # for color, i, target_name in zip(colors, [0, 1, 2], target_names):
+    # colors = ["navy", "darkorange"] + ["#"+''.join([random.choice('0123456789ABCDEF')
+    #                                                for j in range(6)]) for i in range(number_of_classes-2)]
+    #
+    # print(colors)
+    # print(number_of_classes)
+    # print(classes)
+    # print(target_names)
+    #
+    # fig = plt.figure(figsize=(14, 9))
+    # ax = fig.add_subplot(111,
+    #                      projection='3d')
+    #
+    # for color, i, target_name in zip(colors, classes, target_names):
+    #     # print(X_train[Y == i, 0])
+    #     # print(X_train[Y == i, 1])
+    #     # print(X_train[Y == i, 2])
+    #
+    #     arg = X_train[Y == i, :]
+    #     print(arg)
+    #     ax.scatter(
+    #         # X_train[Y == i, 0], X_train[Y == i, 1], X_train[Y == i, 2], alpha=0.8, color=color, label=target_name
+    #         X_train[Y == i, 0], X_train[Y == i, 1], alpha=0.8, color=color, label=target_name
+    #     )
+    # plt.legend(loc="best", shadow=False, scatterpoints=1)
+    # plt.title("LDA of IRIS dataset")
+    # plt.show()
+    # print(clf.covariance_)
+    print(clf.explained_variance_ratio_)
+    print(clf.means_)
+    print(clf.priors_)
+    print(clf.scalings_)
+    print(clf.xbar_)
+    print(clf.classes_)
+    print(clf.n_features_in_)
 
     df_coefs = pd.DataFrame(clf.coef_, columns=features_columns)
-    print(df_coefs)
     df_intercept = pd.DataFrame(clf.intercept_, columns=['intercept'])
-    print(df_intercept)
     df_coefs['intercept'] = df_intercept['intercept']
-    print(df_coefs)
     return {'coefficients': df_coefs.to_json(orient='records'), 'intercept': df_coefs.to_json(orient='records')}
 
 
