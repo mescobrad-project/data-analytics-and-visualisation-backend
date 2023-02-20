@@ -15,8 +15,6 @@ from typing import Optional, Union, List
 from statsmodels.stats.multitest import multipletests
 from statsmodels.stats.mediation import Mediation
 import statsmodels.api as sm
-import matplotlib.pyplot as plt
-import mpld3
 from enum import Enum
 from statsmodels.compat import lzip
 import statsmodels.stats.api as sms
@@ -56,6 +54,8 @@ import scipy.stats as st
 import statistics
 from tabulate import tabulate
 
+from app.utils.utils_hypothesis import create_plots, compute_skewness, outliers_removal, compute_kurtosis
+
 router = APIRouter()
 data = pd.read_csv('example_data/mescobrad_dataset.csv')
 data = data.drop(["Unnamed: 0"], axis=1)
@@ -63,64 +63,16 @@ data = data.drop(["Unnamed: 0"], axis=1)
 
 def normality_test_content_results(column: str, selected_dataframe):
     if (column):
-        # region Creating Box-plot
-        fig2 = plt.figure()
-        plt.boxplot(selected_dataframe[str(column)])
-        plt.ylabel("", fontsize=14)
-        # show plot
-        plt.show()
-        html_str_B = mpld3.fig_to_html(fig2)
-        #endregion
-        # region Creating QQ-plot
-        fig = plt.figure()
-        ax = fig.add_subplot()
-
-        pingouin.qqplot(selected_dataframe[str(column)], dist='norm', ax=ax)
-        # We changed to Pingouin because it's better
-        # fig = sm.qqplot(selected_dataframe[str(column)], line='45')
-        plt.xticks(fontsize=12)
-        plt.yticks(fontsize=12)
-        plt.show()
-        html_str = mpld3.fig_to_html(fig)
-        # endregion
-        # region Creating Probability-plot
-        fig3 = plt.figure()
-        ax1 = fig3.add_subplot()
-        prob =  probplot(selected_dataframe[str(column)], dist=st.norm, plot=ax1)
-        ax1.set_title('Probplot against normal distribution')
-        plt.xticks(fontsize=12)
-        plt.yticks(fontsize=12)
-        plt.show()
-        html_str_P = mpld3.fig_to_html(fig3)
-        # endregion
-        #region Creating histogram
-        fig1, axs = plt.subplots(1, 1,
-                                 # figsize=(640, 480),
-                                 tight_layout=True)
-
-        ## q25, q75 = np.percentile(data[str(column)], [25, 75])
-        ## bin_width = 2 * (q75 - q25) * len(data[str(column)]) ** (-1 / 3)
-        ## bins = round((data[str(column)].max() - data[str(column)].min()) / bin_width)
-        axs.hist(selected_dataframe[str(column)], density=True, bins=30, label="Data", rwidth=0.9,
-                 color='#607c8e')
-
-        mn, mx = plt.xlim()
-        plt.xlim(mn, mx)
-        kde_xs = np.linspace(mn, mx, 300)
-        kde = st.gaussian_kde(selected_dataframe[str(column)])
-        plt.plot(kde_xs, kde.pdf(kde_xs), label="PDF")
-        plt.legend(loc="upper left")
-        plt.ylabel("Probability", fontsize=14)
-        plt.xlabel("Data", fontsize=14)
-        plt.title("Histogram", fontsize=16)
-        plt.xticks(fontsize=12)
-        plt.yticks(fontsize=12)
-        plt.show()
-        html_str_H = mpld3.fig_to_html(fig1)
-        #endregion
-        #region Calculate skew, kurtosis, median, std, etc.
-        skewtosend = skew(selected_dataframe[str(column)], axis=0, bias=True)
-        kurtosistosend = kurtosis(selected_dataframe[str(column)], axis=0, bias=True)
+        # Creating Box-plot
+        html_str_B = create_plots(plot_type='BoxPlot', column=column,second_column='', selected_dataframe=selected_dataframe)
+        # Creating QQ-plot
+        html_str = create_plots(plot_type='QQPlot', column=column, second_column='', selected_dataframe=selected_dataframe)
+        # Creating Probability-plot
+        html_str_P = create_plots(plot_type='PPlot', column=column, second_column='', selected_dataframe=selected_dataframe)
+        #Creating histogram
+        html_str_H = create_plots(plot_type='HistogramPlot', column=column, second_column='', selected_dataframe=selected_dataframe)
+        skewtosend = compute_skewness(column, selected_dataframe)
+        kurtosistosend = compute_kurtosis(column, selected_dataframe)
         st_dev = np.std(selected_dataframe[str(column)])
         # Used Statistics lib for cross-checking
         # standard_deviation = statistics.stdev(data[str(column)])
@@ -132,7 +84,6 @@ def normality_test_content_results(column: str, selected_dataframe):
         num_rows = selected_dataframe[str(column)].shape
         top5 = sorted(selected_dataframe[str(column)].tolist(), reverse=True)[:5]
         last5 = sorted(selected_dataframe[str(column)].tolist(), reverse=True)[-5:]
-        #endregion
         return {'plot_column': column, 'qqplot': html_str, 'histogramplot': html_str_H, 'boxplot': html_str_B, 'probplot': html_str_P, 'skew': skewtosend, 'kurtosis': kurtosistosend, 'standard_deviation': st_dev, "median": median_value, "mean": mean_value, "sample_N": num_rows, "top_5": top5, "last_5": last5}
     else:
         return {'plot_column': "", 'qqplot': "", 'histogramplot': "", 'boxplot': "", 'probplot': "",
@@ -144,7 +95,6 @@ def transformation_extra_content_results(column_In: str, column_Out:str, selecte
     fig = plt.figure()
     plt.plot(selected_dataframe[str(column_In)], selected_dataframe[str(column_In)],
              color='blue', marker="*")
-    # red for numpy.log()
     plt.plot(selected_dataframe[str(column_Out)], selected_dataframe[str(column_In)],
              color='red', marker="o")
     plt.title("Transformed data Comparison")
@@ -428,16 +378,96 @@ async def transform_data(workflow_id: str,
 #     return {'kendalltau correlation coefficient': kendalltau_test[0], 'p-value': kendalltau_test[1]}
 
 @router.get("/compute_point_biserial_correlation", tags=['hypothesis_testing'])
-async def point_biserial_correlation(workflow_id: str, step_id: str, run_id: str, column_1: str, column_2: str):
+async def point_biserial_correlation(workflow_id: str, step_id: str, run_id: str,
+                                     column_1: str, column_2: str,
+                                     # remove_outliers: bool | None = Query(default=True)
+                                     ):
     data = load_file_csv_direct(workflow_id, run_id, step_id)
     unique_values = np.unique(data[str(column_1)])
+    unique_values.sort()
     if len(unique_values) == 2:
-        pointbiserialr_test = pointbiserialr(data[str(column_1)], data[str(column_2)])
+        html_scr = create_plots(plot_type='Scatter_Two_Variables', column=column_1, second_column=column_2, selected_dataframe=data)
+        sub_set_a = data[data[str(column_1)] != unique_values[1]]
+        sub_set_b = data[data[str(column_1)] != unique_values[0]]
+        new_dataset_for_bp = [sub_set_a[str(column_2)], sub_set_b[str(column_2)]]
+        html_box = create_plots(plot_type='BoxPlot', column=column_2, second_column=column_1, selected_dataframe=new_dataset_for_bp)
+        html_hist_A = create_plots(plot_type='HistogramPlot', column=column_2, second_column='',
+                                   selected_dataframe=sub_set_a)
+        html_hist_B = create_plots(plot_type='HistogramPlot', column=column_2, second_column='',
+                                   selected_dataframe=sub_set_b)
+        # find outliers
+        sub_set_a_clean, outliers_a = outliers_removal(column_2, sub_set_a)
+        sub_set_b_clean, outliers_b = outliers_removal(column_2, sub_set_b)
+        # check Normality per sample
+        shapiro_test_A = shapiro(sub_set_a[str(column_2)])
+        shapiro_test_B = shapiro(sub_set_b[str(column_2)])
+        # check homoscedasticity per sample
+        Levene_A = levene(sub_set_a[str(column_2)], sub_set_b[str(column_2)], center='median')
+        # Levene_B = ''
+        df = sub_set_a_clean.append(sub_set_b_clean)
+        pointbiserialr_test = pointbiserialr(df[str(column_1)], df[str(column_2)])
+        return {'status': 'OK',
+                'error_descr': '',
+                'scatter_plot': html_scr,
+                'html_box': html_box,
+                'sample_A': {
+                    'value': str(unique_values[0]),
+                    'N': len(sub_set_a),
+                    'N_clean':  len(sub_set_a_clean),
+                    'outliers': outliers_a[column_2].to_json(orient='records'),
+                    'html_hist': html_hist_A,
+                    'Norm_statistic': shapiro_test_A.statistic,
+                    'Norm_p_value': shapiro_test_A.pvalue,
+                    'Hom_statistic': Levene_A.statistic,
+                    'Hom_p_value': Levene_A.pvalue
+                },
+                'sample_B': {
+                    'value': str(unique_values[1]),
+                    'N': len(sub_set_b),
+                    'N_clean': len(sub_set_b_clean),
+                    'outliers': outliers_b[column_2].to_json(orient='records'),
+                    'html_hist': html_hist_B,
+                    'Norm_statistic': shapiro_test_B.statistic,
+                    'Norm_p_value': shapiro_test_B.pvalue,
+                    # 'Hom_statistic': Levene_B.statistic,
+                    # 'Hom_p_value': Levene_B.pvalue
+                },
+                'correlation': pointbiserialr_test[0],
+                'p_value': pointbiserialr_test[1],
+                'new_dataset': df.to_json(orient='records')
+                }
     else:
-        pointbiserialr_test = pointbiserialr(data[str(column_2)], data[str(column_1)])
-    return {'correlation':pointbiserialr_test[0], 'p-value': pointbiserialr_test[1]}
+        return {'status': 'Error',
+                'error_descr': 'The selected variable is not dichotomous.',
+                'scatter_plot': '',
+                'html_box': '',
+                'sample_A': {
+                    'value': '',
+                    'N': '',
+                    'N_clean':  '',
+                    'outliers': '',
+                    'html_hist': '',
+                    'Norm_statistic': '',
+                    'Norm_p_value': '',
+                    'Hom_statistic': '',
+                    'Hom_p_value': '',
+                },
+                'sample_B': {
+                    'value': '',
+                    'N': '',
+                    'N_clean': '',
+                    'outliers': '',
+                    'html_hist': '',
+                    'Norm_statistic': '',
+                    'Norm_p_value': '',
+                    'Hom_statistic': '',
+                    'Hom_p_value': '',
+                },
+                'correlation': '',
+                'p_value': '',
+                'new_dataset': []}
 
-#
+
 @router.get("/check_homoscedasticity", tags=['hypothesis_testing'])
 async def check_homoskedasticity(workflow_id: str,
                                  step_id: str,
@@ -461,7 +491,7 @@ async def check_homoskedasticity(workflow_id: str,
         }
         var.append(temp_to_append)
         i = i + 1
-
+    print(*args)
     if name_of_test == "Bartlett":
         statistic, p_value = bartlett(*args)
     elif name_of_test == "Fligner-Killeen":
@@ -574,12 +604,14 @@ async def LDA(workflow_id: str,
     dataset = load_file_csv_direct(workflow_id, run_id, step_id)
     # dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
     df_label = dataset[dependent_variable]
+    df_label.sort_values
     for columns in dataset.columns:
         if columns not in independent_variables:
             dataset = dataset.drop(str(columns), axis=1)
 
 
     features_columns = dataset.columns
+    print(df_label.sort_values)
     X = np.array(dataset)
     Y = np.array(df_label.astype('float64'))
     if solver == 'lsqr' or solver == 'eigen':
@@ -595,8 +627,11 @@ async def LDA(workflow_id: str,
     clf.fit(X, Y)
 
     df_coefs = pd.DataFrame(clf.coef_, columns=features_columns)
+    print(df_coefs)
     df_intercept = pd.DataFrame(clf.intercept_, columns=['intercept'])
+    print(df_intercept)
     df_coefs['intercept'] = df_intercept['intercept']
+    print(df_coefs)
     return {'coefficients': df_coefs.to_json(orient='records'), 'intercept': df_coefs.to_json(orient='records')}
 
 
