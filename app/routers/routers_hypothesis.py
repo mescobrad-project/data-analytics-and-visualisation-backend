@@ -1881,12 +1881,16 @@ async def kaplan_meier(column_1: str,
     return {'figure': to_return, "survival_function":df.to_json(orient="split"), "confidence_interval": confidence_interval.to_json(orient='split')}
 
 @router.get("/fisher")
-async def fisher(variable_top_left: int,
-                 variable_top_right: int,
-                 variable_bottom_left: int,
-                 variable_bottom_right: int,
-                 alternative: Optional[str] | None = Query("two-sided",
-                                                           regex="^(two-sided)$|^(less)$|^(greater)$")):
+async def fisher(
+        workflow_id: str,
+        step_id: str,
+        run_id: str,
+        variable_top_left: int,
+        variable_top_right: int,
+        variable_bottom_left: int,
+        variable_bottom_right: int,
+        alternative: Optional[str] | None = Query("two-sided",
+                                                  regex="^(two-sided)$|^(less)$|^(greater)$")):
 
     df = [[variable_top_left,variable_top_right], [variable_bottom_left,variable_bottom_right]]
 
@@ -1895,7 +1899,10 @@ async def fisher(variable_top_left: int,
     return {'odd_ratio': odd_ratio, "p_value": p_value}
 
 @router.get("/mc_nemar")
-async def mc_nemar(variable_top_left: int,
+async def mc_nemar(workflow_id: str,
+                   step_id: str,
+                   run_id: str,
+                   variable_top_left: int,
                    variable_top_right: int,
                    variable_bottom_left: int,
                    variable_bottom_right: int,
