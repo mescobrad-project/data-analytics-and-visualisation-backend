@@ -46,6 +46,8 @@ ExistingFunctions = [
     "eeg_viewer",
     "eeg_viewer_old",
     "envelop_trend_analysis",
+    "sleep_statistic",
+    "spectogram_bandpower",
     "slowwave_spindle",
     #  Actigraphy
     "actigraphy_viewer",
@@ -102,6 +104,11 @@ ExistingFunctions = [
     "survivalanalysiscoxregression",
     "survivalanalysistimevaryingcovariates",
     "principalcomponentanalysis",
+    "LinearSVR",
+    "LinearSVC",
+    "LogisticRegressionPinguin",
+    "LogisticRegressionStatsmodels",
+    "LogisticRegressionSklearn"
     # Dashboard
     "dashboard",
 ]
@@ -184,6 +191,10 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/slowwaves"
             case "spindles":
                 url_to_redirect += "/spindles"
+            case "sleep_statistic":
+                url_to_redirect += "/sleep_statistic"
+            case "spectogram_bandpower":
+                url_to_redirect += "/spectogram_bandpower"
             case "slowwave_spindle":
                 url_to_redirect += "/slowwave_spindle"
             case "eeg_viewer":
@@ -277,6 +288,16 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/SGDRegression"
             case "HuberRegression":
                 url_to_redirect += "/HuberRegression"
+            case "LinearSVR":
+                url_to_redirect += "/LinearSVR"
+            case "LinearSVC":
+                url_to_redirect += "/LinearSVC"
+            case "LogisticRegressionPinguin":
+                url_to_redirect += "/LogisticRegressionPinguin"
+            case "LogisticRegressionStatsmodels":
+                url_to_redirect += "/LogisticRegressionStatsmodels"
+            case "LogisticRegressionSklearn":
+                url_to_redirect += "/LogisticRegressionSklearn"
             case "survivalanalysisriskratiosimple":
                 url_to_redirect += "/SurvivalAnalysisRiskRatioSimple"
             case "survivalanalysisriskdifferencesimple":
