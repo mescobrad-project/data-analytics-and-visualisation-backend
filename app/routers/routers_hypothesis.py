@@ -1885,18 +1885,24 @@ async def fisher(
         workflow_id: str,
         step_id: str,
         run_id: str,
-        variable_top_left: int,
-        variable_top_right: int,
-        variable_bottom_left: int,
-        variable_bottom_right: int,
+        variable_column: str,
+        variable_row: str,
+        # variable_bottom_left: int,
+        # variable_bottom_right: int,
         alternative: Optional[str] | None = Query("two-sided",
                                                   regex="^(two-sided)$|^(less)$|^(greater)$")):
 
-    df = [[variable_top_left,variable_top_right], [variable_bottom_left,variable_bottom_right]]
+    data = load_file_csv_direct(workflow_id, run_id, step_id)
+    row_var = data[variable_row]
+    column_var = data[variable_column]
+    # df = [[variable_top_left,variable_top_right], [variable_bottom_left,variable_bottom_right]]
+
+    df = pd.crosstab(index=row_var,columns=column_var)
+    df1 = pd.crosstab(index=row_var,columns=column_var, margins=True, margins_name= "Total")
 
     odd_ratio, p_value = fisher_exact(df, alternative=alternative)
 
-    return {'odd_ratio': odd_ratio, "p_value": p_value}
+    return {'odd_ratio': odd_ratio, "p_value": p_value, "crosstab":df1.to_json(orient='split')}
 
 @router.get("/mc_nemar")
 async def mc_nemar(workflow_id: str,
