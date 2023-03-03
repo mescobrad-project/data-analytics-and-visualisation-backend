@@ -74,7 +74,9 @@ async def return_diary():
     xx = 0
     try:
         # raw = pyActigraphy.io.read_raw_rpx('example_data/actigraph/raw_sample.csv', 'FR', True, None, None, float, float, ';')
-        raw = pyActigraphy.io.read_raw_rpx('example_data/actigraph/Neurophy_Actigraph.csv', 'FR')
+        raw = pyActigraphy.io.read_raw_rpx('example_data/actigraph/0345-024_18_07_2022_13_00_00_New_Analysis.csv')
+        print(raw.start_time)
+        print(raw.duration())
         xx = raw.IS()
         # raw = pyActigraphy.io.read_raw_rpx(fpath + 'raw_sample.csv')
     except:

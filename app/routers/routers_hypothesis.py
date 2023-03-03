@@ -1,3 +1,5 @@
+import random
+
 import numpy as np
 import pandas as pd
 import json
@@ -29,6 +31,7 @@ from lifelines.utils import to_episodic_format
 import matplotlib.pyplot as plt
 from sklearn.svm import SVC
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
 from sklearn.linear_model import LinearRegression, Ridge, Lasso, ElasticNet, SGDRegressor, SGDClassifier, HuberRegressor,Lars, PoissonRegressor, LogisticRegression
@@ -604,16 +607,41 @@ async def LDA(workflow_id: str,
     dataset = load_file_csv_direct(workflow_id, run_id, step_id)
     # dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
     df_label = dataset[dependent_variable]
-    df_label.sort_values
     for columns in dataset.columns:
         if columns not in independent_variables:
             dataset = dataset.drop(str(columns), axis=1)
 
-
     features_columns = dataset.columns
-    print(df_label.sort_values)
     X = np.array(dataset)
     Y = np.array(df_label.astype('float64'))
+
+    # target_names = np.unique(Y)
+    # sc = StandardScaler()
+    # X = sc.fit_transform(X)
+    # # print(X)
+    # le = LabelEncoder()
+    # Y = le.fit_transform(Y)
+    # # print(Y)
+    # # X_train = clf.fit_transform(X, Y)
+    # # # print('X_train:')
+    # # # print(X_train)
+    # # # # colors = ["navy", "turquoise", "darkorange"]
+    # # # # for color, i, target_name in zip(colors, [0, 1, 2], target_names):
+    # # colors = ["navy", "darkorange"] + ["#"+''.join([random.choice('0123456789ABCDEF')
+    # #                                                for j in range(6)]) for i in range(number_of_classes-2)]
+    # # fig = plt.figure(figsize=(14, 9))
+    # # ax = fig.add_subplot(111,
+    # #                      projection='3d')
+    # #
+    # # for color, i, target_name in zip(colors, classes, target_names):
+    # #     ax.scatter(
+    # #         X_train[Y == i, 0], Y, alpha=0.8, color=color, label=target_name
+    # #         # X_train[Y == i, 0], X_train[Y == i, 1], X_train[Y == i, 2], alpha=0.8, color=color, label=target_name
+    # #     )
+    # # plt.legend(loc="best", shadow=False, scatterpoints=1)
+    # # plt.title("LDA of IRIS dataset")
+    # # plt.show()
+
     if solver == 'lsqr' or solver == 'eigen':
         if shrinkage_1 == 'float':
             clf = LinearDiscriminantAnalysis(solver=solver, shrinkage=shrinkage_2)
@@ -623,17 +651,58 @@ async def LDA(workflow_id: str,
             clf = LinearDiscriminantAnalysis(solver=solver)
     else:
         clf = LinearDiscriminantAnalysis(solver=solver)
+    # print(solver)
+    clf.fit(X,Y)
 
-    clf.fit(X, Y)
+    classes = clf.classes_
+    number_of_classes = len(clf.classes_)
+    number_of_components = min(len(clf.classes_) - 1, clf.n_features_in_)
+    if solver == 'svd':
+        df_xbar = pd.DataFrame(clf.xbar_, columns=['xbar'])
+        df_xbar.insert(loc=0, column='Feature', value=features_columns)
+        df_scalings = pd.DataFrame(clf.scalings_, columns=[i + 1 for i in range(number_of_components)])
+        df_scalings.insert(loc=0, column='Feature', value=features_columns)
+    else:
+        df_xbar = pd.DataFrame()
+        df_scalings = pd.DataFrame()
+
+    df_mean = pd.DataFrame(clf.means_, columns=features_columns)
+    df_mean.insert(loc=0, column='Class', value=classes)
+    df_prior = pd.DataFrame(clf.priors_, columns=['priors'])
+    df_prior.insert(loc=0, column='Class', value=classes)
+
+    if solver == 'eigen' or solver =='svd':
+        df_explained_variance_ratio = pd.DataFrame(clf.explained_variance_ratio_, columns=['Variance ratio'])
+        df_explained_variance_ratio.insert(loc=0, column='Component', value=[i + 1 for i in range(number_of_components)])
+    else:
+        df_explained_variance_ratio = pd.DataFrame()
 
     df_coefs = pd.DataFrame(clf.coef_, columns=features_columns)
-    print(df_coefs)
     df_intercept = pd.DataFrame(clf.intercept_, columns=['intercept'])
-    print(df_intercept)
     df_coefs['intercept'] = df_intercept['intercept']
-    print(df_coefs)
-    return {'coefficients': df_coefs.to_json(orient='records'), 'intercept': df_coefs.to_json(orient='records')}
-
+    if df_coefs.shape[0] == len(classes):
+        df_coefs.insert(loc=0, column='Class', value=classes)
+    try:
+        to_return = {
+            'number_of_features': int(clf.n_features_in_),
+            'features_columns': features_columns.tolist(),
+            'number_of_classes':number_of_classes,
+            'classes_': clf.classes_.tolist(),
+            'number_of_components': number_of_components,
+            'explained_variance_ratio': df_explained_variance_ratio.to_json(orient='records'),
+            'means_': df_mean.to_json(orient='records'),
+            'priors_': df_prior.to_json(orient='records'),
+            'scalings_': df_scalings.to_json(orient='records'),
+            'xbar_': df_xbar.to_json(orient='records'),
+            'coefficients': df_coefs.to_json(orient='records'),
+            'intercept': df_intercept.to_json(orient='records')
+        }
+        print(to_return)
+        return to_return
+    except Exception as e:
+        print(e)
+        print("Error : Creating QQPlot")
+        return {}
 
     # return {'coefficients': df_coefs.to_json(orient='split'), 'intercept': df_intercept.to_json(orient='split')}
 
@@ -1812,32 +1881,48 @@ async def kaplan_meier(column_1: str,
     return {'figure': to_return, "survival_function":df.to_json(orient="split"), "confidence_interval": confidence_interval.to_json(orient='split')}
 
 @router.get("/fisher")
-async def fisher(variable_top_left: int,
-                 variable_top_right: int,
-                 variable_bottom_left: int,
-                 variable_bottom_right: int,
-                 alternative: Optional[str] | None = Query("two-sided",
-                                                           regex="^(two-sided)$|^(less)$|^(greater)$")):
+async def fisher(
+        workflow_id: str,
+        step_id: str,
+        run_id: str,
+        variable_column: str,
+        variable_row: str,
+        # variable_bottom_left: int,
+        # variable_bottom_right: int,
+        alternative: Optional[str] | None = Query("two-sided",
+                                                  regex="^(two-sided)$|^(less)$|^(greater)$")):
 
-    df = [[variable_top_left,variable_top_right], [variable_bottom_left,variable_bottom_right]]
+    data = load_file_csv_direct(workflow_id, run_id, step_id)
+    row_var = data[variable_row]
+    column_var = data[variable_column]
+    # df = [[variable_top_left,variable_top_right], [variable_bottom_left,variable_bottom_right]]
+
+    df = pd.crosstab(index=row_var,columns=column_var)
+    df1 = pd.crosstab(index=row_var,columns=column_var, margins=True, margins_name= "Total")
 
     odd_ratio, p_value = fisher_exact(df, alternative=alternative)
 
-    return {'odd_ratio': odd_ratio, "p_value": p_value}
+    return {'odd_ratio': odd_ratio, "p_value": p_value, "crosstab":df1.to_json(orient='split')}
 
 @router.get("/mc_nemar")
-async def mc_nemar(variable_top_left: int,
-                   variable_top_right: int,
-                   variable_bottom_left: int,
-                   variable_bottom_right: int,
+async def mc_nemar(workflow_id: str,
+                   step_id: str,
+                   run_id: str,
+                   variable_column: str,
+                   variable_row: str,
                    exact: bool | None = Query(default=False),
                    correction: bool | None = Query(default=True)):
 
-    df = [[variable_top_left,variable_top_right], [variable_bottom_left,variable_bottom_right]]
+    # df = [[variable_top_left,variable_top_right], [variable_bottom_left,variable_bottom_right]]
+    data = load_file_csv_direct(workflow_id, run_id, step_id)
+    row_var = data[variable_row]
+    column_var = data[variable_column]
+    df = pd.crosstab(index=row_var,columns=column_var)
+    df1 = pd.crosstab(index=row_var,columns=column_var, margins=True, margins_name= "Total")
 
     result = mcnemar(df, exact=exact, correction=correction)
 
-    return {'statistic': result.statistic, "p_value": result.pvalue}
+    return {'statistic': result.statistic, "p_value": result.pvalue, "crosstab":df1.to_json(orient='split')}
 
 @router.get("/all_statistics")
 async def all_statistics():
