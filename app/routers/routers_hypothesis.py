@@ -1908,18 +1908,21 @@ async def fisher(
 async def mc_nemar(workflow_id: str,
                    step_id: str,
                    run_id: str,
-                   variable_top_left: int,
-                   variable_top_right: int,
-                   variable_bottom_left: int,
-                   variable_bottom_right: int,
+                   variable_column: str,
+                   variable_row: str,
                    exact: bool | None = Query(default=False),
                    correction: bool | None = Query(default=True)):
 
-    df = [[variable_top_left,variable_top_right], [variable_bottom_left,variable_bottom_right]]
+    # df = [[variable_top_left,variable_top_right], [variable_bottom_left,variable_bottom_right]]
+    data = load_file_csv_direct(workflow_id, run_id, step_id)
+    row_var = data[variable_row]
+    column_var = data[variable_column]
+    df = pd.crosstab(index=row_var,columns=column_var)
+    df1 = pd.crosstab(index=row_var,columns=column_var, margins=True, margins_name= "Total")
 
     result = mcnemar(df, exact=exact, correction=correction)
 
-    return {'statistic': result.statistic, "p_value": result.pvalue}
+    return {'statistic': result.statistic, "p_value": result.pvalue, "crosstab":df1.to_json(orient='split')}
 
 @router.get("/all_statistics")
 async def all_statistics():
