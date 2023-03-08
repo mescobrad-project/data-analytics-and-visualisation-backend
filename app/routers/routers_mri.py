@@ -1,4 +1,6 @@
 import math
+import os
+import re
 import time
 
 from fastapi import APIRouter, Query
@@ -79,7 +81,7 @@ if input isn't recognized
 async def return_free_surfer_recon(workflow_id: str,
                                    run_id: str,
                                    step_id: str,
-                                   input_test_name: str,
+                                   # input_test_name: str,
                                    # input_file: str,
                                    ) -> dict:
     # Retrieve the paths file from the local storage
@@ -164,18 +166,35 @@ async def return_free_surfer_recon_log(workflow_id: str,
                                    run_id: str,
                                    step_id: str,
                                    ) -> dict:
-    path_to_log = get_local_storage_path(workflow_id, run_id, step_id) + "/output" + "/recon_log.txtr"
-    print(path_to_log)
-    to_return = ""
-    # with open(path_to_log , "r") as f:
-    with open(NeurodesktopStorageLocation + "/runtime_config/workflow_1/run_1/step_3/output/recon_log.txtr" , "r") as f:
-        last_line = f.readlines()[-1]
-        if last_line == "done":
-            to_return = True
+    path_to_log = os.path.join( get_local_storage_path(workflow_id, run_id, step_id), "output", "recon_log.txtr")
+    with open(path_to_log, "r") as f:
+        lines = f.readlines()
+        if lines[-1].rstrip() == "done":
+            return True
         else:
-            to_return = False
+            return False
 
-    return to_return
+    return False
+
+
+@router.get("/free_surfer/log/samseg", tags=["return_free_surfer_samseg"])
+async def return_free_surfer_samseg_log(workflow_id: str,
+                                   run_id: str,
+                                   step_id: str,
+                                   ) -> dict:
+    path_to_log = os.path.join( get_local_storage_path(workflow_id, run_id, step_id), "output", "samseg_log.txtr")
+    with open(path_to_log, "r") as f:
+        lines = f.readlines()
+
+        last_line = lines[-1].rstrip()
+        if re.search("^run_samseg complete.*", last_line):
+            return True
+        else:
+            return False
+
+    return False
+
+
 @router.get("free_surfer/recon/check", tags=["return_free_surfer_recon"])
 # Validation is done inline in the input of the function
 # Check status of freesurfer function run
@@ -198,7 +217,8 @@ async def return_free_surfer_recon_check(input_test_name_check: str) -> dict:
 async def return_free_surfer_samseg(workflow_id: str,
                                    run_id: str,
                                    step_id: str,
-                                    input_test_name: str, input_slices: str,
+                                    # input_test_name: str,
+                                    # input_slices: str,
                                     ) -> dict:
     # Retrieve the paths file from the local storage
     path_to_storage = get_local_neurodesk_storage_path(workflow_id, run_id, step_id)
