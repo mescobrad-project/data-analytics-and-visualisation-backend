@@ -1988,6 +1988,9 @@ async def risk_ratio_1(
         rr = RiskDifference(reference=reference, alpha=alpha)
     elif method == 'number_needed_to_treat':
         rr = NNT(reference=reference, alpha=alpha)
+        rr.fit(dataset, exposure=exposure, outcome=outcome)
+        df = rr.results
+        return {'table': df.to_json(orient="records")}
     elif method == 'odds_ratio':
         rr = OddsRatio(reference=reference, alpha=alpha)
     elif method == 'incidence_rate_ratio':
@@ -2003,10 +2006,6 @@ async def risk_ratio_1(
     rr.plot()
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
     plt.savefig(path_to_storage +"/output/Risktest.svg", format="svg")
-    # html_str = mpld3.fig_to_html(fig)
-    # plt.show()
-    # to_return["figure"] = html_str
-
     return {'table': df.to_json(orient="records")}
 
 @router.get("/two_sided_risk_ci")
