@@ -56,6 +56,7 @@ from app.utils.utils_general import get_local_storage_path, get_single_file_from
 import scipy.stats as st
 import statistics
 from tabulate import tabulate
+import seaborn as sns
 
 from app.utils.utils_hypothesis import create_plots, compute_skewness, outliers_removal, compute_kurtosis
 
@@ -1961,70 +1962,52 @@ async def conditional_logistic_regression(endog: str,
 
 @router.get("/risks")
 async def risk_ratio_1(
-        # workflow_id: str,
-        # step_id: str,
-        # run_id: str,
-                       exposure: str,
-                       outcome: str,
-                       time: str | None = Query(default=None),
-                       reference: int | None = Query(default=0),
-                       alpha: float | None = Query(default=0.05),
-                       method: str | None = Query("risk_ratio",
-                                                  regex="^(risk_ratio)$|^(risk_difference)$|^(number_needed_to_treat)$|^(odds_ratio)$|^(incidence_rate_ratio)$|^(incidence_rate_difference)$")):
+        workflow_id: str,
+        step_id: str,
+        run_id: str,
+        exposure: str,
+        outcome: str,
+        time: str | None = Query(default=None),
+        reference: int | None = Query(default=0),
+        alpha: float | None = Query(default=0.05),
+        method: str | None = Query("risk_ratio",
+                                   regex="^(risk_ratio)$|^(risk_difference)$|^(number_needed_to_treat)$|^(odds_ratio)$|^(incidence_rate_ratio)$|^(incidence_rate_difference)$")):
 
     to_return = {}
 
     fig = plt.figure(1)
     ax = plt.subplot(111)
 
-    # dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
 
-    dataset = load_sample_data(False)
-    print(dataset)
+    # zepid.datasets
+    # dataset = load_sample_data(False)
     if method == 'risk_ratio':
         rr = RiskRatio(reference=reference, alpha=alpha)
     elif method == 'risk_difference':
         rr = RiskDifference(reference=reference, alpha=alpha)
     elif method == 'number_needed_to_treat':
         rr = NNT(reference=reference, alpha=alpha)
-        rr.fit(dataset, exposure='art', outcome='dead')
-        df = rr.results
-        return {'table': df.to_json(orient="split")}
     elif method == 'odds_ratio':
         rr = OddsRatio(reference=reference, alpha=alpha)
     elif method == 'incidence_rate_ratio':
         rr = IncidenceRateRatio(reference=reference, alpha=alpha)
         rr.fit(dataset, exposure='art', outcome='dead', time='t')
-        df = rr.results
-        rr.plot()
-        plt.show()
-
-        html_str = mpld3.fig_to_html(fig)
-        to_return["figure"] = html_str
-
-        return {'table': df.to_json(orient="split"), 'figure': to_return}
     else:
         rr = IncidenceRateDifference(reference=reference, alpha=alpha)
         rr.fit(dataset, exposure='art', outcome='dead', time='t')
-        df = rr.results
-        rr.plot()
-        plt.show()
 
-        html_str = mpld3.fig_to_html(fig)
-        to_return["figure"] = html_str
-
-        return {'table': df.to_json(orient="split"), 'figure': to_return}
-
-    rr.fit(dataset, exposure='art', outcome='dead')
+    rr.fit(dataset, exposure=exposure, outcome=outcome)
     df = rr.results
-    print(df)
+
     rr.plot()
-    plt.show()
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    plt.savefig(path_to_storage +"/output/Risktest.svg", format="svg")
+    # html_str = mpld3.fig_to_html(fig)
+    # plt.show()
+    # to_return["figure"] = html_str
 
-    html_str = mpld3.fig_to_html(fig)
-    to_return["figure"] = html_str
-
-    return {'table': df.to_json(orient="split"), 'figure': to_return}
+    return {'table': df.to_json(orient="records")}
 
 @router.get("/two_sided_risk_ci")
 async def two_sided_risk_ci(events: int,
@@ -2066,6 +2049,7 @@ async def risk_ratio_function(workflow_id: str,
                               alpha: float | None = Query(default=0.05)):
 
     r = risk_ratio(a=exposed_with, b=unexposed_with, c=exposed_without, d=unexposed_without, alpha=alpha)
+    print(r)
     estimated_risk = r.point_estimate
     lower_bound = r.lower_bound
     upper_bound = r.upper_bound
@@ -2178,6 +2162,25 @@ async def correlations_pingouin(workflow_id: str,
                                 method: Optional[str] | None = Query("pearson",
                                                                      regex="^(pearson)$|^(spearman)$|^(kendall)$|^(bicor)$|^(percbend)$|^(shepherd)$|^(skipped)$")):
     data = load_file_csv_direct(workflow_id, run_id, step_id)
+    df = data[column_2]
+
+    df1 = df.rcorr(stars=False).round(5)
+    corrs = df.corr()
+
+    # mask = np.zeros_like(corrs)
+    # mask[np.triu_indices_from(mask)] = True
+    # fig = plt.figure()
+    # ax = fig.add_subplot()
+    # # ax = sns.heatmap(corrs, annot=True, cmap='Spectral_r', mask=mask, square=True, vmin=-1, vmax=1)
+    # # plt.xticks(range(len(corrs)), corrs.columns)
+    # # print(range(len(corrs)), corrs.columns)
+    #
+    # ax = plt.matshow(df.corr())
+    # plt.title('Correlation matrix')
+    # plt.show()
+    # ss = mpld3.save_json(fig, 'ss.json')
+    # html_str = mpld3.fig_to_html(fig)
+
     all_res = []
     count=0
     for i in column_2:
@@ -2186,8 +2189,6 @@ async def correlations_pingouin(workflow_id: str,
                 continue
             res = pingouin.corr(x=data[i], y=data[j], method=method, alternative=alternative).round(5)
             res.insert(0,'Cor', i + "-" + j, True)
-            # all_res.append(res)
-            print(res)
             count = count + 1
             for ind, row in res.iterrows():
                 temp_to_append = {
@@ -2197,8 +2198,6 @@ async def correlations_pingouin(workflow_id: str,
                     "r": row['r'],
                     "CI95%": "[" + str(row['CI95%'].item(0)) + "," + str(row['CI95%'].item(1)) + "]",
                     "p-val": row['p-val'],
-                    # if method=='':
-                    #     "BF10": row['BF10']
                     "power": row['power']
                 }
                 if method == 'pearson':
@@ -2207,9 +2206,8 @@ async def correlations_pingouin(workflow_id: str,
                     temp_to_append["outliers"] = row['outliers']
             all_res.append(temp_to_append)
 
-    # df = pd.concat(all_res)
-    return {'DataFrame': all_res}
-    # return {'DataFrame': df.to_json(orient='split')}
+    return {'DataFrame': all_res, "Table_rcorr": df1.to_json(orient='records')}
+    # return {'DataFrame': all_res, "Table_rcorr": df1.to_json(orient='records'), "rplot":html_str}
 
 @router.get("/linear_regressor_pinguin")
 async def linear_regression_pinguin(dependent_variable: str,
