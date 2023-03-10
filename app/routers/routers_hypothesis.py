@@ -1982,10 +1982,13 @@ async def risk_ratio_1(
 
     # zepid.datasets
     # dataset = load_sample_data(False)
+    # print(load_sample_data(False))
     if method == 'risk_ratio':
         rr = RiskRatio(reference=reference, alpha=alpha)
+        rr.fit(dataset, exposure=exposure, outcome=outcome)
     elif method == 'risk_difference':
         rr = RiskDifference(reference=reference, alpha=alpha)
+        rr.fit(dataset, exposure=exposure, outcome=outcome)
     elif method == 'number_needed_to_treat':
         rr = NNT(reference=reference, alpha=alpha)
         rr.fit(dataset, exposure=exposure, outcome=outcome)
@@ -1993,16 +1996,17 @@ async def risk_ratio_1(
         return {'table': df.to_json(orient="records")}
     elif method == 'odds_ratio':
         rr = OddsRatio(reference=reference, alpha=alpha)
+        rr.fit(dataset, exposure=exposure, outcome=outcome)
     elif method == 'incidence_rate_ratio':
         rr = IncidenceRateRatio(reference=reference, alpha=alpha)
-        rr.fit(dataset, exposure='art', outcome='dead', time='t')
-    else:
+        rr.fit(dataset, exposure=exposure, outcome=outcome, time=time)
+    elif method == "incidence_rate_difference":
         rr = IncidenceRateDifference(reference=reference, alpha=alpha)
-        rr.fit(dataset, exposure='art', outcome='dead', time='t')
+        rr.fit(dataset, exposure=exposure, outcome=outcome, time=time)
+    else:
+        return {'table':''}
 
-    rr.fit(dataset, exposure=exposure, outcome=outcome)
     df = rr.results
-
     rr.plot()
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
     plt.savefig(path_to_storage +"/output/Risktest.svg", format="svg")

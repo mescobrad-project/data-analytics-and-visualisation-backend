@@ -102,7 +102,9 @@ ExistingFunctions = [
     "survivalanalysisoddsratiosimple",
     "survivalanalysisoddsratiodataset",
     "survivalanalysisincidencerateratiosimple",
+    "survivalanalysisincidencerateratiodataset",
     "survivalanalysisincidenceratedifferencesimple",
+    "survivalanalysisincidenceratedifferencedataset",
     "ancova",
     "linearmixedeffectsmodel",
     "survivalanalysiscoxregression",
@@ -322,8 +324,12 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/SurvivalAnalysisOddsRatioDataset"
             case "survivalanalysisincidencerateratiosimple":
                 url_to_redirect += "/SurvivalAnalysisIncidenceRateRatioSimple"
+            case "survivalanalysisincidencerateratiodataset":
+                url_to_redirect += "/SurvivalAnalysisIncidenceRateRatioDataset"
             case "survivalanalysisincidenceratedifferencesimple":
                 url_to_redirect += "/SurvivalAnalysisIncidenceRateDifferenceSimple"
+            case "survivalanalysisincidenceratedifferencedataset":
+                url_to_redirect += "/SurvivalAnalysisIncidenceRateDifferenceDataset"
             case "ancova":
                 url_to_redirect += "/Ancova"
             case "linearmixedeffectsmodel":
