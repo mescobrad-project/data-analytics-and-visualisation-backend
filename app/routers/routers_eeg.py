@@ -420,6 +420,7 @@ async def return_filters(
 
 # Estimate welch
 @router.get("/return_welch", tags=["return_welch"])
+# TODO Create plot
 # Validation is done inline in the input of the function
 async def estimate_welch(
                         workflow_id: str, step_id: str, run_id: str,
@@ -717,6 +718,8 @@ async def return_peaks(workflow_id: str, step_id: str, run_id: str,
 # Estimate welch
 @router.get("/return_periodogram", tags=["return_periodogram"])
 # Validation is done inline in the input of the function
+# TODO Create plot
+
 async def estimate_periodogram(workflow_id: str, step_id: str, run_id: str,input_name: str,
                                tmin: float | None = 0,
                                tmax: float | None = None,
@@ -769,6 +772,7 @@ async def estimate_periodogram(workflow_id: str, step_id: str, run_id: str,input
 # Return power_spectral_density
 @router.get("/return_power_spectral_density", tags=["return_power_spectral_density"])
 # Validation is done inline in the input of the function
+# TODO Create plot
 # TODO TMIN and TMAX probably should be removed
 async def return_power_spectral_density(workflow_id: str, step_id: str, run_id: str,input_name: str,
                                         tmin: float | None = None,
@@ -1545,7 +1549,8 @@ async def bandpower_yasa(workflow_id: str,
     sf = info['sfreq']
 
     hypno = yasa.hypno_upsample_to_data(list(hypno['stage']), sf_hypno=current_sampling_frequency_of_the_hypnogram, data=data)
-
+    print("include")
+    print(include)
     df = yasa.bandpower(data, hypno=hypno, relative=relative, bandpass=bandpass, include=include)
 
     #Add index as column

@@ -68,6 +68,7 @@ ExistingFunctions = [
     "shepherd_pi_correlation",
     "skipped_spearman_correlation",
     "point_biserial_correlation",
+    "power_spectral_density_main",
     "data_transform_anova",
     "homoscedasticity",
     "spearman_correlation",
@@ -173,6 +174,8 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/welch"
             case "find_peaks":
                 url_to_redirect += "/find_peaks"
+            case "power_spectral_density_main":
+                url_to_redirect += "/power_spectral_density_main"
             case "power_spectral_density_periodogram":
                 url_to_redirect += "/periodogram"
             case "stft":
