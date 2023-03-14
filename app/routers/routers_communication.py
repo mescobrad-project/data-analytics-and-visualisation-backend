@@ -109,6 +109,7 @@ ExistingFunctions = [
     "LogisticRegressionPinguin",
     "LogisticRegressionStatsmodels",
     "LogisticRegressionSklearn"
+    "FactorAnalysis"
     # Dashboard
     "dashboard",
 ]
@@ -320,6 +321,8 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/SurvivalAnalysisTimeVaryingCovariates"
             case "principalcomponentanalysis":
                 url_to_redirect += "/PrincipalComponentAnalysis"
+            case "FactorAnalysis":
+                url_to_redirect += "/FactorAnalysis"
             # Dashboard
             case "dashboard":
                 url_to_redirect += "/dashboard"
