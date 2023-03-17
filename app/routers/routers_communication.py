@@ -68,6 +68,7 @@ ExistingFunctions = [
     "shepherd_pi_correlation",
     "skipped_spearman_correlation",
     "point_biserial_correlation",
+    "canonical_correlation",
     "data_transform_anova",
     "homoscedasticity",
     "spearman_correlation",
@@ -102,11 +103,14 @@ ExistingFunctions = [
     "survivalanalysisoddsratiosimple",
     "survivalanalysisoddsratiodataset",
     "survivalanalysisincidencerateratiosimple",
+    "survivalanalysisincidencerateratiodataset",
     "survivalanalysisincidenceratedifferencesimple",
+    "survivalanalysisincidenceratedifferencedataset",
     "ancova",
     "linearmixedeffectsmodel",
     "survivalanalysiscoxregression",
     "survivalanalysistimevaryingcovariates",
+    "survivalanalysiskaplanmeier",
     "principalcomponentanalysis",
     "LinearSVR",
     "LinearSVC",
@@ -252,6 +256,8 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/Shepherd_pi_correlation"
             case "skipped_spearman_correlation":
                 url_to_redirect += "/Skipped_spearman_correlation"
+            case "canonical_correlation":
+                url_to_redirect += "/Canonical_correlation"
             case "welch_t_test":
                 url_to_redirect += "/Welch_t_test"
             case "independent_t_test":
@@ -322,8 +328,14 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/SurvivalAnalysisOddsRatioDataset"
             case "survivalanalysisincidencerateratiosimple":
                 url_to_redirect += "/SurvivalAnalysisIncidenceRateRatioSimple"
+            case "survivalanalysisincidencerateratiodataset":
+                url_to_redirect += "/SurvivalAnalysisIncidenceRateRatioDataset"
             case "survivalanalysisincidenceratedifferencesimple":
                 url_to_redirect += "/SurvivalAnalysisIncidenceRateDifferenceSimple"
+            case "survivalanalysisincidenceratedifferencedataset":
+                url_to_redirect += "/SurvivalAnalysisIncidenceRateDifferenceDataset"
+            case "survivalanalysiskaplanmeier":
+                url_to_redirect += "/SurvivalAnalysisKaplanMeier"
             case "ancova":
                 url_to_redirect += "/Ancova"
             case "linearmixedeffectsmodel":

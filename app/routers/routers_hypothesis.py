@@ -1856,7 +1856,10 @@ async def generalized_estimating_equations(workflow_id: str,
     return {'first_table':df_0.to_html(), 'second table':df_1.to_html(), 'third table':df_2.to_html()}
 
 @router.get("/kaplan_meier")
-async def kaplan_meier(column_1: str,
+async def kaplan_meier(workflow_id: str,
+                       step_id: str,
+                       run_id: str,
+                       column_1: str,
                        column_2: str,
                        at_risk_counts: bool | None = Query(default=True),
                        label: str | None = Query(default=None),
@@ -1866,20 +1869,50 @@ async def kaplan_meier(column_1: str,
     fig = plt.figure(1)
     ax = plt.subplot(111)
 
-    dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
+    # dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
 
     kmf = KaplanMeierFitter(alpha=alpha, label=label)
     kmf.fit(dataset[column_1], dataset[column_2])
     kmf.plot_survival_function(at_risk_counts=at_risk_counts)
+    plt.ylabel("Survival probability")
+    plt.savefig(path_to_storage + "/output/survival_function.svg", format="svg")
     plt.show()
 
-    html_str = mpld3.fig_to_html(fig)
-    to_return["figure_1"] = html_str
+    ts = kmf.confidence_interval_survival_function_.index
+    low, high = np.transpose(kmf.confidence_interval_survival_function_.values)
+    ax1 = plt.subplot(111)
+    plt.fill_between(ts, low, high, color='gray', alpha=0.3)
+    kmf.survival_function_.plot(ax=plt.gca())
+    plt.ylabel('Survival function')
+    plt.savefig(path_to_storage + "/output/survival_function2.svg", format="svg")
+    plt.show()
+
+
+
+    # html_str = mpld3.fig_to_html(fig)
+    # to_return["figure_1"] = html_str
 
     df = kmf.survival_function_
     confidence_interval = kmf.confidence_interval_
+    event_table = kmf.event_table
+    conditional_time_to_event = kmf.conditional_time_to_event_
+    confidence_interval_cumulative_density = kmf.confidence_interval_cumulative_density_
+    confidence_interval_survival_function = kmf.confidence_interval_survival_function_
+    cumulative_density = kmf.cumulative_density_
+    timeline = pd.DataFrame(kmf.timeline)
+    median_survival_time = kmf.median_survival_time_
+    return {"survival_function":df.to_json(orient="records"),
+            "confidence_interval": confidence_interval.to_json(orient='records'),
+            'event_table': event_table.to_json(orient="records"),
+            "conditional_time_to_event": conditional_time_to_event.to_json(orient="records"),
+            "confidence_interval_cumulative_density":confidence_interval_cumulative_density.to_json(orient="records"),
+            "confidence_interval_survival_function":confidence_interval_survival_function.to_json(orient='records'),
+            "cumulative_density" : cumulative_density.to_json(orient='records'),
+            "timeline" : timeline.to_json(orient='records'),
+            "median_survival_time": str(median_survival_time)}
 
-    return {'figure': to_return, "survival_function":df.to_json(orient="split"), "confidence_interval": confidence_interval.to_json(orient='split')}
 
 @router.get("/fisher")
 async def fisher(
@@ -1982,10 +2015,13 @@ async def risk_ratio_1(
 
     # zepid.datasets
     # dataset = load_sample_data(False)
+    # print(load_sample_data(False))
     if method == 'risk_ratio':
         rr = RiskRatio(reference=reference, alpha=alpha)
+        rr.fit(dataset, exposure=exposure, outcome=outcome)
     elif method == 'risk_difference':
         rr = RiskDifference(reference=reference, alpha=alpha)
+        rr.fit(dataset, exposure=exposure, outcome=outcome)
     elif method == 'number_needed_to_treat':
         rr = NNT(reference=reference, alpha=alpha)
         rr.fit(dataset, exposure=exposure, outcome=outcome)
@@ -1993,16 +2029,17 @@ async def risk_ratio_1(
         return {'table': df.to_json(orient="records")}
     elif method == 'odds_ratio':
         rr = OddsRatio(reference=reference, alpha=alpha)
+        rr.fit(dataset, exposure=exposure, outcome=outcome)
     elif method == 'incidence_rate_ratio':
         rr = IncidenceRateRatio(reference=reference, alpha=alpha)
-        rr.fit(dataset, exposure='art', outcome='dead', time='t')
-    else:
+        rr.fit(dataset, exposure=exposure, outcome=outcome, time=time)
+    elif method == "incidence_rate_difference":
         rr = IncidenceRateDifference(reference=reference, alpha=alpha)
-        rr.fit(dataset, exposure='art', outcome='dead', time='t')
+        rr.fit(dataset, exposure=exposure, outcome=outcome, time=time)
+    else:
+        return {'table':''}
 
-    rr.fit(dataset, exposure=exposure, outcome=outcome)
     df = rr.results
-
     rr.plot()
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
     plt.savefig(path_to_storage +"/output/Risktest.svg", format="svg")
@@ -2861,31 +2898,90 @@ async def canonical_correlation(workflow_id: str,
                                 independent_variables_2: list[str] | None = Query(default=None)):
 
     dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
 
-    for columns in dataset.columns:
-        if columns not in independent_variables_1:
-            X = dataset.drop(str(columns), axis=1)
+    X = dataset[dataset.columns.intersection(independent_variables_1)]
+    Y =dataset[dataset.columns.intersection(independent_variables_2)]
 
-    for columns in dataset.columns:
-        if columns not in independent_variables_2:
-            Y = dataset.drop(str(columns), axis=1)
+    # First, let’s see if there is any correlation between the features of this dataset.
+    corr_XY = pd.concat([X,Y],axis=1, join='inner').corr()
+    plt.figure(figsize=(5, 5))
+    sns.heatmap(corr_XY, cmap='coolwarm', annot=True, linewidths=1, vmin=-1)
+    plt.savefig(path_to_storage + "/output/CCA_XYcorr.svg", format="svg")
+
+    # Number of components to keep. Should be in [1, min(n_samples, n_features, n_targets)].
+    if n_components > min(X.shape[0], len(independent_variables_1), len(independent_variables_2)):
+        n_components = min(X.shape[0], len(independent_variables_1), len(independent_variables_2))
 
     my_cca = CCA(n_components=n_components)
-
     # Fit the model
     my_cca.fit(X, Y)
-
     X_c, Y_c = my_cca.transform(X, Y)
 
-    return {'The left singular vectors of the cross-covariance matrices of each iteration.': my_cca.x_weights_.tolist(),
-            'The right singular vectors of the cross-covariance matrices of each iteration.': my_cca.y_weights_.tolist(),
-            'The loadings of X.': my_cca.x_loadings_.tolist(),
-            'The loadings of Y.': my_cca.y_loadings_.tolist(),
-            'The projection matrix used to transform X.': my_cca.x_rotations_.tolist(),
-            'The projection matrix used to transform Y.': my_cca.y_rotations_.tolist(),
-            'The coefficients of the linear model.': my_cca.coef_.tolist(),
-            'Transformed X': X_c.tolist(),
-            'Transformed Y': Y_c.tolist()}
+    # Now let’s check if there is any dependency between our canonical variates.
+    comp_corr = [np.corrcoef(X_c[:, i], Y_c[:, i])[1][0] for i in range(n_components)]
+    comp_titles = ['Comp'+ str(i+1) for i in range(n_components)]
+    plt.figure(figsize=(5, 5))
+    plt.bar(comp_titles, comp_corr, color='lightgrey', width=0.8, edgecolor='k')
+    plt.savefig(path_to_storage + "/output/CCA_comp_corr.svg", format="svg")
+
+    fig, axs = plt.subplots(1, n_components, figsize=(n_components*8, 8), sharey='row')
+    for i in range(n_components):
+        axs[i].scatter(X_c[:, i], Y_c[:, i], marker="s", label='Comp'+ str(i+1))
+        z = np.polyfit(X_c[:, i], Y_c[:, i], 1)
+        p = np.poly1d(z)
+        axs[i].plot(X_c[:, i], p(X_c[:, i]), color="red", linewidth=3, linestyle="--")
+        axs[i].legend(loc='upper left')
+        axs[i].set_ylabel('CCY_'+str(i+1), fontsize=14)
+        axs[i].set_xlabel('CCX_'+str(i+1), fontsize=14)
+        axs[i].set_title('Comp'+str(i+1)+' , corr = %.2f' %
+                  np.corrcoef(X_c[:, i], Y_c[:, i])[0, 1])
+    plt.savefig(path_to_storage + "/output/CCA_XY_c_corr.svg", format="svg")
+
+    coef_df = pd.DataFrame(np.round(my_cca.coef_, 5), columns=[Y.columns])
+    coef_df.index = X.columns
+    print(coef_df)
+    plt.figure(figsize=(5, 5))
+    s= sns.heatmap(coef_df, cmap='coolwarm', annot=True, linewidths=1, vmin=-1)
+    s.set(xlabel='Y samle', ylabel='X sample')
+    # plt.title = "CCA coefficients."
+    plt.savefig(path_to_storage + "/output/CCA_coefs.svg", format="svg")
+    plt.show()
+
+    xweights = pd.DataFrame(my_cca.x_weights_, columns=comp_titles)
+    xweights.insert(loc=0, column='Feature', value=independent_variables_1)
+    print(xweights)
+    yweights = pd.DataFrame(my_cca.y_weights_, columns=comp_titles)
+    yweights.insert(loc=0, column='Feature', value=independent_variables_2)
+    xloadings = pd.DataFrame(my_cca.x_loadings_, columns=comp_titles)
+    xloadings.insert(loc=0, column='Feature', value=independent_variables_1)
+    yloadings = pd.DataFrame(my_cca.y_loadings_, columns=comp_titles)
+    yloadings.insert(loc=0, column='Feature', value=independent_variables_2)
+    xrotations = pd.DataFrame(my_cca.x_rotations_, columns=comp_titles)
+    xrotations.insert(loc=0, column='Feature', value=independent_variables_1)
+    yrotations = pd.DataFrame(my_cca.y_rotations_, columns=comp_titles)
+    yrotations.insert(loc=0, column='Feature', value=independent_variables_2)
+    Xc_df = pd.DataFrame(X_c, columns=comp_titles)
+    Yc_df = pd.DataFrame(Y_c, columns=comp_titles)
+
+    return {'xweights': xweights.to_json(orient='records'),
+            'yweights': yweights.to_json(orient='records'),
+            'xloadings': xloadings.to_json(orient='records'),
+            'yloadings': yloadings.to_json(orient='records'),
+            'xrotations': xrotations.to_json(orient='records'),
+            'yrotations': yrotations.to_json(orient='records'),
+            'coef_df': coef_df.to_json(orient='records'),
+            'Xc_df': Xc_df.to_json(orient='records'),
+            'Yc_df': Yc_df.to_json(orient='records')}
+    # return {'The left singular vectors of the cross-covariance matrices of each iteration.': my_cca.x_weights_.tolist(),
+    #         'The right singular vectors of the cross-covariance matrices of each iteration.': my_cca.y_weights_.tolist(),
+    #         'The loadings of X.': my_cca.x_loadings_.tolist(),
+    #         'The loadings of Y.': my_cca.y_loadings_.tolist(),
+    #         'The projection matrix used to transform X.': my_cca.x_rotations_.tolist(),
+    #         'The projection matrix used to transform Y.': my_cca.y_rotations_.tolist(),
+    #         'The coefficients of the linear model.': my_cca.coef_.tolist(),
+    #         'Transformed X': X_c.tolist(),
+    #         'Transformed Y': Y_c.tolist()}
 
 @router.get("/granger_analysis")
 async def compute_granger_analysis(workflow_id: str,
