@@ -1864,10 +1864,10 @@ async def kaplan_meier(workflow_id: str,
                        at_risk_counts: bool | None = Query(default=True),
                        label: str | None = Query(default=None),
                        alpha: float | None = Query(default=0.05)):
-    to_return = {}
-
-    fig = plt.figure(1)
-    ax = plt.subplot(111)
+    # to_return = {}
+    #
+    # fig = plt.figure(1)
+    # ax = plt.subplot(111)
 
     # dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
     dataset = load_file_csv_direct(workflow_id, run_id, step_id)
@@ -1880,35 +1880,31 @@ async def kaplan_meier(workflow_id: str,
     plt.savefig(path_to_storage + "/output/survival_function.svg", format="svg")
     plt.show()
 
-    ts = kmf.confidence_interval_survival_function_.index
-    low, high = np.transpose(kmf.confidence_interval_survival_function_.values)
-    ax1 = plt.subplot(111)
-    plt.fill_between(ts, low, high, color='gray', alpha=0.3)
-    kmf.survival_function_.plot(ax=plt.gca())
-    plt.ylabel('Survival function')
-    plt.savefig(path_to_storage + "/output/survival_function2.svg", format="svg")
-    plt.show()
-
-
-
-    # html_str = mpld3.fig_to_html(fig)
-    # to_return["figure_1"] = html_str
 
     df = kmf.survival_function_
+    timeline = pd.DataFrame(kmf.timeline)
+    conditional_time_to_event = pd.DataFrame(kmf.conditional_time_to_event_)
     confidence_interval = kmf.confidence_interval_
     event_table = kmf.event_table
-    conditional_time_to_event = kmf.conditional_time_to_event_
     confidence_interval_cumulative_density = kmf.confidence_interval_cumulative_density_
-    confidence_interval_survival_function = kmf.confidence_interval_survival_function_
     cumulative_density = kmf.cumulative_density_
-    timeline = pd.DataFrame(kmf.timeline)
     median_survival_time = kmf.median_survival_time_
+
+    df.insert(0, "timeline", timeline)
+    confidence_interval.insert(0, "timeline", timeline)
+    confidence_interval.columns = confidence_interval.columns.str.replace('.', ',', regex=True)
+    conditional_time_to_event.insert(0, "timeline", timeline)
+    event_table.insert(0, "event_at", timeline)
+    confidence_interval_cumulative_density.insert(0, "timeline", timeline)
+    confidence_interval_cumulative_density.columns = confidence_interval_cumulative_density.columns.str.replace('.', ',', regex=True)
+    cumulative_density.insert(0, "timeline", timeline)
+
+
     return {"survival_function":df.to_json(orient="records"),
             "confidence_interval": confidence_interval.to_json(orient='records'),
             'event_table': event_table.to_json(orient="records"),
             "conditional_time_to_event": conditional_time_to_event.to_json(orient="records"),
             "confidence_interval_cumulative_density":confidence_interval_cumulative_density.to_json(orient="records"),
-            "confidence_interval_survival_function":confidence_interval_survival_function.to_json(orient='records'),
             "cumulative_density" : cumulative_density.to_json(orient='records'),
             "timeline" : timeline.to_json(orient='records'),
             "median_survival_time": str(median_survival_time)}
