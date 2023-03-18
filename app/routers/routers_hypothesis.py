@@ -1729,19 +1729,21 @@ async def anova_rm(dependent_variable: str,
 async def generalized_estimating_equations(workflow_id: str,
                                            step_id: str,
                                            run_id: str,
-                                           dependent: str,
+                                           dependent_variable: str,
                                            groups: str,
-                                           independent: list[str] | None = Query(default=None),
-                                           conv_struct: str | None = Query("independence",
+                                           independent_variables: list[str] | None = Query(default=None),
+                                           cov_struct: str | None = Query("independence",
                                                                            regex="^(independence)$|^(autoregressive)$|^(exchangeable)$|^(nested_working_dependence)$"),
                                            family: str | None = Query("poisson",
                                                                       regex="^(poisson)$|^(gamma)$|^(gaussian)$|^(inverse_gaussian)$|^(negative_binomial)$|^(binomial)$|^(tweedie)$")):
 
     data = load_file_csv_direct(workflow_id, run_id, step_id)
 
-    z = dependent + "~"
-    for i in range(len(independent)):
-        z = z + "+" + independent[i]
+    z = dependent_variable + "~"
+    for i in range(len(independent_variables)):
+        z = z + "+" + independent_variables[i]
+
+    print(family)
 
     if family == "poisson":
         fam = sm.families.Poisson()
@@ -1758,14 +1760,19 @@ async def generalized_estimating_equations(workflow_id: str,
     else:
         fam = sm.families.Tweedie()
 
-    if conv_struct == "independence":
+    if cov_struct == "independence":
         ind = sm.cov_struct.Independence()
-    elif conv_struct == "autoregressive":
+    elif cov_struct == "autoregressive":
         ind = sm.cov_struct.Autoregressive()
-    elif conv_struct == "exchangeable":
+    elif cov_struct == "exchangeable":
         ind = sm.cov_struct.Exchangeable()
     else:
         ind = sm.cov_struct.Nested()
+
+    print(cov_struct)
+    print(fam)
+    print(ind)
+
 
     md = smf.gee(z, groups, data, cov_struct=ind, family=fam)
 
@@ -1773,18 +1780,49 @@ async def generalized_estimating_equations(workflow_id: str,
 
     df = mdf.summary()
 
-    print(df)
+    # print(df)
 
     results_as_html = df.tables[0].as_html()
     df_0 = pd.read_html(results_as_html)[0]
+    df_new = df_0[[2, 3]]
+    df_0.drop(columns=[2, 3], inplace=True)
+    df_0 = pd.concat([df_0, df_new.rename(columns={2: 0, 3: 1})], ignore_index=True)
+    df_0.set_index(0, inplace=True)
+    df_0.index.name = None
+    df_0.rename(columns={1: 'Values'}, inplace=True)
+    df_0.drop(df_0.tail(2).index, inplace=True)
+    df_0.reset_index(inplace=True)
+    # print(list(df_0.values))
 
     results_as_html = df.tables[1].as_html()
     df_1 = pd.read_html(results_as_html)[0]
+    new_header = df_1.iloc[0, 1:]
+    df_1 = df_1[1:]
+    df_1.set_index(0, inplace=True)
+    df_1.columns = new_header
+    df_1.index.name = None
+    df_1.reset_index(inplace=True)
+    df_1.rename(columns={'[0.025': '0.025', '0.975]': '0.975'}, inplace=True)
 
     results_as_html = df.tables[2].as_html()
     df_2 = pd.read_html(results_as_html)[0]
+    df_new = df_2[[2, 3]]
+    df_2.drop(columns=[2, 3], inplace=True)
+    df_2 = pd.concat([df_2, df_new.rename(columns={2: 0, 3: 1})], ignore_index=True)
+    df_2.set_index(0, inplace=True)
+    df_2.index.name = None
+    df_2.rename(columns={1: 'Values'}, inplace=True)
+    df_2.reset_index(inplace=True)
 
-    return {'first_table':df_0.to_html(), 'second table':df_1.to_html(), 'third table':df_2.to_html()}
+    # print(df_1)
+    #
+    # print(df_0)
+    # # print(df_0['No. Observations: '])
+    print(df)
+
+    return {'first_table':df_0.to_json(orient='records'),
+            'second_table':df_1.to_json(orient='records'),
+            'third_table':df_2.to_json(orient='records')}
 
 @router.get("/kaplan_meier")
 async def kaplan_meier(column_1: str,
