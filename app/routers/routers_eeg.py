@@ -459,6 +459,17 @@ async def estimate_welch(
                                           return_onesided=input_return_onesided, scaling=input_scaling,
                                           axis=input_axis, average=input_average)
 
+            plt.semilogy(f, pxx_den)
+
+            # plt.ylim([0.5e-3, 1])
+
+            plt.xlabel('frequency [Hz]')
+
+            plt.ylabel('PSD [V**2/Hz]')
+            plt.savefig(get_local_storage_path(workflow_id, step_id, run_id) + "/output/" + 'welch_plot.png')
+
+            plt.show()
+
             to_return = {
                 "frequencies": f.tolist(),
                 "power spectral density": pxx_den.tolist()
@@ -744,6 +755,15 @@ async def estimate_periodogram(workflow_id: str, step_id: str, run_id: str,input
                                             nfft=input_nfft, return_onesided=input_return_onesided,
                                             scaling=input_scaling,
                                             axis=input_axis)
+
+
+            plt.semilogy(f, pxx_den)
+            # plt.ylim([1e-7, 1e2])
+            plt.xlabel('frequency [Hz]')
+            plt.ylabel('PSD [V**2/Hz]')
+            plt.savefig(get_local_storage_path(workflow_id, step_id, run_id) + "/output/" + 'periodogram_plot.png')
+            plt.show()
+
             return {'frequencies': f.tolist(), 'power spectral density': pxx_den.tolist()}
     return {'Channel not found'}
 
@@ -774,9 +794,12 @@ async def estimate_periodogram(workflow_id: str, step_id: str, run_id: str,input
 # Validation is done inline in the input of the function
 # TODO Create plot
 # TODO TMIN and TMAX probably should be removed
-async def return_power_spectral_density(workflow_id: str, step_id: str, run_id: str,input_name: str,
-                                        tmin: float | None = None,
-                                        tmax: float | None = None,
+async def return_power_spectral_density(workflow_id: str,
+                                        step_id: str,
+                                        run_id: str,
+                                        input_name: str,
+                                        # tmin: float | None = None,
+                                        # tmax: float | None = None,
                                         input_fmin: float | None = 0,
                                         input_fmax: float | None = None,
                                         input_bandwidth: float | None = None,
@@ -818,6 +841,20 @@ async def return_power_spectral_density(workflow_id: str, step_id: str, run_id: 
                                                       n_jobs=input_n_jobs,
                                                       verbose=None
                                                       )
+            print("--------PSD----")
+            print(psd_results)
+            print(freqs)
+            plt.semilogy(freqs, psd_results)
+
+            # plt.ylim([0.5e-3, 1])
+
+            plt.xlabel('frequency [Hz]')
+
+            plt.ylabel('PSD [V**2/Hz]')
+            plt.savefig(get_local_storage_path(workflow_id, step_id, run_id) + "/output/" + 'multitaper_plot.png')
+
+            plt.show()
+
             to_return = {'frequencies': freqs.tolist(), 'power spectral density': psd_results.tolist()}
             return to_return
     return {'Channel not found'}
