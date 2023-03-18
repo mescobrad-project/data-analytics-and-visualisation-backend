@@ -2,6 +2,7 @@ import csv
 import os, sys
 from operator import index
 from os.path import realpath, exists, join
+from fastparquet import write as wr, ParquetFile
 
 import glob, pandas
 import pandas as pd
@@ -107,3 +108,27 @@ async def return_samseg_stats(fs_dir: str = None, subject_id: str = None) -> []:
             }
             results_array.append(temp_to_append)
         return results_array
+
+@router.get("/save_file_to_parquet", tags=["return_samseg_stats"])
+async def save_file_to_parquet(fs_dir: str = None, subject_id: str = None) -> []:
+    with open('example_data/samseg.stats', newline="") as csvfile:
+        if not os.path.isfile('example_data/samseg.stats'):
+            return []
+
+        # If we use this method we will have to prepare the .stats file
+        # First Remove empty rows and then rename the columns
+        df = pd.read_csv(csvfile, delimiter=',', header=None, names=['measure', 'value', 'unit'])
+        df = df.fillna('')
+        df.to_parquet('samseg_sample_file.parquet', engine='fastparquet')
+        return 'OK'
+
+@router.get("/read_parquet_file", tags=["return_samseg_stats"])
+async def save_file_to_parquet(fs_dir: str = None, subject_id: str = None) -> []:
+    try:
+        pf = ParquetFile('samseg_sample_file.parquet')
+        df = pf.to_pandas()
+        return df
+    except Exception as exc:
+        print(exc)
+        print("error")
+        return exc

@@ -33,8 +33,8 @@ from app.utils.utils_eeg import load_data_from_edf, load_file_from_local_or_inte
     load_data_from_edf_fif
 from app.utils.utils_general import validate_and_convert_peaks, validate_and_convert_power_spectral_density, \
     create_notebook_mne_plot, get_neurodesk_display_id, get_annotations_from_csv, create_notebook_mne_modular, \
-    get_single_file_from_local_temp_storage, get_local_storage_path, get_local_edfbrowser_storage_path, \
-    get_single_file_from_edfbrowser_interim_storage, write_function_data_to_config_file, \
+    get_single_file_from_local_temp_storage, get_local_storage_path, get_local_neurodesk_storage_path, \
+    get_single_file_from_neurodesk_interim_storage, write_function_data_to_config_file, \
     get_files_for_slowwaves_spindle
 
 import pandas as pd
@@ -152,8 +152,8 @@ async def list_channels(workflow_id: str,
 
     # If file is altered we retrieve it from the edf interim storage fodler
     if file_used == "printed":
-        path_to_storage = get_local_edfbrowser_storage_path(workflow_id, run_id, step_id)
-        name_of_file = get_single_file_from_edfbrowser_interim_storage(workflow_id, run_id, step_id)
+        path_to_storage = get_local_neurodesk_storage_path(workflow_id, run_id, step_id)
+        name_of_file = get_single_file_from_neurodesk_interim_storage(workflow_id, run_id, step_id)
         data = load_data_from_edf(path_to_storage + "/" + name_of_file)
     else:
         # If not we use it from the directory input files are supposed to be
@@ -1548,6 +1548,8 @@ async def bandpower_yasa(workflow_id: str,
 
     df = yasa.bandpower(data, hypno=hypno, relative=relative, bandpass=bandpass, include=include)
 
+    #Add index as column
+    df['index'] = df.index
     return {'bandpower':df.to_json(orient='split')}
 
 #  3rd page
@@ -1595,7 +1597,7 @@ async def spindles_detect_two_dataframes(
 
         # df_2 = df_2.T
         df_2.insert(0, 'id', range(1, 1 + len(df_2)))
-        return {'data_frame_1':df_1.to_json(orient='records'), 'data_frame_2':df_2.to_json(orient='records')}
+        return {'data_frame_1': df_1.to_json(orient='records'), 'data_frame_2':df_2.to_json(orient='records')}
     else:
         return {'No spindles detected'}
 
@@ -1916,10 +1918,10 @@ async def mne_open_eeg(workflow_id: str,
     file_full_path = path_to_storage + "/" + name_of_file
 
     # Give permissions in working folder
-    channel.send("sudo chmod a+rw /home/user/neurodesktop-storage/runtime_config/workflow_" + workflow_id + "/run_" + run_id + "/step_" + step_id +"/edfbrowser_interim_storage\n")
+    channel.send("sudo chmod a+rw /home/user/neurodesktop-storage/runtime_config/workflow_" + workflow_id + "/run_" + run_id + "/step_" + step_id +"/neurodesk_interim_storage\n")
 
     # Opening EDFBrowser
-    channel.send("cd /home/user/neurodesktop-storage/runtime_config/workflow_" + workflow_id + "/run_" + run_id + "/step_" + step_id +"/edfbrowser_interim_storage\n")
+    channel.send("cd /home/user/neurodesktop-storage/runtime_config/workflow_" + workflow_id + "/run_" + run_id + "/step_" + step_id +"/neurodesk_interim_storage\n")
     # print("/home/user/EDFbrowser/edfbrowser /home/user/'" + file_full_path + "'\n")
     if selected_montage != "":
         print("Montage selected path")
@@ -1969,9 +1971,9 @@ async def mne_open_mne(workflow_id: str, step_id: str, run_id: str, current_user
 
     # Give permissions in working folder
     channel.send(
-        "sudo chmod a+rw /home/user/neurodesktop-storage/runtime_config/workflow_" + workflow_id + "/run_" + run_id + "/step_" + step_id + "/edfbrowser_interim_storage\n")
+        "sudo chmod a+rw /home/user/neurodesktop-storage/runtime_config/workflow_" + workflow_id + "/run_" + run_id + "/step_" + step_id + "/neurodesk_interim_storage\n")
 
-    channel.send("nohup /usr/bin/code -n /home/user/neurodesktop-storage/runtime_config/workflow_" +workflow_id + "/run_" + run_id + "/step_" + step_id + "/edfbrowser_interim_storage/" + "created_1.ipynb --extensions-dir=/opt/vscode-extensions --disable-workspace-trust &\n")
+    channel.send("nohup /usr/bin/code -n /home/user/neurodesktop-storage/runtime_config/workflow_" +workflow_id + "/run_" + run_id + "/step_" + step_id + "/neurodesk_interim_storage/" + "created_1.ipynb --extensions-dir=/opt/vscode-extensions --disable-workspace-trust &\n")
 
 
 
