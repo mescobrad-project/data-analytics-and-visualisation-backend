@@ -119,6 +119,9 @@ ExistingFunctions = [
     "LogisticRegressionSklearn",
     "fisherexact",
     "mcnemar",
+    "LogisticRegressionSklearn",
+    "FactorAnalysis",
+    "GeneralizedEstimatingEquations"
     # Dashboard
     "dashboard",
 ]
@@ -350,6 +353,10 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/FisherExact"
             case "mcnemar":
                 url_to_redirect += "/McNemar"
+            case "FactorAnalysis":
+                url_to_redirect += "/FactorAnalysis"
+            case "GeneralizedEstimatingEquations":
+                url_to_redirect += "/GeneralizedEstimatingEquations"
             # Dashboard
             case "dashboard":
                 url_to_redirect += "/dashboard"

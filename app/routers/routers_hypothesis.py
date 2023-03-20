@@ -29,6 +29,7 @@ from statsmodels.stats.diagnostic import het_white
 from statsmodels.stats.stattools import durbin_watson
 from lifelines.utils import to_episodic_format
 import matplotlib.pyplot as plt
+import seaborn as sns
 from sklearn.svm import SVC
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.preprocessing import StandardScaler, LabelEncoder
@@ -1798,19 +1799,21 @@ async def anova_rm(dependent_variable: str,
 async def generalized_estimating_equations(workflow_id: str,
                                            step_id: str,
                                            run_id: str,
-                                           dependent: str,
+                                           dependent_variable: str,
                                            groups: str,
-                                           independent: list[str] | None = Query(default=None),
-                                           conv_struct: str | None = Query("independence",
+                                           independent_variables: list[str] | None = Query(default=None),
+                                           cov_struct: str | None = Query("independence",
                                                                            regex="^(independence)$|^(autoregressive)$|^(exchangeable)$|^(nested_working_dependence)$"),
                                            family: str | None = Query("poisson",
                                                                       regex="^(poisson)$|^(gamma)$|^(gaussian)$|^(inverse_gaussian)$|^(negative_binomial)$|^(binomial)$|^(tweedie)$")):
 
     data = load_file_csv_direct(workflow_id, run_id, step_id)
 
-    z = dependent + "~"
-    for i in range(len(independent)):
-        z = z + "+" + independent[i]
+    z = dependent_variable + "~"
+    for i in range(len(independent_variables)):
+        z = z + "+" + independent_variables[i]
+
+    print(family)
 
     if family == "poisson":
         fam = sm.families.Poisson()
@@ -1827,14 +1830,19 @@ async def generalized_estimating_equations(workflow_id: str,
     else:
         fam = sm.families.Tweedie()
 
-    if conv_struct == "independence":
+    if cov_struct == "independence":
         ind = sm.cov_struct.Independence()
-    elif conv_struct == "autoregressive":
+    elif cov_struct == "autoregressive":
         ind = sm.cov_struct.Autoregressive()
-    elif conv_struct == "exchangeable":
+    elif cov_struct == "exchangeable":
         ind = sm.cov_struct.Exchangeable()
     else:
         ind = sm.cov_struct.Nested()
+
+    print(cov_struct)
+    print(fam)
+    print(ind)
+
 
     md = smf.gee(z, groups, data, cov_struct=ind, family=fam)
 
@@ -1842,18 +1850,49 @@ async def generalized_estimating_equations(workflow_id: str,
 
     df = mdf.summary()
 
-    print(df)
+    # print(df)
 
     results_as_html = df.tables[0].as_html()
     df_0 = pd.read_html(results_as_html)[0]
+    df_new = df_0[[2, 3]]
+    df_0.drop(columns=[2, 3], inplace=True)
+    df_0 = pd.concat([df_0, df_new.rename(columns={2: 0, 3: 1})], ignore_index=True)
+    df_0.set_index(0, inplace=True)
+    df_0.index.name = None
+    df_0.rename(columns={1: 'Values'}, inplace=True)
+    df_0.drop(df_0.tail(2).index, inplace=True)
+    df_0.reset_index(inplace=True)
+    # print(list(df_0.values))
 
     results_as_html = df.tables[1].as_html()
     df_1 = pd.read_html(results_as_html)[0]
+    new_header = df_1.iloc[0, 1:]
+    df_1 = df_1[1:]
+    df_1.set_index(0, inplace=True)
+    df_1.columns = new_header
+    df_1.index.name = None
+    df_1.reset_index(inplace=True)
+    df_1.rename(columns={'[0.025': '0.025', '0.975]': '0.975'}, inplace=True)
 
     results_as_html = df.tables[2].as_html()
     df_2 = pd.read_html(results_as_html)[0]
+    df_new = df_2[[2, 3]]
+    df_2.drop(columns=[2, 3], inplace=True)
+    df_2 = pd.concat([df_2, df_new.rename(columns={2: 0, 3: 1})], ignore_index=True)
+    df_2.set_index(0, inplace=True)
+    df_2.index.name = None
+    df_2.rename(columns={1: 'Values'}, inplace=True)
+    df_2.reset_index(inplace=True)
 
-    return {'first_table':df_0.to_html(), 'second table':df_1.to_html(), 'third table':df_2.to_html()}
+    # print(df_1)
+    #
+    # print(df_0)
+    # # print(df_0['No. Observations: '])
+    print(df)
+
+    return {'first_table':df_0.to_json(orient='records'),
+            'second_table':df_1.to_json(orient='records'),
+            'third_table':df_2.to_json(orient='records')}
 
 @router.get("/kaplan_meier")
 async def kaplan_meier(workflow_id: str,
@@ -2704,59 +2743,138 @@ async def compute_factor_analysis(workflow_id: str,
     uniquenesses = fa.get_uniquenesses()
 
     new_dataset = fa.transform(dataset)
+    print(fa.phi_)
+
+    df = pd.DataFrame(data=dataset.values, columns=independent_variables)
+    corrs = df.corr()
+    fig, ax = plt.subplots()
+    sns.heatmap(corrs, cmap='Spectral_r', square=True, annot=True)
+    plt.title('Correlation matrix')
+    plt.savefig(get_local_storage_path(workflow_id, run_id, step_id) + '/output/correlation_matrix.png')
+    plt.show()
+    correlation_matrix = mpld3.fig_to_html(fig)
+
+    factor_list = ['Factor'+str(i+1) for i in range(n_factors)]
+
+    df_factor_loadings = pd.DataFrame(data=fa.loadings_, index=independent_variables, columns=factor_list)
+    print(df_factor_loadings)
+    df_factor_loadings = df_factor_loadings.reset_index().rename(columns={'index': 'Variables'})
+    df_corr = pd.DataFrame(data=fa.corr_, index=independent_variables, columns=independent_variables)
+    fig, ax = plt.subplots()
+    ax.matshow(df_corr, cmap='viridis')
+    plt.xticks(ticks=range(len(df_corr)), labels=independent_variables)
+    plt.yticks(ticks=range(len(df_corr)), labels=independent_variables)
+    for (i, j), z in np.ndenumerate(df_corr.values):
+        ax.text(j, i, '{:0.3f}'.format(z), ha='center', va='center')
+    plt.show()
 
 
+    df_com_eigen = pd.DataFrame(data={'Variables': independent_variables, 'Communalities': fa.get_communalities(), 'Original Eigenvalues': original_eigen_values,
+                                'Common Factor Eigenvalues': common_factor_eigen_values, 'Uniquenesses from the factor loading matrix': uniquenesses})
+    print(len(new_dataset))
+    df_factor_variances = pd.DataFrame(data={'Factors': factor_list, 'Factor variances': factor_variance, 'Proportional Factor Variance': proportional_factor_variance,
+                                     'Cumulative Factor Variance': cumulative_variance})
+    df_new_dataset = pd.DataFrame(data=new_dataset, columns=factor_list)
+
+
+
+
+
+    # df_factor_correlations = pd.DataFrame(data=fa.phi_, columns=factor_list).corr()
+    # fig, ax = plt.subplots()
+    # sns.heatmap(df_factor_correlations, cmap='Spectral_r', square=True, annot=True)
+    # plt.title('Correlation matrix')
+    # plt.show()
+    # correlation_matrix = mpld3.fig_to_html(fig)
+
+    to_return = {'factor_matrix': df_factor_loadings.to_json(orient='records'),
+                 'corr_matrix': correlation_matrix,
+                 'df_com_eigen': df_com_eigen.to_json(orient='records'),
+                 'df_factor_variances': df_factor_variances.to_json(orient='records'),
+                 'df_new_dataset': df_new_dataset.to_json(orient='records'),
+                 'rotation': str(rotation),
+                 'df_structure': None,
+                 'df_rotation': None,
+                 'factor_corr_matrix': None}
 
     if rotation == str(None):
-        return{'Factor Loadings matrix': fa.loadings_.tolist(),
-               'Original Correlation Matrix': fa.corr_.tolist(),
-               'Communalities': fa.get_communalities().tolist(),
-               'Original Eigenvalues': original_eigen_values.tolist(),
-               'Common Factor Eigenvalues': common_factor_eigen_values.tolist(),
-               'Factor variances': factor_variance.tolist(),
-               'Proportional Factor Variance': proportional_factor_variance.tolist(),
-               'Cumulative Factor Variance': cumulative_variance.tolist(),
-               'uniquenesses from the factor loading matrix': uniquenesses.tolist(),
-               'Factor scores for a new dataset': new_dataset.tolist()}
-    elif rotation == "promax":
-        return {'Factor Loadings matrix': fa.loadings_.tolist(),
-                'Original Correlation Matrix': fa.corr_.tolist(),
-                'Structure Loading Matrix': fa.structure_.tolist(),
-                'Rotation Matrix': fa.rotation_matrix_.tolist(),
-               'Communalities': fa.get_communalities().tolist(),
-               'Original Eigenvalues': original_eigen_values.tolist(),
-               'Common Factor Eigenvalues': common_factor_eigen_values.tolist(),
-               'Factor variances': factor_variance.tolist(),
-               'Proportional Factor Variance': proportional_factor_variance.tolist(),
-               'Cumulative Factor Variance': cumulative_variance.tolist(),
-               'uniquenesses from the factor loading matrix': uniquenesses.tolist(),
-               'Factor scores for a new dataset': new_dataset.tolist()}
-    elif rotation == 'oblique':
-        return {'Factor Loadings matrix': fa.loadings_.tolist(),
-                'Original Correlation Matrix': fa.corr_.tolist(),
-                'Structure Loading Matrix': fa.structure_.tolist(),
-                'Factor Correlations Matrix': fa.phi_.tolist(),
-                'Rotation Matrix': fa.rotation_matrix_.tolist(),
-               'Communalities': fa.get_communalities().tolist(),
-               'Original Eigenvalues': original_eigen_values.tolist(),
-               'Common Factor Eigenvalues': common_factor_eigen_values.tolist(),
-               'Factor variances': factor_variance.tolist(),
-               'Proportional Factor Variance': proportional_factor_variance.tolist(),
-               'Cumulative Factor Variance': cumulative_variance.tolist(),
-               'uniquenesses from the factor loading matrix': uniquenesses.tolist(),
-               'Factor scores for a new dataset': new_dataset.tolist()}
+        # return{'factor_matrix_test': fa.loadings_.tolist(), #Factor Loadings matrix
+        #     'factor_matrix': df_factor_loadings.to_json(orient='records'),
+        #        'corr_matrix': correlation_matrix,
+        #        'orig_corr_matrix': fa.corr_.tolist(), #Original Correlation Matrix
+        #        'df_com_eigen': df_com_eigen.to_json(orient='records'),
+        #        'Communalities': fa.get_communalities().tolist(),
+        #        'Original Eigenvalues': original_eigen_values.tolist(),
+        #        'Common Factor Eigenvalues': common_factor_eigen_values.tolist(),
+        #        'df_factor_variances': df_factor_variances.to_json(orient='records'),
+        #        'Factor variances': factor_variance.tolist(),
+        #        'Proportional Factor Variance': proportional_factor_variance.tolist(),
+        #        'Cumulative Factor Variance': cumulative_variance.tolist(),
+        #        'uniquenesses from the factor loading matrix': uniquenesses.tolist(),
+        #        'df_new_dataset': df_new_dataset.to_json(orient='records'),
+        #        'Factor scores for a new dataset': new_dataset.tolist()}
+        pass
     else:
-        return {'Factor Loadings matrix': fa.loadings_.tolist(),
-                'Original Correlation Matrix': fa.corr_.tolist(),
-                'Rotation Matrix': fa.rotation_matrix_.tolist(),
-               'Communalities': fa.get_communalities().tolist(),
-               'Original Eigenvalues': original_eigen_values.tolist(),
-               'Common Factor Eigenvalues': common_factor_eigen_values.tolist(),
-               'Factor variances': factor_variance.tolist(),
-               'Proportional Factor Variance': proportional_factor_variance.tolist(),
-               'Cumulative Factor Variance': cumulative_variance.tolist(),
-               'uniquenesses from the factor loading matrix': uniquenesses.tolist(),
-               'Factor scores for a new dataset': new_dataset.tolist()}
+        df_rotation = pd.concat([pd.DataFrame(data=factor_list, columns=['Factors']),
+                                 pd.DataFrame(data=fa.rotation_matrix_, columns=factor_list)],
+                                 axis=1)
+        to_return['df_rotation'] = df_rotation.to_json(orient='records')
+        if rotation in ["promax", "oblimin", "quartimin"]:
+            df_factor_corr_matrix = pd.DataFrame(data=fa.phi_, columns=factor_list, index=factor_list)
+            fig, ax = plt.subplots()
+            sns.heatmap(df_factor_corr_matrix, cmap='Spectral_r', square=True, annot=True)
+            plt.title('Factor correlation matrix')
+            plt.savefig(get_local_storage_path(workflow_id, run_id, step_id) + '/output/factor_correlation_matrix.png')
+            plt.show()
+            factor_corr_matrix = mpld3.fig_to_html(fig)
+            to_return['factor_corr_matrix'] = factor_corr_matrix
+            if rotation == 'promax':
+                df_structure = pd.concat([pd.DataFrame(data=independent_variables, columns=['Variables']),
+                                          pd.DataFrame(data=fa.structure_, columns=factor_list)],
+                                          axis=1)
+                to_return['df_structure'] = df_structure.to_json(orient='records')
+        # return {'Factor Loadings matrix': fa.loadings_.tolist(),
+        #         'Original Correlation Matrix': fa.corr_.tolist(),
+        #         'Structure Loading Matrix': fa.structure_.tolist(),
+        #         'Rotation Matrix': fa.rotation_matrix_.tolist(),
+        #        'Communalities': fa.get_communalities().tolist(),
+        #        'Original Eigenvalues': original_eigen_values.tolist(),
+        #        'Common Factor Eigenvalues': common_factor_eigen_values.tolist(),
+        #        'Factor variances': factor_variance.tolist(),
+        #        'Proportional Factor Variance': proportional_factor_variance.tolist(),
+        #        'Cumulative Factor Variance': cumulative_variance.tolist(),
+        #        'uniquenesses from the factor loading matrix': uniquenesses.tolist(),
+        #        'Factor scores for a new dataset': new_dataset.tolist()}
+        # to_return.update({'df_rotation': df_rotation.to_json(orient='records')})
+    # elif rotation == 'oblique':
+    #     return {'Factor Loadings matrix': fa.loadings_.tolist(),
+    #             'Original Correlation Matrix': fa.corr_.tolist(),
+    #             'Structure Loading Matrix': fa.structure_.tolist(),
+    #             'Factor Correlations Matrix': fa.phi_.tolist(),
+    #             'Rotation Matrix': fa.rotation_matrix_.tolist(),
+    #            'Communalities': fa.get_communalities().tolist(),
+    #            'Original Eigenvalues': original_eigen_values.tolist(),
+    #            'Common Factor Eigenvalues': common_factor_eigen_values.tolist(),
+    #            'Factor variances': factor_variance.tolist(),
+    #            'Proportional Factor Variance': proportional_factor_variance.tolist(),
+    #            'Cumulative Factor Variance': cumulative_variance.tolist(),
+    #            'uniquenesses from the factor loading matrix': uniquenesses.tolist(),
+    #            'Factor scores for a new dataset': new_dataset.tolist()}
+
+    # else:
+        # return {'Factor Loadings matrix': fa.loadings_.tolist(),
+        #         'Original Correlation Matrix': fa.corr_.tolist(),
+        #         'Rotation Matrix': fa.rotation_matrix_.tolist(),
+        #        'Communalities': fa.get_communalities().tolist(),
+        #        'Original Eigenvalues': original_eigen_values.tolist(),
+        #        'Common Factor Eigenvalues': common_factor_eigen_values.tolist(),
+        #        'Factor variances': factor_variance.tolist(),
+        #        'Proportional Factor Variance': proportional_factor_variance.tolist(),
+        #        'Cumulative Factor Variance': cumulative_variance.tolist(),
+        #        'uniquenesses from the factor loading matrix': uniquenesses.tolist(),
+        #        'Factor scores for a new dataset': new_dataset.tolist()}
+
+    return to_return
 
 
 @router.get("/adequacy_test_factor_analysis_bartlett")
