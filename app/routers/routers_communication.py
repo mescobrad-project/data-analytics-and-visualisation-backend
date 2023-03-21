@@ -69,6 +69,7 @@ ExistingFunctions = [
     "skipped_spearman_correlation",
     "point_biserial_correlation",
     "power_spectral_density_main",
+    "canonical_correlation",
     "data_transform_anova",
     "homoscedasticity",
     "spearman_correlation",
@@ -95,15 +96,22 @@ ExistingFunctions = [
     "SGDRegression",
     "HuberRegression",
     "survivalanalysisriskratiosimple",
+    "survivalanalysisriskratiodataset",
     "survivalanalysisriskdifferencesimple",
+    'survivalanalysisriskdifferencedataset',
     "survivalanalysisNNTsimple",
+    "survivalanalysisNNTdataset",
     "survivalanalysisoddsratiosimple",
+    "survivalanalysisoddsratiodataset",
     "survivalanalysisincidencerateratiosimple",
+    "survivalanalysisincidencerateratiodataset",
     "survivalanalysisincidenceratedifferencesimple",
+    "survivalanalysisincidenceratedifferencedataset",
     "ancova",
     "linearmixedeffectsmodel",
     "survivalanalysiscoxregression",
     "survivalanalysistimevaryingcovariates",
+    "survivalanalysiskaplanmeier",
     "principalcomponentanalysis",
     "LinearSVR",
     "LinearSVC",
@@ -112,6 +120,9 @@ ExistingFunctions = [
     "LogisticRegressionSklearn",
     "fisherexact",
     "mcnemar",
+    "LogisticRegressionSklearn",
+    "FactorAnalysis",
+    "GeneralizedEstimatingEquations"
     # Dashboard
     "dashboard",
 ]
@@ -251,6 +262,8 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/Shepherd_pi_correlation"
             case "skipped_spearman_correlation":
                 url_to_redirect += "/Skipped_spearman_correlation"
+            case "canonical_correlation":
+                url_to_redirect += "/Canonical_correlation"
             case "welch_t_test":
                 url_to_redirect += "/Welch_t_test"
             case "independent_t_test":
@@ -305,16 +318,30 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/LogisticRegressionSklearn"
             case "survivalanalysisriskratiosimple":
                 url_to_redirect += "/SurvivalAnalysisRiskRatioSimple"
+            case "survivalanalysisriskratiodataset":
+                url_to_redirect += "/SurvivalAnalysisRiskRatioDataset"
             case "survivalanalysisriskdifferencesimple":
                 url_to_redirect += "/SurvivalAnalysisRiskDifferenceSimple"
+            case "survivalanalysisriskdifferencedataset":
+                url_to_redirect += "/SurvivalAnalysisRiskDifferenceDataset"
             case "survivalanalysisNNTsimple":
                 url_to_redirect += "/SurvivalAnalysisNNTSimple"
+            case "survivalanalysisNNTdataset":
+                url_to_redirect += "/SurvivalAnalysisNNTDataset"
             case "survivalanalysisoddsratiosimple":
                 url_to_redirect += "/SurvivalAnalysisOddsRatioSimple"
+            case "survivalanalysisoddsratiodataset":
+                url_to_redirect += "/SurvivalAnalysisOddsRatioDataset"
             case "survivalanalysisincidencerateratiosimple":
                 url_to_redirect += "/SurvivalAnalysisIncidenceRateRatioSimple"
+            case "survivalanalysisincidencerateratiodataset":
+                url_to_redirect += "/SurvivalAnalysisIncidenceRateRatioDataset"
             case "survivalanalysisincidenceratedifferencesimple":
                 url_to_redirect += "/SurvivalAnalysisIncidenceRateDifferenceSimple"
+            case "survivalanalysisincidenceratedifferencedataset":
+                url_to_redirect += "/SurvivalAnalysisIncidenceRateDifferenceDataset"
+            case "survivalanalysiskaplanmeier":
+                url_to_redirect += "/SurvivalAnalysisKaplanMeier"
             case "ancova":
                 url_to_redirect += "/Ancova"
             case "linearmixedeffectsmodel":
@@ -329,6 +356,10 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/FisherExact"
             case "mcnemar":
                 url_to_redirect += "/McNemar"
+            case "FactorAnalysis":
+                url_to_redirect += "/FactorAnalysis"
+            case "GeneralizedEstimatingEquations":
+                url_to_redirect += "/GeneralizedEstimatingEquations"
             # Dashboard
             case "dashboard":
                 url_to_redirect += "/dashboard"

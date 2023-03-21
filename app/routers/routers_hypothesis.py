@@ -29,6 +29,7 @@ from statsmodels.stats.diagnostic import het_white
 from statsmodels.stats.stattools import durbin_watson
 from lifelines.utils import to_episodic_format
 import matplotlib.pyplot as plt
+import seaborn as sns
 from sklearn.svm import SVC
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.preprocessing import StandardScaler, LabelEncoder
@@ -56,6 +57,7 @@ from app.utils.utils_general import get_local_storage_path, get_single_file_from
 import scipy.stats as st
 import statistics
 from tabulate import tabulate
+import seaborn as sns
 
 from app.utils.utils_hypothesis import create_plots, compute_skewness, outliers_removal, compute_kurtosis
 
@@ -1797,19 +1799,21 @@ async def anova_rm(dependent_variable: str,
 async def generalized_estimating_equations(workflow_id: str,
                                            step_id: str,
                                            run_id: str,
-                                           dependent: str,
+                                           dependent_variable: str,
                                            groups: str,
-                                           independent: list[str] | None = Query(default=None),
-                                           conv_struct: str | None = Query("independence",
+                                           independent_variables: list[str] | None = Query(default=None),
+                                           cov_struct: str | None = Query("independence",
                                                                            regex="^(independence)$|^(autoregressive)$|^(exchangeable)$|^(nested_working_dependence)$"),
                                            family: str | None = Query("poisson",
                                                                       regex="^(poisson)$|^(gamma)$|^(gaussian)$|^(inverse_gaussian)$|^(negative_binomial)$|^(binomial)$|^(tweedie)$")):
 
     data = load_file_csv_direct(workflow_id, run_id, step_id)
 
-    z = dependent + "~"
-    for i in range(len(independent)):
-        z = z + "+" + independent[i]
+    z = dependent_variable + "~"
+    for i in range(len(independent_variables)):
+        z = z + "+" + independent_variables[i]
+
+    print(family)
 
     if family == "poisson":
         fam = sm.families.Poisson()
@@ -1826,14 +1830,19 @@ async def generalized_estimating_equations(workflow_id: str,
     else:
         fam = sm.families.Tweedie()
 
-    if conv_struct == "independence":
+    if cov_struct == "independence":
         ind = sm.cov_struct.Independence()
-    elif conv_struct == "autoregressive":
+    elif cov_struct == "autoregressive":
         ind = sm.cov_struct.Autoregressive()
-    elif conv_struct == "exchangeable":
+    elif cov_struct == "exchangeable":
         ind = sm.cov_struct.Exchangeable()
     else:
         ind = sm.cov_struct.Nested()
+
+    print(cov_struct)
+    print(fam)
+    print(ind)
+
 
     md = smf.gee(z, groups, data, cov_struct=ind, family=fam)
 
@@ -1841,44 +1850,104 @@ async def generalized_estimating_equations(workflow_id: str,
 
     df = mdf.summary()
 
-    print(df)
+    # print(df)
 
     results_as_html = df.tables[0].as_html()
     df_0 = pd.read_html(results_as_html)[0]
+    df_new = df_0[[2, 3]]
+    df_0.drop(columns=[2, 3], inplace=True)
+    df_0 = pd.concat([df_0, df_new.rename(columns={2: 0, 3: 1})], ignore_index=True)
+    df_0.set_index(0, inplace=True)
+    df_0.index.name = None
+    df_0.rename(columns={1: 'Values'}, inplace=True)
+    df_0.drop(df_0.tail(2).index, inplace=True)
+    df_0.reset_index(inplace=True)
+    # print(list(df_0.values))
 
     results_as_html = df.tables[1].as_html()
     df_1 = pd.read_html(results_as_html)[0]
+    new_header = df_1.iloc[0, 1:]
+    df_1 = df_1[1:]
+    df_1.set_index(0, inplace=True)
+    df_1.columns = new_header
+    df_1.index.name = None
+    df_1.reset_index(inplace=True)
+    df_1.rename(columns={'[0.025': '0.025', '0.975]': '0.975'}, inplace=True)
 
     results_as_html = df.tables[2].as_html()
     df_2 = pd.read_html(results_as_html)[0]
+    df_new = df_2[[2, 3]]
+    df_2.drop(columns=[2, 3], inplace=True)
+    df_2 = pd.concat([df_2, df_new.rename(columns={2: 0, 3: 1})], ignore_index=True)
+    df_2.set_index(0, inplace=True)
+    df_2.index.name = None
+    df_2.rename(columns={1: 'Values'}, inplace=True)
+    df_2.reset_index(inplace=True)
 
-    return {'first_table':df_0.to_html(), 'second table':df_1.to_html(), 'third table':df_2.to_html()}
+    # print(df_1)
+    #
+    # print(df_0)
+    # # print(df_0['No. Observations: '])
+    print(df)
+
+    return {'first_table':df_0.to_json(orient='records'),
+            'second_table':df_1.to_json(orient='records'),
+            'third_table':df_2.to_json(orient='records')}
 
 @router.get("/kaplan_meier")
-async def kaplan_meier(column_1: str,
+async def kaplan_meier(workflow_id: str,
+                       step_id: str,
+                       run_id: str,
+                       column_1: str,
                        column_2: str,
                        at_risk_counts: bool | None = Query(default=True),
                        label: str | None = Query(default=None),
                        alpha: float | None = Query(default=0.05)):
-    to_return = {}
+    # to_return = {}
+    #
+    # fig = plt.figure(1)
+    # ax = plt.subplot(111)
 
-    fig = plt.figure(1)
-    ax = plt.subplot(111)
-
-    dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
+    # dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
 
     kmf = KaplanMeierFitter(alpha=alpha, label=label)
     kmf.fit(dataset[column_1], dataset[column_2])
     kmf.plot_survival_function(at_risk_counts=at_risk_counts)
+    plt.ylabel("Survival probability")
+    plt.savefig(path_to_storage + "/output/survival_function.svg", format="svg")
     plt.show()
 
-    html_str = mpld3.fig_to_html(fig)
-    to_return["figure_1"] = html_str
 
     df = kmf.survival_function_
+    timeline = pd.DataFrame(kmf.timeline)
+    conditional_time_to_event = pd.DataFrame(kmf.conditional_time_to_event_)
     confidence_interval = kmf.confidence_interval_
+    event_table = kmf.event_table
+    confidence_interval_cumulative_density = kmf.confidence_interval_cumulative_density_
+    cumulative_density = kmf.cumulative_density_
+    median_survival_time = kmf.median_survival_time_
 
-    return {'figure': to_return, "survival_function":df.to_json(orient="split"), "confidence_interval": confidence_interval.to_json(orient='split')}
+    df.insert(0, "timeline", timeline)
+    confidence_interval.insert(0, "timeline", timeline)
+    confidence_interval.columns = confidence_interval.columns.str.replace('.', ',', regex=True)
+    conditional_time_to_event.insert(0, "timeline", timeline)
+    event_table.insert(0, "event_at", timeline)
+    confidence_interval_cumulative_density.insert(0, "timeline", timeline)
+    confidence_interval_cumulative_density.columns = confidence_interval_cumulative_density.columns.str.replace('.', ',', regex=True)
+    cumulative_density.insert(0, "timeline", timeline)
+
+
+    return {"survival_function":df.to_json(orient="records"),
+            "confidence_interval": confidence_interval.to_json(orient='records'),
+            'event_table': event_table.to_json(orient="records"),
+            "conditional_time_to_event": conditional_time_to_event.to_json(orient="records"),
+            "confidence_interval_cumulative_density":confidence_interval_cumulative_density.to_json(orient="records"),
+            "cumulative_density" : cumulative_density.to_json(orient='records'),
+            "timeline" : timeline.to_json(orient='records'),
+            "median_survival_time": str(median_survival_time)}
+
 
 @router.get("/fisher")
 async def fisher(
@@ -1961,70 +2030,55 @@ async def conditional_logistic_regression(endog: str,
 
 @router.get("/risks")
 async def risk_ratio_1(
-        # workflow_id: str,
-        # step_id: str,
-        # run_id: str,
-                       exposure: str,
-                       outcome: str,
-                       time: str | None = Query(default=None),
-                       reference: int | None = Query(default=0),
-                       alpha: float | None = Query(default=0.05),
-                       method: str | None = Query("risk_ratio",
-                                                  regex="^(risk_ratio)$|^(risk_difference)$|^(number_needed_to_treat)$|^(odds_ratio)$|^(incidence_rate_ratio)$|^(incidence_rate_difference)$")):
+        workflow_id: str,
+        step_id: str,
+        run_id: str,
+        exposure: str,
+        outcome: str,
+        time: str | None = Query(default=None),
+        reference: int | None = Query(default=0),
+        alpha: float | None = Query(default=0.05),
+        method: str | None = Query("risk_ratio",
+                                   regex="^(risk_ratio)$|^(risk_difference)$|^(number_needed_to_treat)$|^(odds_ratio)$|^(incidence_rate_ratio)$|^(incidence_rate_difference)$")):
 
     to_return = {}
 
     fig = plt.figure(1)
     ax = plt.subplot(111)
 
-    # dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
 
-    dataset = load_sample_data(False)
-    print(dataset)
+    # zepid.datasets
+    # dataset = load_sample_data(False)
+    # print(load_sample_data(False))
     if method == 'risk_ratio':
         rr = RiskRatio(reference=reference, alpha=alpha)
+        rr.fit(dataset, exposure=exposure, outcome=outcome)
     elif method == 'risk_difference':
         rr = RiskDifference(reference=reference, alpha=alpha)
+        rr.fit(dataset, exposure=exposure, outcome=outcome)
     elif method == 'number_needed_to_treat':
         rr = NNT(reference=reference, alpha=alpha)
-        rr.fit(dataset, exposure='art', outcome='dead')
+        rr.fit(dataset, exposure=exposure, outcome=outcome)
         df = rr.results
-        return {'table': df.to_json(orient="split")}
+        return {'table': df.to_json(orient="records")}
     elif method == 'odds_ratio':
         rr = OddsRatio(reference=reference, alpha=alpha)
+        rr.fit(dataset, exposure=exposure, outcome=outcome)
     elif method == 'incidence_rate_ratio':
         rr = IncidenceRateRatio(reference=reference, alpha=alpha)
-        rr.fit(dataset, exposure='art', outcome='dead', time='t')
-        df = rr.results
-        rr.plot()
-        plt.show()
-
-        html_str = mpld3.fig_to_html(fig)
-        to_return["figure"] = html_str
-
-        return {'table': df.to_json(orient="split"), 'figure': to_return}
-    else:
+        rr.fit(dataset, exposure=exposure, outcome=outcome, time=time)
+    elif method == "incidence_rate_difference":
         rr = IncidenceRateDifference(reference=reference, alpha=alpha)
-        rr.fit(dataset, exposure='art', outcome='dead', time='t')
-        df = rr.results
-        rr.plot()
-        plt.show()
+        rr.fit(dataset, exposure=exposure, outcome=outcome, time=time)
+    else:
+        return {'table':''}
 
-        html_str = mpld3.fig_to_html(fig)
-        to_return["figure"] = html_str
-
-        return {'table': df.to_json(orient="split"), 'figure': to_return}
-
-    rr.fit(dataset, exposure='art', outcome='dead')
     df = rr.results
-    print(df)
     rr.plot()
-    plt.show()
-
-    html_str = mpld3.fig_to_html(fig)
-    to_return["figure"] = html_str
-
-    return {'table': df.to_json(orient="split"), 'figure': to_return}
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    plt.savefig(path_to_storage +"/output/Risktest.svg", format="svg")
+    return {'table': df.to_json(orient="records")}
 
 @router.get("/two_sided_risk_ci")
 async def two_sided_risk_ci(events: int,
@@ -2066,6 +2120,7 @@ async def risk_ratio_function(workflow_id: str,
                               alpha: float | None = Query(default=0.05)):
 
     r = risk_ratio(a=exposed_with, b=unexposed_with, c=exposed_without, d=unexposed_without, alpha=alpha)
+    print(r)
     estimated_risk = r.point_estimate
     lower_bound = r.lower_bound
     upper_bound = r.upper_bound
@@ -2178,6 +2233,25 @@ async def correlations_pingouin(workflow_id: str,
                                 method: Optional[str] | None = Query("pearson",
                                                                      regex="^(pearson)$|^(spearman)$|^(kendall)$|^(bicor)$|^(percbend)$|^(shepherd)$|^(skipped)$")):
     data = load_file_csv_direct(workflow_id, run_id, step_id)
+    df = data[column_2]
+
+    df1 = df.rcorr(stars=False).round(5)
+    corrs = df.corr()
+
+    # mask = np.zeros_like(corrs)
+    # mask[np.triu_indices_from(mask)] = True
+    # fig = plt.figure()
+    # ax = fig.add_subplot()
+    # # ax = sns.heatmap(corrs, annot=True, cmap='Spectral_r', mask=mask, square=True, vmin=-1, vmax=1)
+    # # plt.xticks(range(len(corrs)), corrs.columns)
+    # # print(range(len(corrs)), corrs.columns)
+    #
+    # ax = plt.matshow(df.corr())
+    # plt.title('Correlation matrix')
+    # plt.show()
+    # ss = mpld3.save_json(fig, 'ss.json')
+    # html_str = mpld3.fig_to_html(fig)
+
     all_res = []
     count=0
     for i in column_2:
@@ -2186,8 +2260,6 @@ async def correlations_pingouin(workflow_id: str,
                 continue
             res = pingouin.corr(x=data[i], y=data[j], method=method, alternative=alternative).round(5)
             res.insert(0,'Cor', i + "-" + j, True)
-            # all_res.append(res)
-            print(res)
             count = count + 1
             for ind, row in res.iterrows():
                 temp_to_append = {
@@ -2197,8 +2269,6 @@ async def correlations_pingouin(workflow_id: str,
                     "r": row['r'],
                     "CI95%": "[" + str(row['CI95%'].item(0)) + "," + str(row['CI95%'].item(1)) + "]",
                     "p-val": row['p-val'],
-                    # if method=='':
-                    #     "BF10": row['BF10']
                     "power": row['power']
                 }
                 if method == 'pearson':
@@ -2207,9 +2277,8 @@ async def correlations_pingouin(workflow_id: str,
                     temp_to_append["outliers"] = row['outliers']
             all_res.append(temp_to_append)
 
-    # df = pd.concat(all_res)
-    return {'DataFrame': all_res}
-    # return {'DataFrame': df.to_json(orient='split')}
+    return {'DataFrame': all_res, "Table_rcorr": df1.to_json(orient='records')}
+    # return {'DataFrame': all_res, "Table_rcorr": df1.to_json(orient='records'), "rplot":html_str}
 
 @router.get("/linear_regressor_pinguin")
 async def linear_regression_pinguin(dependent_variable: str,
@@ -2674,59 +2743,138 @@ async def compute_factor_analysis(workflow_id: str,
     uniquenesses = fa.get_uniquenesses()
 
     new_dataset = fa.transform(dataset)
+    print(fa.phi_)
+
+    df = pd.DataFrame(data=dataset.values, columns=independent_variables)
+    corrs = df.corr()
+    fig, ax = plt.subplots()
+    sns.heatmap(corrs, cmap='Spectral_r', square=True, annot=True)
+    plt.title('Correlation matrix')
+    plt.savefig(get_local_storage_path(workflow_id, run_id, step_id) + '/output/correlation_matrix.png')
+    plt.show()
+    correlation_matrix = mpld3.fig_to_html(fig)
+
+    factor_list = ['Factor'+str(i+1) for i in range(n_factors)]
+
+    df_factor_loadings = pd.DataFrame(data=fa.loadings_, index=independent_variables, columns=factor_list)
+    print(df_factor_loadings)
+    df_factor_loadings = df_factor_loadings.reset_index().rename(columns={'index': 'Variables'})
+    df_corr = pd.DataFrame(data=fa.corr_, index=independent_variables, columns=independent_variables)
+    fig, ax = plt.subplots()
+    ax.matshow(df_corr, cmap='viridis')
+    plt.xticks(ticks=range(len(df_corr)), labels=independent_variables)
+    plt.yticks(ticks=range(len(df_corr)), labels=independent_variables)
+    for (i, j), z in np.ndenumerate(df_corr.values):
+        ax.text(j, i, '{:0.3f}'.format(z), ha='center', va='center')
+    plt.show()
 
 
+    df_com_eigen = pd.DataFrame(data={'Variables': independent_variables, 'Communalities': fa.get_communalities(), 'Original Eigenvalues': original_eigen_values,
+                                'Common Factor Eigenvalues': common_factor_eigen_values, 'Uniquenesses from the factor loading matrix': uniquenesses})
+    print(len(new_dataset))
+    df_factor_variances = pd.DataFrame(data={'Factors': factor_list, 'Factor variances': factor_variance, 'Proportional Factor Variance': proportional_factor_variance,
+                                     'Cumulative Factor Variance': cumulative_variance})
+    df_new_dataset = pd.DataFrame(data=new_dataset, columns=factor_list)
+
+
+
+
+
+    # df_factor_correlations = pd.DataFrame(data=fa.phi_, columns=factor_list).corr()
+    # fig, ax = plt.subplots()
+    # sns.heatmap(df_factor_correlations, cmap='Spectral_r', square=True, annot=True)
+    # plt.title('Correlation matrix')
+    # plt.show()
+    # correlation_matrix = mpld3.fig_to_html(fig)
+
+    to_return = {'factor_matrix': df_factor_loadings.to_json(orient='records'),
+                 'corr_matrix': correlation_matrix,
+                 'df_com_eigen': df_com_eigen.to_json(orient='records'),
+                 'df_factor_variances': df_factor_variances.to_json(orient='records'),
+                 'df_new_dataset': df_new_dataset.to_json(orient='records'),
+                 'rotation': str(rotation),
+                 'df_structure': None,
+                 'df_rotation': None,
+                 'factor_corr_matrix': None}
 
     if rotation == str(None):
-        return{'Factor Loadings matrix': fa.loadings_.tolist(),
-               'Original Correlation Matrix': fa.corr_.tolist(),
-               'Communalities': fa.get_communalities().tolist(),
-               'Original Eigenvalues': original_eigen_values.tolist(),
-               'Common Factor Eigenvalues': common_factor_eigen_values.tolist(),
-               'Factor variances': factor_variance.tolist(),
-               'Proportional Factor Variance': proportional_factor_variance.tolist(),
-               'Cumulative Factor Variance': cumulative_variance.tolist(),
-               'uniquenesses from the factor loading matrix': uniquenesses.tolist(),
-               'Factor scores for a new dataset': new_dataset.tolist()}
-    elif rotation == "promax":
-        return {'Factor Loadings matrix': fa.loadings_.tolist(),
-                'Original Correlation Matrix': fa.corr_.tolist(),
-                'Structure Loading Matrix': fa.structure_.tolist(),
-                'Rotation Matrix': fa.rotation_matrix_.tolist(),
-               'Communalities': fa.get_communalities().tolist(),
-               'Original Eigenvalues': original_eigen_values.tolist(),
-               'Common Factor Eigenvalues': common_factor_eigen_values.tolist(),
-               'Factor variances': factor_variance.tolist(),
-               'Proportional Factor Variance': proportional_factor_variance.tolist(),
-               'Cumulative Factor Variance': cumulative_variance.tolist(),
-               'uniquenesses from the factor loading matrix': uniquenesses.tolist(),
-               'Factor scores for a new dataset': new_dataset.tolist()}
-    elif rotation == 'oblique':
-        return {'Factor Loadings matrix': fa.loadings_.tolist(),
-                'Original Correlation Matrix': fa.corr_.tolist(),
-                'Structure Loading Matrix': fa.structure_.tolist(),
-                'Factor Correlations Matrix': fa.phi_.tolist(),
-                'Rotation Matrix': fa.rotation_matrix_.tolist(),
-               'Communalities': fa.get_communalities().tolist(),
-               'Original Eigenvalues': original_eigen_values.tolist(),
-               'Common Factor Eigenvalues': common_factor_eigen_values.tolist(),
-               'Factor variances': factor_variance.tolist(),
-               'Proportional Factor Variance': proportional_factor_variance.tolist(),
-               'Cumulative Factor Variance': cumulative_variance.tolist(),
-               'uniquenesses from the factor loading matrix': uniquenesses.tolist(),
-               'Factor scores for a new dataset': new_dataset.tolist()}
+        # return{'factor_matrix_test': fa.loadings_.tolist(), #Factor Loadings matrix
+        #     'factor_matrix': df_factor_loadings.to_json(orient='records'),
+        #        'corr_matrix': correlation_matrix,
+        #        'orig_corr_matrix': fa.corr_.tolist(), #Original Correlation Matrix
+        #        'df_com_eigen': df_com_eigen.to_json(orient='records'),
+        #        'Communalities': fa.get_communalities().tolist(),
+        #        'Original Eigenvalues': original_eigen_values.tolist(),
+        #        'Common Factor Eigenvalues': common_factor_eigen_values.tolist(),
+        #        'df_factor_variances': df_factor_variances.to_json(orient='records'),
+        #        'Factor variances': factor_variance.tolist(),
+        #        'Proportional Factor Variance': proportional_factor_variance.tolist(),
+        #        'Cumulative Factor Variance': cumulative_variance.tolist(),
+        #        'uniquenesses from the factor loading matrix': uniquenesses.tolist(),
+        #        'df_new_dataset': df_new_dataset.to_json(orient='records'),
+        #        'Factor scores for a new dataset': new_dataset.tolist()}
+        pass
     else:
-        return {'Factor Loadings matrix': fa.loadings_.tolist(),
-                'Original Correlation Matrix': fa.corr_.tolist(),
-                'Rotation Matrix': fa.rotation_matrix_.tolist(),
-               'Communalities': fa.get_communalities().tolist(),
-               'Original Eigenvalues': original_eigen_values.tolist(),
-               'Common Factor Eigenvalues': common_factor_eigen_values.tolist(),
-               'Factor variances': factor_variance.tolist(),
-               'Proportional Factor Variance': proportional_factor_variance.tolist(),
-               'Cumulative Factor Variance': cumulative_variance.tolist(),
-               'uniquenesses from the factor loading matrix': uniquenesses.tolist(),
-               'Factor scores for a new dataset': new_dataset.tolist()}
+        df_rotation = pd.concat([pd.DataFrame(data=factor_list, columns=['Factors']),
+                                 pd.DataFrame(data=fa.rotation_matrix_, columns=factor_list)],
+                                 axis=1)
+        to_return['df_rotation'] = df_rotation.to_json(orient='records')
+        if rotation in ["promax", "oblimin", "quartimin"]:
+            df_factor_corr_matrix = pd.DataFrame(data=fa.phi_, columns=factor_list, index=factor_list)
+            fig, ax = plt.subplots()
+            sns.heatmap(df_factor_corr_matrix, cmap='Spectral_r', square=True, annot=True)
+            plt.title('Factor correlation matrix')
+            plt.savefig(get_local_storage_path(workflow_id, run_id, step_id) + '/output/factor_correlation_matrix.png')
+            plt.show()
+            factor_corr_matrix = mpld3.fig_to_html(fig)
+            to_return['factor_corr_matrix'] = factor_corr_matrix
+            if rotation == 'promax':
+                df_structure = pd.concat([pd.DataFrame(data=independent_variables, columns=['Variables']),
+                                          pd.DataFrame(data=fa.structure_, columns=factor_list)],
+                                          axis=1)
+                to_return['df_structure'] = df_structure.to_json(orient='records')
+        # return {'Factor Loadings matrix': fa.loadings_.tolist(),
+        #         'Original Correlation Matrix': fa.corr_.tolist(),
+        #         'Structure Loading Matrix': fa.structure_.tolist(),
+        #         'Rotation Matrix': fa.rotation_matrix_.tolist(),
+        #        'Communalities': fa.get_communalities().tolist(),
+        #        'Original Eigenvalues': original_eigen_values.tolist(),
+        #        'Common Factor Eigenvalues': common_factor_eigen_values.tolist(),
+        #        'Factor variances': factor_variance.tolist(),
+        #        'Proportional Factor Variance': proportional_factor_variance.tolist(),
+        #        'Cumulative Factor Variance': cumulative_variance.tolist(),
+        #        'uniquenesses from the factor loading matrix': uniquenesses.tolist(),
+        #        'Factor scores for a new dataset': new_dataset.tolist()}
+        # to_return.update({'df_rotation': df_rotation.to_json(orient='records')})
+    # elif rotation == 'oblique':
+    #     return {'Factor Loadings matrix': fa.loadings_.tolist(),
+    #             'Original Correlation Matrix': fa.corr_.tolist(),
+    #             'Structure Loading Matrix': fa.structure_.tolist(),
+    #             'Factor Correlations Matrix': fa.phi_.tolist(),
+    #             'Rotation Matrix': fa.rotation_matrix_.tolist(),
+    #            'Communalities': fa.get_communalities().tolist(),
+    #            'Original Eigenvalues': original_eigen_values.tolist(),
+    #            'Common Factor Eigenvalues': common_factor_eigen_values.tolist(),
+    #            'Factor variances': factor_variance.tolist(),
+    #            'Proportional Factor Variance': proportional_factor_variance.tolist(),
+    #            'Cumulative Factor Variance': cumulative_variance.tolist(),
+    #            'uniquenesses from the factor loading matrix': uniquenesses.tolist(),
+    #            'Factor scores for a new dataset': new_dataset.tolist()}
+
+    # else:
+        # return {'Factor Loadings matrix': fa.loadings_.tolist(),
+        #         'Original Correlation Matrix': fa.corr_.tolist(),
+        #         'Rotation Matrix': fa.rotation_matrix_.tolist(),
+        #        'Communalities': fa.get_communalities().tolist(),
+        #        'Original Eigenvalues': original_eigen_values.tolist(),
+        #        'Common Factor Eigenvalues': common_factor_eigen_values.tolist(),
+        #        'Factor variances': factor_variance.tolist(),
+        #        'Proportional Factor Variance': proportional_factor_variance.tolist(),
+        #        'Cumulative Factor Variance': cumulative_variance.tolist(),
+        #        'uniquenesses from the factor loading matrix': uniquenesses.tolist(),
+        #        'Factor scores for a new dataset': new_dataset.tolist()}
+
+    return to_return
 
 
 @router.get("/adequacy_test_factor_analysis_bartlett")
@@ -2864,31 +3012,90 @@ async def canonical_correlation(workflow_id: str,
                                 independent_variables_2: list[str] | None = Query(default=None)):
 
     dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
 
-    for columns in dataset.columns:
-        if columns not in independent_variables_1:
-            X = dataset.drop(str(columns), axis=1)
+    X = dataset[dataset.columns.intersection(independent_variables_1)]
+    Y =dataset[dataset.columns.intersection(independent_variables_2)]
 
-    for columns in dataset.columns:
-        if columns not in independent_variables_2:
-            Y = dataset.drop(str(columns), axis=1)
+    # First, let’s see if there is any correlation between the features of this dataset.
+    corr_XY = pd.concat([X,Y],axis=1, join='inner').corr()
+    plt.figure(figsize=(5, 5))
+    sns.heatmap(corr_XY, cmap='coolwarm', annot=True, linewidths=1, vmin=-1)
+    plt.savefig(path_to_storage + "/output/CCA_XYcorr.svg", format="svg")
+
+    # Number of components to keep. Should be in [1, min(n_samples, n_features, n_targets)].
+    if n_components > min(X.shape[0], len(independent_variables_1), len(independent_variables_2)):
+        n_components = min(X.shape[0], len(independent_variables_1), len(independent_variables_2))
 
     my_cca = CCA(n_components=n_components)
-
     # Fit the model
     my_cca.fit(X, Y)
-
     X_c, Y_c = my_cca.transform(X, Y)
 
-    return {'The left singular vectors of the cross-covariance matrices of each iteration.': my_cca.x_weights_.tolist(),
-            'The right singular vectors of the cross-covariance matrices of each iteration.': my_cca.y_weights_.tolist(),
-            'The loadings of X.': my_cca.x_loadings_.tolist(),
-            'The loadings of Y.': my_cca.y_loadings_.tolist(),
-            'The projection matrix used to transform X.': my_cca.x_rotations_.tolist(),
-            'The projection matrix used to transform Y.': my_cca.y_rotations_.tolist(),
-            'The coefficients of the linear model.': my_cca.coef_.tolist(),
-            'Transformed X': X_c.tolist(),
-            'Transformed Y': Y_c.tolist()}
+    # Now let’s check if there is any dependency between our canonical variates.
+    comp_corr = [np.corrcoef(X_c[:, i], Y_c[:, i])[1][0] for i in range(n_components)]
+    comp_titles = ['Comp'+ str(i+1) for i in range(n_components)]
+    plt.figure(figsize=(5, 5))
+    plt.bar(comp_titles, comp_corr, color='lightgrey', width=0.8, edgecolor='k')
+    plt.savefig(path_to_storage + "/output/CCA_comp_corr.svg", format="svg")
+
+    fig, axs = plt.subplots(1, n_components, figsize=(n_components*8, 8), sharey='row')
+    for i in range(n_components):
+        axs[i].scatter(X_c[:, i], Y_c[:, i], marker="s", label='Comp'+ str(i+1))
+        z = np.polyfit(X_c[:, i], Y_c[:, i], 1)
+        p = np.poly1d(z)
+        axs[i].plot(X_c[:, i], p(X_c[:, i]), color="red", linewidth=3, linestyle="--")
+        axs[i].legend(loc='upper left')
+        axs[i].set_ylabel('CCY_'+str(i+1), fontsize=14)
+        axs[i].set_xlabel('CCX_'+str(i+1), fontsize=14)
+        axs[i].set_title('Comp'+str(i+1)+' , corr = %.2f' %
+                  np.corrcoef(X_c[:, i], Y_c[:, i])[0, 1])
+    plt.savefig(path_to_storage + "/output/CCA_XY_c_corr.svg", format="svg")
+
+    coef_df = pd.DataFrame(np.round(my_cca.coef_, 5), columns=[Y.columns])
+    coef_df.index = X.columns
+    print(coef_df)
+    plt.figure(figsize=(5, 5))
+    s= sns.heatmap(coef_df, cmap='coolwarm', annot=True, linewidths=1, vmin=-1)
+    s.set(xlabel='Y samle', ylabel='X sample')
+    # plt.title = "CCA coefficients."
+    plt.savefig(path_to_storage + "/output/CCA_coefs.svg", format="svg")
+    plt.show()
+
+    xweights = pd.DataFrame(my_cca.x_weights_, columns=comp_titles)
+    xweights.insert(loc=0, column='Feature', value=independent_variables_1)
+    print(xweights)
+    yweights = pd.DataFrame(my_cca.y_weights_, columns=comp_titles)
+    yweights.insert(loc=0, column='Feature', value=independent_variables_2)
+    xloadings = pd.DataFrame(my_cca.x_loadings_, columns=comp_titles)
+    xloadings.insert(loc=0, column='Feature', value=independent_variables_1)
+    yloadings = pd.DataFrame(my_cca.y_loadings_, columns=comp_titles)
+    yloadings.insert(loc=0, column='Feature', value=independent_variables_2)
+    xrotations = pd.DataFrame(my_cca.x_rotations_, columns=comp_titles)
+    xrotations.insert(loc=0, column='Feature', value=independent_variables_1)
+    yrotations = pd.DataFrame(my_cca.y_rotations_, columns=comp_titles)
+    yrotations.insert(loc=0, column='Feature', value=independent_variables_2)
+    Xc_df = pd.DataFrame(X_c, columns=comp_titles)
+    Yc_df = pd.DataFrame(Y_c, columns=comp_titles)
+
+    return {'xweights': xweights.to_json(orient='records'),
+            'yweights': yweights.to_json(orient='records'),
+            'xloadings': xloadings.to_json(orient='records'),
+            'yloadings': yloadings.to_json(orient='records'),
+            'xrotations': xrotations.to_json(orient='records'),
+            'yrotations': yrotations.to_json(orient='records'),
+            'coef_df': coef_df.to_json(orient='records'),
+            'Xc_df': Xc_df.to_json(orient='records'),
+            'Yc_df': Yc_df.to_json(orient='records')}
+    # return {'The left singular vectors of the cross-covariance matrices of each iteration.': my_cca.x_weights_.tolist(),
+    #         'The right singular vectors of the cross-covariance matrices of each iteration.': my_cca.y_weights_.tolist(),
+    #         'The loadings of X.': my_cca.x_loadings_.tolist(),
+    #         'The loadings of Y.': my_cca.y_loadings_.tolist(),
+    #         'The projection matrix used to transform X.': my_cca.x_rotations_.tolist(),
+    #         'The projection matrix used to transform Y.': my_cca.y_rotations_.tolist(),
+    #         'The coefficients of the linear model.': my_cca.coef_.tolist(),
+    #         'Transformed X': X_c.tolist(),
+    #         'Transformed Y': Y_c.tolist()}
 
 @router.get("/granger_analysis")
 async def compute_granger_analysis(workflow_id: str,
