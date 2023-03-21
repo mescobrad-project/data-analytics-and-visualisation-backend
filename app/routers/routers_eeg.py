@@ -420,6 +420,7 @@ async def return_filters(
 
 # Estimate welch
 @router.get("/return_welch", tags=["return_welch"])
+# TODO Create plot
 # Validation is done inline in the input of the function
 async def estimate_welch(
                         workflow_id: str, step_id: str, run_id: str,
@@ -457,6 +458,20 @@ async def estimate_welch(
                                           noverlap=input_noverlap, nfft=input_nfft,
                                           return_onesided=input_return_onesided, scaling=input_scaling,
                                           axis=input_axis, average=input_average)
+            plt.figure("psd welch")
+            plt.semilogy(f, pxx_den)
+
+            # plt.ylim([0.5e-3, 1])
+
+            plt.xlabel('frequency [Hz]')
+
+            plt.ylabel('PSD [V**2/Hz]')
+            plt.savefig(get_local_storage_path(workflow_id, step_id, run_id) + "/output/" + 'welch_plot.png')
+
+            plt.show()
+
+            plt.clf()
+            plt.close()
 
             to_return = {
                 "frequencies": f.tolist(),
@@ -717,6 +732,8 @@ async def return_peaks(workflow_id: str, step_id: str, run_id: str,
 # Estimate welch
 @router.get("/return_periodogram", tags=["return_periodogram"])
 # Validation is done inline in the input of the function
+# TODO Create plot
+
 async def estimate_periodogram(workflow_id: str, step_id: str, run_id: str,input_name: str,
                                tmin: float | None = 0,
                                tmax: float | None = None,
@@ -741,6 +758,18 @@ async def estimate_periodogram(workflow_id: str, step_id: str, run_id: str,input
                                             nfft=input_nfft, return_onesided=input_return_onesided,
                                             scaling=input_scaling,
                                             axis=input_axis)
+
+            plt.figure("psd periodogram")
+
+            plt.semilogy(f, pxx_den)
+            # plt.ylim([1e-7, 1e2])
+            plt.xlabel('frequency [Hz]')
+            plt.ylabel('PSD [V**2/Hz]')
+            plt.savefig(get_local_storage_path(workflow_id, step_id, run_id) + "/output/" + 'periodogram_plot.png')
+            plt.show()
+            plt.clf()
+            plt.close()
+
             return {'frequencies': f.tolist(), 'power spectral density': pxx_den.tolist()}
     return {'Channel not found'}
 
@@ -769,10 +798,14 @@ async def estimate_periodogram(workflow_id: str, step_id: str, run_id: str,input
 # Return power_spectral_density
 @router.get("/return_power_spectral_density", tags=["return_power_spectral_density"])
 # Validation is done inline in the input of the function
+# TODO Create plot
 # TODO TMIN and TMAX probably should be removed
-async def return_power_spectral_density(workflow_id: str, step_id: str, run_id: str,input_name: str,
-                                        tmin: float | None = None,
-                                        tmax: float | None = None,
+async def return_power_spectral_density(workflow_id: str,
+                                        step_id: str,
+                                        run_id: str,
+                                        input_name: str,
+                                        # tmin: float | None = None,
+                                        # tmax: float | None = None,
                                         input_fmin: float | None = 0,
                                         input_fmax: float | None = None,
                                         input_bandwidth: float | None = None,
@@ -814,6 +847,24 @@ async def return_power_spectral_density(workflow_id: str, step_id: str, run_id: 
                                                       n_jobs=input_n_jobs,
                                                       verbose=None
                                                       )
+            print("--------PSD----")
+            print(psd_results)
+            print(freqs)
+            plt.figure("psd multitaper")
+
+            plt.semilogy(freqs, psd_results)
+
+            # plt.ylim([0.5e-3, 1])
+
+            plt.xlabel('frequency [Hz]')
+
+            plt.ylabel('PSD [V**2/Hz]')
+            plt.savefig(get_local_storage_path(workflow_id, step_id, run_id) + "/output/" + 'multitaper_plot.png')
+
+            plt.show()
+            plt.clf()
+            plt.close()
+
             to_return = {'frequencies': freqs.tolist(), 'power spectral density': psd_results.tolist()}
             return to_return
     return {'Channel not found'}
@@ -950,10 +1001,14 @@ async def calculate_alpha_delta_ratio(workflow_id: str, step_id: str, run_id: st
 
             df = pd.concat([df_names, df_power, df_peak],1)
 
-            return {'alpha_delta_ratio': alpha_power/delta_power, 'DataFrame': df.to_json(orient='split')}
+            df['index'] = df.index
+            return {'alpha_delta_ratio': alpha_power/delta_power, 'alpha_delta_ratio_df': df.to_json(orient='records')}
 
 @router.get("/return_alpha_delta_ratio_periodogram", tags=["return_alpha_delta_ratio_periodogram"])
-async def calculate_alpha_delta_ratio_periodogram(workflow_id: str, step_id: str, run_id: str,input_name: str,
+async def calculate_alpha_delta_ratio_periodogram(workflow_id: str,
+                                                  step_id: str,
+                                                  run_id: str,
+                                                  input_name: str,
                                                   tmin: float | None = 0,
                                                   tmax: float | None = None,
                                                   input_window: str | None = Query("hann",
@@ -1062,11 +1117,13 @@ async def calculate_alpha_delta_ratio_periodogram(workflow_id: str, step_id: str
             df = pd.concat([df_names, df_power, df_peak],1)
             print(df)
 
-            return {'alpha_delta_ratio': alpha_power/delta_power, 'DataFrame': df.to_json(orient='split')}
+            df['index'] = df.index
+            return {'alpha_delta_ratio': alpha_power/delta_power, 'alpha_delta_ratio_df': df.to_json(orient='records')}
 
 
 @router.get("/return_asymmetry_indices", tags=["return_asymmetry_indices"])
-async def calculate_asymmetry_indices(workflow_id: str, step_id: str, run_id: str,input_name_1: str,
+async def calculate_asymmetry_indices(workflow_id: str, step_id: str, run_id: str,
+                                      input_name_1: str,
                                       input_name_2: str,
                                       input_window: str | None = Query("hann",
                                                           regex="^(boxcar)$|^(triang)$|^(blackman)$|^(hamming)$|^(hann)$|^(bartlett)$|^(flattop)$|^(parzen)$|^(bohman)$|^(blackmanharris)$|^(nuttall)$|^(barthann)$|^(cosine)$|^(exponential)$|^(tukey)$|^(taylor)$"),
@@ -1128,7 +1185,10 @@ async def calculate_asymmetry_indices(workflow_id: str, step_id: str, run_id: st
     return {'asymmetry_indices': asymmetry_index}
 
 @router.get("/return_alpha_variability", tags=["return_alpha_variability"])
-async def calculate_alpha_variability(workflow_id: str, step_id: str, run_id: str,input_name: str,
+async def calculate_alpha_variability(workflow_id: str,
+                                      step_id: str,
+                                      run_id: str,
+                                      input_name: str,
                                       tmin: float | None = 0,
                                       tmax: float | None = None,
                                       input_window: str | None = Query("hann",
@@ -1545,7 +1605,8 @@ async def bandpower_yasa(workflow_id: str,
     sf = info['sfreq']
 
     hypno = yasa.hypno_upsample_to_data(list(hypno['stage']), sf_hypno=current_sampling_frequency_of_the_hypnogram, data=data)
-
+    print("include")
+    print(include)
     df = yasa.bandpower(data, hypno=hypno, relative=relative, bandpass=bandpass, include=include)
 
     #Add index as column
