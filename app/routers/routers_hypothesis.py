@@ -1776,17 +1776,30 @@ async def time_varying_covariates(
     # return {'Akaike information criterion (AIC) (partial log-likelihood)':cph.AIC_partial_,'Dataframe of the coefficients, p-values, CIs, etc.':df.to_json(orient="split"), 'figure': to_return}
 
 @router.get("/anova_repeated_measures")
-async def anova_rm(dependent_variable: str,
+async def anova_rm(workflow_id: str,
+                   step_id: str,
+                   run_id: str,
+                   dependent_variable: str,
                    subject: str,
                    within: list[str] | None = Query(default=None),
                    aggregate_func: str | None = Query(default=None,
                                                       regex="^(mean)$")):
 
-    df_data = pd.read_csv('example_data/mescobrad_dataset.csv')
+    # df_data = pd.read_csv('example_data/mescobrad_dataset.csv')
+    df_data = load_file_csv_direct(workflow_id, run_id, step_id)
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    print(df_data.columns)
+    # unique, counts = np.unique(df_data[subject], return_counts=True)
+    # print(unique)
+    # print(counts)
+    # z = all(x==counts[0] for x in counts)
+    # print(z)
+    posthocs = pingouin.pairwise_ttests(dv=dependent_variable,
+                                  within=within, between='Age',
+                                  subject=subject, data=df_data)
+    pingouin.print_table(posthocs)
 
-    unique, counts = np.unique(df_data[subject], return_counts=True)
-
-    z = all(x==counts[0] for x in counts)
+    z=True
     if z:
         df = AnovaRM(data=df_data, depvar=dependent_variable, subject=subject, within=within, aggregate_func=aggregate_func)
         df_new = df.fit()
