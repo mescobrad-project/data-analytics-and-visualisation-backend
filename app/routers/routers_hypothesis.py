@@ -36,7 +36,7 @@ from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
 from sklearn.linear_model import LinearRegression, Ridge, Lasso, ElasticNet, SGDRegressor, SGDClassifier, HuberRegressor,Lars, PoissonRegressor, LogisticRegression
 from sklearn.svm import SVR, LinearSVR, LinearSVC
-from pingouin import ancova
+from pingouin import ancova, mediation_analysis
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
 from lifelines import CoxPHFitter
@@ -2871,32 +2871,46 @@ async def analysis_mediation(workflow_id: str,
                              independent_1: list[str] | None = Query(default=None),
                              independent_2: list[str] | None = Query(default=None)):
 
+    print(workflow_id, step_id, run_id,dependent_1,exposure,mediator,independent_1,independent_2)
     # data = pd.read_csv('example_data/mescobrad_dataset.csv')
     data = load_file_csv_direct(workflow_id, run_id, step_id)
     z = dependent_1 + "~"
     for i in range(len(independent_1)):
         z = z + "+" + independent_1[i]
 
-
+    print("print first - "+z)
     if mediator not in z:
         z = z + "+" + mediator
+    print("print second - "+z)
 
     if exposure not in z:
         z = z + "+" + exposure
     outcome_model = sm.GLM.from_formula(z, data)
-
+    print("print third - "+z)
+    print(outcome_model)
     z = mediator + "~"
     for i in range(len(independent_2)):
         z = z + "+" + independent_2[i]
+    print("print fourth - "+z)
 
     if exposure not in z:
         z = z + "+" + exposure
+    print("print fifth - "+z)
 
     mediator_model = sm.OLS.from_formula(z, data)
     med = Mediation(outcome_model, mediator_model, exposure, mediator).fit()
+    df = med.summary()
+    df['index']= df.index
 
-    print(med.summary())
+    df1, dist = mediation_analysis(data=data, x=exposure, m=mediator, y=dependent_1,
+                             covar=independent_1, seed=42,return_dist=True)\
+        # .round(3)
+    df1.columns = df1.columns.str.replace('.', ',', regex=True)
 
+    print(dist)
+    print(df)
+    print(df1)
+    return {'Result': df.to_json(orient='records'), 'Result2':df1.to_json(orient='records')}
 
 @router.get("/canonical_correlation_analysis")
 async def canonical_correlation(workflow_id: str,
@@ -2959,7 +2973,6 @@ async def canonical_correlation(workflow_id: str,
 
     xweights = pd.DataFrame(my_cca.x_weights_, columns=comp_titles)
     xweights.insert(loc=0, column='Feature', value=independent_variables_1)
-    print(xweights)
     yweights = pd.DataFrame(my_cca.y_weights_, columns=comp_titles)
     yweights.insert(loc=0, column='Feature', value=independent_variables_2)
     xloadings = pd.DataFrame(my_cca.x_loadings_, columns=comp_titles)

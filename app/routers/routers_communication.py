@@ -69,6 +69,7 @@ ExistingFunctions = [
     "skipped_spearman_correlation",
     "point_biserial_correlation",
     "canonical_correlation",
+    'mediation_analysis',
     "data_transform_anova",
     "homoscedasticity",
     "spearman_correlation",
@@ -258,6 +259,8 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/Skipped_spearman_correlation"
             case "canonical_correlation":
                 url_to_redirect += "/Canonical_correlation"
+            case 'mediation_analysis':
+                url_to_redirect += "/Mediation_Analysis"
             case "welch_t_test":
                 url_to_redirect += "/Welch_t_test"
             case "independent_t_test":
