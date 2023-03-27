@@ -1531,6 +1531,10 @@ async def bandpower_yasa(workflow_id: str,
     hypno = yasa.hypno_upsample_to_data(list(hypno['stage']), sf_hypno=current_sampling_frequency_of_the_hypnogram, data=data)
 
     df = yasa.bandpower(data, hypno=hypno, relative=relative, bandpass=bandpass, include=include)
+    print(df)
+    print('yesssss')
+    df['Channel'] = df.index
+    print(df)
 
     return {'bandpower':df.to_json(orient='split')}
 
