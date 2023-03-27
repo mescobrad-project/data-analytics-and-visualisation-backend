@@ -33,8 +33,8 @@ from app.utils.utils_eeg import load_data_from_edf, load_file_from_local_or_inte
     load_data_from_edf_fif
 from app.utils.utils_general import validate_and_convert_peaks, validate_and_convert_power_spectral_density, \
     create_notebook_mne_plot, get_neurodesk_display_id, get_annotations_from_csv, create_notebook_mne_modular, \
-    get_single_file_from_local_temp_storage, get_local_storage_path, get_local_edfbrowser_storage_path, \
-    get_single_file_from_edfbrowser_interim_storage, write_function_data_to_config_file, \
+    get_single_file_from_local_temp_storage, get_local_storage_path, get_local_neurodesk_storage_path, \
+    get_single_file_from_neurodesk_interim_storage, write_function_data_to_config_file, \
     get_files_for_slowwaves_spindle
 
 import pandas as pd
@@ -61,7 +61,7 @@ NeurodesktopStorageLocation = os.environ.get('NeurodesktopStorageLocation') if o
 
 # endregion
 
-def rose_plot(ax, angles, bins=12, density=None, offset=0, lab_unit="degrees",
+def rose_plot( angles, bins=12, density=None, offset=0, lab_unit="degrees",
               start_zero=False, **param_dict):
     """
     Plot polar histogram of angles on ax. ax must have been created using
@@ -69,7 +69,8 @@ def rose_plot(ax, angles, bins=12, density=None, offset=0, lab_unit="degrees",
     """
     # Wrap angles to [-pi, pi)
 
-    fig = plt.figure(1)
+    plt.figure("rose_plot")
+    ax = plt.subplot(projection='polar')
 
     angles = (angles + np.pi) % (2*np.pi) - np.pi
 
@@ -110,8 +111,12 @@ def rose_plot(ax, angles, bins=12, density=None, offset=0, lab_unit="degrees",
                   r'$\pi$', r'$5\pi/4$', r'$3\pi/2$', r'$7\pi/4$']
         ax.set_xticklabels(label)
 
-    html_str = mpld3.fig_to_html(fig)
-    return html_str
+    # html_str = mpld3.fig_to_html(fig)
+    # ax.savefig(NeurodesktopStorageLocation + '/rose_plot.png')
+    # plt.show()
+    plt.savefig(NeurodesktopStorageLocation + '/rose_plot.png')
+
+    return ax
 
 def calcsmape(actual, forecast):
     return 1/len(actual) * np.sum(2 * np.abs(forecast-actual) / (np.abs(actual) + np.abs(forecast)))
@@ -147,8 +152,8 @@ async def list_channels(workflow_id: str,
 
     # If file is altered we retrieve it from the edf interim storage fodler
     if file_used == "printed":
-        path_to_storage = get_local_edfbrowser_storage_path(workflow_id, run_id, step_id)
-        name_of_file = get_single_file_from_edfbrowser_interim_storage(workflow_id, run_id, step_id)
+        path_to_storage = get_local_neurodesk_storage_path(workflow_id, run_id, step_id)
+        name_of_file = get_single_file_from_neurodesk_interim_storage(workflow_id, run_id, step_id)
         data = load_data_from_edf(path_to_storage + "/" + name_of_file)
     else:
         # If not we use it from the directory input files are supposed to be
@@ -415,6 +420,7 @@ async def return_filters(
 
 # Estimate welch
 @router.get("/return_welch", tags=["return_welch"])
+# TODO Create plot
 # Validation is done inline in the input of the function
 async def estimate_welch(
                         workflow_id: str, step_id: str, run_id: str,
@@ -452,6 +458,20 @@ async def estimate_welch(
                                           noverlap=input_noverlap, nfft=input_nfft,
                                           return_onesided=input_return_onesided, scaling=input_scaling,
                                           axis=input_axis, average=input_average)
+            plt.figure("psd welch")
+            plt.semilogy(f, pxx_den)
+
+            # plt.ylim([0.5e-3, 1])
+
+            plt.xlabel('frequency [Hz]')
+
+            plt.ylabel('PSD [V**2/Hz]')
+            plt.savefig(get_local_storage_path(workflow_id, step_id, run_id) + "/output/" + 'welch_plot.png')
+
+            plt.show()
+
+            plt.clf()
+            plt.close()
 
             to_return = {
                 "frequencies": f.tolist(),
@@ -712,6 +732,8 @@ async def return_peaks(workflow_id: str, step_id: str, run_id: str,
 # Estimate welch
 @router.get("/return_periodogram", tags=["return_periodogram"])
 # Validation is done inline in the input of the function
+# TODO Create plot
+
 async def estimate_periodogram(workflow_id: str, step_id: str, run_id: str,input_name: str,
                                tmin: float | None = 0,
                                tmax: float | None = None,
@@ -736,6 +758,18 @@ async def estimate_periodogram(workflow_id: str, step_id: str, run_id: str,input
                                             nfft=input_nfft, return_onesided=input_return_onesided,
                                             scaling=input_scaling,
                                             axis=input_axis)
+
+            plt.figure("psd periodogram")
+
+            plt.semilogy(f, pxx_den)
+            # plt.ylim([1e-7, 1e2])
+            plt.xlabel('frequency [Hz]')
+            plt.ylabel('PSD [V**2/Hz]')
+            plt.savefig(get_local_storage_path(workflow_id, step_id, run_id) + "/output/" + 'periodogram_plot.png')
+            plt.show()
+            plt.clf()
+            plt.close()
+
             return {'frequencies': f.tolist(), 'power spectral density': pxx_den.tolist()}
     return {'Channel not found'}
 
@@ -764,10 +798,14 @@ async def estimate_periodogram(workflow_id: str, step_id: str, run_id: str,input
 # Return power_spectral_density
 @router.get("/return_power_spectral_density", tags=["return_power_spectral_density"])
 # Validation is done inline in the input of the function
+# TODO Create plot
 # TODO TMIN and TMAX probably should be removed
-async def return_power_spectral_density(workflow_id: str, step_id: str, run_id: str,input_name: str,
-                                        tmin: float | None = None,
-                                        tmax: float | None = None,
+async def return_power_spectral_density(workflow_id: str,
+                                        step_id: str,
+                                        run_id: str,
+                                        input_name: str,
+                                        # tmin: float | None = None,
+                                        # tmax: float | None = None,
                                         input_fmin: float | None = 0,
                                         input_fmax: float | None = None,
                                         input_bandwidth: float | None = None,
@@ -809,6 +847,24 @@ async def return_power_spectral_density(workflow_id: str, step_id: str, run_id: 
                                                       n_jobs=input_n_jobs,
                                                       verbose=None
                                                       )
+            print("--------PSD----")
+            print(psd_results)
+            print(freqs)
+            plt.figure("psd multitaper")
+
+            plt.semilogy(freqs, psd_results)
+
+            # plt.ylim([0.5e-3, 1])
+
+            plt.xlabel('frequency [Hz]')
+
+            plt.ylabel('PSD [V**2/Hz]')
+            plt.savefig(get_local_storage_path(workflow_id, step_id, run_id) + "/output/" + 'multitaper_plot.png')
+
+            plt.show()
+            plt.clf()
+            plt.close()
+
             to_return = {'frequencies': freqs.tolist(), 'power spectral density': psd_results.tolist()}
             return to_return
     return {'Channel not found'}
@@ -945,10 +1001,14 @@ async def calculate_alpha_delta_ratio(workflow_id: str, step_id: str, run_id: st
 
             df = pd.concat([df_names, df_power, df_peak],1)
 
-            return {'alpha_delta_ratio': alpha_power/delta_power, 'DataFrame': df.to_json(orient='split')}
+            df['index'] = df.index
+            return {'alpha_delta_ratio': alpha_power/delta_power, 'alpha_delta_ratio_df': df.to_json(orient='records')}
 
 @router.get("/return_alpha_delta_ratio_periodogram", tags=["return_alpha_delta_ratio_periodogram"])
-async def calculate_alpha_delta_ratio_periodogram(workflow_id: str, step_id: str, run_id: str,input_name: str,
+async def calculate_alpha_delta_ratio_periodogram(workflow_id: str,
+                                                  step_id: str,
+                                                  run_id: str,
+                                                  input_name: str,
                                                   tmin: float | None = 0,
                                                   tmax: float | None = None,
                                                   input_window: str | None = Query("hann",
@@ -1057,11 +1117,13 @@ async def calculate_alpha_delta_ratio_periodogram(workflow_id: str, step_id: str
             df = pd.concat([df_names, df_power, df_peak],1)
             print(df)
 
-            return {'alpha_delta_ratio': alpha_power/delta_power, 'DataFrame': df.to_json(orient='split')}
+            df['index'] = df.index
+            return {'alpha_delta_ratio': alpha_power/delta_power, 'alpha_delta_ratio_df': df.to_json(orient='records')}
 
 
 @router.get("/return_asymmetry_indices", tags=["return_asymmetry_indices"])
-async def calculate_asymmetry_indices(workflow_id: str, step_id: str, run_id: str,input_name_1: str,
+async def calculate_asymmetry_indices(workflow_id: str, step_id: str, run_id: str,
+                                      input_name_1: str,
                                       input_name_2: str,
                                       input_window: str | None = Query("hann",
                                                           regex="^(boxcar)$|^(triang)$|^(blackman)$|^(hamming)$|^(hann)$|^(bartlett)$|^(flattop)$|^(parzen)$|^(bohman)$|^(blackmanharris)$|^(nuttall)$|^(barthann)$|^(cosine)$|^(exponential)$|^(tukey)$|^(taylor)$"),
@@ -1123,7 +1185,10 @@ async def calculate_asymmetry_indices(workflow_id: str, step_id: str, run_id: st
     return {'asymmetry_indices': asymmetry_index}
 
 @router.get("/return_alpha_variability", tags=["return_alpha_variability"])
-async def calculate_alpha_variability(workflow_id: str, step_id: str, run_id: str,input_name: str,
+async def calculate_alpha_variability(workflow_id: str,
+                                      step_id: str,
+                                      run_id: str,
+                                      input_name: str,
                                       tmin: float | None = 0,
                                       tmax: float | None = None,
                                       input_window: str | None = Query("hann",
@@ -1409,7 +1474,17 @@ async def sleep_statistics_hypnogram(
 
     df = pd.DataFrame.from_dict(sleep_statistics(list(hypno['stage']), sf_hyp=sampling_frequency), orient='index', columns=['value'])
 
-    return{'sleep_statistics': df.to_json(orient='split')}
+    # print("DF Altered")
+    # print(df)
+    # print(df.T)
+    # print(df.T.to_json(orient='records'))
+    # print("DF original")
+    # print(df.to_json(orient='records'))
+    # print(df.to_json(orient='split'))
+    df = df.T
+    # df['index'] = df.index
+    df.insert(0, 'id', range(1, 1 + len(df)))
+    return{'sleep_statistics': df.to_json(orient='records')}
 
 @router.get("/sleep_transition_matrix")
 async def sleep_transition_matrix(workflow_id: str,
@@ -1422,7 +1497,7 @@ async def sleep_transition_matrix(workflow_id: str,
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
 
     to_return = {}
-    fig = plt.figure(1)
+    plt.figure("sleep_transition_matrix")
 
     hypno = pd.read_csv(path_to_storage + "/" + files["csv"])
 
@@ -1440,14 +1515,14 @@ async def sleep_transition_matrix(workflow_id: str,
     ax.xaxis.tick_top()
     ax.set_ylabel("From sleep stage")
     ax.xaxis.set_label_position('top')
-    plt.show()
+    # plt.show()
     #  Temporarilly saved in root directory should change to commented
     # fig.savefig( path_to_storage + "/output/" + 'sleep_transition_matrix.png')
-    fig.savefig( NeurodesktopStorageLocation + '/sleep_transition_matrix.png')
+    plt.savefig(NeurodesktopStorageLocation + '/sleep_transition_matrix.png')
 
 
-    html_str = mpld3.fig_to_html(fig)
-    to_return["figure"] = html_str
+    # html_str = mpld3.fig_to_html(fig)
+    # to_return["figure"] = html_str
 
     return{'counts_transition_matrix':counts.to_json(orient='split'),  # Counts transition matrix (number of transitions from stage A to stage B).
            'conditional_probability_transition_matrix':probs.to_json(orient='split'), # Conditional probability transition matrix, i.e. given that current state is A, what is the probability that the next state is B.
@@ -1466,6 +1541,7 @@ async def sleep_stability_extraction(workflow_id: str,
 
     return{'sleep_stage_stability': np.diag(probs.loc[2:, 2:]).mean().round(3)} # stability of sleep stages
 
+# 2nd page
 @router.get("/spectrogram_yasa")
 async def spectrogram_yasa(
                            workflow_id: str,
@@ -1492,16 +1568,16 @@ async def spectrogram_yasa(
             array_data = raw_data[i]
             hypno = yasa.hypno_upsample_to_data(list(hypno['stage']), sf_hypno=current_sampling_frequency_of_the_hypnogram, data=data)
             to_return = {}
-            fig = plt.figure(1)
-            fig = yasa.plot_spectrogram(array_data, sf, hypno, cmap='Spectral_r')
-            plt.show()
+            plt.figure("spectrogram_plot")
+            yasa.plot_spectrogram(array_data, sf, hypno, cmap='Spectral_r')
+            # plt.show()
 
-            html_str = mpld3.fig_to_html(fig)
-            to_return["figure"] = html_str
+            # html_str = mpld3.fig_to_html(fig)
+            # to_return["figure"] = html_str
             #  Temporarilly saved in root directory should change to commented
 
             # fig.savefig(path_to_storage + "/output/" + 'spectrogram.png')
-            fig.savefig(NeurodesktopStorageLocation + '/spectrogram.png')
+            plt.savefig(NeurodesktopStorageLocation + '/spectrogram.png')
 
             return {'figure': to_return}
     return {'Channel not found'}
@@ -1529,15 +1605,19 @@ async def bandpower_yasa(workflow_id: str,
     sf = info['sfreq']
 
     hypno = yasa.hypno_upsample_to_data(list(hypno['stage']), sf_hypno=current_sampling_frequency_of_the_hypnogram, data=data)
-
+    print("include")
+    print(include)
     df = yasa.bandpower(data, hypno=hypno, relative=relative, bandpass=bandpass, include=include)
     print(df)
     print('yesssss')
     df['Channel'] = df.index
     print(df)
 
+    #Add index as column
+    df['index'] = df.index
     return {'bandpower':df.to_json(orient='split')}
 
+#  3rd page
 @router.get("/spindles_detect_two_dataframes")
 async def spindles_detect_two_dataframes(
                                          workflow_id: str,
@@ -1549,9 +1629,12 @@ async def spindles_detect_two_dataframes(
                                          include: list[int] | None = Query(default=[2,3]),
                                          remove_outliers: bool | None = Query(default=False),
                                          current_sampling_frequency_of_the_hypnogram: float | None = Query(default=1/30)):
+    files = get_files_for_slowwaves_spindle(workflow_id, run_id, step_id)
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
 
-    data = mne.io.read_raw_fif("example_data/XX_Firsthalf_raw.fif")
-    hypno = pd.read_csv('example_data/XX_Firsthalf_Hypno.csv')
+    data = mne.io.read_raw_fif(path_to_storage + "/" + files["edf"])
+    hypno = pd.read_csv(path_to_storage + "/" + files["csv"])
+
     raw_data = data.get_data()
     info = data.info
     channels = data.ch_names
@@ -1565,18 +1648,29 @@ async def spindles_detect_two_dataframes(
         df_2 = sp.summary(grp_chan=True, grp_stage=True)
 
         to_return = {}
-        fig = plt.figure(1)
+        plt.figure("spindles_plot")
         sp.plot_average(center='Peak', time_before=1, time_after=1)
-        plt.show()
-        html_str = mpld3.fig_to_html(fig)
-        to_return["figure"] = html_str
+        # plt.show()
+        # html_str = mpld3.fig_to_html(fig)
+        # to_return["figure"] = html_str
+        #  Temporarilly saved in root directory should change to commented
+        plt.savefig(NeurodesktopStorageLocation + '/spindles.png')
 
-        return {'data_frame_1':df_1.to_json(orient='split'), 'data_frame_2':df_2.to_json(orient='split'),'figure':to_return}
+        # Transpose dataframes and add id column
+        # df_1 = df_1.T
+        df_1.insert(0, 'id', range(1, 1 + len(df_1)))
+
+        # df_2 = df_2.T
+        df_2.insert(0, 'id', range(1, 1 + len(df_2)))
+        return {'data_frame_1': df_1.to_json(orient='records'), 'data_frame_2':df_2.to_json(orient='records')}
     else:
         return {'No spindles detected'}
 
 @router.get("/sw_detect_two_dataframes")
-async def sw_detect_two_dataframes(freq_sw: list[float] | None = Query(default=[0.3,1.5]),
+async def sw_detect_two_dataframes(workflow_id: str,
+                                   step_id: str,
+                                   run_id: str,
+                                   freq_sw: list[float] | None = Query(default=[0.3,1.5]),
                                    dur_neg: list[float] | None = Query(default=[0.3,1.5]),
                                    dur_pos: list[float] | None = Query(default=[0.1,1]),
                                    amp_neg: list[int] | None = Query(default=[40,200]),
@@ -1586,9 +1680,12 @@ async def sw_detect_two_dataframes(freq_sw: list[float] | None = Query(default=[
                                    remove_outliers: bool | None = Query(default=True),
                                    coupling: bool | None = Query(default=True),
                                    current_sampling_frequency_of_the_hypnogram: float | None = Query(default=1/30)):
+    files = get_files_for_slowwaves_spindle(workflow_id, run_id, step_id)
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
 
-    data = mne.io.read_raw_fif("example_data/XX_Firsthalf_raw.fif")
-    hypno = pd.read_csv('example_data/XX_Firsthalf_Hypno.csv')
+    data = mne.io.read_raw_fif(path_to_storage + "/" + files["edf"])
+    hypno = pd.read_csv(path_to_storage + "/" + files["csv"])
+
     raw_data = data.get_data()
     info = data.info
     channels = data.ch_names
@@ -1603,35 +1700,58 @@ async def sw_detect_two_dataframes(freq_sw: list[float] | None = Query(default=[
         df_2 = sw.summary(grp_chan=True, grp_stage=True)
 
         to_return = {}
-        ax = plt.subplot(projection='polar')
-        figure_2 = rose_plot(ax, df_1['PhaseAtSigmaPeak'], density=False, offset=0, lab_unit='degrees', start_zero=False)
+        # plt.figure("rose_plot")
+        # ax = plt.subplot(projection='polar')
+        figure_2 = rose_plot( df_1['PhaseAtSigmaPeak'], density=False, offset=0, lab_unit='degrees', start_zero=False)
+
+        # plt.savefig(NeurodesktopStorageLocation + '/rose_plot.png')
         to_return['figure_2'] = figure_2
 
 
-        fig = plt.figure(1)
+        plt.figure("slowwaves_plot")
         pg.plot_circmean(df_1['PhaseAtSigmaPeak'])
         print('Circular mean: %.3f rad' % pg.circ_mean(df_1['PhaseAtSigmaPeak']))
         print('Vector length: %.3f' % pg.circ_r(df_1['PhaseAtSigmaPeak']))
-        plt.show()
-        html_str = mpld3.fig_to_html(fig)
-        to_return["figure"] = html_str
+        # plt.show()
+        # html_str = mpld3.fig_to_html(fig)
+        # to_return["figure"] = html_str
+        #  Temporarilly saved in root directory should change to commented
+        plt.savefig(NeurodesktopStorageLocation + '/slowwaves.png')
 
-        return {'data_frame_1':df_1.to_json(orient='split'), 'data_frame_2':df_2.to_json(orient='split'),'figure':to_return,
-                'circular_mean:': pg.circ_mean(df_1['PhaseAtSigmaPeak']), # Circular mean (rad)
-                'vector_length:': pg.circ_r(df_1['PhaseAtSigmaPeak'])} # Vector length (rad)
+        # Transpose dataframes and add id column
+        df_1_old = df_1
+        # df_1 = df_1.T
+        df_1.insert(0, 'id', range(1, 1 + len(df_1)))
+
+        df_2_old = df_2
+        # df_2 = df_2.T
+        df_2.insert(0, 'id', range(1, 1 + len(df_2)))
+
+        return {'data_frame_1':df_1.to_json(orient='records'), 'data_frame_2':df_2.to_json(orient='records'),
+                'circular_mean:': pg.circ_mean(df_1_old['PhaseAtSigmaPeak']), # Circular mean (rad)
+                'vector_length:': pg.circ_r(df_2_old['PhaseAtSigmaPeak'])} # Vector length (rad)
     else:
         return {'No slow-waves detected'}
 
 @router.get("/PAC_values")
-async def calculate_pac_values(window: int | None = Query(default=15),
+async def calculate_pac_values(workflow_id: str,
+                               step_id: str,
+                               run_id: str,
+                               window: int | None = Query(default=15),
                                step: int | None = Query(default=15),
                                current_sampling_frequency_of_the_hypnogram: float | None = Query(default=1/30)):
 
 
     to_return = {}
-    fig = plt.figure(1)
-    data = mne.io.read_raw_fif("example_data/XX_Firsthalf_raw.fif")
-    hypno = pd.read_csv('example_data/XX_Firsthalf_Hypno.csv')
+    plt.figure("pac_values_plot")
+
+    files = get_files_for_slowwaves_spindle(workflow_id, run_id, step_id)
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+
+    data = mne.io.read_raw_fif(path_to_storage + "/" + files["edf"])
+    hypno = pd.read_csv(path_to_storage + "/" + files["csv"])
+
+
     raw_data = data.get_data()
     info = data.info
     channels = data.ch_names
@@ -1659,23 +1779,32 @@ async def calculate_pac_values(window: int | None = Query(default=15),
     # Plot the comodulogram
     p.comodulogram(xpac.mean(-1), title=str(p), vmin=0, plotas='contour', ncontours=100)
     plt.gca()
-    plt.show()
+    # plt.show()
 
-    html_str = mpld3.fig_to_html(fig)
-    to_return["figure"] = html_str
-
+    # html_str = mpld3.fig_to_html(fig)
+    # to_return["figure"] = html_str
+    #  Temporarilly saved in root directory should change to commented
+    plt.savefig(NeurodesktopStorageLocation + '/pac_values.png')
 
     return {'Figure':to_return}
 
 @router.get("/extra_PAC_values")
-async def calculate_extra_pac_values(window: int | None = Query(default=15),
+async def calculate_extra_pac_values(workflow_id: str,
+                                     step_id: str,
+                                     run_id: str,
+                                     window: int | None = Query(default=15),
                                      step: int | None = Query(default=15),
                                      current_sampling_frequency_of_the_hypnogram: float | None = Query(default=1/30)):
 
     to_return = {}
-    fig = plt.figure(1)
-    data = mne.io.read_raw_fif("example_data/XX_Firsthalf_raw.fif")
-    hypno = pd.read_csv('example_data/XX_Firsthalf_Hypno.csv')
+    plt.figure("extra_pac_values_plot")
+
+    files = get_files_for_slowwaves_spindle(workflow_id, run_id, step_id)
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+
+    data = mne.io.read_raw_fif(path_to_storage + "/" + files["edf"])
+    hypno = pd.read_csv(path_to_storage + "/" + files["csv"])
+
     channels = data.ch_names
     raw_data = data.get_data(channels[0])
     info = data.info
@@ -1743,21 +1872,15 @@ async def calculate_extra_pac_values(window: int | None = Query(default=15),
     p.comodulogram(t_obs, cmap='gray', vmin=0, vmax=0.5, colorbar=True)
     p.comodulogram(t_obs_plot, cmap='viridis', vmin=0, vmax=0.5, title=title, colorbar=False)
     plt.gca().invert_yaxis()
-    plt.show()
+    # plt.show()
 
-    html_str = mpld3.fig_to_html(fig)
-    to_return["figure"] = html_str
+    # html_str = mpld3.fig_to_html(fig)
+    # to_return["figure"] = html_str
+
+    #  Temporarilly saved in root directory should change to commented
+    plt.savefig(NeurodesktopStorageLocation + '/extra_pac_values.png')
 
     return {'Figure': to_return}
-
-
-
-
-
-
-
-
-
 
 
 # Spindles detection
@@ -1860,10 +1983,10 @@ async def mne_open_eeg(workflow_id: str,
     file_full_path = path_to_storage + "/" + name_of_file
 
     # Give permissions in working folder
-    channel.send("sudo chmod a+rw /home/user/neurodesktop-storage/runtime_config/workflow_" + workflow_id + "/run_" + run_id + "/step_" + step_id +"/edfbrowser_interim_storage\n")
+    channel.send("sudo chmod a+rw /home/user/neurodesktop-storage/runtime_config/workflow_" + workflow_id + "/run_" + run_id + "/step_" + step_id +"/neurodesk_interim_storage\n")
 
     # Opening EDFBrowser
-    channel.send("cd /home/user/neurodesktop-storage/runtime_config/workflow_" + workflow_id + "/run_" + run_id + "/step_" + step_id +"/edfbrowser_interim_storage\n")
+    channel.send("cd /home/user/neurodesktop-storage/runtime_config/workflow_" + workflow_id + "/run_" + run_id + "/step_" + step_id +"/neurodesk_interim_storage\n")
     # print("/home/user/EDFbrowser/edfbrowser /home/user/'" + file_full_path + "'\n")
     if selected_montage != "":
         print("Montage selected path")
@@ -1913,9 +2036,9 @@ async def mne_open_mne(workflow_id: str, step_id: str, run_id: str, current_user
 
     # Give permissions in working folder
     channel.send(
-        "sudo chmod a+rw /home/user/neurodesktop-storage/runtime_config/workflow_" + workflow_id + "/run_" + run_id + "/step_" + step_id + "/edfbrowser_interim_storage\n")
+        "sudo chmod a+rw /home/user/neurodesktop-storage/runtime_config/workflow_" + workflow_id + "/run_" + run_id + "/step_" + step_id + "/neurodesk_interim_storage\n")
 
-    channel.send("nohup /usr/bin/code -n /home/user/neurodesktop-storage/runtime_config/workflow_" +workflow_id + "/run_" + run_id + "/step_" + step_id + "/edfbrowser_interim_storage/" + "created_1.ipynb --extensions-dir=/opt/vscode-extensions --disable-workspace-trust &\n")
+    channel.send("nohup /usr/bin/code -n /home/user/neurodesktop-storage/runtime_config/workflow_" +workflow_id + "/run_" + run_id + "/step_" + step_id + "/neurodesk_interim_storage/" + "created_1.ipynb --extensions-dir=/opt/vscode-extensions --disable-workspace-trust &\n")
 
 
 
