@@ -69,16 +69,17 @@ WIP
 WIP
 ```
 
-## Deployment Docker (WIP)
+## Deployment Docker
     - Prerequisites
         ```
         Docker
         ```
-    - Clone current branch: 'feat/communication'
-    - Change env variables in /docker/docker-compose.yml
-    - Create Image and Container
+    - Clone current branch: 'dev'
+    - Create the folder "neurodesktop-storage" in the vm path '/home/ntua'
+    - Create the folder "static" in the vm path in '/home/ntua/neurodesktop-storage'
+    - Start docker image of Neurodesk using the production folder docker compose 
+    - Start docker of analytics backend using the production folder docker compose 
         ```
-        cd docker
         docker compose up -d --build 
         ```
 ## Deployment (Kubernetes) WIP

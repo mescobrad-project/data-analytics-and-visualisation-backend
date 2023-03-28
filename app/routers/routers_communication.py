@@ -68,6 +68,7 @@ ExistingFunctions = [
     "shepherd_pi_correlation",
     "skipped_spearman_correlation",
     "point_biserial_correlation",
+    "power_spectral_density_main",
     "canonical_correlation",
     'mediation_analysis',
     "data_transform_anova",
@@ -120,6 +121,9 @@ ExistingFunctions = [
     "LogisticRegressionSklearn",
     "fisherexact",
     "mcnemar",
+    "LogisticRegressionSklearn",
+    "FactorAnalysis",
+    "GeneralizedEstimatingEquations"
     # Dashboard
     "dashboard",
 ]
@@ -182,6 +186,8 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/welch"
             case "find_peaks":
                 url_to_redirect += "/find_peaks"
+            case "power_spectral_density_main":
+                url_to_redirect += "/power_spectral_density_main"
             case "power_spectral_density_periodogram":
                 url_to_redirect += "/periodogram"
             case "stft":
@@ -353,6 +359,10 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/FisherExact"
             case "mcnemar":
                 url_to_redirect += "/McNemar"
+            case "FactorAnalysis":
+                url_to_redirect += "/FactorAnalysis"
+            case "GeneralizedEstimatingEquations":
+                url_to_redirect += "/GeneralizedEstimatingEquations"
             # Dashboard
             case "dashboard":
                 url_to_redirect += "/dashboard"
