@@ -38,13 +38,13 @@ services:
     restart: always
     environment:
       WFAddress: expertsystem_web_1
-      NeurodesktopStorageLocation: /neurodesktop-storage
-      NeurodesktopPort: 8080
-      FrontendAddress: https://localhost:3005
+      NeurodesktopStorageLocation: /home/ntua/neurodesktop-storage
+      NeurodesktopPort: 8081
+      FrontendAddress: http://10.129.150.120:3005
     volumes:
-      - 'C:\neurodesktop-storage:/neurodesktop-storage'
+      - '/home/ntua/neurodesktop-storage:/neurodesktop-storag'
     ports:
-      - "8000:8000"
+      - "7000:8000"
     depends_on:
       - neurodesktop
     networks:
