@@ -3112,3 +3112,99 @@ async def compute_granger_analysis(workflow_id: str,
         print(grangercausalitytests(dataset[[response_variable, predictor_variable]], maxlag=[num_lags]))
     else:
         print(grangercausalitytests(dataset[[response_variable, predictor_variable]], maxlag=num_lags))
+
+@router.get("/calculate_one_way_welch_anova")
+async def compute_one_way_welch_anova(workflow_id: str,
+                                      step_id: str,
+                                      run_id: str,
+                                      dependent_variable: str,
+                                      between_factor: str):
+
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+
+    df = pingouin.welch_anova(data=dataset, dv=dependent_variable, between=between_factor)
+    print(df)
+
+@router.get("/calculate_kruskal_pinguin")
+async def compute_kruskal(workflow_id: str,
+                          step_id: str,
+                          run_id: str,
+                          dependent_variable: str,
+                          between_factor: str):
+
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+
+    df = pingouin.kruskal(data=dataset, dv=dependent_variable, between=between_factor)
+    print(df)
+
+@router.get("/calculate_anova_repeated_measures_pingouin")
+async def compute_anova_repeated_measures_pinguin(workflow_id: str,
+                                                  step_id: str,
+                                                  run_id: str,
+                                                  dependent_variable: str,
+                                                  subject: str,
+                                                  correction: bool | None = Query(default=True),
+                                                  within: list[str] | None = Query(default=None),
+                                                  effsize: str | None = Query("np2",
+                                                                             regex="^(np2)$|^(n2)$|^(ng2)$")
+                                                  ):
+
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+
+    df = pingouin.rm_anova(data=dataset, dv=dependent_variable, subject=subject, within=within, correction=correction,effsize=effsize)
+    print(df)
+
+@router.get("/calculate_friedman_test_pinguin")
+async def compute_friedman_test_pinguin(workflow_id: str,
+                                        step_id: str,
+                                        run_id: str,
+                                        dependent_variable: str,
+                                        subject: str,
+                                        within: str,
+                                        method: str | None = Query("chisq",
+                                                                    regex="^(chisq)$|^(f)$")):
+
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+
+    df = pingouin.friedman(data=dataset, dv=dependent_variable, subject=subject, within=within, method=method)
+    print(df)
+
+@router.get("/calculate_mixed_anova")
+async def compute_mixed_anova_pinguin(workflow_id: str,
+                                        step_id: str,
+                                        run_id: str,
+                                        dependent_variable: str,
+                                        subject: str,
+                                        within: str,
+                                        between: str,
+                                        correction_1: bool | None = Query(default=False),
+                                        correction_2: str | None = Query(default='auto'),
+                                        effsize: str | None = Query("np2",
+                                                                    regex="^(np2)$|^(n2)$|^(ng2)$")):
+
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+
+    if correction_1==True:
+        df = pingouin.mixed_anova(data=dataset, dv=dependent_variable, subject=subject, within=within, between=between, effsize=effsize, correction=correction_1)
+        print(df)
+    else:
+        df = pingouin.mixed_anova(data=dataset, dv=dependent_variable, subject=subject, within=within, between=between,
+                                  effsize=effsize, correction=correction_2)
+        print(df)
+
+@router.get("/calculate_anova_pinguin")
+#SS-type should be a valid integer, currently accepting as string in order to use the inlande field validation of strings
+async def compute__anova_pinguin(workflow_id: str,
+                                 step_id: str,
+                                 run_id: str,
+                                 dependent_variable: str,
+                                 between_factor: list[str] | None = Query(default=None),
+                                 ss_type: str | None = Query(2,
+                                                             regex="^(1)$|^(2)$|^(3)$"),
+                                 effsize: str | None = Query("np2",
+                                                             regex="^(np2)$|^(n2)$|^(ng2)$")):
+
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+
+    df = pingouin.anova(data=dataset, dv=dependent_variable, between=between_factor, ss_type=int(ss_type), effsize=effsize)
+    print(df)

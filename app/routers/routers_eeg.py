@@ -1608,6 +1608,10 @@ async def bandpower_yasa(workflow_id: str,
     print("include")
     print(include)
     df = yasa.bandpower(data, hypno=hypno, relative=relative, bandpass=bandpass, include=include)
+    print(df)
+    print('yesssss')
+    df['Channel'] = df.index
+    print(df)
 
     #Add index as column
     df['index'] = df.index
