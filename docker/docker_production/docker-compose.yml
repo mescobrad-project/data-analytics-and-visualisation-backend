@@ -1,6 +1,34 @@
 version: '3.7'
 
 services:
+  nginx:
+    build:
+      context: "../nginx/"
+      dockerfile: ./Dockerfile
+    ports:
+      - 85:80
+      - 470:443
+    depends_on:
+      - analytics-backend
+    networks:
+      - mri-freesurfer-network
+      - analytics-network
+
+  neurodesktop:
+    privileged: true
+    container_name: neurodesktop
+    build:
+      context: "../docker_neurodesk/docker_neurodesk_production"
+      dockerfile: Dockerfile
+    volumes:
+      - neurodesk-volume:/MES-CoBraD Input
+      - 'C:/neurodesktop-storage:/neurodesktop-storage'
+    ports:
+      - '8080:8080'
+    networks:
+      - mri-freesurfer-network
+    shm_size: 1gb
+
   analytics-backend:
     build:
       context: "../../"
@@ -10,12 +38,15 @@ services:
     restart: always
     environment:
       WFAddress: expertsystem_web_1
-      NeurodesktopStorageLocation: /home/ntua/neurodesktop-storage
-      FrontendAddress: http://10.129.150.120:3005
+      NeurodesktopStorageLocation: /neurodesktop-storage
+      NeurodesktopPort: 8080
+      FrontendAddress: https://localhost:3005
     volumes:
-      - '/home/ntua/neurodesktop-storage:/neurodesktop-storage'
+      - 'C:\neurodesktop-storage:/neurodesktop-storage'
     ports:
-      - "7000:8000"
+      - "8000:8000"
+    depends_on:
+      - neurodesktop
     networks:
       - mri-freesurfer-network
       - analytics-network
@@ -27,3 +58,48 @@ networks:
   mri-freesurfer-network:
     name: mri-freesurfer-network
     driver: bridge
+
+volumes:
+  neurodesk-volume:
+    driver: local
+    name: neurodesk-volume
+
+#version: '3.7'
+#
+#services:
+#  nginx:
+#    build:
+#      context: "../nginx/"
+#      dockerfile: ./Dockerfile
+#    ports:
+#      - 80:80
+#      - 443:443
+#    depends_on:
+#      - analytics-backend
+#  analytics-backend:
+#    build:
+#      context: "../../"
+#      dockerfile: ./docker/docker_production/Dockerfile
+#    hostname: analytics_backend
+#    container_name: analytics_backend
+#    restart: always
+#    environment:
+#      WFAddress: expertsystem_web_1
+#      NeurodesktopStorageLocation: /home/ntua/neurodesktop-storage
+#      NeurodesktopPort: 8081
+#      FrontendAddress: http://10.129.150.120:3005
+#    volumes:
+#      - '/home/ntua/neurodesktop-storage:/neurodesktop-storage'
+#    ports:
+#      - "7000:8000"
+#    networks:
+#      - mri-freesurfer-network
+#      - analytics-network
+#
+#networks:
+#  analytics-network:
+#    name: analytics-network
+#    driver: bridge
+#  mri-freesurfer-network:
+#    name: mri-freesurfer-network
+#    driver: bridge
