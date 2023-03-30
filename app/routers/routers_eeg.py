@@ -2294,3 +2294,23 @@ async def return_envelopetrend(
             else:
                 return {'Channel not found'}
     return {'Channel not found'}
+
+
+@router.get("/back_average", tags=["back_average"])
+async def back_average(
+        workflow_id: str,
+        step_id: str,
+        run_id: str,
+        tmin: float | None = None,
+        tmax: float | None = None,
+        max_ptp_amplitude: float | None = None,
+        min_ptp_amplitude: float | None = None,
+        annotation_name: str | None = None,
+):
+
+    data = load_file_from_local_or_interim_edfbrowser_storage("original", workflow_id, run_id, step_id)
+    raw_data = data.get_data()
+    events = mne.events_from_annotations(data, regexp=annotation_name)
+    print(events)
+    return True
+
