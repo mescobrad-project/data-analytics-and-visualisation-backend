@@ -182,23 +182,6 @@ async def name_columns(workflow_id: str, step_id: str, run_id: str):
     return{'columns': list(columns)}
 
 
-@router.get("/return_binary_columns")
-async def name_columns(workflow_id: str, step_id: str, run_id: str):
-    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
-    name_of_file = get_single_file_from_local_temp_storage(workflow_id, run_id, step_id)
-    data = load_data_from_csv(path_to_storage + "/" + name_of_file)
-
-    # For the testing dataset
-    if 'Unnamed: 0' in data.columns:
-        data = data.drop(['Unnamed: 0'], axis=1)
-    for b_column in data.columns:
-        if data[b_column].unique().shape[0] > 2:
-            data = data.drop([b_column], axis=1)
-
-    columns = data.columns
-    return{'columns': list(columns)}
-
-
 @router.get("/return_saved_object_columns")
 async def name_saved_object_columns(file_name:str):
     print('saved', file_name, 'runtime_config/' + file_name)
@@ -3203,20 +3186,26 @@ async def compute_mixed_anova_pinguin(workflow_id: str,
                                         subject: str,
                                         within: str,
                                         between: str,
-                                        correction_1: bool | None = Query(default=False),
-                                        correction_2: str | None = Query(default='auto'),
+                                        correction: str | None = Query("True",
+                                                                       regex="^(True)$|^(auto)$"),
                                         effsize: str | None = Query("np2",
                                                                     regex="^(np2)$|^(n2)$|^(ng2)$")):
 
-    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+    # dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+    dataset = pingouin.read_dataset('mixed_anova')
+    print(dataset)
+    print(dataset.dtypes)
+    check_for_nan = dataset['Group'].isnull().values.any()
+    print(check_for_nan)
+    # if correction_1==True:
+    df = pingouin.mixed_anova(data=dataset, dv=dependent_variable, subject=subject, within=within, between=between,
+                              effsize=effsize, correction=correction)
 
-    if correction_1==True:
-        df = pingouin.mixed_anova(data=dataset, dv=dependent_variable, subject=subject, within=within, between=between, effsize=effsize, correction=correction_1)
-        print(df)
-    else:
-        df = pingouin.mixed_anova(data=dataset, dv=dependent_variable, subject=subject, within=within, between=between,
-                                  effsize=effsize, correction=correction_2)
-        print(df)
+    return {'Dataframe': df.to_json(orient="records")}
+    # else:
+    #     df = pingouin.mixed_anova(data=dataset, dv=dependent_variable, subject=subject, within=within, between=between,
+    #                               effsize=effsize, correction=correction_2)
+    #     print(df)
 
 @router.get("/calculate_anova_pinguin")
 #SS-type should be a valid integer, currently accepting as string in order to use the inlande field validation of strings
@@ -3233,4 +3222,5 @@ async def compute__anova_pinguin(workflow_id: str,
     dataset = load_file_csv_direct(workflow_id, run_id, step_id)
 
     df = pingouin.anova(data=dataset, dv=dependent_variable, between=between_factor, ss_type=int(ss_type), effsize=effsize)
-    print(df)
+
+    return df.to_json(orient="records")
