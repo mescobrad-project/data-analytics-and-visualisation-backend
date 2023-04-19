@@ -53,13 +53,14 @@ from zepid.calc import risk_ci, incidence_rate_ci, risk_ratio, risk_difference, 
 from app.pydantic_models import ModelMultipleComparisons
 from app.utils.utils_datalake import fget_object, get_saved_dataset_for_Hypothesis, upload_object
 from app.utils.utils_general import get_local_storage_path, get_single_file_from_local_temp_storage, load_data_from_csv, \
-    load_file_csv_direct
+    load_file_csv_direct, get_all_files_from_local_temp_storage
 import scipy.stats as st
 import statistics
 from tabulate import tabulate
 import seaborn as sns
 
-from app.utils.utils_hypothesis import create_plots, compute_skewness, outliers_removal, compute_kurtosis
+from app.utils.utils_hypothesis import create_plots, compute_skewness, outliers_removal, compute_kurtosis, \
+    statisticsMean
 
 router = APIRouter()
 data = pd.read_csv('example_data/mescobrad_dataset.csv')
@@ -109,25 +110,25 @@ def transformation_extra_content_results(column_In: str, column_Out:str, selecte
     html_str_Transf = mpld3.fig_to_html(fig)
     return html_str_Transf
 
-@router.get("/load_demo_data")
-async def load_demo_data(file: Optional[str] | None):
-    # print(file, len(file))
-    # file = None
-    if file!= None:
-        data = pd.read_csv('runtime_config/' + file)
-    else:
-        data = pd.read_csv('example_data/sample_questionnaire.csv')
-
-    return data
-
 class FunctionOutputItem(BaseModel):
     """
     Known metadata information
     "files" : [["run_id: "string" , "step_id": "string"], "output":"string"]
      """
+    workflow_id:str
     run_id: str
     step_id: str
     file: str
+
+@router.get("/return_all_files")
+async def return_all_files(workflow_id: str, step_id: str, run_id: str):
+    try:
+        list_of_files = get_all_files_from_local_temp_storage(workflow_id, run_id, step_id)
+    except Exception as e:
+        print(e)
+        print("Error : Failed to retrieve file names")
+        return []
+    return {'files': list_of_files}
 
 
 @router.put("/save_hypothesis_output")
@@ -135,7 +136,7 @@ async def save_hypothesis_output(item: FunctionOutputItem) -> dict:
     output_json = json.loads(item.file)
     # print(output_json)
     try:
-        path_to_storage = get_local_storage_path(item.run_id, item.step_id)
+        path_to_storage = get_local_storage_path(item.workflow_id, item.run_id, item.step_id)
         out_filename = path_to_storage + '/output' + '/output.json'
         with open(out_filename, 'w') as fh:
             json.dump(output_json, fh, ensure_ascii=False)
@@ -153,17 +154,27 @@ async def save_hypothesis_output(item: FunctionOutputItem) -> dict:
 
 
 @router.get("/return_columns")
-async def name_columns(workflow_id: str, step_id: str, run_id: str):
-    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
-    name_of_file = get_single_file_from_local_temp_storage(workflow_id, run_id, step_id)
-    data = load_data_from_csv(path_to_storage + "/" + name_of_file)
+async def name_columns(workflow_id: str, step_id: str, run_id: str, file_name:str|None=None):
+    try:
+        if file_name is None:
+            path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+            name_of_file = get_single_file_from_local_temp_storage(workflow_id, run_id, step_id)
+            data = load_data_from_csv(path_to_storage + "/" + name_of_file)
+        else:
+            path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+            name_of_files = get_all_files_from_local_temp_storage(workflow_id, run_id, step_id)
+            if file_name in name_of_files:
+                data = load_data_from_csv(path_to_storage + "/" + file_name)
+            else:
+                print("Error : Failed to find the file")
+                return {'columns': [], 'dataFrame': {}}
 
-    # For the testing dataset
-    if 'Unnamed: 0' in data.columns:
-        data = data.drop(['Unnamed: 0'], axis=1)
-
-    columns = data.columns
-    return{'columns': list(columns), 'dataFrame': data.to_json(orient='records')}
+        columns = data.columns
+        return{'columns': list(columns), 'dataFrame': data.to_json(orient='records')}
+    except Exception as e:
+        print(e)
+        print("Error : Failed to retrieve column names")
+        return '500'
 
 @router.get("/return_binary_columns")
 async def name_columns(workflow_id: str, step_id: str, run_id: str):
@@ -3224,3 +3235,41 @@ async def compute__anova_pinguin(workflow_id: str,
     df = pingouin.anova(data=dataset, dv=dependent_variable, between=between_factor, ss_type=int(ss_type), effsize=effsize)
 
     return df.to_json(orient="records")
+
+@router.get("/compute_mean")
+async def compute_mean(workflow_id: str,
+                                 step_id: str,
+                                 run_id: str,
+                                 variables: list[str] | None = Query(default=None)):
+    df = pd.DataFrame()
+    dfv = pd.DataFrame()
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    # Load Datasets
+    dfv['variables'] = variables
+    dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
+    selected_datasources = pd.unique(dfv['Datasource'])
+    for ds in selected_datasources:
+        try:
+            dataset = load_data_from_csv(path_to_storage + "/" + ds)
+        except Exception as e:
+            df["Error"] = ["Unable to retrieve datasets"]
+            print(e)
+            return {'Dataframe': df.to_json(orient="records")}
+        # Keep requested Columns
+        selected_columns = pd.unique(dfv['Variable'])
+        for columns in dataset.columns:
+            if columns not in selected_columns:
+                dataset = dataset.drop(str(columns), axis=1)
+        # Get mean values
+        try:
+            for column in dataset.columns:
+                res = statisticsMean(column, dataset)
+                if (res!= -1):
+                    df[column] = [res]
+                else: df[column] = ["N/A"]
+        except Exception as e:
+            df["Error"] = ["Unable to compute the average values"]
+            print(e)
+            return {'Dataframe': df.to_json(orient="records")}
+        print(df)
+    return {'Dataframe': df.to_json(orient="records")}
