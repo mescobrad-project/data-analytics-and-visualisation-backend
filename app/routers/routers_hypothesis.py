@@ -23,6 +23,7 @@ import statsmodels.stats.api as sms
 from pydantic import BaseModel
 from statsmodels.stats.diagnostic import het_goldfeldquandt
 from fastapi import FastAPI, Path, Query, APIRouter
+from fastapi.responses import JSONResponse
 import sklearn
 import pingouin
 from statsmodels.stats.diagnostic import het_white
@@ -139,11 +140,10 @@ async def save_hypothesis_output(item: FunctionOutputItem) -> dict:
         out_filename = path_to_storage + '/output' + '/info.json'
         upload_object(bucket_name="demo", object_name='expertsystem/workflow/'+ item.workflow_id+'/'+ item.run_id+'/'+
                                                       item.step_id+'/analysis_output' + '/info.json', file=out_filename)
-        return '200'
+        return JSONResponse(content='info.json file has been successfully uploaded to the DataLake', status_code=200)
     except Exception as e:
         print(e)
-        print("Error in saving info.json object to the DataLake")
-        return '500'
+        return JSONResponse(content='Error in saving info.json object to the DataLake',status_code=501)
 
 
 
@@ -167,8 +167,7 @@ async def name_columns(workflow_id: str, step_id: str, run_id: str, file_name:st
         return{'columns': list(columns), 'dataFrame': data.to_json(orient='records')}
     except Exception as e:
         print(e)
-        print("Error : Failed to retrieve column names")
-        return '500'
+        return JSONResponse(content='Error : Failed to retrieve column names',status_code=501)
 
 @router.get("/return_binary_columns")
 async def name_columns(workflow_id: str, step_id: str, run_id: str):
@@ -209,6 +208,7 @@ async def normal_tests(workflow_id: str, step_id: str, run_id: str,
                        name_test: str | None = Query("Shapiro-Wilk",
                                                    regex="^(Shapiro-Wilk)$|^(Kolmogorov-Smirnov)$|^(Anderson-Darling)$|^(D’Agostino’s K\^2)$|^(Jarque-Bera)$")) -> dict:
 
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
     data = load_file_csv_direct(workflow_id, run_id, step_id)
     if 'Unnamed: 0' in data.columns:
         data = data.drop(['Unnamed: 0'], axis=1)
@@ -230,19 +230,55 @@ async def normal_tests(workflow_id: str, step_id: str, run_id: str,
     # }]
     # # ******************************************
     # endregion
+    # Prepare content for info.json
+    new_data = {
+        "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+        "workflow_id": workflow_id,
+        "run_id": run_id,
+        "step_id": step_id,
+        "test_name": 'Normality test',
+        "test_params": {
+            'selected_method': name_test,
+            'selected_variable': column,
+            'alternative': alternative,
+            'nan_policy': nan_policy},
+        "test_results": {
+            'skew': results_to_send['skew'],
+            'kurtosis': results_to_send['kurtosis'],
+            'standard_deviation': results_to_send['standard_deviation'],
+            'median': results_to_send['median'],
+            'mean': results_to_send['mean'],
+            'sample_N': results_to_send['sample_N'],
+            'top_5': results_to_send['top_5'],
+            'last_5': results_to_send['last_5']
+        }
+    }
 
     if name_test == 'Shapiro-Wilk':
         shapiro_test = shapiro(data[str(column)])
-        if shapiro_test.pvalue > 0.05:
-            return{'statistic': shapiro_test.statistic, 'p_value': shapiro_test.pvalue, 'Description': 'Sample looks Gaussian (fail to reject H0)', 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
-        else:
-            return{'statistic': shapiro_test.statistic, 'p_value': shapiro_test.pvalue, 'Description': 'Sample does not look Gaussian (reject H0)', 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
+        descr = 'Sample looks Gaussian (fail to reject H0)' if shapiro_test.pvalue > 0.05 else 'Sample does not look Gaussian (reject H0)'
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            file_data = json.load(f)
+            new_data['test_results'] |= {
+                'statistic': shapiro_test.statistic, 'p_value': shapiro_test.pvalue, 'Description': descr}
+            file_data['results'] = new_data
+            file_data['Output_datasets'] = []
+            f.seek(0)
+            json.dump(file_data, f, indent=4)
+
+        return{'statistic': shapiro_test.statistic, 'p_value': shapiro_test.pvalue, 'Description': descr, 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
     elif name_test == 'Kolmogorov-Smirnov':
         ks_test = kstest(data[str(column)], 'norm', alternative=alternative)
-        if ks_test.pvalue > 0.05:
-            return{'statistic': ks_test.statistic, 'p_value': ks_test.pvalue, 'Description':'Sample looks Gaussian (fail to reject H0)', 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
-        else:
-            return{'statistic': ks_test.statistic, 'p_value': ks_test.pvalue, 'Description':'Sample does not look Gaussian (reject H0)', 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
+        descr = 'Sample looks Gaussian (fail to reject H0)' if ks_test.pvalue > 0.05 else 'Sample does not look Gaussian (reject H0)'
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            file_data = json.load(f)
+            new_data['test_results']|= {
+                'statistic': ks_test.statistic, 'p_value': ks_test.pvalue, 'Description': descr}
+            file_data['results'] = new_data
+            file_data['Output_datasets'] = []
+            f.seek(0)
+            json.dump(file_data, f, indent=4)
+        return{'statistic': ks_test.statistic, 'p_value': ks_test.pvalue, 'Description':descr, 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
     elif name_test == 'Anderson-Darling':
         anderson_test = anderson(data[str(column)])
         list_anderson = []
@@ -254,23 +290,41 @@ async def normal_tests(workflow_id: str, step_id: str, run_id: str,
             else:
                 # print('%.3f: %.3f, data does not look normal (reject H0)' % (sl, cv))
                 list_anderson.append('%.3f: %.3f, data does not look normal (reject H0)' % (sl, cv))
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            file_data = json.load(f)
+            new_data['test_results']|= {
+                'statistic': anderson_test.statistic, 'critical_values': list(anderson_test.critical_values), 'significance_level': list(anderson_test.significance_level), 'Description': list_anderson}
+            file_data['results'] = new_data
+            file_data['Output_datasets'] = []
+            f.seek(0)
+            json.dump(file_data, f, indent=4)
         return{'statistic':anderson_test.statistic, 'critical_values': list(anderson_test.critical_values), 'significance_level': list(anderson_test.significance_level), 'Description': list_anderson, 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
     elif name_test == 'D’Agostino’s K^2':
         stat, p = normaltest(data[str(column)], nan_policy=nan_policy)
-        if p > 0.05:
-            return{'statistic': stat, 'p_value': p, 'Description':'Sample looks Gaussian (fail to reject H0)', 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
-        else:
-            return{'statistic': stat, 'p_value': p, 'Description':'Sample does not look Gaussian (reject H0)', 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
+        descr = 'Sample looks Gaussian (fail to reject H0)' if p > 0.05 else 'Sample does not look Gaussian (reject H0)'
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            file_data = json.load(f)
+            new_data['test_results']|= {
+                'statistic': stat, 'p_value': p, 'Description': descr}
+            file_data['results'] = new_data
+            file_data['Output_datasets'] = []
+            f.seek(0)
+            json.dump(file_data, f, indent=4)
+        return{'statistic': stat, 'p_value': p, 'Description':descr, 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
     elif name_test == 'Jarque-Bera':
         jarque_bera_test = jarque_bera(data[str(column)])
         statistic = jarque_bera_test.statistic
         pvalue = jarque_bera_test.pvalue
-        if pvalue > 0.05:
-            return {'statistic': statistic, 'p_value': pvalue,
-                    'Description': 'Sample looks Gaussian (fail to reject H0)', 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
-        else:
-            return {'statistic': statistic, 'p_value': pvalue,
-                    'Description': 'Sample does not look Gaussian (reject H0)', 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
+        descr = 'Sample looks Gaussian (fail to reject H0)' if pvalue > 0.05 else 'Sample does not look Gaussian (reject H0)'
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            file_data = json.load(f)
+            new_data['test_results']|= {
+                'statistic': statistic, 'p_value': pvalue, 'Description': descr}
+            file_data['results'] = new_data
+            file_data['Output_datasets'] = []
+            f.seek(0)
+            json.dump(file_data, f, indent=4)
+        return {'statistic': statistic, 'p_value': pvalue, 'Description': descr, 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
 
 
 @router.get("/transform_data", tags=['hypothesis_testing'])
@@ -3276,6 +3330,7 @@ async def compute_mean(workflow_id: str,
                 "run_id": run_id,
                 "step_id": step_id,
                 "test_name": 'Mean',
+                "test_params": variables,
                 "test_results":df.to_dict()
         }
         file_data['results'] = new_data
