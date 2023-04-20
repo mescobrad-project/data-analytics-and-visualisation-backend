@@ -23,6 +23,7 @@ import statsmodels.stats.api as sms
 from pydantic import BaseModel
 from statsmodels.stats.diagnostic import het_goldfeldquandt
 from fastapi import FastAPI, Path, Query, APIRouter
+from fastapi.responses import JSONResponse
 import sklearn
 import pingouin
 from statsmodels.stats.diagnostic import het_white
@@ -37,7 +38,7 @@ from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
 from sklearn.linear_model import LinearRegression, Ridge, Lasso, ElasticNet, SGDRegressor, SGDClassifier, HuberRegressor,Lars, PoissonRegressor, LogisticRegression
 from sklearn.svm import SVR, LinearSVR, LinearSVC
-from pingouin import ancova
+from pingouin import ancova, mediation_analysis
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
 from lifelines import CoxPHFitter
@@ -53,13 +54,15 @@ from zepid.calc import risk_ci, incidence_rate_ci, risk_ratio, risk_difference, 
 from app.pydantic_models import ModelMultipleComparisons
 from app.utils.utils_datalake import fget_object, get_saved_dataset_for_Hypothesis, upload_object
 from app.utils.utils_general import get_local_storage_path, get_single_file_from_local_temp_storage, load_data_from_csv, \
-    load_file_csv_direct
+    load_file_csv_direct, get_all_files_from_local_temp_storage
 import scipy.stats as st
 import statistics
 from tabulate import tabulate
 import seaborn as sns
+from datetime import datetime
 
-from app.utils.utils_hypothesis import create_plots, compute_skewness, outliers_removal, compute_kurtosis
+from app.utils.utils_hypothesis import create_plots, compute_skewness, outliers_removal, compute_kurtosis, \
+    statisticsMean
 
 router = APIRouter()
 data = pd.read_csv('example_data/mescobrad_dataset.csv')
@@ -109,78 +112,62 @@ def transformation_extra_content_results(column_In: str, column_Out:str, selecte
     html_str_Transf = mpld3.fig_to_html(fig)
     return html_str_Transf
 
-@router.get("/load_demo_data")
-async def load_demo_data(file: Optional[str] | None):
-    # print(file, len(file))
-    # file = None
-    if file!= None:
-        data = pd.read_csv('runtime_config/' + file)
-    else:
-        data = pd.read_csv('example_data/sample_questionnaire.csv')
-
-    return data
-
 class FunctionOutputItem(BaseModel):
     """
     Known metadata information
     "files" : [["run_id: "string" , "step_id": "string"], "output":"string"]
      """
+    workflow_id:str
     run_id: str
     step_id: str
-    file: str
+    # file: str
+
+@router.get("/return_all_files")
+async def return_all_files(workflow_id: str, step_id: str, run_id: str):
+    try:
+        list_of_files = get_all_files_from_local_temp_storage(workflow_id, run_id, step_id)
+    except Exception as e:
+        print(e)
+        print("Error : Failed to retrieve file names")
+        return []
+    return {'files': list_of_files}
 
 
 @router.put("/save_hypothesis_output")
 async def save_hypothesis_output(item: FunctionOutputItem) -> dict:
-    output_json = json.loads(item.file)
-    # print(output_json)
     try:
-        path_to_storage = get_local_storage_path(item.run_id, item.step_id)
-        out_filename = path_to_storage + '/output' + '/output.json'
-        with open(out_filename, 'w') as fh:
-            json.dump(output_json, fh, ensure_ascii=False)
-        upload_object(bucket_name="demo", object_name='expertsystem/workflow/3fa85f64-5717-4562-b3fc-2c963f66afa6'
-                                                     '/3fa85f64-5717-4562-b3fc-2c963f66afa6/3fa85f64-5717-4562-b3fc'
-                                                     '-2c963f66afa6/Analytics_output.json', file=out_filename)
-        # print(colorama.Fore.GREEN + "###################### Successfully! created json file. ##############################")
-        print("###################### Successfully! created json file.")
-        return '200'
+        path_to_storage = get_local_storage_path(item.workflow_id, item.run_id, item.step_id)
+        out_filename = path_to_storage + '/output' + '/info.json'
+        upload_object(bucket_name="demo", object_name='expertsystem/workflow/'+ item.workflow_id+'/'+ item.run_id+'/'+
+                                                      item.step_id+'/analysis_output' + '/info.json', file=out_filename)
+        return JSONResponse(content='info.json file has been successfully uploaded to the DataLake', status_code=200)
     except Exception as e:
         print(e)
-        print("Error : The save api")
-        return '500'
+        return JSONResponse(content='Error in saving info.json object to the DataLake',status_code=501)
 
 
 
 @router.get("/return_columns")
-async def name_columns(workflow_id: str, step_id: str, run_id: str):
-    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
-    name_of_file = get_single_file_from_local_temp_storage(workflow_id, run_id, step_id)
-    data = load_data_from_csv(path_to_storage + "/" + name_of_file)
+async def name_columns(workflow_id: str, step_id: str, run_id: str, file_name:str|None=None):
+    try:
+        if file_name is None:
+            path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+            name_of_file = get_single_file_from_local_temp_storage(workflow_id, run_id, step_id)
+            data = load_data_from_csv(path_to_storage + "/" + name_of_file)
+        else:
+            path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+            name_of_files = get_all_files_from_local_temp_storage(workflow_id, run_id, step_id)
+            if file_name in name_of_files:
+                data = load_data_from_csv(path_to_storage + "/" + file_name)
+            else:
+                print("Error : Failed to find the file")
+                return {'columns': [], 'dataFrame': {}}
 
-    # For the testing dataset
-    if 'Unnamed: 0' in data.columns:
-        data = data.drop(['Unnamed: 0'], axis=1)
-
-    columns = data.columns
-    return{'columns': list(columns), 'dataFrame': data.to_json(orient='records')}
-
-@router.get("/return_binary_columns")
-async def name_columns(workflow_id: str, step_id: str, run_id: str):
-    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
-    name_of_file = get_single_file_from_local_temp_storage(workflow_id, run_id, step_id)
-    data = load_data_from_csv(path_to_storage + "/" + name_of_file)
-
-    # For the testing dataset
-    if 'Unnamed: 0' in data.columns:
-        data = data.drop(['Unnamed: 0'], axis=1)
-    for b_column in data.columns:
-        if data[b_column].unique().shape[0] > 2:
-            data = data.drop([b_column], axis=1)
-
-    columns = data.columns
-    return{'columns': list(columns)}
-
+        columns = data.columns
+        return{'columns': list(columns), 'dataFrame': data.to_json(orient='records')}
+    except Exception as e:
+        print(e)
+        return JSONResponse(content='Error : Failed to retrieve column names',status_code=501)
 
 @router.get("/return_binary_columns")
 async def name_columns(workflow_id: str, step_id: str, run_id: str):
@@ -198,7 +185,7 @@ async def name_columns(workflow_id: str, step_id: str, run_id: str):
     columns = data.columns
     return{'columns': list(columns)}
 
-
+# TODO: Delete this router, if we don't need it anymore
 @router.get("/return_saved_object_columns")
 async def name_saved_object_columns(file_name:str):
     print('saved', file_name, 'runtime_config/' + file_name)
@@ -221,6 +208,7 @@ async def normal_tests(workflow_id: str, step_id: str, run_id: str,
                        name_test: str | None = Query("Shapiro-Wilk",
                                                    regex="^(Shapiro-Wilk)$|^(Kolmogorov-Smirnov)$|^(Anderson-Darling)$|^(D’Agostino’s K\^2)$|^(Jarque-Bera)$")) -> dict:
 
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
     data = load_file_csv_direct(workflow_id, run_id, step_id)
     if 'Unnamed: 0' in data.columns:
         data = data.drop(['Unnamed: 0'], axis=1)
@@ -242,19 +230,55 @@ async def normal_tests(workflow_id: str, step_id: str, run_id: str,
     # }]
     # # ******************************************
     # endregion
+    # Prepare content for info.json
+    new_data = {
+        "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+        "workflow_id": workflow_id,
+        "run_id": run_id,
+        "step_id": step_id,
+        "test_name": 'Normality test',
+        "test_params": {
+            'selected_method': name_test,
+            'selected_variable': column,
+            'alternative': alternative,
+            'nan_policy': nan_policy},
+        "test_results": {
+            'skew': results_to_send['skew'],
+            'kurtosis': results_to_send['kurtosis'],
+            'standard_deviation': results_to_send['standard_deviation'],
+            'median': results_to_send['median'],
+            'mean': results_to_send['mean'],
+            'sample_N': results_to_send['sample_N'],
+            'top_5': results_to_send['top_5'],
+            'last_5': results_to_send['last_5']
+        }
+    }
 
     if name_test == 'Shapiro-Wilk':
         shapiro_test = shapiro(data[str(column)])
-        if shapiro_test.pvalue > 0.05:
-            return{'statistic': shapiro_test.statistic, 'p_value': shapiro_test.pvalue, 'Description': 'Sample looks Gaussian (fail to reject H0)', 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
-        else:
-            return{'statistic': shapiro_test.statistic, 'p_value': shapiro_test.pvalue, 'Description': 'Sample does not look Gaussian (reject H0)', 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
+        descr = 'Sample looks Gaussian (fail to reject H0)' if shapiro_test.pvalue > 0.05 else 'Sample does not look Gaussian (reject H0)'
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            file_data = json.load(f)
+            new_data['test_results'] |= {
+                'statistic': shapiro_test.statistic, 'p_value': shapiro_test.pvalue, 'Description': descr}
+            file_data['results'] = new_data
+            file_data['Output_datasets'] = []
+            f.seek(0)
+            json.dump(file_data, f, indent=4)
+
+        return{'statistic': shapiro_test.statistic, 'p_value': shapiro_test.pvalue, 'Description': descr, 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
     elif name_test == 'Kolmogorov-Smirnov':
         ks_test = kstest(data[str(column)], 'norm', alternative=alternative)
-        if ks_test.pvalue > 0.05:
-            return{'statistic': ks_test.statistic, 'p_value': ks_test.pvalue, 'Description':'Sample looks Gaussian (fail to reject H0)', 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
-        else:
-            return{'statistic': ks_test.statistic, 'p_value': ks_test.pvalue, 'Description':'Sample does not look Gaussian (reject H0)', 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
+        descr = 'Sample looks Gaussian (fail to reject H0)' if ks_test.pvalue > 0.05 else 'Sample does not look Gaussian (reject H0)'
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            file_data = json.load(f)
+            new_data['test_results']|= {
+                'statistic': ks_test.statistic, 'p_value': ks_test.pvalue, 'Description': descr}
+            file_data['results'] = new_data
+            file_data['Output_datasets'] = []
+            f.seek(0)
+            json.dump(file_data, f, indent=4)
+        return{'statistic': ks_test.statistic, 'p_value': ks_test.pvalue, 'Description':descr, 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
     elif name_test == 'Anderson-Darling':
         anderson_test = anderson(data[str(column)])
         list_anderson = []
@@ -266,23 +290,41 @@ async def normal_tests(workflow_id: str, step_id: str, run_id: str,
             else:
                 # print('%.3f: %.3f, data does not look normal (reject H0)' % (sl, cv))
                 list_anderson.append('%.3f: %.3f, data does not look normal (reject H0)' % (sl, cv))
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            file_data = json.load(f)
+            new_data['test_results']|= {
+                'statistic': anderson_test.statistic, 'critical_values': list(anderson_test.critical_values), 'significance_level': list(anderson_test.significance_level), 'Description': list_anderson}
+            file_data['results'] = new_data
+            file_data['Output_datasets'] = []
+            f.seek(0)
+            json.dump(file_data, f, indent=4)
         return{'statistic':anderson_test.statistic, 'critical_values': list(anderson_test.critical_values), 'significance_level': list(anderson_test.significance_level), 'Description': list_anderson, 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
     elif name_test == 'D’Agostino’s K^2':
         stat, p = normaltest(data[str(column)], nan_policy=nan_policy)
-        if p > 0.05:
-            return{'statistic': stat, 'p_value': p, 'Description':'Sample looks Gaussian (fail to reject H0)', 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
-        else:
-            return{'statistic': stat, 'p_value': p, 'Description':'Sample does not look Gaussian (reject H0)', 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
+        descr = 'Sample looks Gaussian (fail to reject H0)' if p > 0.05 else 'Sample does not look Gaussian (reject H0)'
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            file_data = json.load(f)
+            new_data['test_results']|= {
+                'statistic': stat, 'p_value': p, 'Description': descr}
+            file_data['results'] = new_data
+            file_data['Output_datasets'] = []
+            f.seek(0)
+            json.dump(file_data, f, indent=4)
+        return{'statistic': stat, 'p_value': p, 'Description':descr, 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
     elif name_test == 'Jarque-Bera':
         jarque_bera_test = jarque_bera(data[str(column)])
         statistic = jarque_bera_test.statistic
         pvalue = jarque_bera_test.pvalue
-        if pvalue > 0.05:
-            return {'statistic': statistic, 'p_value': pvalue,
-                    'Description': 'Sample looks Gaussian (fail to reject H0)', 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
-        else:
-            return {'statistic': statistic, 'p_value': pvalue,
-                    'Description': 'Sample does not look Gaussian (reject H0)', 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
+        descr = 'Sample looks Gaussian (fail to reject H0)' if pvalue > 0.05 else 'Sample does not look Gaussian (reject H0)'
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            file_data = json.load(f)
+            new_data['test_results']|= {
+                'statistic': statistic, 'p_value': pvalue, 'Description': descr}
+            file_data['results'] = new_data
+            file_data['Output_datasets'] = []
+            f.seek(0)
+            json.dump(file_data, f, indent=4)
+        return {'statistic': statistic, 'p_value': pvalue, 'Description': descr, 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
 
 
 @router.get("/transform_data", tags=['hypothesis_testing'])
@@ -1777,17 +1819,30 @@ async def time_varying_covariates(
     # return {'Akaike information criterion (AIC) (partial log-likelihood)':cph.AIC_partial_,'Dataframe of the coefficients, p-values, CIs, etc.':df.to_json(orient="split"), 'figure': to_return}
 
 @router.get("/anova_repeated_measures")
-async def anova_rm(dependent_variable: str,
+async def anova_rm(workflow_id: str,
+                   step_id: str,
+                   run_id: str,
+                   dependent_variable: str,
                    subject: str,
                    within: list[str] | None = Query(default=None),
                    aggregate_func: str | None = Query(default=None,
                                                       regex="^(mean)$")):
 
-    df_data = pd.read_csv('example_data/mescobrad_dataset.csv')
+    # df_data = pd.read_csv('example_data/mescobrad_dataset.csv')
+    df_data = load_file_csv_direct(workflow_id, run_id, step_id)
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    print(df_data.columns)
+    # unique, counts = np.unique(df_data[subject], return_counts=True)
+    # print(unique)
+    # print(counts)
+    # z = all(x==counts[0] for x in counts)
+    # print(z)
+    posthocs = pingouin.pairwise_ttests(dv=dependent_variable,
+                                  within=within, between='Age',
+                                  subject=subject, data=df_data)
+    pingouin.print_table(posthocs)
 
-    unique, counts = np.unique(df_data[subject], return_counts=True)
-
-    z = all(x==counts[0] for x in counts)
+    z=True
     if z:
         df = AnovaRM(data=df_data, depvar=dependent_variable, subject=subject, within=within, aggregate_func=aggregate_func)
         df_new = df.fit()
@@ -2976,32 +3031,46 @@ async def analysis_mediation(workflow_id: str,
                              independent_1: list[str] | None = Query(default=None),
                              independent_2: list[str] | None = Query(default=None)):
 
+    print(workflow_id, step_id, run_id,dependent_1,exposure,mediator,independent_1,independent_2)
     # data = pd.read_csv('example_data/mescobrad_dataset.csv')
     data = load_file_csv_direct(workflow_id, run_id, step_id)
     z = dependent_1 + "~"
     for i in range(len(independent_1)):
         z = z + "+" + independent_1[i]
 
-
+    print("print first - "+z)
     if mediator not in z:
         z = z + "+" + mediator
+    print("print second - "+z)
 
     if exposure not in z:
         z = z + "+" + exposure
     outcome_model = sm.GLM.from_formula(z, data)
-
+    print("print third - "+z)
+    print(outcome_model)
     z = mediator + "~"
     for i in range(len(independent_2)):
         z = z + "+" + independent_2[i]
+    print("print fourth - "+z)
 
     if exposure not in z:
         z = z + "+" + exposure
+    print("print fifth - "+z)
 
     mediator_model = sm.OLS.from_formula(z, data)
     med = Mediation(outcome_model, mediator_model, exposure, mediator).fit()
+    df = med.summary()
+    df['index']= df.index
 
-    print(med.summary())
+    df1, dist = mediation_analysis(data=data, x=exposure, m=mediator, y=dependent_1,
+                             covar=independent_1, seed=42,return_dist=True)\
+        # .round(3)
+    df1.columns = df1.columns.str.replace('.', ',', regex=True)
 
+    print(dist)
+    print(df)
+    print(df1)
+    return {'Result': df.to_json(orient='records'), 'Result2':df1.to_json(orient='records')}
 
 @router.get("/canonical_correlation_analysis")
 async def canonical_correlation(workflow_id: str,
@@ -3064,7 +3133,6 @@ async def canonical_correlation(workflow_id: str,
 
     xweights = pd.DataFrame(my_cca.x_weights_, columns=comp_titles)
     xweights.insert(loc=0, column='Feature', value=independent_variables_1)
-    print(xweights)
     yweights = pd.DataFrame(my_cca.y_weights_, columns=comp_titles)
     yweights.insert(loc=0, column='Feature', value=independent_variables_2)
     xloadings = pd.DataFrame(my_cca.x_loadings_, columns=comp_titles)
@@ -3177,20 +3245,26 @@ async def compute_mixed_anova_pinguin(workflow_id: str,
                                         subject: str,
                                         within: str,
                                         between: str,
-                                        correction_1: bool | None = Query(default=False),
-                                        correction_2: str | None = Query(default='auto'),
+                                        correction: str | None = Query("True",
+                                                                       regex="^(True)$|^(auto)$"),
                                         effsize: str | None = Query("np2",
                                                                     regex="^(np2)$|^(n2)$|^(ng2)$")):
 
-    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+    # dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+    dataset = pingouin.read_dataset('mixed_anova')
+    print(dataset)
+    print(dataset.dtypes)
+    check_for_nan = dataset['Group'].isnull().values.any()
+    print(check_for_nan)
+    # if correction_1==True:
+    df = pingouin.mixed_anova(data=dataset, dv=dependent_variable, subject=subject, within=within, between=between,
+                              effsize=effsize, correction=correction)
 
-    if correction_1==True:
-        df = pingouin.mixed_anova(data=dataset, dv=dependent_variable, subject=subject, within=within, between=between, effsize=effsize, correction=correction_1)
-        print(df)
-    else:
-        df = pingouin.mixed_anova(data=dataset, dv=dependent_variable, subject=subject, within=within, between=between,
-                                  effsize=effsize, correction=correction_2)
-        print(df)
+    return {'Dataframe': df.to_json(orient="records")}
+    # else:
+    #     df = pingouin.mixed_anova(data=dataset, dv=dependent_variable, subject=subject, within=within, between=between,
+    #                               effsize=effsize, correction=correction_2)
+    #     print(df)
 
 @router.get("/calculate_anova_pinguin")
 #SS-type should be a valid integer, currently accepting as string in order to use the inlande field validation of strings
@@ -3207,4 +3281,63 @@ async def compute__anova_pinguin(workflow_id: str,
     dataset = load_file_csv_direct(workflow_id, run_id, step_id)
 
     df = pingouin.anova(data=dataset, dv=dependent_variable, between=between_factor, ss_type=int(ss_type), effsize=effsize)
+
+    return df.to_json(orient="records")
+
+@router.get("/compute_mean")
+async def compute_mean(workflow_id: str,
+                                 step_id: str,
+                                 run_id: str,
+                                 variables: list[str] | None = Query(default=None)):
+    df = pd.DataFrame()
+    dfv = pd.DataFrame()
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    # Load Datasets
+    dfv['variables'] = variables
+    dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
+    selected_datasources = pd.unique(dfv['Datasource'])
+    for ds in selected_datasources:
+        try:
+            dataset = load_data_from_csv(path_to_storage + "/" + ds)
+        except Exception as e:
+            df["Error"] = ["Unable to retrieve datasets"]
+            print(e)
+            return {'Dataframe': df.to_json(orient="records")}
+        # Keep requested Columns
+        selected_columns = pd.unique(dfv['Variable'])
+        for columns in dataset.columns:
+            if columns not in selected_columns:
+                dataset = dataset.drop(str(columns), axis=1)
+        # Get mean values
+        try:
+            for column in dataset.columns:
+                res = statisticsMean(column, dataset)
+                if (res!= -1):
+                    df[column] = [res]
+                else: df[column] = ["N/A"]
+        except Exception as e:
+            df["Error"] = ["Unable to compute the average values for the selected columns"]
+            print(e)
+            return {'Dataframe': df.to_json(orient="records")}
     print(df)
+    with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+        # Load existing data into a dict.
+        file_data = json.load(f)
+        # Join new data
+        new_data = {
+                "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                "workflow_id": workflow_id,
+                "run_id": run_id,
+                "step_id": step_id,
+                "test_name": 'Mean',
+                "test_params": variables,
+                "test_results":df.to_dict()
+        }
+        file_data['results'] = new_data
+        file_data['Output_datasets'] = []
+        # Set file's current position at offset.
+        f.seek(0)
+        # convert back to json.
+        json.dump(file_data, f, indent=4)
+
+    return {'Dataframe': df.to_json(orient="records")}

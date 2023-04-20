@@ -105,7 +105,7 @@ def create_local_step(workflow_id, run_id, step_id, files_to_download):
         get_saved_dataset_for_Hypothesis(bucket_name=file_to_download["bucket"], object_name=file_to_download["file"], file_location=file_location_path)
     # Info file might be unneeded
     with open( path_to_save + '/output/info.json', 'w', encoding='utf-8') as f:
-        json.dump({}, f)
+        json.dump({"selected_datasets":files_to_download, "results":{}}, f)
         pass
 
 def validate_and_convert_peaks(input_height, input_threshold, input_prominence, input_width, input_plateau_size):
