@@ -58,6 +58,7 @@ import scipy.stats as st
 import statistics
 from tabulate import tabulate
 import seaborn as sns
+from datetime import datetime
 
 from app.utils.utils_hypothesis import create_plots, compute_skewness, outliers_removal, compute_kurtosis, \
     statisticsMean
@@ -118,7 +119,7 @@ class FunctionOutputItem(BaseModel):
     workflow_id:str
     run_id: str
     step_id: str
-    file: str
+    # file: str
 
 @router.get("/return_all_files")
 async def return_all_files(workflow_id: str, step_id: str, run_id: str):
@@ -133,22 +134,15 @@ async def return_all_files(workflow_id: str, step_id: str, run_id: str):
 
 @router.put("/save_hypothesis_output")
 async def save_hypothesis_output(item: FunctionOutputItem) -> dict:
-    output_json = json.loads(item.file)
-    # print(output_json)
     try:
         path_to_storage = get_local_storage_path(item.workflow_id, item.run_id, item.step_id)
-        out_filename = path_to_storage + '/output' + '/output.json'
-        with open(out_filename, 'w') as fh:
-            json.dump(output_json, fh, ensure_ascii=False)
-        upload_object(bucket_name="demo", object_name='expertsystem/workflow/3fa85f64-5717-4562-b3fc-2c963f66afa6'
-                                                     '/3fa85f64-5717-4562-b3fc-2c963f66afa6/3fa85f64-5717-4562-b3fc'
-                                                     '-2c963f66afa6/Analytics_output.json', file=out_filename)
-        # print(colorama.Fore.GREEN + "###################### Successfully! created json file. ##############################")
-        print("###################### Successfully! created json file.")
+        out_filename = path_to_storage + '/output' + '/info.json'
+        upload_object(bucket_name="demo", object_name='expertsystem/workflow/'+ item.workflow_id+'/'+ item.run_id+'/'+
+                                                      item.step_id+'/analysis_output' + '/info.json', file=out_filename)
         return '200'
     except Exception as e:
         print(e)
-        print("Error : The save api")
+        print("Error in saving info.json object to the DataLake")
         return '500'
 
 
@@ -192,7 +186,7 @@ async def name_columns(workflow_id: str, step_id: str, run_id: str):
     columns = data.columns
     return{'columns': list(columns)}
 
-
+# TODO: Delete this router, if we don't need it anymore
 @router.get("/return_saved_object_columns")
 async def name_saved_object_columns(file_name:str):
     print('saved', file_name, 'runtime_config/' + file_name)
@@ -3268,8 +3262,27 @@ async def compute_mean(workflow_id: str,
                     df[column] = [res]
                 else: df[column] = ["N/A"]
         except Exception as e:
-            df["Error"] = ["Unable to compute the average values"]
+            df["Error"] = ["Unable to compute the average values for the selected columns"]
             print(e)
             return {'Dataframe': df.to_json(orient="records")}
-        print(df)
+    print(df)
+    with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+        # Load existing data into a dict.
+        file_data = json.load(f)
+        # Join new data
+        new_data = {
+                "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                "workflow_id": workflow_id,
+                "run_id": run_id,
+                "step_id": step_id,
+                "test_name": 'Mean',
+                "test_results":df.to_dict()
+        }
+        file_data['results'] = new_data
+        file_data['Output_datasets'] = []
+        # Set file's current position at offset.
+        f.seek(0)
+        # convert back to json.
+        json.dump(file_data, f, indent=4)
+
     return {'Dataframe': df.to_json(orient="records")}
