@@ -127,6 +127,14 @@ tags_metadata = [
         }
     },
     {
+        "name": "actigraphy_analysis_assessment_algorithm",
+        "description": "return results of assessment algorithm functions for Actigraphy analysis",
+        "externalDocs": {
+            "description": "-",
+            "url": "https://www.google.com/",
+        }
+    },
+    {
         "name": "return_alpha_delta_ratio",
         "description": "return_alpha_delta_ratio function",
         "externalDocs": {
