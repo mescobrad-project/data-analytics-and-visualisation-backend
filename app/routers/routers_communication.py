@@ -360,6 +360,8 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/FactorAnalysis"
             case "GeneralizedEstimatingEquations":
                 url_to_redirect += "/GeneralizedEstimatingEquations"
+            case "back_average":
+                url_to_redirect += "/back_average"
             # Dashboard
             case "dashboard":
                 url_to_redirect += "/dashboard"

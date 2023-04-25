@@ -92,10 +92,10 @@ def create_local_step(workflow_id, run_id, step_id, files_to_download):
     os.makedirs(path_to_save + '/neurodesk_interim_storage', exist_ok=True)
     # Download all files indicated
     for file_to_download in files_to_download:
-        print("file_to_download")
-        print(file_to_download[0])
-        print(file_to_download[1])
-        print(path_to_save + "/" +file_to_download[1])
+        # print("file_to_download")
+        # print(file_to_download[0])
+        # print(file_to_download[1])
+        # print(path_to_save + "/" +file_to_download[1])
 
         file_location_path = path_to_save + "/" +file_to_download[1]
         if "/" in file_location_path:

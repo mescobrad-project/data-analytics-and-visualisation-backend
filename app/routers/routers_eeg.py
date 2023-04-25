@@ -2302,10 +2302,10 @@ async def back_average(
         step_id: str,
         run_id: str,
         # pick_channel: list | None = ["F4-Ref"],
-        tmin: float | None = None,
-        tmax: float | None = None,
-        max_ptp_amplitude: float | None = None,
+        time_before_event: float | None = None,
+        time_after_event: float | None = None,
         min_ptp_amplitude: float | None = None,
+        max_ptp_amplitude: float | None = None,
         annotation_name: str | None = None,
 ):
     """This function applies a back average"""
