@@ -83,7 +83,7 @@ def load_file_csv_direct(workflow_id, run_id, step_id ):
 
 
 def create_local_step(workflow_id, run_id, step_id, files_to_download):
-    """ files_to_download format is array of arrays with inner array 0: being bucket name and 1: object name each representing one file"""
+    """ files_to_download format is array of dicts with 'bucket' being bucket name 'file' object name each representing one file"""
     print("CREATING LOCAL STEP")
     print(files_to_download)
     path_to_save = NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id
@@ -97,15 +97,15 @@ def create_local_step(workflow_id, run_id, step_id, files_to_download):
         # print(file_to_download[1])
         # print(path_to_save + "/" +file_to_download[1])
 
-        file_location_path = path_to_save + "/" +file_to_download[1]
+        file_location_path = path_to_save + "/" +file_to_download["file"]
         if "/" in file_location_path:
             file_location_path = NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id + '/'+ file_location_path.split("/")[-1]
 
         print("file_location_path")
-        get_saved_dataset_for_Hypothesis(bucket_name=file_to_download[0], object_name=file_to_download[1], file_location=file_location_path)
+        get_saved_dataset_for_Hypothesis(bucket_name=file_to_download["bucket"], object_name=file_to_download["file"], file_location=file_location_path)
     # Info file might be unneeded
     with open( path_to_save + '/output/info.json', 'w', encoding='utf-8') as f:
-        json.dump({}, f)
+        json.dump({"selected_datasets":files_to_download, "results":{}}, f)
         pass
 
 def validate_and_convert_peaks(input_height, input_threshold, input_prominence, input_width, input_plateau_size):

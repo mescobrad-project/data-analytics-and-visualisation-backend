@@ -70,6 +70,7 @@ ExistingFunctions = [
     "point_biserial_correlation",
     "power_spectral_density_main",
     "canonical_correlation",
+    'mediation_analysis',
     "data_transform_anova",
     "homoscedasticity",
     "spearman_correlation",
@@ -122,7 +123,9 @@ ExistingFunctions = [
     "mcnemar",
     "LogisticRegressionSklearn",
     "FactorAnalysis",
-    "GeneralizedEstimatingEquations"
+    "GeneralizedEstimatingEquations",
+    "mixed_anova",
+    "general_stats_average",
     # Dashboard
     "dashboard",
 ]
@@ -264,6 +267,8 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/Skipped_spearman_correlation"
             case "canonical_correlation":
                 url_to_redirect += "/Canonical_correlation"
+            case 'mediation_analysis':
+                url_to_redirect += "/Mediation_Analysis"
             case "welch_t_test":
                 url_to_redirect += "/Welch_t_test"
             case "independent_t_test":
@@ -360,6 +365,10 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/FactorAnalysis"
             case "GeneralizedEstimatingEquations":
                 url_to_redirect += "/GeneralizedEstimatingEquations"
+            case "mixed_anova":
+                url_to_redirect += "/Mixed_Anova"
+            case "general_stats_average":
+                url_to_redirect += "/General_Stats_Average"
             case "back_average":
                 url_to_redirect += "/back_average"
             # Dashboard

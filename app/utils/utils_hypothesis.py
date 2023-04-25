@@ -5,6 +5,7 @@ import pingouin
 from scipy.stats import probplot, skew, kurtosis
 import scipy.stats as st
 import numpy as np
+import statistics
 
 
 def create_plots(plot_type: str, column: str, second_column: str, selected_dataframe):
@@ -150,3 +151,13 @@ def outliers_removal(column: str, selected_dataframe):
         print(e)
         print("Error : Failed to remove outliers")
         return {}
+
+def statisticsMean(column: str, selected_dataframe):
+    try:
+        df2 = selected_dataframe.dropna(subset=[str(column)])
+        result = statistics.mean(df2[str(column)])
+        return result
+    except Exception as e:
+        print(e)
+        print("Error : Failed to compute Mean for column: "+column)
+        return -1
