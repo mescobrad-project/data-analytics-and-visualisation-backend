@@ -2318,8 +2318,8 @@ async def back_average(
 
     # Apply epochs without any baseline correction
     # This function uses only the channels that are marked as "data" in the montage
-    epochs = mne.Epochs(raw = data, picks= "data" ,events = events[0], tmin = tmin, tmax = tmax, reject= {'eeg':max_ptp_amplitude}, flat= {'eeg' :min_ptp_amplitude}, baseline=None)
-    # epochs = mne.Epochs(raw = data, picks="data",events = events[0],tmin = tmin, tmax = tmax, baseline=None)
+    # epochs = mne.Epochs(raw = data, picks= "data" ,events = events[0], tmin = time_before_event, tmax = time_after_event, reject= {'eeg':max_ptp_amplitude}, flat= {'eeg' :min_ptp_amplitude}, baseline=None)
+    epochs = mne.Epochs(raw = data, picks="data",events = events[0],tmin = time_before_event, tmax = time_after_event, baseline=None)
     print(epochs)
     raw_data = epochs.get_data()
     print(raw_data)
@@ -2330,7 +2330,9 @@ async def back_average(
 
     # epochs.plot_image
     evoked = epochs.average(picks="all", by_event_type=False)
-    evoked.plot(show=True)
+    plot = evoked.plot(show=True)
+    plot.savefig(get_local_storage_path(workflow_id, step_id, run_id) + "/output/" + 'back_average_plot.png')
+    # plot.savefig(NeurodesktopStorageLocation + '/back_average_plot.png')
     print(evoked)
 
     # mne.viz.plot_evoked(evoked, show=True)
