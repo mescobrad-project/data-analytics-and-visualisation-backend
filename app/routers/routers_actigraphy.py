@@ -2,6 +2,8 @@ import csv
 from fastapi import Query, APIRouter
 import pyActigraphy
 import os
+import pandas
+import plotly.graph_objs as go
 
 # import plotly.graph_objs as go
 
@@ -69,30 +71,199 @@ async def return_actigraphy_general_data():
 
     return 1
 
-@router.get("/return_diary", tags=["actigraphy_analysis"])
-async def return_diary():
-    xx = 0
-    try:
-        # raw = pyActigraphy.io.read_raw_rpx('example_data/actigraph/raw_sample.csv', 'FR', True, None, None, float, float, ';')
-        raw = pyActigraphy.io.read_raw_rpx('example_data/actigraph/0345-024_18_07_2022_13_00_00_New_Analysis.csv')
-        print(raw.start_time)
-        print(raw.duration())
-        xx = raw.IS()
-        # raw = pyActigraphy.io.read_raw_rpx(fpath + 'raw_sample.csv')
-    except:
-        print("An exception occurred")
 
-    # raw = pyActigraphy.io.read_raw_rpx('example_data/actigraph/Combined Export File.csv', 'ENG_US')
+@router.get("/return_cole_kripke", tags=["actigraphy_analysis_assessment_algorithm"])
+async def return_cole_kripke():
+     raw = pyActigraphy.io.read_raw_rpx('example_data/actigraph/0345-024_18_07_2022_13_00_00_New_Analysis.csv', start_time='2022-07-18 12:00:00',
+         period='1 day',
+         language='ENG_UK'
+     )
+     layout = go.Layout(title="Rest/Activity detection", xaxis=dict(title="Date time"),
+                        yaxis=dict(title="Counts/period"), showlegend=False)
+     CK = raw.CK()
+     layout.update(yaxis2=dict(title='Classification', overlaying='y', side='right'), showlegend=True);
+     output = go.Figure(data=[
+         go.Scatter(x=raw.data.index.astype(str), y=raw.data, name='Data'),
+         go.Scatter(x=CK.index.astype(str), y=CK, yaxis='y2', name='CK')
+     ], layout=layout)
+     return output.show()
+    # path = os.path.join(os.path.dirname(pyActigraphy.__file__), 'C:\\Users\\George Ladikos\\')
+    # datetime_list = ['2022-07-18 12:00:00', '2022-07-19 12:00:00', '2022-07-20 12:00:00', '2022-07-21 12:00:00',
+    #                  '2022-07-22 12:00:00', '2022-07-23 12:00:00', '2022-07-24 12:00:00', '2022-07-25 12:00:00']
+    #
+    # day_count = 1
+    # for i in datetime_list:
+    #     raw_data = pyActigraphy.io.read_raw_rpx(
+    #         path + '0345-024_18_07_2022_13_00_00_New_Analysis_Ophir.csv', start_time=i, period='1 day',
+    #         language='ENG_UK'
+    #     )
+    #     layout = go.Layout(title="Rest/Activity detection Day " + str(day_count), xaxis=dict(title="Date time"),
+    #                        yaxis=dict(title="Counts/period"), showlegend=False)
+    #     CK = raw_data.CK()
+    #     layout.update(yaxis2=dict(title='Classification', overlaying='y', side='right'), showlegend=True);
+    #     chart = go.Figure(data=[
+    #         go.Scatter(x=raw_data.data.index.astype(str), y=raw_data.data, name='Data'),
+    #         go.Scatter(x=CK.index.astype(str), y=CK, yaxis='y2', name='CK')
+    #     ], layout=layout)
+    #     chart.show()
+    #     day_count = day_count + 1
 
+@router.get("/return_sadeh_scripp", tags=["actigraphy_analysis_assessment_algorithm"])
+async def return_sadeh_scripp():
+     raw = pyActigraphy.io.read_raw_rpx('example_data/actigraph/0345-024_18_07_2022_13_00_00_New_Analysis.csv', start_time='2022-07-18 12:00:00',
+         period='1 day',
+         language='ENG_UK'
+     )
+     layout = go.Layout(title="Rest/Activity detection", xaxis=dict(title="Date time"),
+                        yaxis=dict(title="Counts/period"), showlegend=False)
+     sadeh = raw.Sadeh()
+     scripps = raw.Scripps()
+     layout.update(yaxis2=dict(title='Classification', overlaying='y', side='right'), showlegend=True);
+     output = go.Figure(data=[
+                go.Scatter(x=raw.data.index.astype(str),y=raw.data, name='Data'),
+                go.Scatter(x=sadeh.index.astype(str),y=sadeh, yaxis='y2', name='Sadeh'),
+                go.Scatter(x=scripps.index.astype(str),y=scripps, yaxis='y2', name='Scripps')
+            ], layout=layout)
+     return output.show()
+
+@router.get("/return_oakley", tags=["actigraphy_analysis_assessment_algorithm"])
+async def return_oakley():
+     raw = pyActigraphy.io.read_raw_rpx('example_data/actigraph/0345-024_18_07_2022_13_00_00_New_Analysis.csv', start_time='2022-07-18 12:00:00',
+         period='1 day',
+         language='ENG_UK'
+     )
+     layout = go.Layout(title="Rest/Activity detection", xaxis=dict(title="Date time"),
+                        yaxis=dict(title="Counts/period"), showlegend=False)
+     oakley = raw.Oakley(threshold=40)
+     oakley_auto = raw.Oakley(threshold='automatic')
+     # sadeh = raw.Sadeh()
+     # scripps = raw.Scripps()
+     layout.update(yaxis2=dict(title='Classification', overlaying='y', side='right'), showlegend=True);
+     output = go.Figure(data=[
+                go.Scatter(x=raw.data.index.astype(str),y=raw.data, name='Data'),
+                go.Scatter(x=oakley.index.astype(str),y=oakley, yaxis='y2', name='Oakley (thr: medium)'),
+                go.Scatter(x=oakley_auto.index.astype(str),y=oakley_auto, yaxis='y2', name='Oakley (thr: automatic)')
+            ], layout=layout)
+     return output.show()
+
+@router.get("/return_crespo", tags=["actigraphy_analysis_assessment_algorithm"])
+async def return_crespo():
+     raw = pyActigraphy.io.read_raw_rpx('example_data/actigraph/0345-024_18_07_2022_13_00_00_New_Analysis.csv', start_time='2022-07-18 12:00:00',
+         period='1 day',
+         language='ENG_UK'
+     )
+     layout = go.Layout(title="Rest/Activity detection", xaxis=dict(title="Date time"),
+                        yaxis=dict(title="Counts/period"), showlegend=False)
+     crespo = raw.Crespo()
+     crespo_6h = raw.Crespo(alpha='6h')
+     crespo_zeta = raw.Crespo(estimate_zeta=True)
+     # sadeh = raw.Sadeh()
+     # scripps = raw.Scripps()
+     layout.update(yaxis2=dict(title='Classification', overlaying='y', side='right'), showlegend=True);
+     output = go.Figure(data=[
+                go.Scatter(x=raw.data.index.astype(str),y=raw.data, name='Data'),
+                go.Scatter(x=crespo.index.astype(str),y=crespo, yaxis='y2', name='Crespo'),
+                go.Scatter(x=crespo_6h.index.astype(str),y=crespo_6h, yaxis='y2', name='Crespo (6h)'),
+                go.Scatter(x=crespo_zeta.index.astype(str),y=crespo_zeta, yaxis='y2', name='Crespo (Automatic)')
+            ], layout=layout)
+     return output.show()
+
+@router.get("/return_roenneberg", tags=["actigraphy_analysis_assessment_algorithm"])
+async def return_roenneberg():
+     raw = pyActigraphy.io.read_raw_rpx('example_data/actigraph/0345-024_18_07_2022_13_00_00_New_Analysis.csv', start_time='2022-07-18 12:00:00',
+         period='1 day',
+         language='ENG_UK'
+     )
+     layout = go.Layout(title="Rest/Activity detection", xaxis=dict(title="Date time"),
+                        yaxis=dict(title="Counts/period"), showlegend=False)
+     roenneberg = raw.Roenneberg()
+     roenneberg_thr = raw.Roenneberg(threshold=0.25, min_seed_period='15min')
+     layout.update(yaxis2=dict(title='Classification', overlaying='y', side='right'), showlegend=True);
+     output = go.Figure(data=[
+                go.Scatter(x=raw.data.index.astype(str),y=raw.data, name='Data'),
+                go.Scatter(x=roenneberg.index.astype(str),y=roenneberg, yaxis='y2', name='Roenneberg'),
+                go.Scatter(x=roenneberg_thr.index.astype(str),y=roenneberg_thr, yaxis='y2', name='Roenneberg (Thr:0.25)')
+            ], layout=layout)
+     return output.show()
+
+@router.get("/return_weekly_activity", tags=["actigraphy_analysis"])
+async def return_weekly_activity():
+    raw = pyActigraphy.io.read_raw_rpx('example_data/actigraph/0345-024_18_07_2022_13_00_00_New_Analysis.csv')
+    # raw.name
     # raw.start_time
     # raw.duration()
-    # sleep_diary = raw.read_sleep_diary('example_data/actigraph/Neurophy_Actigraph.csv')
-    # raw.sleep_diary.name
-    # raw.sleep_diary.diary
-    # raw.sleep_diary.summary()
-    print(xx)
-    return 1
+    # raw.uuid
+    # raw.frequency
+    layout = go.Layout(
+        title="Actigraphy data weekly activity",
+        xaxis=dict(title="Date time"),
+        yaxis=dict(title="Counts/period"),
+        showlegend=False
+    )
+    output = go.Figure(data=[go.Scatter(x=raw.data.index.astype(str), y=raw.data)], layout=layout)
+    return output.show()
 
+@router.get("/return_daily_activity", tags=["actigraphy_analysis"])
+async def return_daily_activity():
+    raw = pyActigraphy.io.read_raw_rpx('example_data/actigraph/0345-024_18_07_2022_13_00_00_New_Analysis.csv')
+    # raw.name
+    # raw.start_time
+    # raw.duration()
+    # raw.uuid
+    # raw.frequency
+    layout = go.Layout(
+        title="Actigraphy data weekly activity",
+        xaxis=dict(title="Date time"),
+        yaxis=dict(title="Counts/period"),
+        showlegend=False
+    )
+    layout.update(title="Daily activity profile", xaxis=dict(title="Date time"), showlegend=False);
+    daily_profile = raw.average_daily_activity(freq='15min', cyclic=False, binarize=False)
+    output = go.Figure(data=[
+                                go.Scatter(x=daily_profile.index.astype(str), y=daily_profile)
+                            ], layout=layout
+                      )
+    return output.show()
+
+# @router.get("/return_diary", tags=["actigraphy_analysis"])
+# async def return_diary():
+#     fpath = os.path.join(os.path.dirname(pyActigraphy.__file__), 'C:\\Users\\George Ladikos\\')
+#     raw = pyActigraphy.io.read_raw_rpx(
+#         fpath + '0345-024_18_07_2022_13_00_00_New_Analysis_Ophir.csv', start_time='2022-07-18 12:00:00', period='1 day',
+#         language='ENG_UK'
+#     )
+#     layout = go.Layout(title="Rest/Activity detection", xaxis=dict(title="Date time"),
+#                        yaxis=dict(title="Counts/period"), showlegend=False)
+#     CK = raw.CK()
+#     layout.update(yaxis2=dict(title='Classification', overlaying='y', side='right'), showlegend=True);
+#     output = go.Figure(data=[
+#         go.Scatter(x=raw.data.index.astype(str), y=raw.data, name='Data'),
+#         go.Scatter(x=CK.index.astype(str), y=CK, yaxis='y2', name='CK')
+#     ], layout=layout)
+#     return output.show()
+
+# async def return_diary():
+#     xx = 0
+#     try:
+#         # raw = pyActigraphy.io.read_raw_rpx('example_data/actigraph/raw_sample.csv', 'FR', True, None, None, float, float, ';')
+#         raw = pyActigraphy.io.read_raw_rpx('example_data/actigraph/0345-024_18_07_2022_13_00_00_New_Analysis.csv')
+#         print(raw.start_time)
+#         print(raw.duration())
+#         xx = raw.IS()
+#         # raw = pyActigraphy.io.read_raw_rpx(fpath + 'raw_sample.csv')
+#     except:
+#         print("An exception occurred")
+#
+#     # raw = pyActigraphy.io.read_raw_rpx('example_data/actigraph/Combined Export File.csv', 'ENG_US')
+#
+#     # raw.start_time
+#     # raw.duration()
+#     # sleep_diary = raw.read_sleep_diary('example_data/actigraph/Neurophy_Actigraph.csv')
+#     # raw.sleep_diary.name
+#     # raw.sleep_diary.diary
+#     # raw.sleep_diary.summary()
+#     print(xx)
+#     return 1
 
 def return_rawObject():
     xx=0
