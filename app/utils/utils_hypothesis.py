@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import mpld3
 import pandas
 import pingouin
+from lifelines.fitters.npmle import min_max
 from scipy.stats import probplot, skew, kurtosis
 import scipy.stats as st
 import numpy as np
@@ -160,4 +161,24 @@ def statisticsMean(column: str, selected_dataframe):
     except Exception as e:
         print(e)
         print("Error : Failed to compute Mean for column: "+column)
+        return -1
+
+def statisticsMin(column: str, selected_dataframe):
+    try:
+        df2 = selected_dataframe.dropna(subset=[str(column)])
+        result = min(df2[str(column)])
+        return result
+    except Exception as e:
+        print(e)
+        print("Error : Failed to compute Min for column: "+column)
+        return -1
+
+def statisticsMax(column: str, selected_dataframe):
+    try:
+        df2 = selected_dataframe.dropna(subset=[str(column)])
+        result = max(df2[str(column)])
+        return result
+    except Exception as e:
+        print(e)
+        print("Error : Failed to compute Max for column: "+column)
         return -1
