@@ -62,7 +62,7 @@ import seaborn as sns
 from datetime import datetime
 
 from app.utils.utils_hypothesis import create_plots, compute_skewness, outliers_removal, compute_kurtosis, \
-    statisticsMean
+    statisticsMean, statisticsMin, statisticsMax
 
 router = APIRouter()
 data = pd.read_csv('example_data/mescobrad_dataset.csv')
@@ -196,6 +196,7 @@ async def name_saved_object_columns(file_name:str):
         return{'columns': list(columns)}
     except:
         return{'columns': {}}
+
 
 @router.get("/normality_tests", tags=['hypothesis_testing'])
 async def normal_tests(workflow_id: str, step_id: str, run_id: str,
@@ -3293,8 +3294,12 @@ async def compute_mean(workflow_id: str,
     dfv = pd.DataFrame()
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
     # Load Datasets
-    dfv['variables'] = variables
-    dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
+    try:
+        dfv['variables'] = variables
+        dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
+    except Exception as e:
+        df["Error"] = ["Dataset is not defined"]
+        return {'Dataframe': df.to_json(orient="records")}
     selected_datasources = pd.unique(dfv['Datasource'])
     for ds in selected_datasources:
         try:
@@ -3311,6 +3316,8 @@ async def compute_mean(workflow_id: str,
         # Get mean values
         try:
             for column in dataset.columns:
+                print(str(column))
+                print(dataset[str(column)].dtype)
                 res = statisticsMean(column, dataset)
                 if (res!= -1):
                     df[column] = [res]
@@ -3320,24 +3327,164 @@ async def compute_mean(workflow_id: str,
             print(e)
             return {'Dataframe': df.to_json(orient="records")}
     print(df)
-    with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
-        # Load existing data into a dict.
-        file_data = json.load(f)
-        # Join new data
-        new_data = {
-                "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
-                "workflow_id": workflow_id,
-                "run_id": run_id,
-                "step_id": step_id,
-                "test_name": 'Mean',
-                "test_params": variables,
-                "test_results":df.to_dict()
-        }
-        file_data['results'] = new_data
-        file_data['Output_datasets'] = []
-        # Set file's current position at offset.
-        f.seek(0)
-        # convert back to json.
-        json.dump(file_data, f, indent=4)
+    try:
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            # Load existing data into a dict.
+            file_data = json.load(f)
+            # Join new data
+            new_data = {
+                    "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                    "workflow_id": workflow_id,
+                    "run_id": run_id,
+                    "step_id": step_id,
+                    "test_name": 'Mean',
+                    "test_params": variables,
+                    "test_results":df.to_dict()
+            }
+            file_data['results'] = new_data
+            file_data['Output_datasets'] = []
+            # Set file's current position at offset.
+            f.seek(0)
+            # convert back to json.
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+    except Exception as e:
+        df["Error"] = ["Creating info.json file"]
+        print(e)
+    return {'Dataframe': df.to_json(orient="records")}
+
+@router.get("/compute_min")
+async def compute_mean(workflow_id: str,
+                                 step_id: str,
+                                 run_id: str,
+                                 variables: list[str] | None = Query(default=None)):
+    df = pd.DataFrame()
+    dfv = pd.DataFrame()
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    # Load Datasets
+    try:
+        dfv['variables'] = variables
+        dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
+    except Exception as e:
+        df["Error"] = ["Dataset is not defined"]
+        return {'Dataframe': df.to_json(orient="records")}
+    selected_datasources = pd.unique(dfv['Datasource'])
+    for ds in selected_datasources:
+        try:
+            dataset = load_data_from_csv(path_to_storage + "/" + ds)
+        except Exception as e:
+            df["Error"] = ["Unable to retrieve datasets"]
+            print(e)
+            return {'Dataframe': df.to_json(orient="records")}
+        # Keep requested Columns
+        selected_columns = pd.unique(dfv['Variable'])
+        for columns in dataset.columns:
+            if columns not in selected_columns:
+                dataset = dataset.drop(str(columns), axis=1)
+        # Get min values
+        try:
+            for column in dataset.columns:
+                res = statisticsMin(column, dataset)
+                if (res!= -1):
+                    df[column] = [res]
+                else: df[column] = ["N/A"]
+        except Exception as e:
+            df["Error"] = ["Unable to compute the min values for the selected columns"]
+            print(e)
+            return {'Dataframe': df.to_json(orient="records")}
+    print(df)
+    try:
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            # Load existing data into a dict.
+            file_data = json.load(f)
+            # Join new data
+            new_data = {
+                    "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                    "workflow_id": workflow_id,
+                    "run_id": run_id,
+                    "step_id": step_id,
+                    "test_name": 'Min',
+                    "test_params": variables,
+                    "test_results":df.to_dict()
+            }
+            file_data['results'] = new_data
+            file_data['Output_datasets'] = []
+            # Set file's current position at offset.
+            f.seek(0)
+            # convert back to json.
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+    except Exception as e:
+        df["Error"] = ["Creating info.json file"]
+        print(e)
+    return {'Dataframe': df.to_json(orient="records")}
+
+@router.get("/compute_max")
+async def compute_mean(workflow_id: str,
+                                 step_id: str,
+                                 run_id: str,
+                                 variables: list[str] | None = Query(default=None)):
+    df = pd.DataFrame()
+    dfv = pd.DataFrame()
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    # Load Datasets
+    try:
+        dfv['variables'] = variables
+        dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
+    except Exception as e:
+        df["Error"] = ["Dataset is not defined"]
+        return {'Dataframe': df.to_json(orient="records")}
+    selected_datasources = pd.unique(dfv['Datasource'])
+    for ds in selected_datasources:
+        try:
+            dataset = load_data_from_csv(path_to_storage + "/" + ds)
+            print(dataset.dtypes)
+        except Exception as e:
+            df["Error"] = ["Unable to retrieve datasets"]
+            print(e)
+            return {'Dataframe': df.to_json(orient="records")}
+        # Keep requested Columns
+        selected_columns = pd.unique(dfv['Variable'])
+        for columns in dataset.columns:
+            if columns not in selected_columns:
+                dataset = dataset.drop(str(columns), axis=1)
+        # Get max values
+        try:
+            for column in dataset.columns:
+                print(str(column))
+                print(dataset[str(column)].dtype)
+                res = statisticsMax(column, dataset)
+                if (res!= -1):
+                    df[column] = [res]
+                else: df[column] = ["N/A"]
+        except Exception as e:
+            df["Error"] = ["Unable to compute the max values for the selected columns"]
+            print(e)
+            return {'Dataframe': df.to_json(orient="records")}
+    print(df)
+    try:
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            # Load existing data into a dict.
+            file_data = json.load(f)
+            # Join new data
+            new_data = {
+                    "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                    "workflow_id": workflow_id,
+                    "run_id": run_id,
+                    "step_id": step_id,
+                    "test_name": 'Max',
+                    "test_params": variables,
+                    "test_results":df.to_dict()
+            }
+            file_data['results'] = new_data
+            file_data['Output_datasets'] = []
+            # Set file's current position at offset.
+            f.seek(0)
+            # convert back to json.
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+    except Exception as e:
+        df["Error"] = ["Creating info.json file"]
+        print(e)
 
     return {'Dataframe': df.to_json(orient="records")}
