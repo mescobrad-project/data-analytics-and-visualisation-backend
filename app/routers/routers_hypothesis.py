@@ -3316,8 +3316,6 @@ async def compute_mean(workflow_id: str,
         # Get mean values
         try:
             for column in dataset.columns:
-                print(str(column))
-                print(dataset[str(column)].dtype)
                 res = statisticsMean(column, dataset)
                 if (res!= -1):
                     df[column] = [res]
@@ -3438,7 +3436,6 @@ async def compute_mean(workflow_id: str,
     for ds in selected_datasources:
         try:
             dataset = load_data_from_csv(path_to_storage + "/" + ds)
-            print(dataset.dtypes)
         except Exception as e:
             df["Error"] = ["Unable to retrieve datasets"]
             print(e)
@@ -3451,8 +3448,6 @@ async def compute_mean(workflow_id: str,
         # Get max values
         try:
             for column in dataset.columns:
-                print(str(column))
-                print(dataset[str(column)].dtype)
                 res = statisticsMax(column, dataset)
                 if (res!= -1):
                     df[column] = [res]

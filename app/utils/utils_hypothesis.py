@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 import mpld3
-import pandas
+import pandas as pd
 import pingouin
 from lifelines.fitters.npmle import min_max
 from scipy.stats import probplot, skew, kurtosis
@@ -166,7 +166,10 @@ def statisticsMean(column: str, selected_dataframe):
 def statisticsMin(column: str, selected_dataframe):
     try:
         df2 = selected_dataframe.dropna(subset=[str(column)])
-        result = min(df2[str(column)])
+        if pd.to_numeric(df2[str(column)], errors='coerce').notnull().all():
+            result = max(df2[str(column)])
+        else:
+            raise Exception
         return result
     except Exception as e:
         print(e)
@@ -176,7 +179,10 @@ def statisticsMin(column: str, selected_dataframe):
 def statisticsMax(column: str, selected_dataframe):
     try:
         df2 = selected_dataframe.dropna(subset=[str(column)])
-        result = max(df2[str(column)])
+        if pd.to_numeric(df2[str(column)], errors='coerce').notnull().all():
+            result = max(df2[str(column)])
+        else:
+            raise Exception
         return result
     except Exception as e:
         print(e)
