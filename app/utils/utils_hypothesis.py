@@ -9,7 +9,7 @@ import numpy as np
 import statistics
 
 
-def create_plots(plot_type: str, column: str, second_column: str, selected_dataframe):
+def create_plots(plot_type: str, column: str, second_column: str, selected_dataframe, path_to_storage:str):
     if plot_type == 'BoxPlot':
         try:
             fig, ax1 = plt.subplots()
@@ -21,10 +21,10 @@ def create_plots(plot_type: str, column: str, second_column: str, selected_dataf
                 plt.xlabel(second_column, fontsize=14)
             else:
                 plt.boxplot(selected_dataframe[str(column)])
-                # plt.boxplot(selected_dataframe[str(column)], showfliers=False)
             plt.ylabel("", fontsize=14)
             plt.xticks(fontsize=12)
             plt.yticks(fontsize=12)
+            plt.savefig(path_to_storage + "/output/BoxPlot.svg", format="svg")
             plt.show()
             html_str = mpld3.fig_to_html(fig)
             return html_str
@@ -41,6 +41,7 @@ def create_plots(plot_type: str, column: str, second_column: str, selected_dataf
             # fig = sm.qqplot(selected_dataframe[str(column)], line='45')
             plt.xticks(fontsize=12)
             plt.yticks(fontsize=12)
+            plt.savefig(path_to_storage + "/output/QQPlot.svg", format="svg")
             plt.show()
             html_str = mpld3.fig_to_html(fig)
             return html_str
@@ -56,6 +57,7 @@ def create_plots(plot_type: str, column: str, second_column: str, selected_dataf
             ax1.set_title('Probplot against normal distribution')
             plt.xticks(fontsize=12)
             plt.yticks(fontsize=12)
+            plt.savefig(path_to_storage + "/output/PPlot.svg", format="svg")
             plt.show()
             html_str = mpld3.fig_to_html(fig)
             return html_str
@@ -85,6 +87,7 @@ def create_plots(plot_type: str, column: str, second_column: str, selected_dataf
             plt.title("Histogram", fontsize=16)
             plt.xticks(fontsize=12)
             plt.yticks(fontsize=12)
+            plt.savefig(path_to_storage + "/output/HistogramPlot.svg", format="svg")
             plt.show()
             html_str = mpld3.fig_to_html(fig)
             return html_str
@@ -104,6 +107,7 @@ def create_plots(plot_type: str, column: str, second_column: str, selected_dataf
             plt.ylabel(second_column, fontsize=14)
             plt.xlabel(column, fontsize=14)
             plt.xticks(np.arange(min(selected_dataframe[str(column)]), max(selected_dataframe[str(column)])+1, 1.0))
+            plt.savefig(path_to_storage + "/output/Scatter_Two_Variables.svg", format="svg")
             plt.show()
             html_str = mpld3.fig_to_html(fig)
             return html_str

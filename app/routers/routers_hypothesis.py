@@ -1,5 +1,3 @@
-import random
-
 import numpy as np
 import pandas as pd
 import json
@@ -16,24 +14,17 @@ from scipy.stats import jarque_bera, fisher_exact, ranksums, chisquare, kruskal,
 from typing import Optional, Union, List
 from statsmodels.stats.multitest import multipletests
 from statsmodels.stats.mediation import Mediation
-import statsmodels.api as sm
-from enum import Enum
-from statsmodels.compat import lzip
 import statsmodels.stats.api as sms
 from pydantic import BaseModel
 from statsmodels.stats.diagnostic import het_goldfeldquandt
 from fastapi import FastAPI, Path, Query, APIRouter
 from fastapi.responses import JSONResponse
-import sklearn
 import pingouin
 from statsmodels.stats.diagnostic import het_white
 from statsmodels.stats.stattools import durbin_watson
 from lifelines.utils import to_episodic_format
 import matplotlib.pyplot as plt
-import seaborn as sns
-from sklearn.svm import SVC
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
-from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
 from sklearn.linear_model import LinearRegression, Ridge, Lasso, ElasticNet, SGDRegressor, SGDClassifier, HuberRegressor,Lars, PoissonRegressor, LogisticRegression
@@ -55,11 +46,11 @@ from app.pydantic_models import ModelMultipleComparisons
 from app.utils.utils_datalake import fget_object, get_saved_dataset_for_Hypothesis, upload_object
 from app.utils.utils_general import get_local_storage_path, get_single_file_from_local_temp_storage, load_data_from_csv, \
     load_file_csv_direct, get_all_files_from_local_temp_storage
-import scipy.stats as st
-import statistics
 from tabulate import tabulate
 import seaborn as sns
 from datetime import datetime
+import os
+from os.path import isfile, join
 
 from app.utils.utils_hypothesis import create_plots, compute_skewness, outliers_removal, compute_kurtosis, \
     statisticsMean, statisticsMin, statisticsMax
@@ -69,16 +60,16 @@ data = pd.read_csv('example_data/mescobrad_dataset.csv')
 data = data.drop(["Unnamed: 0"], axis=1)
 # data = pd.read_csv('example_data/sample_questionnaire.csv')
 
-def normality_test_content_results(column: str, selected_dataframe):
+def normality_test_content_results(column: str, selected_dataframe,path_to_storage:str):
     if (column):
         # Creating Box-plot
-        html_str_B = create_plots(plot_type='BoxPlot', column=column,second_column='', selected_dataframe=selected_dataframe)
+        html_str_B = create_plots(plot_type='BoxPlot', column=column,second_column='', selected_dataframe=selected_dataframe, path_to_storage=path_to_storage)
         # Creating QQ-plot
-        html_str = create_plots(plot_type='QQPlot', column=column, second_column='', selected_dataframe=selected_dataframe)
+        html_str = create_plots(plot_type='QQPlot', column=column, second_column='', selected_dataframe=selected_dataframe, path_to_storage=path_to_storage)
         # Creating Probability-plot
-        html_str_P = create_plots(plot_type='PPlot', column=column, second_column='', selected_dataframe=selected_dataframe)
+        html_str_P = create_plots(plot_type='PPlot', column=column, second_column='', selected_dataframe=selected_dataframe, path_to_storage=path_to_storage)
         #Creating histogram
-        html_str_H = create_plots(plot_type='HistogramPlot', column=column, second_column='', selected_dataframe=selected_dataframe)
+        html_str_H = create_plots(plot_type='HistogramPlot', column=column, second_column='', selected_dataframe=selected_dataframe, path_to_storage=path_to_storage)
         skewtosend = compute_skewness(column, selected_dataframe)
         kurtosistosend = compute_kurtosis(column, selected_dataframe)
         st_dev = np.std(selected_dataframe[str(column)])
@@ -99,7 +90,7 @@ def normality_test_content_results(column: str, selected_dataframe):
                 'standard_deviation': 0, "median": 0,
                 "mean": 0, "sample_N": 0, "top_5": [], "last_5": []}
 
-def transformation_extra_content_results(column_In: str, column_Out:str, selected_dataframe):
+def transformation_extra_content_results(column_In: str, column_Out:str, selected_dataframe,path_to_storage:str):
     fig = plt.figure()
     plt.plot(selected_dataframe[str(column_In)], selected_dataframe[str(column_In)],
              color='blue', marker="*")
@@ -108,6 +99,7 @@ def transformation_extra_content_results(column_In: str, column_Out:str, selecte
     plt.title("Transformed data Comparison")
     plt.xlabel("out_array")
     plt.ylabel("in_array")
+    plt.savefig(path_to_storage + "/output/ComparisonPlot.svg", format="svg")
     plt.show()
     html_str_Transf = mpld3.fig_to_html(fig)
     return html_str_Transf
@@ -137,9 +129,11 @@ async def return_all_files(workflow_id: str, step_id: str, run_id: str):
 async def save_hypothesis_output(item: FunctionOutputItem) -> dict:
     try:
         path_to_storage = get_local_storage_path(item.workflow_id, item.run_id, item.step_id)
-        out_filename = path_to_storage + '/output' + '/info.json'
-        upload_object(bucket_name="demo", object_name='expertsystem/workflow/'+ item.workflow_id+'/'+ item.run_id+'/'+
-                                                      item.step_id+'/analysis_output' + '/info.json', file=out_filename)
+        files_to_upload = [f for f in os.listdir(path_to_storage + '/output') if isfile(join(path_to_storage + '/output', f))]
+        for file in files_to_upload:
+            out_filename = path_to_storage + '/output/' + file
+            upload_object(bucket_name="demo", object_name='expertsystem/workflow/'+ item.workflow_id+'/'+ item.run_id+'/'+
+                                                          item.step_id+'/analysis_output/' + file, file=out_filename)
         return JSONResponse(content='info.json file has been successfully uploaded to the DataLake', status_code=200)
     except Exception as e:
         print(e)
@@ -222,31 +216,29 @@ async def normal_tests(workflow_id: str, step_id: str, run_id: str,
                                                                  regex="^(two-sided)$|^(less)$|^(greater)$"),
                        name_test: str | None = Query("Shapiro-Wilk",
                                                    regex="^(Shapiro-Wilk)$|^(Kolmogorov-Smirnov)$|^(Anderson-Darling)$|^(D’Agostino’s K\^2)$|^(Jarque-Bera)$")) -> dict:
-    df = pd.DataFrame()
+
     dfv = pd.DataFrame()
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
-    # data = load_file_csv_direct(workflow_id, run_id, step_id)
     # Load Datasets
-    print(column)
     try:
         dfv['variables'] = [column]
         dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
     except Exception as e:
-        df["Error"] = ["Dataset is not defined"]
-        return {'Dataframe': df.to_json(orient="records")}
+        # df["Error"] = ["Dataset is not defined"]
+        return {'statistic': "", 'p_value': "", 'Description': "", 'results': {}, 'critical_values': [],
+                'significance_level': []}
     selected_datasources = pd.unique(dfv['Datasource'])
     # We expect only one here
     try:
         data = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
         column = dfv['Variable'][0]
     except Exception as e:
-        df["Error"] = ["Unable to retrieve datasets"]
-        print(e)
-        return {'Dataframe': df.to_json(orient="records")}
-    print(dfv['Variable'][0])
-    print(dfv['Variable'])
+        # df["Error"] = ["Unable to retrieve datasets"]
+        return {'statistic': "", 'p_value': "", 'Description': "", 'results': {}, 'critical_values': [],
+                'significance_level': []}
+
     try:
-        results_to_send = normality_test_content_results(column, data)
+        results_to_send = normality_test_content_results(column, data, path_to_storage)
         # region AmCharts_CODE_REGION
         # # ******************************************
         # # Data where prepared for Amcharts but now are not needed
@@ -299,8 +291,7 @@ async def normal_tests(workflow_id: str, step_id: str, run_id: str,
                 f.seek(0)
                 json.dump(file_data, f, indent=4)
                 f.truncate()
-
-            return{'statistic': shapiro_test.statistic, 'p_value': shapiro_test.pvalue, 'Description': descr, 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
+            return{'statistic': shapiro_test.statistic, 'p_value': shapiro_test.pvalue, 'Description': descr, 'results': results_to_send}
         elif name_test == 'Kolmogorov-Smirnov':
             ks_test = kstest(data[str(column)], 'norm', alternative=alternative)
             descr = 'Sample looks Gaussian (fail to reject H0)' if ks_test.pvalue > 0.05 else 'Sample does not look Gaussian (reject H0)'
@@ -313,7 +304,7 @@ async def normal_tests(workflow_id: str, step_id: str, run_id: str,
                 f.seek(0)
                 json.dump(file_data, f, indent=4)
                 f.truncate()
-            return{'statistic': ks_test.statistic, 'p_value': ks_test.pvalue, 'Description':descr, 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
+            return{'statistic': ks_test.statistic, 'p_value': ks_test.pvalue, 'Description':descr, 'results': results_to_send}
         elif name_test == 'Anderson-Darling':
             anderson_test = anderson(data[str(column)])
             list_anderson = []
@@ -334,7 +325,7 @@ async def normal_tests(workflow_id: str, step_id: str, run_id: str,
                 f.seek(0)
                 json.dump(file_data, f, indent=4)
                 f.truncate()
-            return{'statistic':anderson_test.statistic, 'critical_values': list(anderson_test.critical_values), 'significance_level': list(anderson_test.significance_level), 'Description': list_anderson, 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
+            return{'statistic':anderson_test.statistic, 'critical_values': list(anderson_test.critical_values), 'significance_level': list(anderson_test.significance_level), 'Description': list_anderson, 'results': results_to_send}
         elif name_test == 'D’Agostino’s K^2':
             stat, p = normaltest(data[str(column)], nan_policy=nan_policy)
             descr = 'Sample looks Gaussian (fail to reject H0)' if p > 0.05 else 'Sample does not look Gaussian (reject H0)'
@@ -347,7 +338,7 @@ async def normal_tests(workflow_id: str, step_id: str, run_id: str,
                 f.seek(0)
                 json.dump(file_data, f, indent=4)
                 f.truncate()
-            return{'statistic': stat, 'p_value': p, 'Description':descr, 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
+            return{'statistic': stat, 'p_value': p, 'Description':descr, 'results': results_to_send}
         elif name_test == 'Jarque-Bera':
             jarque_bera_test = jarque_bera(data[str(column)])
             statistic = jarque_bera_test.statistic
@@ -362,11 +353,11 @@ async def normal_tests(workflow_id: str, step_id: str, run_id: str,
                 f.seek(0)
                 json.dump(file_data, f, indent=4)
                 f.truncate()
-            return {'statistic': statistic, 'p_value': pvalue, 'Description': descr, 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
+            return {'statistic': statistic, 'p_value': pvalue, 'Description': descr, 'results': results_to_send}
     except Exception as e:
-        df["Error"] = ["Unable to conduct Normality test"]
+        # df["Error"] = ["Unable to conduct Normality test"]
         print(e)
-        return {'Dataframe': df.to_json(orient="records")}
+        return {'statistic': "", 'p_value': "", 'Description': "", 'results': {}, 'critical_values': [], 'significance_level':[]}
 
 @router.get("/transform_data", tags=['hypothesis_testing'])
 async def transform_data(workflow_id: str,
@@ -377,67 +368,98 @@ async def transform_data(workflow_id: str,
                                                            regex="^(Box-Cox)$|^(Yeo-Johnson)$|^(Log)$|^(Squared-root)$|^(Cube-root)$"),
                          lmbd: Optional[float] = None,
                          alpha: Optional[float] = None) -> dict:
+    dfv = pd.DataFrame()
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    # Load Datasets
+    try:
+        dfv['variables'] = [column]
+        dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
+    except Exception as e:
+        # df["Error"] = ["Dataset is not defined"]
+        return {'statistic': "", 'p_value': "", 'Description': "", 'results': {}, 'critical_values': [],
+                'significance_level': []}
+    selected_datasources = pd.unique(dfv['Datasource'])
+    # We expect only one here
+    try:
+        data = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
+        column = dfv['Variable'][0]
+    except Exception as e:
+        print("Unable to retrieve datasets")
+        return {'transformed array': {}, 'data': {}, 'results': {}}
+    try:
+        newColumnName = "Transf_" + column
+        if name_transform == 'Box-Cox':
+            if lmbd == None:
+                if alpha == None:
+                    boxcox_array, maxlog = boxcox(np.array(data[str(column)]))
+                    data[newColumnName] = boxcox_array
+                else:
+                    boxcox_array, maxlog, z = boxcox(np.array(data[str(column)]), alpha=alpha)
+                    data[newColumnName] = boxcox_array
+            else:
+                if alpha == None:
+                    y = boxcox(np.array(data[str(column)]), lmbda=lmbd)
+                    data[newColumnName] = y
+                else:
+                    y = boxcox(np.array(data[str(column)]), lmbda=lmbd, alpha=alpha)
+                    data[newColumnName] = y
+        elif name_transform == 'Yeo-Johnson':
+            if lmbd == None:
+                yeojohnson_array, maxlog = yeojohnson(np.array(data[str(column)]))
+                data[newColumnName] = yeojohnson_array
+            else:
+                yeojohnson_array = yeojohnson(np.array(data[str(column)]), lmbda=lmbd)
+                data[newColumnName] = yeojohnson_array
+        elif name_transform == 'Log':
+            log_array = np.log(data[str(column)])
+            data[newColumnName] = log_array
+        elif name_transform == 'Squared-root':
+            sqrt_array = np.sqrt(data[str(column)])
+            data[newColumnName] = sqrt_array
+        elif name_transform == 'Cube-root':
+            cbrt_array = np.cbrt(data[str(column)])
+            data[newColumnName] = cbrt_array
 
-    data = load_file_csv_direct(workflow_id, run_id, step_id)
-    newColumnName = "Transf_" + column
-    if name_transform == 'Box-Cox':
-        if lmbd == None:
-            if alpha == None:
-                boxcox_array, maxlog = boxcox(np.array(data[str(column)]))
-                data[newColumnName] = boxcox_array
-                results_to_send = normality_test_content_results(newColumnName, data)
-                results_to_send['transf_plot'] = transformation_extra_content_results(column, newColumnName, data)
-                return {'Box-Cox power transformed array': list(boxcox_array), 'lambda that maximizes the log-likelihood function': maxlog, 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
-            else:
-                boxcox_array, maxlog, z = boxcox(np.array(data[str(column)]), alpha=alpha)
-                data[newColumnName] = boxcox_array
-                results_to_send = normality_test_content_results(newColumnName, data)
-                results_to_send['transf_plot'] = transformation_extra_content_results(column, newColumnName, data)
-                return {'Box-Cox power transformed array': list(boxcox_array), 'lambda that maximizes the log-likelihood function': maxlog, 'minimum confidence limit': z[0], 'maximum confidence limit': z[1], 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
-        else:
-            if alpha == None:
-                y = boxcox(np.array(data[str(column)]), lmbda=lmbd)
-                data[newColumnName] = y
-                results_to_send = normality_test_content_results(newColumnName, data)
-                results_to_send['transf_plot'] = transformation_extra_content_results(column, newColumnName, data)
-                return {'Box-Cox power transformed array': list(y), 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
-            else:
-                y = boxcox(np.array(data[str(column)]), lmbda=lmbd, alpha=alpha)
-                data[newColumnName] = y
-                results_to_send = normality_test_content_results(newColumnName, data)
-                results_to_send['transf_plot'] = transformation_extra_content_results(column, newColumnName, data)
-                return {'Box-Cox power transformed array': list(y), 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
-    elif name_transform == 'Yeo-Johnson':
-        if lmbd == None:
-            yeojohnson_array, maxlog = yeojohnson(np.array(data[str(column)]))
-            data[newColumnName] = yeojohnson_array
-            results_to_send = normality_test_content_results(newColumnName, data)
-            results_to_send['transf_plot'] = transformation_extra_content_results(column, newColumnName, data)
-            return {'Yeo-Johnson power transformed array': list(yeojohnson_array), 'lambda that maximizes the log-likelihood function': maxlog, 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
-        else:
-            yeojohnson_array = yeojohnson(np.array(data[str(column)]), lmbda=lmbd)
-            data[newColumnName] = yeojohnson_array
-            results_to_send = normality_test_content_results(newColumnName, data)
-            results_to_send['transf_plot'] = transformation_extra_content_results(column, newColumnName, data)
-            return {'Yeo-Johnson power transformed array': list(yeojohnson_array), 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
-    elif name_transform == 'Log':
-        log_array = np.log(data[str(column)])
-        data[newColumnName] = log_array
-        results_to_send = normality_test_content_results(newColumnName, data)
-        results_to_send['transf_plot'] = transformation_extra_content_results(column, newColumnName, data)
-        return {'Log transformed array': list(log_array), 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
-    elif name_transform == 'Squared-root':
-        sqrt_array = np.sqrt(data[str(column)])
-        data[newColumnName] = sqrt_array
-        results_to_send = normality_test_content_results(newColumnName, data)
-        results_to_send['transf_plot'] = transformation_extra_content_results(column, newColumnName, data)
-        return {'Squared-root transformed array': list(sqrt_array), 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
-    elif name_transform == 'Cube-root':
-        cbrt_array = np.cbrt(data[str(column)])
-        data[newColumnName] = cbrt_array
-        results_to_send = normality_test_content_results(newColumnName, data)
-        results_to_send['transf_plot'] = transformation_extra_content_results(column, newColumnName, data)
-        return {'Cube-root transformed array': list(cbrt_array), 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
+        data.to_csv(path_to_storage + '/output/new_dataset.csv', index=False)
+        results_to_send = normality_test_content_results(newColumnName, data, path_to_storage)
+        results_to_send['transf_plot'] = transformation_extra_content_results(column, newColumnName, data, path_to_storage)
+        # Prepare content for info.json
+        new_data = {
+            "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+            "workflow_id": workflow_id,
+            "run_id": run_id,
+            "step_id": step_id,
+            "test_name": 'Transormation test',
+            "test_params": {
+                'selected_method': name_transform,
+                'selected_variable': column,
+                'lmbd': lmbd,
+                'alpha': alpha},
+            "test_results": {
+                'skew': results_to_send['skew'],
+                'kurtosis': results_to_send['kurtosis'],
+                'standard_deviation': results_to_send['standard_deviation'],
+                'median': results_to_send['median'],
+                'mean': results_to_send['mean'],
+                'sample_N': results_to_send['sample_N'],
+                'top_5': results_to_send['top_5'],
+                'last_5': results_to_send['last_5']
+            },
+            'Output_datasets': [{"file": 'expertsystem/workflow/'+ workflow_id+'/'+ run_id+'/'+
+                                         step_id+'/analysis_output' + '/new_dataset.csv'}],
+            'Saved_plots':{"folder": 'expertsystem/workflow/'+ workflow_id+'/'+ run_id+'/'+
+                                         step_id+'/analysis_output'}
+        }
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            file_data = json.load(f)
+            file_data['results'] = new_data
+            f.seek(0)
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        return {'transformed array': data[newColumnName].to_json(orient='records'), 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
+    except Exception as e:
+        print(e)
+        return {'transformed array': {}, 'data': {}, 'results': {}}
 
 
 # @router.get("/compute_pearson_correlation", tags=['hypothesis_testing'])
@@ -470,19 +492,21 @@ async def point_biserial_correlation(workflow_id: str, step_id: str, run_id: str
                                      column_1: str, column_2: str,
                                      # remove_outliers: bool | None = Query(default=True)
                                      ):
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+
     data = load_file_csv_direct(workflow_id, run_id, step_id)
     unique_values = np.unique(data[str(column_1)])
     unique_values.sort()
     if len(unique_values) == 2:
-        html_scr = create_plots(plot_type='Scatter_Two_Variables', column=column_1, second_column=column_2, selected_dataframe=data)
+        html_scr = create_plots(plot_type='Scatter_Two_Variables', column=column_1, second_column=column_2, selected_dataframe=data, path_to_storage=path_to_storage)
         sub_set_a = data[data[str(column_1)] != unique_values[1]]
         sub_set_b = data[data[str(column_1)] != unique_values[0]]
         new_dataset_for_bp = [sub_set_a[str(column_2)], sub_set_b[str(column_2)]]
-        html_box = create_plots(plot_type='BoxPlot', column=column_2, second_column=column_1, selected_dataframe=new_dataset_for_bp)
+        html_box = create_plots(plot_type='BoxPlot', column=column_2, second_column=column_1, selected_dataframe=new_dataset_for_bp, path_to_storage=path_to_storage)
         html_hist_A = create_plots(plot_type='HistogramPlot', column=column_2, second_column='',
-                                   selected_dataframe=sub_set_a)
+                                   selected_dataframe=sub_set_a, path_to_storage=path_to_storage)
         html_hist_B = create_plots(plot_type='HistogramPlot', column=column_2, second_column='',
-                                   selected_dataframe=sub_set_b)
+                                   selected_dataframe=sub_set_b, path_to_storage=path_to_storage)
         # find outliers
         sub_set_a_clean, outliers_a = outliers_removal(column_2, sub_set_a)
         sub_set_b_clean, outliers_b = outliers_removal(column_2, sub_set_b)
