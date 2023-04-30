@@ -145,6 +145,20 @@ async def save_hypothesis_output(item: FunctionOutputItem) -> dict:
         print(e)
         return JSONResponse(content='Error in saving info.json object to the DataLake',status_code=501)
 
+@router.get("/return_dataset")
+async def dataset_content(workflow_id: str, step_id: str, run_id: str, file_name:str):
+    try:
+        path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+        name_of_files = get_all_files_from_local_temp_storage(workflow_id, run_id, step_id)
+        if file_name in name_of_files:
+            data = load_data_from_csv(path_to_storage + "/" + file_name)
+        else:
+            print("Error : Failed to find the file")
+            return {'dataFrame': {}}
+        return {'dataFrame': data.to_json(orient='records')}
+    except Exception as e:
+        print(e)
+        return JSONResponse(content='Error : Failed to retrieve column names', status_code=501)
 
 
 @router.get("/return_columns")
@@ -161,10 +175,10 @@ async def name_columns(workflow_id: str, step_id: str, run_id: str, file_name:st
                 data = load_data_from_csv(path_to_storage + "/" + file_name)
             else:
                 print("Error : Failed to find the file")
-                return {'columns': [], 'dataFrame': {}}
+                return {'columns': []}
 
         columns = data.columns
-        return{'columns': list(columns), 'dataFrame': data.to_json(orient='records')}
+        return{'columns': list(columns)}
     except Exception as e:
         print(e)
         return JSONResponse(content='Error : Failed to retrieve column names',status_code=501)
@@ -208,125 +222,151 @@ async def normal_tests(workflow_id: str, step_id: str, run_id: str,
                                                                  regex="^(two-sided)$|^(less)$|^(greater)$"),
                        name_test: str | None = Query("Shapiro-Wilk",
                                                    regex="^(Shapiro-Wilk)$|^(Kolmogorov-Smirnov)$|^(Anderson-Darling)$|^(D’Agostino’s K\^2)$|^(Jarque-Bera)$")) -> dict:
-
+    df = pd.DataFrame()
+    dfv = pd.DataFrame()
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
-    data = load_file_csv_direct(workflow_id, run_id, step_id)
-    if 'Unnamed: 0' in data.columns:
-        data = data.drop(['Unnamed: 0'], axis=1)
-    results_to_send = normality_test_content_results(column, data)
-
-    # region AmCharts_CODE_REGION
-    # # ******************************************
-    # # Data where prepared for Amcharts but now are not needed
-    # # for BoxPlot chart
-    # # 'min,q1,median,q3,max'
-    # boxplot_data = [{
-    #     "date": "2022-05-18",
-    #     # "name": column,
-    #     "min": float(np.min(data[str(column)])),
-    #     "q1": float(np.percentile(data[str(column)], 25)),
-    #     "q2": float(np.percentile(data[str(column)], 50)),
-    #     "q3": float(np.percentile(data[str(column)], 75)),
-    #     "max": float(np.max(data[str(column)]))
-    # }]
-    # # ******************************************
-    # endregion
-    # Prepare content for info.json
-    new_data = {
-        "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
-        "workflow_id": workflow_id,
-        "run_id": run_id,
-        "step_id": step_id,
-        "test_name": 'Normality test',
-        "test_params": {
-            'selected_method': name_test,
-            'selected_variable': column,
-            'alternative': alternative,
-            'nan_policy': nan_policy},
-        "test_results": {
-            'skew': results_to_send['skew'],
-            'kurtosis': results_to_send['kurtosis'],
-            'standard_deviation': results_to_send['standard_deviation'],
-            'median': results_to_send['median'],
-            'mean': results_to_send['mean'],
-            'sample_N': results_to_send['sample_N'],
-            'top_5': results_to_send['top_5'],
-            'last_5': results_to_send['last_5']
+    # data = load_file_csv_direct(workflow_id, run_id, step_id)
+    # Load Datasets
+    print(column)
+    try:
+        dfv['variables'] = [column]
+        dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
+    except Exception as e:
+        df["Error"] = ["Dataset is not defined"]
+        return {'Dataframe': df.to_json(orient="records")}
+    selected_datasources = pd.unique(dfv['Datasource'])
+    # We expect only one here
+    try:
+        data = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
+        column = dfv['Variable'][0]
+    except Exception as e:
+        df["Error"] = ["Unable to retrieve datasets"]
+        print(e)
+        return {'Dataframe': df.to_json(orient="records")}
+    print(dfv['Variable'][0])
+    print(dfv['Variable'])
+    try:
+        results_to_send = normality_test_content_results(column, data)
+        # region AmCharts_CODE_REGION
+        # # ******************************************
+        # # Data where prepared for Amcharts but now are not needed
+        # # for BoxPlot chart
+        # # 'min,q1,median,q3,max'
+        # boxplot_data = [{
+        #     "date": "2022-05-18",
+        #     # "name": column,
+        #     "min": float(np.min(data[str(column)])),
+        #     "q1": float(np.percentile(data[str(column)], 25)),
+        #     "q2": float(np.percentile(data[str(column)], 50)),
+        #     "q3": float(np.percentile(data[str(column)], 75)),
+        #     "max": float(np.max(data[str(column)]))
+        # }]
+        # # ******************************************
+        # endregion
+        # Prepare content for info.json
+        new_data = {
+            "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+            "workflow_id": workflow_id,
+            "run_id": run_id,
+            "step_id": step_id,
+            "test_name": 'Normality test',
+            "test_params": {
+                'selected_method': name_test,
+                'selected_variable': column,
+                'alternative': alternative,
+                'nan_policy': nan_policy},
+            "test_results": {
+                'skew': results_to_send['skew'],
+                'kurtosis': results_to_send['kurtosis'],
+                'standard_deviation': results_to_send['standard_deviation'],
+                'median': results_to_send['median'],
+                'mean': results_to_send['mean'],
+                'sample_N': results_to_send['sample_N'],
+                'top_5': results_to_send['top_5'],
+                'last_5': results_to_send['last_5']
+            }
         }
-    }
 
-    if name_test == 'Shapiro-Wilk':
-        shapiro_test = shapiro(data[str(column)])
-        descr = 'Sample looks Gaussian (fail to reject H0)' if shapiro_test.pvalue > 0.05 else 'Sample does not look Gaussian (reject H0)'
-        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
-            file_data = json.load(f)
-            new_data['test_results'] |= {
-                'statistic': shapiro_test.statistic, 'p_value': shapiro_test.pvalue, 'Description': descr}
-            file_data['results'] = new_data
-            file_data['Output_datasets'] = []
-            f.seek(0)
-            json.dump(file_data, f, indent=4)
+        if name_test == 'Shapiro-Wilk':
+            shapiro_test = shapiro(data[str(column)])
+            descr = 'Sample looks Gaussian (fail to reject H0)' if shapiro_test.pvalue > 0.05 else 'Sample does not look Gaussian (reject H0)'
+            with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+                file_data = json.load(f)
+                new_data['test_results'] |= {
+                    'statistic': shapiro_test.statistic, 'p_value': shapiro_test.pvalue, 'Description': descr}
+                file_data['results'] = new_data
+                file_data['Output_datasets'] = []
+                f.seek(0)
+                json.dump(file_data, f, indent=4)
+                f.truncate()
 
-        return{'statistic': shapiro_test.statistic, 'p_value': shapiro_test.pvalue, 'Description': descr, 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
-    elif name_test == 'Kolmogorov-Smirnov':
-        ks_test = kstest(data[str(column)], 'norm', alternative=alternative)
-        descr = 'Sample looks Gaussian (fail to reject H0)' if ks_test.pvalue > 0.05 else 'Sample does not look Gaussian (reject H0)'
-        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
-            file_data = json.load(f)
-            new_data['test_results']|= {
-                'statistic': ks_test.statistic, 'p_value': ks_test.pvalue, 'Description': descr}
-            file_data['results'] = new_data
-            file_data['Output_datasets'] = []
-            f.seek(0)
-            json.dump(file_data, f, indent=4)
-        return{'statistic': ks_test.statistic, 'p_value': ks_test.pvalue, 'Description':descr, 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
-    elif name_test == 'Anderson-Darling':
-        anderson_test = anderson(data[str(column)])
-        list_anderson = []
-        for i in range(len(anderson_test.critical_values)):
-            sl, cv = anderson_test.significance_level[i], anderson_test.critical_values[i]
-            if anderson_test.statistic < anderson_test.critical_values[i]:
-                # print('%.3f: %.3f, data looks normal (fail to reject H0)' % (sl, cv))
-                list_anderson.append('%.3f: %.3f, data looks normal (fail to reject H0)' % (sl, cv))
-            else:
-                # print('%.3f: %.3f, data does not look normal (reject H0)' % (sl, cv))
-                list_anderson.append('%.3f: %.3f, data does not look normal (reject H0)' % (sl, cv))
-        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
-            file_data = json.load(f)
-            new_data['test_results']|= {
-                'statistic': anderson_test.statistic, 'critical_values': list(anderson_test.critical_values), 'significance_level': list(anderson_test.significance_level), 'Description': list_anderson}
-            file_data['results'] = new_data
-            file_data['Output_datasets'] = []
-            f.seek(0)
-            json.dump(file_data, f, indent=4)
-        return{'statistic':anderson_test.statistic, 'critical_values': list(anderson_test.critical_values), 'significance_level': list(anderson_test.significance_level), 'Description': list_anderson, 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
-    elif name_test == 'D’Agostino’s K^2':
-        stat, p = normaltest(data[str(column)], nan_policy=nan_policy)
-        descr = 'Sample looks Gaussian (fail to reject H0)' if p > 0.05 else 'Sample does not look Gaussian (reject H0)'
-        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
-            file_data = json.load(f)
-            new_data['test_results']|= {
-                'statistic': stat, 'p_value': p, 'Description': descr}
-            file_data['results'] = new_data
-            file_data['Output_datasets'] = []
-            f.seek(0)
-            json.dump(file_data, f, indent=4)
-        return{'statistic': stat, 'p_value': p, 'Description':descr, 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
-    elif name_test == 'Jarque-Bera':
-        jarque_bera_test = jarque_bera(data[str(column)])
-        statistic = jarque_bera_test.statistic
-        pvalue = jarque_bera_test.pvalue
-        descr = 'Sample looks Gaussian (fail to reject H0)' if pvalue > 0.05 else 'Sample does not look Gaussian (reject H0)'
-        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
-            file_data = json.load(f)
-            new_data['test_results']|= {
-                'statistic': statistic, 'p_value': pvalue, 'Description': descr}
-            file_data['results'] = new_data
-            file_data['Output_datasets'] = []
-            f.seek(0)
-            json.dump(file_data, f, indent=4)
-        return {'statistic': statistic, 'p_value': pvalue, 'Description': descr, 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
-
+            return{'statistic': shapiro_test.statistic, 'p_value': shapiro_test.pvalue, 'Description': descr, 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
+        elif name_test == 'Kolmogorov-Smirnov':
+            ks_test = kstest(data[str(column)], 'norm', alternative=alternative)
+            descr = 'Sample looks Gaussian (fail to reject H0)' if ks_test.pvalue > 0.05 else 'Sample does not look Gaussian (reject H0)'
+            with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+                file_data = json.load(f)
+                new_data['test_results']|= {
+                    'statistic': ks_test.statistic, 'p_value': ks_test.pvalue, 'Description': descr}
+                file_data['results'] = new_data
+                file_data['Output_datasets'] = []
+                f.seek(0)
+                json.dump(file_data, f, indent=4)
+                f.truncate()
+            return{'statistic': ks_test.statistic, 'p_value': ks_test.pvalue, 'Description':descr, 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
+        elif name_test == 'Anderson-Darling':
+            anderson_test = anderson(data[str(column)])
+            list_anderson = []
+            for i in range(len(anderson_test.critical_values)):
+                sl, cv = anderson_test.significance_level[i], anderson_test.critical_values[i]
+                if anderson_test.statistic < anderson_test.critical_values[i]:
+                    # print('%.3f: %.3f, data looks normal (fail to reject H0)' % (sl, cv))
+                    list_anderson.append('%.3f: %.3f, data looks normal (fail to reject H0)' % (sl, cv))
+                else:
+                    # print('%.3f: %.3f, data does not look normal (reject H0)' % (sl, cv))
+                    list_anderson.append('%.3f: %.3f, data does not look normal (reject H0)' % (sl, cv))
+            with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+                file_data = json.load(f)
+                new_data['test_results']|= {
+                    'statistic': anderson_test.statistic, 'critical_values': list(anderson_test.critical_values), 'significance_level': list(anderson_test.significance_level), 'Description': list_anderson}
+                file_data['results'] = new_data
+                file_data['Output_datasets'] = []
+                f.seek(0)
+                json.dump(file_data, f, indent=4)
+                f.truncate()
+            return{'statistic':anderson_test.statistic, 'critical_values': list(anderson_test.critical_values), 'significance_level': list(anderson_test.significance_level), 'Description': list_anderson, 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
+        elif name_test == 'D’Agostino’s K^2':
+            stat, p = normaltest(data[str(column)], nan_policy=nan_policy)
+            descr = 'Sample looks Gaussian (fail to reject H0)' if p > 0.05 else 'Sample does not look Gaussian (reject H0)'
+            with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+                file_data = json.load(f)
+                new_data['test_results']|= {
+                    'statistic': stat, 'p_value': p, 'Description': descr}
+                file_data['results'] = new_data
+                file_data['Output_datasets'] = []
+                f.seek(0)
+                json.dump(file_data, f, indent=4)
+                f.truncate()
+            return{'statistic': stat, 'p_value': p, 'Description':descr, 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
+        elif name_test == 'Jarque-Bera':
+            jarque_bera_test = jarque_bera(data[str(column)])
+            statistic = jarque_bera_test.statistic
+            pvalue = jarque_bera_test.pvalue
+            descr = 'Sample looks Gaussian (fail to reject H0)' if pvalue > 0.05 else 'Sample does not look Gaussian (reject H0)'
+            with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+                file_data = json.load(f)
+                new_data['test_results']|= {
+                    'statistic': statistic, 'p_value': pvalue, 'Description': descr}
+                file_data['results'] = new_data
+                file_data['Output_datasets'] = []
+                f.seek(0)
+                json.dump(file_data, f, indent=4)
+                f.truncate()
+            return {'statistic': statistic, 'p_value': pvalue, 'Description': descr, 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
+    except Exception as e:
+        df["Error"] = ["Unable to conduct Normality test"]
+        print(e)
+        return {'Dataframe': df.to_json(orient="records")}
 
 @router.get("/transform_data", tags=['hypothesis_testing'])
 async def transform_data(workflow_id: str,
