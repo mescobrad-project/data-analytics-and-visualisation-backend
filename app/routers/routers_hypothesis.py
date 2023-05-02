@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import json
 from sklearn.cross_decomposition import CCA
+from sklearn.preprocessing import LabelEncoder
 from statsmodels.tsa.stattools import grangercausalitytests
 from factor_analyzer.factor_analyzer import calculate_bartlett_sphericity
 from factor_analyzer.factor_analyzer import calculate_kmo
@@ -63,13 +64,13 @@ data = data.drop(["Unnamed: 0"], axis=1)
 def normality_test_content_results(column: str, selected_dataframe,path_to_storage:str):
     if (column):
         # Creating Box-plot
-        html_str_B = create_plots(plot_type='BoxPlot', column=column,second_column='', selected_dataframe=selected_dataframe, path_to_storage=path_to_storage)
+        html_str_B = create_plots(plot_type='BoxPlot', column=column,second_column='', selected_dataframe=selected_dataframe, path_to_storage=path_to_storage, filename='BoxPlot')
         # Creating QQ-plot
-        html_str = create_plots(plot_type='QQPlot', column=column, second_column='', selected_dataframe=selected_dataframe, path_to_storage=path_to_storage)
+        html_str = create_plots(plot_type='QQPlot', column=column, second_column='', selected_dataframe=selected_dataframe, path_to_storage=path_to_storage, filename='QQPlot')
         # Creating Probability-plot
-        html_str_P = create_plots(plot_type='PPlot', column=column, second_column='', selected_dataframe=selected_dataframe, path_to_storage=path_to_storage)
+        html_str_P = create_plots(plot_type='PPlot', column=column, second_column='', selected_dataframe=selected_dataframe, path_to_storage=path_to_storage, filename='PPlot')
         #Creating histogram
-        html_str_H = create_plots(plot_type='HistogramPlot', column=column, second_column='', selected_dataframe=selected_dataframe, path_to_storage=path_to_storage)
+        html_str_H = create_plots(plot_type='HistogramPlot', column=column, second_column='', selected_dataframe=selected_dataframe, path_to_storage=path_to_storage, filename='HistogramPlot')
         skewtosend = compute_skewness(column, selected_dataframe)
         kurtosistosend = compute_kurtosis(column, selected_dataframe)
         st_dev = np.std(selected_dataframe[str(column)])
@@ -178,20 +179,30 @@ async def name_columns(workflow_id: str, step_id: str, run_id: str, file_name:st
         return JSONResponse(content='Error : Failed to retrieve column names',status_code=501)
 
 @router.get("/return_binary_columns")
-async def name_columns(workflow_id: str, step_id: str, run_id: str):
-    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
-    name_of_file = get_single_file_from_local_temp_storage(workflow_id, run_id, step_id)
-    data = load_data_from_csv(path_to_storage + "/" + name_of_file)
+async def name_columns(workflow_id: str, step_id: str, run_id: str, file_name:str|None=None):
+    try:
+        print(file_name)
+        if file_name is None:
+            print("Error : Failed to find the file")
+            return {'columns': []}
+        else:
+            path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+            name_of_files = get_all_files_from_local_temp_storage(workflow_id, run_id, step_id)
+            if file_name in name_of_files:
+                data = load_data_from_csv(path_to_storage + "/" + file_name)
+            else:
+                print("Error : Failed to find the file")
+                return {'columns': []}
+        print(data.columns)
+        for b_column in data.columns:
+            if data[b_column].unique().shape[0] > 2:
+                data = data.drop([b_column], axis=1)
 
-    # For the testing dataset
-    if 'Unnamed: 0' in data.columns:
-        data = data.drop(['Unnamed: 0'], axis=1)
-    for b_column in data.columns:
-        if data[b_column].unique().shape[0] > 2:
-            data = data.drop([b_column], axis=1)
-
-    columns = data.columns
-    return{'columns': list(columns)}
+        columns = data.columns
+        return{'columns': list(columns)}
+    except Exception as e:
+        print(e)
+        return JSONResponse(content='Error : Failed to retrieve binary-column names',status_code=501)
 
 # TODO: Delete this router, if we don't need it anymore
 @router.get("/return_saved_object_columns")
@@ -465,7 +476,7 @@ async def transform_data(workflow_id: str,
         }
         with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
             file_data = json.load(f)
-            file_data['results'] = new_data
+            file_data['results'] |= new_data
             f.seek(0)
             json.dump(file_data, f, indent=4)
             f.truncate()
@@ -505,93 +516,139 @@ async def point_biserial_correlation(workflow_id: str, step_id: str, run_id: str
                                      column_1: str, column_2: str,
                                      # remove_outliers: bool | None = Query(default=True)
                                      ):
+    dfv = pd.DataFrame()
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    # Load Datasets
+    try:
+        dfv['variables'] = [column_1, column_2]
+        dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
+    except Exception as e:
+        # df["Error"] = ["Dataset is not defined"]
+        return {'transformed array': {}, 'data': {}, 'results': {}}
+    selected_datasources = pd.unique(dfv['Datasource'])
+    # We expect only one here
+    try:
+        data = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
+        column_1 = dfv['Variable'][0]
+        column_2 = dfv['Variable'][1]
+    except Exception as e:
+        print("Unable to retrieve datasets")
+        return {'transformed array': {}, 'data': {}, 'results': {}}
 
-    data = load_file_csv_direct(workflow_id, run_id, step_id)
-    unique_values = np.unique(data[str(column_1)])
-    unique_values.sort()
-    if len(unique_values) == 2:
-        html_scr = create_plots(plot_type='Scatter_Two_Variables', column=column_1, second_column=column_2, selected_dataframe=data, path_to_storage=path_to_storage)
-        sub_set_a = data[data[str(column_1)] != unique_values[1]]
-        sub_set_b = data[data[str(column_1)] != unique_values[0]]
-        new_dataset_for_bp = [sub_set_a[str(column_2)], sub_set_b[str(column_2)]]
-        html_box = create_plots(plot_type='BoxPlot', column=column_2, second_column=column_1, selected_dataframe=new_dataset_for_bp, path_to_storage=path_to_storage)
-        html_hist_A = create_plots(plot_type='HistogramPlot', column=column_2, second_column='',
-                                   selected_dataframe=sub_set_a, path_to_storage=path_to_storage)
-        html_hist_B = create_plots(plot_type='HistogramPlot', column=column_2, second_column='',
-                                   selected_dataframe=sub_set_b, path_to_storage=path_to_storage)
-        # find outliers
-        sub_set_a_clean, outliers_a = outliers_removal(column_2, sub_set_a)
-        sub_set_b_clean, outliers_b = outliers_removal(column_2, sub_set_b)
-        # check Normality per sample
-        shapiro_test_A = shapiro(sub_set_a[str(column_2)])
-        shapiro_test_B = shapiro(sub_set_b[str(column_2)])
-        # check homoscedasticity per sample
-        Levene_A = levene(sub_set_a[str(column_2)], sub_set_b[str(column_2)], center='median')
-        # Levene_B = ''
-        df = sub_set_a_clean.append(sub_set_b_clean)
-        pointbiserialr_test = pointbiserialr(df[str(column_1)], df[str(column_2)])
-        return {'status': 'OK',
-                'error_descr': '',
-                'scatter_plot': html_scr,
-                'html_box': html_box,
-                'sample_A': {
-                    'value': str(unique_values[0]),
-                    'N': len(sub_set_a),
-                    'N_clean':  len(sub_set_a_clean),
-                    'outliers': outliers_a[column_2].to_json(orient='records'),
-                    'html_hist': html_hist_A,
-                    'Norm_statistic': shapiro_test_A.statistic,
-                    'Norm_p_value': shapiro_test_A.pvalue,
-                    'Hom_statistic': Levene_A.statistic,
-                    'Hom_p_value': Levene_A.pvalue
-                },
-                'sample_B': {
-                    'value': str(unique_values[1]),
-                    'N': len(sub_set_b),
-                    'N_clean': len(sub_set_b_clean),
-                    'outliers': outliers_b[column_2].to_json(orient='records'),
-                    'html_hist': html_hist_B,
-                    'Norm_statistic': shapiro_test_B.statistic,
-                    'Norm_p_value': shapiro_test_B.pvalue,
-                    # 'Hom_statistic': Levene_B.statistic,
-                    # 'Hom_p_value': Levene_B.pvalue
-                },
-                'correlation': pointbiserialr_test[0],
-                'p_value': pointbiserialr_test[1],
-                'new_dataset': df.to_json(orient='records')
-                }
-    else:
-        return {'status': 'Error',
-                'error_descr': 'The selected variable is not dichotomous.',
-                'scatter_plot': '',
-                'html_box': '',
-                'sample_A': {
-                    'value': '',
-                    'N': '',
-                    'N_clean':  '',
-                    'outliers': '',
-                    'html_hist': '',
-                    'Norm_statistic': '',
-                    'Norm_p_value': '',
-                    'Hom_statistic': '',
-                    'Hom_p_value': '',
-                },
-                'sample_B': {
-                    'value': '',
-                    'N': '',
-                    'N_clean': '',
-                    'outliers': '',
-                    'html_hist': '',
-                    'Norm_statistic': '',
-                    'Norm_p_value': '',
-                    'Hom_statistic': '',
-                    'Hom_p_value': '',
-                },
-                'correlation': '',
-                'p_value': '',
-                'new_dataset': []}
+    try:
+        le = LabelEncoder()
+        new_column_1 = 'le_'+str(column_1)
+        data[new_column_1] = le.fit_transform(data[str(column_1)])
+        if not pd.to_numeric(data[str(column_2)], errors='coerce').notnull().all():
+            raise Exception
 
+        unique_values = np.unique(data[new_column_1])
+        unique_values.sort()
+        if len(unique_values) == 2:
+            html_scr = create_plots(plot_type='Scatter_Two_Variables', column=new_column_1, second_column=column_2, selected_dataframe=data, path_to_storage=path_to_storage, filename='Scatter_Two_Variables')
+            sub_set_a = data[data[new_column_1] != unique_values[1]]
+            sub_set_b = data[data[new_column_1] != unique_values[0]]
+            new_dataset_for_bp = [sub_set_a[str(column_2)], sub_set_b[str(column_2)]]
+            html_box = create_plots(plot_type='BoxPlot', column=column_2, second_column=new_column_1, selected_dataframe=new_dataset_for_bp, path_to_storage=path_to_storage, filename='BoxPlot')
+            html_hist_A = create_plots(plot_type='HistogramPlot', column=column_2, second_column='',
+                                       selected_dataframe=sub_set_a, path_to_storage=path_to_storage, filename='HistogramPlot_GroupA')
+            html_hist_B = create_plots(plot_type='HistogramPlot', column=column_2, second_column='',
+                                       selected_dataframe=sub_set_b, path_to_storage=path_to_storage, filename='HistogramPlot_GroupB')
+            # find outliers
+            sub_set_a_clean, outliers_a = outliers_removal(column_2, sub_set_a)
+            sub_set_b_clean, outliers_b = outliers_removal(column_2, sub_set_b)
+            # check Normality per sample
+            shapiro_test_A = shapiro(sub_set_a[str(column_2)])
+            shapiro_test_B = shapiro(sub_set_b[str(column_2)])
+            # check homoscedasticity per sample
+            Levene_A = levene(sub_set_a[str(column_2)], sub_set_b[str(column_2)], center='median')
+            # Levene_B = ''
+            df = sub_set_a_clean.append(sub_set_b_clean)
+            pointbiserialr_test = pointbiserialr(df[new_column_1], df[str(column_2)])
+            df.to_csv(path_to_storage + '/output/new_dataset.csv', index=False)
+
+            data_to_return = {
+                    'sample_A': {
+                        'value': str(unique_values[0]),
+                        'N': len(sub_set_a),
+                        'N_clean':  len(sub_set_a_clean),
+                        'outliers': outliers_a[column_2].to_json(orient='records'),
+                        'Norm_statistic': shapiro_test_A.statistic,
+                        'Norm_p_value': shapiro_test_A.pvalue,
+                        'Hom_statistic': Levene_A.statistic,
+                        'Hom_p_value': Levene_A.pvalue
+                    },
+                    'sample_B': {
+                        'value': str(unique_values[1]),
+                        'N': len(sub_set_b),
+                        'N_clean': len(sub_set_b_clean),
+                        'outliers': outliers_b[column_2].to_json(orient='records'),
+                        'Norm_statistic': shapiro_test_B.statistic,
+                        'Norm_p_value': shapiro_test_B.pvalue
+                    },
+                    'correlation': pointbiserialr_test[0],
+                    'p_value': pointbiserialr_test[1]
+                    }
+            try:
+                with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+                    # Load existing data into a dict.
+                    file_data = json.load(f)
+                    # Join new data
+                    new_data = {
+                        "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                        "workflow_id": workflow_id,
+                        "run_id": run_id,
+                        "step_id": step_id,
+                        "test_name": 'Point Biserial Correlation',
+                        "test_params": {'Binary variable': str(column_1),
+                                        'Variable': str(column_2)},
+                        "test_results": data_to_return,
+                        "Output_datasets":[{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                    step_id + '/analysis_output' + '/new_dataset.csv'}],
+                        "Saved_plots": [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                 step_id + '/analysis_output/BoxPlot.svg'},
+                                        {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                 step_id + '/analysis_output/HistogramPlot_GroupA.svg'},
+                                        {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                 step_id + '/analysis_output/HistogramPlot_GroupB.svg'},
+                                        {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                 step_id + '/analysis_output/Scatter_Two_Variables.svg'}]
+                        }
+                    file_data['results'] |= new_data
+                    f.seek(0)
+                    json.dump(file_data, f, indent=4)
+                    f.truncate()
+            except Exception as e:
+                print(e)
+
+            data_to_return['new_dataset'] = df.to_json(orient='records')
+            return data_to_return
+        else:
+            raise Exception
+    except Exception as e:
+        print(e)
+        return {
+                    'sample_A': {
+                        'value': '',
+                        'N': '',
+                        'N_clean':  '',
+                        'outliers': '',
+                        'Norm_statistic': '',
+                        'Norm_p_value': '',
+                        'Hom_statistic': '',
+                        'Hom_p_value': '',
+                    },
+                    'sample_B': {
+                        'value': '',
+                        'N': '',
+                        'N_clean': '',
+                        'outliers': '',
+                        'Norm_statistic': '',
+                        'Norm_p_value': ''
+                    },
+                    'correlation': '',
+                    'p_value': '',
+                    'new_dataset': []}
 
 @router.get("/check_homoscedasticity", tags=['hypothesis_testing'])
 async def check_homoskedasticity(workflow_id: str,
