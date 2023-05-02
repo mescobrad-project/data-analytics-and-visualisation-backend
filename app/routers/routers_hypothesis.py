@@ -276,7 +276,17 @@ async def normal_tests(workflow_id: str, step_id: str, run_id: str,
                 'sample_N': results_to_send['sample_N'],
                 'top_5': results_to_send['top_5'],
                 'last_5': results_to_send['last_5']
-            }
+            },
+            'Output_datasets': [],
+            'Saved_plots': [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                             step_id + '/analysis_output/BoxPlot.svg'},
+                                    {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                             step_id + '/analysis_output/PPlot.svg'},
+                                    {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                             step_id + '/analysis_output/HistogramPlot.svg'},
+                                    {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                             step_id + '/analysis_output/QQPlot.svg'}
+                                    ]
         }
 
         if name_test == 'Shapiro-Wilk':
@@ -287,7 +297,6 @@ async def normal_tests(workflow_id: str, step_id: str, run_id: str,
                 new_data['test_results'] |= {
                     'statistic': shapiro_test.statistic, 'p_value': shapiro_test.pvalue, 'Description': descr}
                 file_data['results'] = new_data
-                file_data['Output_datasets'] = []
                 f.seek(0)
                 json.dump(file_data, f, indent=4)
                 f.truncate()
@@ -300,7 +309,6 @@ async def normal_tests(workflow_id: str, step_id: str, run_id: str,
                 new_data['test_results']|= {
                     'statistic': ks_test.statistic, 'p_value': ks_test.pvalue, 'Description': descr}
                 file_data['results'] = new_data
-                file_data['Output_datasets'] = []
                 f.seek(0)
                 json.dump(file_data, f, indent=4)
                 f.truncate()
@@ -321,7 +329,6 @@ async def normal_tests(workflow_id: str, step_id: str, run_id: str,
                 new_data['test_results']|= {
                     'statistic': anderson_test.statistic, 'critical_values': list(anderson_test.critical_values), 'significance_level': list(anderson_test.significance_level), 'Description': list_anderson}
                 file_data['results'] = new_data
-                file_data['Output_datasets'] = []
                 f.seek(0)
                 json.dump(file_data, f, indent=4)
                 f.truncate()
@@ -334,7 +341,6 @@ async def normal_tests(workflow_id: str, step_id: str, run_id: str,
                 new_data['test_results']|= {
                     'statistic': stat, 'p_value': p, 'Description': descr}
                 file_data['results'] = new_data
-                file_data['Output_datasets'] = []
                 f.seek(0)
                 json.dump(file_data, f, indent=4)
                 f.truncate()
@@ -349,7 +355,6 @@ async def normal_tests(workflow_id: str, step_id: str, run_id: str,
                 new_data['test_results']|= {
                     'statistic': statistic, 'p_value': pvalue, 'Description': descr}
                 file_data['results'] = new_data
-                file_data['Output_datasets'] = []
                 f.seek(0)
                 json.dump(file_data, f, indent=4)
                 f.truncate()
@@ -376,8 +381,7 @@ async def transform_data(workflow_id: str,
         dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
     except Exception as e:
         # df["Error"] = ["Dataset is not defined"]
-        return {'statistic': "", 'p_value': "", 'Description': "", 'results': {}, 'critical_values': [],
-                'significance_level': []}
+        return {'transformed array': {}, 'data': {}, 'results': {}}
     selected_datasources = pd.unique(dfv['Datasource'])
     # We expect only one here
     try:
@@ -447,8 +451,17 @@ async def transform_data(workflow_id: str,
             },
             'Output_datasets': [{"file": 'expertsystem/workflow/'+ workflow_id+'/'+ run_id+'/'+
                                          step_id+'/analysis_output' + '/new_dataset.csv'}],
-            'Saved_plots':{"folder": 'expertsystem/workflow/'+ workflow_id+'/'+ run_id+'/'+
-                                         step_id+'/analysis_output'}
+            'Saved_plots': [{"file": 'expertsystem/workflow/'+ workflow_id+'/'+ run_id+'/'+
+                                         step_id+'/analysis_output/BoxPlot.svg'},
+                            {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                     step_id + '/analysis_output/PPlot.svg'},
+                            {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                     step_id + '/analysis_output/HistogramPlot.svg'},
+                            {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                     step_id + '/analysis_output/QQPlot.svg'},
+                            {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                     step_id + '/analysis_output/Scatter_Two_Variables.svg'},
+                            ]
         }
         with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
             file_data = json.load(f)
