@@ -659,27 +659,72 @@ async def check_homoskedasticity(workflow_id: str,
                                                                   regex="^(Levene)$|^(Bartlett)$|^(Fligner-Killeen)$"),
                                  center: Optional[str] | None = Query("median",
                                                                       regex="^(trimmed)$|^(median)$|^(mean)$")):
-    data = load_file_csv_direct(workflow_id, run_id, step_id)
+    dfv = pd.DataFrame()
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    # Load Datasets
+    try:
+        dfv['variables'] = columns
+        dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
+    except Exception as e:
+        print('dfv ' + str(e))
+        return {'statistic': "", 'p_value': "", 'variance': ""}
+    selected_datasources = pd.unique(dfv['Datasource'])
+    # We expect only one here
+    try:
+        data = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
+        columns = dfv['Variable']
+    except Exception as e:
+        print('data ' + str(e))
+        return {'statistic': "", 'p_value': "", 'variance': ""}
+    try:
+        args = []
+        var = []
+        i = 0
+        for k in columns:
+            args.append(data[k])
+            temp_to_append = {
+                "id": i,
+                "Variable": k,
+                "Variance": np.var(data[k], ddof=0)
+            }
+            var.append(temp_to_append)
+            i = i + 1
+        # print(*args)
+        if name_of_test == "Bartlett":
+            statistic, p_value = bartlett(*args)
+        elif name_of_test == "Fligner-Killeen":
+            statistic, p_value = fligner(*args, center=center)
+        else:
+            statistic, p_value = levene(*args, center=center)
 
-    args = []
-    var = []
-    i = 0
-    for k in columns:
-        args.append(data[k])
-        temp_to_append = {
-            "id": i,
-            "Variable": k,
-            "Variance": np.var(data[k], ddof=0)
-        }
-        var.append(temp_to_append)
-        i = i + 1
-    print(*args)
-    if name_of_test == "Bartlett":
-        statistic, p_value = bartlett(*args)
-    elif name_of_test == "Fligner-Killeen":
-        statistic, p_value = fligner(*args, center=center)
-    else:
-        statistic, p_value = levene(*args, center=center)
+        new_data = {
+            "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+            "workflow_id": workflow_id,
+            "run_id": run_id,
+            "step_id": step_id,
+            "test_name": 'Homoscedasticity test',
+            "test_params": {
+                'selected_method': name_of_test,
+                'selected_variable': columns.to_dict(),
+                'center': center
+            },
+            "test_results": {
+                'statistic': statistic,
+                'p_value': p_value,
+                'variance': var
+            },
+            'Output_datasets': [],
+            'Saved_plots': []
+            }
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            file_data = json.load(f)
+            file_data['results'] |= new_data
+            f.seek(0)
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+    except Exception as e:
+        return {'statistic': "", 'p_value': "", 'variance': ""}
+
     return {'statistic': statistic, 'p_value': p_value, 'variance': var}
 
 
