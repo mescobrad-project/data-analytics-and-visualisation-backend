@@ -6,8 +6,10 @@ from fastparquet import write as wr, ParquetFile
 
 import glob, pandas
 import pandas as pd
+import pandas as pandas
 from freesurfer_stats import CorticalParcellationStats
 from fastapi import APIRouter, Query
+from app.utils.utils_mri import plot_aseg
 from pip._internal.utils.misc import tabulate
 
 router = APIRouter()
@@ -26,6 +28,14 @@ def load_structural_measurements(stats_path) -> pandas.DataFrame:
     stats.structural_measurements['source_basename'] = os.path.basename(stats_path)
     stats.structural_measurements['hemisphere'] = stats.hemisphere
     return stats.structural_measurements
+
+def load_stats_measurements(stats_path) -> pandas.DataFrame:
+    f = open(stats_path, "r")
+    file_str = f.read().split("# ColHeaders")[-1]
+    list_of_lists = [row.split() for row in file_str.split('\n')]
+    df = pd.DataFrame(list_of_lists[1:-1], columns=list_of_lists[0])
+    print(df)
+    return df
 
 @router.get("/list/datalakeendpoints", tags=["list_datalakeendpoints"])
 async def list_datalakeendpoints() -> dict:
@@ -89,6 +99,22 @@ async def return_samseg_stats(fs_dir: str = None, subject_id: str = None) -> pan
             results_array.append(temp_to_append)
     return results_array
 
+@router.get("/return_reconall_stats/all", tags=["return_all_stats"])
+# Validation is done inline in the input of the function
+async def return_aseg_stats(fs_dir: str = None, subject_id: str = None) -> pandas.DataFrame:
+    stats_df = load_stats_measurements('example_data/stats/wmparc.stats')
+    #data = dict(zip(aseg['StructName'], pandas.to_numeric(aseg['Volume_mm3'], errors='coerce')))
+    return stats_df
+
+
+async def return_aseg_stats(fs_dir: str = None, subject_id: str = None) -> dict:
+    aseg = load_stats_measurements('example_data/aseg.stats')
+    data = dict(zip(aseg['StructName'], pandas.to_numeric(aseg['Volume_mm3'], errors='coerce')))
+    plot_aseg(data, cmap='Spectral',
+                    background='k', edgecolor='w', bordercolor='gray',
+                    ylabel='Volume (mm3)', title='Volume of Subcortical Regions')
+
+    return 'OK'
 
 @router.get("/return_samseg_result", tags=["return_samseg_stats"])
 async def return_samseg_stats(fs_dir: str = None, subject_id: str = None) -> []:
