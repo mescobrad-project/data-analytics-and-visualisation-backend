@@ -2329,9 +2329,13 @@ async def back_average(
 
 
     # epochs.plot_image
-    evoked = epochs.average(picks="all", by_event_type=False)
+    evoked = epochs.average(picks="data", by_event_type=False)
     plot = evoked.plot(show=True)
     plot.savefig(get_local_storage_path(workflow_id, step_id, run_id) + "/output/" + 'back_average_plot.png')
+
+    evoked = epochs.average(picks="F4-Ref", by_event_type=False)
+    plot = evoked.plot(show=True)
+    plot.savefig(get_local_storage_path(workflow_id, step_id, run_id) + "/output/" + 'back_average_plot_f4.png')
     # plot.savefig(NeurodesktopStorageLocation + '/back_average_plot.png')
     print(evoked)
 
