@@ -12,10 +12,13 @@ import mne
 import matplotlib.pyplot as plt
 import mpld3
 import numpy as np
+from app.utils.utils_mri import plot_aseg
 
 from app.utils.utils_general import validate_and_convert_peaks, validate_and_convert_power_spectral_density, \
     create_notebook_mne_plot, get_neurodesk_display_id, get_local_storage_path, get_single_file_from_local_temp_storage, \
     NeurodesktopStorageLocation, get_local_neurodesk_storage_path
+
+from app.utils.utils_mri import load_stats_measurements
 
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -464,4 +467,19 @@ async def return_free_surfer(input_test_name: str, input_file: str,
     to_return = "Success"
     return to_return
 
+@router.get("/return_reconall_stats", tags=["return_all_stats"])
+# Validation is done inline in the input of the function
+async def return_aseg_stats(fs_dir: str = None, subject_id: str = None, file_name: str = None) -> dict:
+    stats_dict = load_stats_measurements('example_data/stats/' + file_name)
+    #data = dict(zip(aseg['StructName'], pandas.to_numeric(aseg['Volume_mm3'], errors='coerce')))
+    return stats_dict
 
+@router.get("/return_aseg_stats", tags=["return_aseg_stats"])
+async def return_aseg_stats(fs_dir: str = None, subject_id: str = None) -> str:
+    aseg = load_stats_measurements('example_data/aseg.stats')["table"]
+    data = dict(zip(aseg['StructName'], pd.to_numeric(aseg['Volume_mm3'], errors='coerce')))
+    plot_aseg(data, cmap='Spectral',
+                    background='k', edgecolor='w', bordercolor='gray',
+                    ylabel='Volume (mm3)', title='Volume of Subcortical Regions')
+
+    return 'OK'

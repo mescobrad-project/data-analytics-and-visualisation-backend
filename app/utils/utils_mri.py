@@ -1,4 +1,6 @@
 import os
+import pandas as pd
+
 NeurodesktopStorageLocation = os.environ.get('NeurodesktopStorageLocation') if os.environ.get(
     'NeurodesktopStorageLocation') else "/neurodesktop-storage"
 
@@ -70,3 +72,38 @@ def plot_aseg(data, cmap='Spectral', background='k', edgecolor='w', ylabel='',
 
     fig = plt.gcf()
     fig.savefig(NeurodesktopStorageLocation + '/aseg.png')
+
+def load_stats_measurements(stats_path) -> dict:
+    try:
+        f = open(stats_path, "r")
+    except Exception as e:
+        print(e)
+        print("File could not be opened")
+        return pd.DataFrame()
+    try:
+        file_str = f.read()
+        if "# ColHeaders" in file_str:
+            file_list = file_str.split("# ColHeaders")
+            list_of_lists = [row.split() for row in file_list[-1].split('\n')]
+            df = pd.DataFrame(list_of_lists[1:-1], columns=list_of_lists[0])
+        else:
+            df = pd.DataFrame()
+
+    except Exception as e:
+        print(e)
+        print("File has wrong format")
+        return {"measurements": pd.DataFrame(), "table": df}
+    try:
+        measure_dict = {}
+        lines = file_str.split('\n')
+        for line in lines:
+            if "# Measure" in line:
+                measure = list(map(lambda elem : elem.strip(), line.split(",")))
+                measure_dict[measure[-3]] = measure[-2] + ("" if measure[-1] == "unitless" else " " + measure[-1])
+            elif "# hemi" in line:
+                measure_dict["Hemisphere"] = line.split()[-1]
+    except Exception as e:
+        print("File has wrong format in Measure")
+        print("Ignoring Measures...")
+    return {"measurements": measure_dict, "table": df}
+
