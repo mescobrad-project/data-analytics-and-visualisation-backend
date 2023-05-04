@@ -30,10 +30,20 @@ def load_structural_measurements(stats_path) -> pandas.DataFrame:
     return stats.structural_measurements
 
 def load_stats_measurements(stats_path) -> pandas.DataFrame:
-    f = open(stats_path, "r")
-    file_str = f.read().split("# ColHeaders")[-1]
-    list_of_lists = [row.split() for row in file_str.split('\n')]
-    df = pd.DataFrame(list_of_lists[1:-1], columns=list_of_lists[0])
+    try:
+        f = open(stats_path, "r")
+    except Exception as e:
+        print(e)
+        print("File could not be opened")
+        return pd.DataFrame()
+    try:
+        file_str = f.read().split("# ColHeaders")[-1]
+        list_of_lists = [row.split() for row in file_str.split('\n')]
+        df = pd.DataFrame(list_of_lists[1:-1], columns=list_of_lists[0])
+    except Exception as e:
+        print(e)
+        print("File has wrong format")
+        return pd.DataFrame()
     print(df)
     return df
 
@@ -101,8 +111,8 @@ async def return_samseg_stats(fs_dir: str = None, subject_id: str = None) -> pan
 
 @router.get("/return_reconall_stats/all", tags=["return_all_stats"])
 # Validation is done inline in the input of the function
-async def return_aseg_stats(fs_dir: str = None, subject_id: str = None) -> pandas.DataFrame:
-    stats_df = load_stats_measurements('example_data/stats/wmparc.stats')
+async def return_aseg_stats(fs_dir: str = None, subject_id: str = None, file_name: str = None) -> pandas.DataFrame:
+    stats_df = load_stats_measurements('example_data/stats/' + file_name)
     #data = dict(zip(aseg['StructName'], pandas.to_numeric(aseg['Volume_mm3'], errors='coerce')))
     return stats_df
 
