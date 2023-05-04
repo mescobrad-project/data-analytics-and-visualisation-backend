@@ -70,6 +70,7 @@ ExistingFunctions = [
     "point_biserial_correlation",
     "power_spectral_density_main",
     "canonical_correlation",
+    'mediation_analysis',
     "data_transform_anova",
     "homoscedasticity",
     "spearman_correlation",
@@ -122,6 +123,11 @@ ExistingFunctions = [
     "mcnemar",
     "LogisticRegressionSklearn",
     "FactorAnalysis",
+    "GeneralizedEstimatingEquations",
+    "mixed_anova",
+    "general_stats_average",
+    "general_stats_min",
+    "general_stats_max",
     "GeneralizedEstimatingEquations",
     "ChooseFactors",
     "GrangerAnalysis",
@@ -266,6 +272,8 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/Skipped_spearman_correlation"
             case "canonical_correlation":
                 url_to_redirect += "/Canonical_correlation"
+            case 'mediation_analysis':
+                url_to_redirect += "/Mediation_Analysis"
             case "welch_t_test":
                 url_to_redirect += "/Welch_t_test"
             case "independent_t_test":
@@ -362,6 +370,14 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/FactorAnalysis"
             case "GeneralizedEstimatingEquations":
                 url_to_redirect += "/GeneralizedEstimatingEquations"
+            case "mixed_anova":
+                url_to_redirect += "/Mixed_Anova"
+            case "general_stats_average":
+                url_to_redirect += "/General_Stats_Average"
+            case "general_stats_min":
+                url_to_redirect +="/General_Stats_Min"
+            case "general_stats_max":
+                url_to_redirect +="/General_Stats_Max"
             case "ChooseFactors":
                 url_to_redirect += "/ChooseFactors"
             case "GrangerAnalysis":

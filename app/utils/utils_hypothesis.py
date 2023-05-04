@@ -1,13 +1,15 @@
 import matplotlib.pyplot as plt
 import mpld3
-import pandas
+import pandas as pd
 import pingouin
+from lifelines.fitters.npmle import min_max
 from scipy.stats import probplot, skew, kurtosis
 import scipy.stats as st
 import numpy as np
+import statistics
 
 
-def create_plots(plot_type: str, column: str, second_column: str, selected_dataframe):
+def create_plots(plot_type: str, column: str, second_column: str, selected_dataframe, path_to_storage:str, filename:str):
     if plot_type == 'BoxPlot':
         try:
             fig, ax1 = plt.subplots()
@@ -19,10 +21,10 @@ def create_plots(plot_type: str, column: str, second_column: str, selected_dataf
                 plt.xlabel(second_column, fontsize=14)
             else:
                 plt.boxplot(selected_dataframe[str(column)])
-                # plt.boxplot(selected_dataframe[str(column)], showfliers=False)
             plt.ylabel("", fontsize=14)
             plt.xticks(fontsize=12)
             plt.yticks(fontsize=12)
+            plt.savefig(path_to_storage + "/output/"+filename+".svg", format="svg")
             plt.show()
             html_str = mpld3.fig_to_html(fig)
             return html_str
@@ -39,6 +41,7 @@ def create_plots(plot_type: str, column: str, second_column: str, selected_dataf
             # fig = sm.qqplot(selected_dataframe[str(column)], line='45')
             plt.xticks(fontsize=12)
             plt.yticks(fontsize=12)
+            plt.savefig(path_to_storage + "/output/"+filename+".svg", format="svg")
             plt.show()
             html_str = mpld3.fig_to_html(fig)
             return html_str
@@ -54,6 +57,7 @@ def create_plots(plot_type: str, column: str, second_column: str, selected_dataf
             ax1.set_title('Probplot against normal distribution')
             plt.xticks(fontsize=12)
             plt.yticks(fontsize=12)
+            plt.savefig(path_to_storage + "/output/"+filename+".svg", format="svg")
             plt.show()
             html_str = mpld3.fig_to_html(fig)
             return html_str
@@ -83,6 +87,7 @@ def create_plots(plot_type: str, column: str, second_column: str, selected_dataf
             plt.title("Histogram", fontsize=16)
             plt.xticks(fontsize=12)
             plt.yticks(fontsize=12)
+            plt.savefig(path_to_storage + "/output/"+filename+".svg", format="svg")
             plt.show()
             html_str = mpld3.fig_to_html(fig)
             return html_str
@@ -102,6 +107,7 @@ def create_plots(plot_type: str, column: str, second_column: str, selected_dataf
             plt.ylabel(second_column, fontsize=14)
             plt.xlabel(column, fontsize=14)
             plt.xticks(np.arange(min(selected_dataframe[str(column)]), max(selected_dataframe[str(column)])+1, 1.0))
+            plt.savefig(path_to_storage + "/output/"+filename+".svg", format="svg")
             plt.show()
             html_str = mpld3.fig_to_html(fig)
             return html_str
@@ -150,3 +156,39 @@ def outliers_removal(column: str, selected_dataframe):
         print(e)
         print("Error : Failed to remove outliers")
         return {}
+
+def statisticsMean(column: str, selected_dataframe):
+    try:
+        df2 = selected_dataframe.dropna(subset=[str(column)])
+        result = statistics.mean(df2[str(column)])
+        return result
+    except Exception as e:
+        print(e)
+        print("Error : Failed to compute Mean for column: "+column)
+        return -1
+
+def statisticsMin(column: str, selected_dataframe):
+    try:
+        df2 = selected_dataframe.dropna(subset=[str(column)])
+        if pd.to_numeric(df2[str(column)], errors='coerce').notnull().all():
+            result = max(df2[str(column)])
+        else:
+            raise Exception
+        return result
+    except Exception as e:
+        print(e)
+        print("Error : Failed to compute Min for column: "+column)
+        return -1
+
+def statisticsMax(column: str, selected_dataframe):
+    try:
+        df2 = selected_dataframe.dropna(subset=[str(column)])
+        if pd.to_numeric(df2[str(column)], errors='coerce').notnull().all():
+            result = max(df2[str(column)])
+        else:
+            raise Exception
+        return result
+    except Exception as e:
+        print(e)
+        print("Error : Failed to compute Max for column: "+column)
+        return -1
