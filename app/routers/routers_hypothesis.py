@@ -729,9 +729,79 @@ async def check_homoskedasticity(workflow_id: str,
 
 
 @router.get("/transformed_data_for_use_in_an_ANOVA", tags=['hypothesis_testing'])
-async def transform_data_anova(column_1: str, column_2: str):
-    tx, ty = obrientransform(data[str(column_1)], data[str(column_2)])
-    return {'transformed_1': list(tx), 'transformed_2': list(ty)}
+async def transform_data_anova(
+        workflow_id: str,
+        step_id: str,
+        run_id: str,
+        variables: list[str] | None = Query(default=None)):
+    dfv = pd.DataFrame()
+    df = pd.DataFrame()
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    # Load Datasets
+    try:
+        dfv['variables'] = variables
+        dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
+    except Exception as e:
+        df["Error"] = ["Dataset is not defined"]
+        return {'Dataframe': df.to_json(orient="records")}
+    selected_datasources = pd.unique(dfv['Datasource'])
+    # We expect only one here
+    try:
+        data = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
+        variables = dfv['Variable']
+    except Exception as e:
+        df["Error"] = ["Unable to retrieve dataset"]
+        print(e)
+        return {'Dataframe': df.to_json(orient="records")}
+    # Keep requested Columns
+    try:
+        selected_columns = pd.unique(dfv['Variable'])
+        args = []
+        args_name=[]
+        for column in data.columns:
+            if column not in selected_columns:
+                data = data.drop(str(column), axis=1)
+            else:
+                args.append(data[column])
+                args_name.append(column)
+
+        tall = obrientransform(*args)
+        df = pd.DataFrame(tall, index=args_name)
+        df = df.T
+        df.to_csv(path_to_storage + '/output/new_dataset.csv', index=False)
+
+        new_data = {
+            "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+            "workflow_id": workflow_id,
+            "run_id": run_id,
+            "step_id": step_id,
+            "test_name": 'Obrien Transform test',
+            "test_params": {
+                'selected_variable': variables.to_dict()
+            },
+            "test_results": {
+            },
+            "Output_datasets":[{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                    step_id + '/analysis_output' + '/new_dataset.csv'}],
+            'Saved_plots': []
+        }
+    except Exception as e:
+        df["Error"] = ["Unable to compute obrientransform for the selected columns"]
+        print(e)
+        return {'Dataframe': df.to_json(orient="records")}
+    try:
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            file_data = json.load(f)
+            file_data['results'] |= new_data
+            f.seek(0)
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+    except Exception as e:
+        print(e)
+        return {'Dataframe': df.to_json(orient="records")}
+    # tx, ty = obrientransform(data[str(column_1)], data[str(column_2)])
+    return {'Dataframe': df.to_json(orient="records")}
+    # return {'transformed_1': list(tx), 'transformed_2': list(ty)}
 
 
 @router.get("/statistical_tests", tags=['hypothesis_testing'])
@@ -770,17 +840,21 @@ async def statistical_tests(workflow_id: str,
             return {'error': 'Unequal length arrays'}
         statistic, p_value = wilcoxon(data[str(column_1)], data[str(column_2)], alternative=alternative, correction=correction, zero_method=zero_method, mode=mode)
     elif statistical_test == "Alexander Govern test":
+        # TODO: The sample measurements for each group. There must be at least two samples. We can have more than 2
         z = alexandergovern(data[str(column_1)], data[str(column_2)])
         return {'mean_positive': np.mean(data[str(column_1)]), 'standard_deviation_positive': np.std(data[str(column_1)]),
                 'mean_negative': np.mean(data[str(column_2)]), 'standard_deviation_negative': np.std(data[str(column_2)]),
                 'statistic, p_value': z}
     elif statistical_test == "Kruskal-Wallis H-test":
+        # TODO: The test works on 2 or more independent samples, which may have different sizes.
         statistic, p_value = kruskal(data[str(column_1)], data[str(column_2)], nan_policy=nan_policy)
     elif statistical_test == "one-way ANOVA":
+        # TODO: The test is applied to samples from two or more groups, possibly with differing sizes.
         statistic, p_value = f_oneway(data[str(column_1)], data[str(column_2)])
     elif statistical_test == "Wilcoxon rank-sum statistic":
         statistic, p_value = ranksums(data[str(column_1)], data[str(column_2)], nan_policy=nan_policy, alternative=alternative)
     elif statistical_test == "one-way chi-square test":
+        # TODO: We can have several f_obs columns of observed frequencies and f_exp column of the expected frequencies
         statistic, p_value = chisquare(data[str(column_1)], data[str(column_2)])
     return {'mean_positive': np.mean(data[str(column_1)]), 'standard_deviation_positive': np.std(data[str(column_1)]),
             'mean_negative': np.mean(data[str(column_2)]), 'standard_deviation_negative': np.std(data[str(column_2)]),
@@ -2219,6 +2293,7 @@ async def mc_nemar(workflow_id: str,
 
     # df = [[variable_top_left,variable_top_right], [variable_bottom_left,variable_bottom_right]]
     data = load_file_csv_direct(workflow_id, run_id, step_id)
+    # TODO row must be  dichotomous ????
     row_var = data[variable_row]
     column_var = data[variable_column]
     df = pd.crosstab(index=row_var,columns=column_var)
