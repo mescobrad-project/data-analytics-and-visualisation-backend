@@ -594,7 +594,7 @@ async def return_peaks(workflow_id: str, step_id: str, run_id: str,
                        ) -> dict:
     data = load_file_from_local_or_interim_edfbrowser_storage(file_used, workflow_id, run_id, step_id)
 
-
+    # ss value should be a valid integer
     raw_data = data.get_data(return_times=True)
     channels = data.ch_names
 
@@ -1608,6 +1608,10 @@ async def bandpower_yasa(workflow_id: str,
     print("include")
     print(include)
     df = yasa.bandpower(data, hypno=hypno, relative=relative, bandpass=bandpass, include=include)
+    print(df)
+    print('yesssss')
+    df['Channel'] = df.index
+    print(df)
 
     #Add index as column
     df['index'] = df.index
