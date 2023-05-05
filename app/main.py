@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .utils.utils_general import create_neurodesk_user, read_all_neurodesk_users, \
     save_neurodesk_user, get_neurodesk_display_id, get_annotations_from_csv
+# from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
 
 tags_metadata = [
     {
@@ -126,6 +127,14 @@ tags_metadata = [
         }
     },
     {
+        "name": "actigraphy_analysis_assessment_algorithm",
+        "description": "return results of assessment algorithm functions for Actigraphy analysis",
+        "externalDocs": {
+            "description": "-",
+            "url": "https://www.google.com/",
+        }
+    },
+    {
         "name": "return_alpha_delta_ratio",
         "description": "return_alpha_delta_ratio function",
         "externalDocs": {
@@ -168,6 +177,7 @@ tags_metadata = [
 ]
 
 app = FastAPI(openapi_tags=tags_metadata)
+# app.add_middleware(HTTPSRedirectMiddleware)
 
 # region CORS Setup
 # This region enables FastAPI's built in CORSMiddleware allowing cross-origin requests allowing communication with
@@ -188,7 +198,6 @@ NeurodesktopStorageLocation = os.environ.get('NeurodesktopStorageLocation') if o
 app.mount("/static", StaticFiles(directory=NeurodesktopStorageLocation), name="static")
 
 # endregion
-
 
 
 # region Routes of the application

@@ -12,4 +12,6 @@ RUN pip3 install --no-cache-dir --upgrade -r requirements.txt
 ADD .. .
 
 #
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "app.main:app", "--proxy-headers","--host", "0.0.0.0", "--port", "8000"]
+#CMD ["uvicorn", "app.main:app", "--proxy-headers","--host", "0.0.0.0", "--port", "8000"]
+#CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "ssl_keyfile", "./nginx/certs/self_ssl.pem","ssl_certfile", "./nginx/certs/self_ssl_key.pem"]
