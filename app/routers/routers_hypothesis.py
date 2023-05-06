@@ -808,8 +808,9 @@ async def transform_data_anova(
 async def statistical_tests(workflow_id: str,
                             step_id: str,
                             run_id: str,
-                            column_1: str,
-                            column_2: str,
+                            columns: list[str] | None = Query(default=None),
+                            # column_1: str,
+                            # column_2: str,
                             correction: bool = True,
                             nan_policy: Optional[str] | None = Query("propagate",
                                                                      regex="^(propagate)$|^(raise)$|^(omit)$"),
@@ -823,42 +824,168 @@ async def statistical_tests(workflow_id: str,
                                                                  regex="^(auto)$|^(approx)$|^(exact)$"),
                             zero_method: Optional[str] | None = Query("pratt",
                                                                  regex="^(pratt)$|^(wilcox)$|^(zsplit)$")):
-    data = load_file_csv_direct(workflow_id, run_id, step_id)
+    dfv = pd.DataFrame()
+    df = pd.DataFrame()
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status=''
+    # Load Datasets
+    try:
+        test_status = 'Dataset is not defined'
+        dfv['variables'] = columns
+        dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
 
-    if statistical_test == "Welch t-test":
-        statistic, p_value = ttest_ind(data[str(column_1)], data[str(column_2)], nan_policy=nan_policy, equal_var=False, alternative=alternative)
-    elif statistical_test == "Independent t-test":
-        statistic, p_value = ttest_ind(data[str(column_1)], data[str(column_2)], nan_policy=nan_policy, alternative=alternative)
-    elif statistical_test == "t-test on TWO RELATED samples of scores":
-        if np.shape(data[str(column_1)])[0] != np.shape(data[str(column_2)])[0]:
-            return {'error': 'Unequal length arrays'}
-        statistic, p_value = ttest_rel(data[str(column_1)], data[str(column_2)], nan_policy=nan_policy, alternative=alternative)
-    elif statistical_test == "Mann-Whitney U rank test":
-        statistic, p_value = mannwhitneyu(data[str(column_1)], data[str(column_2)], alternative=alternative, method=method)
-    elif statistical_test == "Wilcoxon signed-rank test":
-        if np.shape(data[str(column_1)])[0] != np.shape(data[str(column_2)])[0]:
-            return {'error': 'Unequal length arrays'}
-        statistic, p_value = wilcoxon(data[str(column_1)], data[str(column_2)], alternative=alternative, correction=correction, zero_method=zero_method, mode=mode)
-    elif statistical_test == "Alexander Govern test":
-        # TODO: The sample measurements for each group. There must be at least two samples. We can have more than 2
-        z = alexandergovern(data[str(column_1)], data[str(column_2)])
-        return {'mean_positive': np.mean(data[str(column_1)]), 'standard_deviation_positive': np.std(data[str(column_1)]),
-                'mean_negative': np.mean(data[str(column_2)]), 'standard_deviation_negative': np.std(data[str(column_2)]),
-                'statistic, p_value': z}
-    elif statistical_test == "Kruskal-Wallis H-test":
-        # TODO: The test works on 2 or more independent samples, which may have different sizes.
-        statistic, p_value = kruskal(data[str(column_1)], data[str(column_2)], nan_policy=nan_policy)
-    elif statistical_test == "one-way ANOVA":
-        # TODO: The test is applied to samples from two or more groups, possibly with differing sizes.
-        statistic, p_value = f_oneway(data[str(column_1)], data[str(column_2)])
-    elif statistical_test == "Wilcoxon rank-sum statistic":
-        statistic, p_value = ranksums(data[str(column_1)], data[str(column_2)], nan_policy=nan_policy, alternative=alternative)
-    elif statistical_test == "one-way chi-square test":
-        # TODO: We can have several f_obs columns of observed frequencies and f_exp column of the expected frequencies
-        statistic, p_value = chisquare(data[str(column_1)], data[str(column_2)])
-    return {'mean_positive': np.mean(data[str(column_1)]), 'standard_deviation_positive': np.std(data[str(column_1)]),
-            'mean_negative': np.mean(data[str(column_2)]), 'standard_deviation_negative': np.std(data[str(column_2)]),
-            'statistic': statistic, 'p-value': p_value}
+        selected_datasources = pd.unique(dfv['Datasource'])
+        # We expect only one here
+        test_status='Unable to retrieve datasets'
+        data = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
+        columns = dfv['Variable'].tolist()
+        selected_columns = pd.unique(dfv['Variable'])
+        for column in data.columns:
+            if column not in selected_columns:
+                data = data.drop(str(column), axis=1)
+
+        test_status = 'Unable to compute ' + statistical_test + \
+                      ' for the selected columns. NaNs or nonnumeric values are selected.'
+        if statistical_test == "Welch t-test":
+            if len(data.columns) != 2:
+                test_status = 'Two variables must be selected for '+statistical_test
+                raise Exception
+            df = pd.DataFrame(data=
+                {"Variable":[data.columns[0],data.columns[1]],
+                 'mean': [np.mean(data.iloc[:, 0]), np.mean(data.iloc[:, 1])],
+                 "standard deviation": [np.std(data.iloc[:, 0]), np.std(data.iloc[:, 1])]},
+                                             index=data.columns)
+            statistic, p_value = ttest_ind(data.iloc[:, 0],data.iloc[:, 1], nan_policy=nan_policy, equal_var=False, alternative=alternative)
+        elif statistical_test == "Independent t-test":
+            if len(data.columns) != 2:
+                test_status = 'Two variables must be selected for ' + statistical_test
+                raise Exception
+            df = pd.DataFrame(data=
+                              {"Variable": [data.columns[0], data.columns[1]],
+                               'mean': [np.mean(data.iloc[:, 0]), np.mean(data.iloc[:, 1])],
+                               "standard deviation": [np.std(data.iloc[:, 0]), np.std(data.iloc[:, 1])]},
+                              index=data.columns)
+            statistic, p_value = ttest_ind(data.iloc[:, 0],data.iloc[:, 1], nan_policy=nan_policy, alternative=alternative)
+        elif statistical_test == "t-test on TWO RELATED samples of scores":
+            if len(data.columns) != 2:
+                test_status = 'Two variables must be selected for ' + statistical_test
+                raise Exception
+            elif np.shape(data.iloc[:, 0])[0] != np.shape(data.iloc[:, 1])[0]:
+                test_status = 'The arrays must have the same shape for' + statistical_test
+                raise Exception
+            df = pd.DataFrame(data=
+                              {"Variable": [data.columns[0], data.columns[1]],
+                               'mean': [np.mean(data.iloc[:, 0]), np.mean(data.iloc[:, 1])],
+                               "standard deviation": [np.std(data.iloc[:, 0]), np.std(data.iloc[:, 1])]},
+                              index=data.columns)
+            statistic, p_value = ttest_rel(data.iloc[:, 0],data.iloc[:, 1], nan_policy=nan_policy, alternative=alternative)
+        elif statistical_test == "Mann-Whitney U rank test":
+            if len(data.columns) != 2:
+                test_status = 'Two variables must be selected for ' + statistical_test
+                raise Exception
+            df = pd.DataFrame(data=
+                              {"Variable": [data.columns[0], data.columns[1]],
+                               'mean': [np.mean(data.iloc[:, 0]), np.mean(data.iloc[:, 1])],
+                               "standard deviation": [np.std(data.iloc[:, 0]), np.std(data.iloc[:, 1])]},
+                              index=data.columns)
+            statistic, p_value = mannwhitneyu(data.iloc[:, 0],data.iloc[:, 1], nan_policy=nan_policy, alternative=alternative, method=method)
+        elif statistical_test == "Wilcoxon signed-rank test":
+            if len(data.columns) != 2:
+                test_status = 'Two variables must be selected for ' + statistical_test
+                raise Exception
+            elif np.shape(data.iloc[:, 0])[0] != np.shape(data.iloc[:, 1])[0]:
+                test_status = 'The arrays must have the same shape for' + statistical_test
+                raise Exception
+            df = pd.DataFrame(data=
+                              {"Variable": [data.columns[0], data.columns[1]],
+                               'mean': [np.mean(data.iloc[:, 0]), np.mean(data.iloc[:, 1])],
+                               "standard deviation": [np.std(data.iloc[:, 0]), np.std(data.iloc[:, 1])]},
+                              index=data.columns)
+            statistic, p_value = wilcoxon(data.iloc[:, 0],data.iloc[:, 1], alternative=alternative, nan_policy=nan_policy, correction=correction, zero_method=zero_method, mode=mode)
+        elif statistical_test == "Alexander Govern test":
+            samples = []
+            for k in data.columns:
+                samples.append(data[k])
+            AlexanderGovernResult = alexandergovern(*samples, nan_policy=nan_policy)
+            statistic, p_value = AlexanderGovernResult.statistic, AlexanderGovernResult.pvalue
+            df = pd.DataFrame(data=
+                              {"Variable": data.columns,
+                               'mean': data.mean(),
+                               "standard deviation": data.std()},
+                              index=data.columns)
+        elif statistical_test == "Kruskal-Wallis H-test":
+            samples = []
+            for k in data.columns:
+                samples.append(data[k])
+            statistic, p_value = kruskal(*samples, nan_policy=nan_policy)
+            df = pd.DataFrame(data=
+                              {"Variable": data.columns,
+                               'mean': data.mean(),
+                               "standard deviation": data.std()},
+                              index=data.columns)
+        elif statistical_test == "one-way ANOVA":
+            samples = []
+            for k in data.columns:
+                samples.append(data[k])
+            statistic, p_value = f_oneway(*samples)
+            df = pd.DataFrame(data=
+                              {"Variable": data.columns,
+                               'mean': data.mean(),
+                               "standard deviation": data.std()},
+                              index=data.columns)
+        elif statistical_test == "Wilcoxon rank-sum statistic":
+            if len(data.columns) != 2:
+                test_status = 'Two variables must be selected for ' + statistical_test
+                raise Exception
+            df = pd.DataFrame(data=
+                              {"Variable": [data.columns[0], data.columns[1]],
+                               'mean': [np.mean(data.iloc[:, 0]), np.mean(data.iloc[:, 1])],
+                               "standard deviation": [np.std(data.iloc[:, 0]), np.std(data.iloc[:, 1])]},
+                              index=data.columns)
+            statistic, p_value = ranksums(data.iloc[:, 0],data.iloc[:, 1], nan_policy=nan_policy, alternative=alternative)
+        elif statistical_test == "one-way chi-square test":
+            # TODO: We can have several f_obs columns of observed frequencies and
+            #  f_exp column of the expected frequencies
+            statistic, p_value = chisquare(data[0],data[1])
+
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            # Load existing data into a dict.
+            file_data = json.load(f)
+            # Join new data
+            new_data = {
+                    "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                    "workflow_id": workflow_id,
+                    "run_id": run_id,
+                    "step_id": step_id,
+                    "test_name": statistical_test,
+                    "test_params": {
+                        'selected_method': method,
+                        'selected_variable': columns,
+                        'nan_policy': nan_policy,
+                        'alternative': alternative,
+                        'correction': correction,
+                        'method': method,
+                        'mode': mode,
+                        'zero_method': zero_method
+                    },
+                    "test_results": {
+                        'statistic': statistic,
+                        'p-value': p_value,
+                        'Mean & std': df.to_dict()}
+            }
+            file_data['results'] = new_data
+            file_data['Output_datasets'] = []
+            # Set file's current position at offset.
+            f.seek(0)
+            # convert back to json.
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        return JSONResponse(content={'status': 'Success', 'statistic': statistic,
+                                     'p-value': p_value, 'mean_std': df.to_json(orient='records')}, status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status':test_status, 'statistic': '',
+                                     'p-value': '', 'mean_std': df.to_json(orient='records')}, status_code=200)
 
 
 @router.post("/multiple_comparisons", tags=['hypothesis_testing'])
