@@ -43,7 +43,7 @@ from statsmodels.discrete.conditional_models import ConditionalLogit
 from zepid.base import RiskRatio, RiskDifference, OddsRatio, IncidenceRateRatio, IncidenceRateDifference, NNT
 from zepid import load_sample_data
 from zepid.calc import risk_ci, incidence_rate_ci, risk_ratio, risk_difference, number_needed_to_treat, odds_ratio, incidence_rate_ratio, incidence_rate_difference
-from app.pydantic_models import ModelMultipleComparisons
+# from app.pydantic_models import ModelMultipleComparisons
 from app.utils.utils_datalake import fget_object, get_saved_dataset_for_Hypothesis, upload_object
 from app.utils.utils_general import get_local_storage_path, get_single_file_from_local_temp_storage, load_data_from_csv, \
     load_file_csv_direct, get_all_files_from_local_temp_storage
@@ -850,21 +850,11 @@ async def statistical_tests(workflow_id: str,
             if len(data.columns) != 2:
                 test_status = 'Two variables must be selected for '+statistical_test
                 raise Exception
-            df = pd.DataFrame(data=
-                {"Variable":[data.columns[0],data.columns[1]],
-                 'mean': [np.mean(data.iloc[:, 0]), np.mean(data.iloc[:, 1])],
-                 "standard deviation": [np.std(data.iloc[:, 0]), np.std(data.iloc[:, 1])]},
-                                             index=data.columns)
             statistic, p_value = ttest_ind(data.iloc[:, 0],data.iloc[:, 1], nan_policy=nan_policy, equal_var=False, alternative=alternative)
         elif statistical_test == "Independent t-test":
             if len(data.columns) != 2:
                 test_status = 'Two variables must be selected for ' + statistical_test
                 raise Exception
-            df = pd.DataFrame(data=
-                              {"Variable": [data.columns[0], data.columns[1]],
-                               'mean': [np.mean(data.iloc[:, 0]), np.mean(data.iloc[:, 1])],
-                               "standard deviation": [np.std(data.iloc[:, 0]), np.std(data.iloc[:, 1])]},
-                              index=data.columns)
             statistic, p_value = ttest_ind(data.iloc[:, 0],data.iloc[:, 1], nan_policy=nan_policy, alternative=alternative)
         elif statistical_test == "t-test on TWO RELATED samples of scores":
             if len(data.columns) != 2:
@@ -873,21 +863,11 @@ async def statistical_tests(workflow_id: str,
             elif np.shape(data.iloc[:, 0])[0] != np.shape(data.iloc[:, 1])[0]:
                 test_status = 'The arrays must have the same shape for' + statistical_test
                 raise Exception
-            df = pd.DataFrame(data=
-                              {"Variable": [data.columns[0], data.columns[1]],
-                               'mean': [np.mean(data.iloc[:, 0]), np.mean(data.iloc[:, 1])],
-                               "standard deviation": [np.std(data.iloc[:, 0]), np.std(data.iloc[:, 1])]},
-                              index=data.columns)
             statistic, p_value = ttest_rel(data.iloc[:, 0],data.iloc[:, 1], nan_policy=nan_policy, alternative=alternative)
         elif statistical_test == "Mann-Whitney U rank test":
             if len(data.columns) != 2:
                 test_status = 'Two variables must be selected for ' + statistical_test
                 raise Exception
-            df = pd.DataFrame(data=
-                              {"Variable": [data.columns[0], data.columns[1]],
-                               'mean': [np.mean(data.iloc[:, 0]), np.mean(data.iloc[:, 1])],
-                               "standard deviation": [np.std(data.iloc[:, 0]), np.std(data.iloc[:, 1])]},
-                              index=data.columns)
             statistic, p_value = mannwhitneyu(data.iloc[:, 0],data.iloc[:, 1], nan_policy=nan_policy, alternative=alternative, method=method)
         elif statistical_test == "Wilcoxon signed-rank test":
             if len(data.columns) != 2:
@@ -896,11 +876,6 @@ async def statistical_tests(workflow_id: str,
             elif np.shape(data.iloc[:, 0])[0] != np.shape(data.iloc[:, 1])[0]:
                 test_status = 'The arrays must have the same shape for' + statistical_test
                 raise Exception
-            df = pd.DataFrame(data=
-                              {"Variable": [data.columns[0], data.columns[1]],
-                               'mean': [np.mean(data.iloc[:, 0]), np.mean(data.iloc[:, 1])],
-                               "standard deviation": [np.std(data.iloc[:, 0]), np.std(data.iloc[:, 1])]},
-                              index=data.columns)
             statistic, p_value = wilcoxon(data.iloc[:, 0],data.iloc[:, 1], alternative=alternative, nan_policy=nan_policy, correction=correction, zero_method=zero_method, mode=mode)
         elif statistical_test == "Alexander Govern test":
             samples = []
@@ -908,46 +883,34 @@ async def statistical_tests(workflow_id: str,
                 samples.append(data[k])
             AlexanderGovernResult = alexandergovern(*samples, nan_policy=nan_policy)
             statistic, p_value = AlexanderGovernResult.statistic, AlexanderGovernResult.pvalue
-            df = pd.DataFrame(data=
-                              {"Variable": data.columns,
-                               'mean': data.mean(),
-                               "standard deviation": data.std()},
-                              index=data.columns)
         elif statistical_test == "Kruskal-Wallis H-test":
             samples = []
             for k in data.columns:
                 samples.append(data[k])
             statistic, p_value = kruskal(*samples, nan_policy=nan_policy)
-            df = pd.DataFrame(data=
-                              {"Variable": data.columns,
-                               'mean': data.mean(),
-                               "standard deviation": data.std()},
-                              index=data.columns)
         elif statistical_test == "one-way ANOVA":
             samples = []
             for k in data.columns:
                 samples.append(data[k])
             statistic, p_value = f_oneway(*samples)
-            df = pd.DataFrame(data=
-                              {"Variable": data.columns,
-                               'mean': data.mean(),
-                               "standard deviation": data.std()},
-                              index=data.columns)
         elif statistical_test == "Wilcoxon rank-sum statistic":
             if len(data.columns) != 2:
                 test_status = 'Two variables must be selected for ' + statistical_test
                 raise Exception
-            df = pd.DataFrame(data=
-                              {"Variable": [data.columns[0], data.columns[1]],
-                               'mean': [np.mean(data.iloc[:, 0]), np.mean(data.iloc[:, 1])],
-                               "standard deviation": [np.std(data.iloc[:, 0]), np.std(data.iloc[:, 1])]},
-                              index=data.columns)
             statistic, p_value = ranksums(data.iloc[:, 0],data.iloc[:, 1], nan_policy=nan_policy, alternative=alternative)
         elif statistical_test == "one-way chi-square test":
+            samples = []
+            for k in data.columns:
+                samples.append(data[k])
             # TODO: We can have several f_obs columns of observed frequencies and
             #  f_exp column of the expected frequencies
-            statistic, p_value = chisquare(data[0],data[1])
-
+            statistic, p_value = chisquare(*samples)
+        # Provide Mean and Std for all cases
+        df = pd.DataFrame(data=
+                          {"Variable": data.columns,
+                           'mean': data.mean(),
+                           "standard deviation": data.std()},
+                          index=data.columns)
         with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
             # Load existing data into a dict.
             file_data = json.load(f)
@@ -964,7 +927,6 @@ async def statistical_tests(workflow_id: str,
                         'nan_policy': nan_policy,
                         'alternative': alternative,
                         'correction': correction,
-                        'method': method,
                         'mode': mode,
                         'zero_method': zero_method
                     },
@@ -988,32 +950,79 @@ async def statistical_tests(workflow_id: str,
                                      'p-value': '', 'mean_std': df.to_json(orient='records')}, status_code=200)
 
 
-@router.post("/multiple_comparisons", tags=['hypothesis_testing'])
-async def p_value_correction(input_config: ModelMultipleComparisons):
-    method = input_config.method
-    alpha = input_config.alpha
-    p_value = input_config.p_value
+@router.get("/multiple_comparisons", tags=['hypothesis_testing'])
+async def p_value_correction(workflow_id: str,
+                             step_id: str,
+                             run_id: str,
+                             method: str,
+                             alpha: float,
+                             p_value: list[str] | None = Query(default=None)):
+    dfv = pd.DataFrame()
+    df = pd.DataFrame()
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
+    # Load Datasets
+    try:
+        test_status = 'Dataset is not defined'
+        dfv['variables'] = p_value
+        dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
 
-    if method == 'Bonferroni':
-        z = multipletests(pvals=p_value, alpha=alpha, method='bonferroni')
-        y = [str(x) for x in z[0]]
-        return {'rejected': list(y), 'corrected_p_values': list(z[1])}
-    elif method == 'sidak':
-        z = multipletests(pvals=p_value, alpha=alpha, method='sidak')
-        y = [str(x) for x in z[0]]
-        return {'rejected': list(y), 'corrected_p_values': list(z[1])}
-    elif method == 'benjamini-hochberg':
-        z = multipletests(pvals=p_value, alpha=alpha, method='fdr_bh')
-        y = [str(x) for x in z[0]]
-        return {'rejected': list(y), 'corrected_p_values': list(z[1])}
-    elif method == 'benjamini-yekutieli':
-        z = multipletests(pvals=p_value, alpha=alpha, method='fdr_by')
-        y = [str(x) for x in z[0]]
-        return {'rejected': list(y), 'corrected_p_values': list(z[1])}
-    else:
-        z = multipletests(pvals=p_value, alpha=alpha, method= method)
-        y = [str(x) for x in z[0]]
-        return {'rejected': list(y), 'corrected_p_values': list(z[1])}
+        selected_datasources = pd.unique(dfv['Datasource'])
+        # We expect only one here
+        test_status = 'Unable to retrieve datasets'
+        data = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
+        # We expect only 1 column
+        if len(pd.unique(dfv['Variable'])) != 1:
+            test_status = 'Only 1 set of p-values is expected'
+            raise Exception
+
+        p_value = dfv['Variable'][0]
+        test_status = 'Unable to compute ' + method + ' Multitest for the selected p-values.'
+        if method == 'Bonferroni':
+            z = multipletests(pvals=data[p_value], alpha=alpha, method='bonferroni')
+        elif method == 'sidak':
+            z = multipletests(pvals=data[p_value], alpha=alpha, method='sidak')
+        elif method == 'benjamini-hochberg':
+            z = multipletests(pvals=data[p_value], alpha=alpha, method='fdr_bh')
+        elif method == 'benjamini-yekutieli':
+            z = multipletests(pvals=data[p_value], alpha=alpha, method='fdr_by')
+        else:
+            z = multipletests(pvals=data[p_value], alpha=alpha, method= method)
+
+        df['p_values'] = data[p_value]
+        df['rejected'] = [str(x) for x in z[0]]
+        df['corrected_p_values'] = z[1]
+        df.to_csv(path_to_storage + '/output/new_dataset.csv', index=False)
+
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            # Load existing data into a dict.
+            file_data = json.load(f)
+            # Join new data
+            new_data = {
+                    "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                    "workflow_id": workflow_id,
+                    "run_id": run_id,
+                    "step_id": step_id,
+                    "test_name": "Multitesting and adjustment of pvalues",
+                    "test_params": {
+                        'selected_method': method,
+                        'selected_variable': p_value,
+                        'alpha': alpha
+                    },
+                    "test_results": ''
+            }
+            file_data['results'] = new_data
+            file_data['Output_datasets'] = [{"file": 'expertsystem/workflow/'+ workflow_id+'/'+ run_id+'/'+
+                                         step_id+'/analysis_output' + '/new_dataset.csv'}]
+            # Set file's current position at offset.
+            f.seek(0)
+            # convert back to json.
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        return {'result': df.to_json(orient='records')}
+    except Exception as e:
+        print(e)
+        return {'status':test_status,'result': df.to_json(orient='records')}
 
 
 @router.get("/return_LDA", tags=["return_LDA"])
