@@ -1019,7 +1019,7 @@ async def p_value_correction(workflow_id: str,
             # convert back to json.
             json.dump(file_data, f, indent=4)
             f.truncate()
-        return {'result': df.to_json(orient='records')}
+        return {'status':'Success', 'result': df.to_json(orient='records')}
     except Exception as e:
         print(e)
         return {'status':test_status,'result': df.to_json(orient='records')}
@@ -2728,11 +2728,30 @@ async def correlations_pingouin(workflow_id: str,
                                                                           regex="^(two-sided)$|^(less)$|^(greater)$"),
                                 method: Optional[str] | None = Query("pearson",
                                                                      regex="^(pearson)$|^(spearman)$|^(kendall)$|^(bicor)$|^(percbend)$|^(shepherd)$|^(skipped)$")):
-    data = load_file_csv_direct(workflow_id, run_id, step_id)
-    df = data[column_2]
+    dfv = pd.DataFrame()
+    # dfe = pd.DataFrame()
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
+    # Load Datasets
+    try:
+        test_status = 'Dataset is not defined'
+        dfv['variables'] = column_2
+        dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
 
-    df1 = df.rcorr(stars=False).round(5)
-    corrs = df.corr()
+        selected_datasources = pd.unique(dfv['Datasource'])
+        test_status='Unable to retrieve datasets'
+        data = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
+        column_2 = dfv['Variable'].tolist()
+        selected_columns = pd.unique(dfv['Variable'])
+        for column in data.columns:
+            if column not in selected_columns:
+                data = data.drop(str(column), axis=1)
+
+        test_status = 'Unable to compute ' + method+' correlation.'
+        df = data[column_2]
+        # Not for all methods -
+        # df1 = df.rcorr(stars=False).round(5)
+        # corrs = df.corr()
 
     # mask = np.zeros_like(corrs)
     # mask[np.triu_indices_from(mask)] = True
@@ -2748,33 +2767,61 @@ async def correlations_pingouin(workflow_id: str,
     # ss = mpld3.save_json(fig, 'ss.json')
     # html_str = mpld3.fig_to_html(fig)
 
-    all_res = []
-    count=0
-    for i in column_2:
-        for j in column_2:
-            if i == j or column_2.index(j) < column_2.index(i):
-                continue
-            res = pingouin.corr(x=data[i], y=data[j], method=method, alternative=alternative).round(5)
-            res.insert(0,'Cor', i + "-" + j, True)
-            count = count + 1
-            for ind, row in res.iterrows():
-                temp_to_append = {
-                    "id": count,
-                    "Cor": row['Cor'],
-                    "n": row['n'],
-                    "r": row['r'],
-                    "CI95%": "[" + str(row['CI95%'].item(0)) + "," + str(row['CI95%'].item(1)) + "]",
-                    "p-val": row['p-val'],
-                    "power": row['power']
-                }
-                if method == 'pearson':
-                    temp_to_append["BF10"] = row['BF10']
-                if method == 'shepherd':
-                    temp_to_append["outliers"] = row['outliers']
-            all_res.append(temp_to_append)
+        all_res = []
+        count=0
+        for i in column_2:
+            for j in column_2:
+                if i == j or column_2.index(j) < column_2.index(i):
+                    continue
+                res = pingouin.corr(x=data[i], y=data[j], method=method, alternative=alternative).round(5)
+                res.insert(0,'Cor', i + "-" + j, True)
+                count = count + 1
+                for ind, row in res.iterrows():
+                    temp_to_append = {
+                        "id": count,
+                        "Cor": row['Cor'],
+                        "n": row['n'],
+                        "r": row['r'],
+                        "CI95%": "[" + str(row['CI95%'].item(0)) + "," + str(row['CI95%'].item(1)) + "]",
+                        "p-val": row['p-val'],
+                        "power": row['power']
+                    }
+                    if method == 'pearson':
+                        temp_to_append["BF10"] = row['BF10']
+                    if method == 'shepherd':
+                        temp_to_append["outliers"] = row['outliers']
+                all_res.append(temp_to_append)
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            # Load existing data into a dict.
+            file_data = json.load(f)
+            # Join new data
+            new_data = {
+                    "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                    "workflow_id": workflow_id,
+                    "run_id": run_id,
+                    "step_id": step_id,
+                    "test_name": "Correlation test",
+                    "test_params": {
+                        'selected_method': method,
+                        'selected_variable': column_2,
+                        'alternative': alternative
+                    },
+                    "test_results": all_res
+            }
+            file_data['results'] = new_data
+            file_data['Output_datasets'] = []
+            # Set file's current position at offset.
+            f.seek(0)
+            # convert back to json.
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        return JSONResponse(content={'status':'Success', 'DataFrame': all_res}, status_code=200)
+        # return JSONResponse(content={'status':'Success', 'DataFrame': all_res, "Table_rcorr": df1.to_json(orient='records')}, status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status':test_status, 'DataFrame': []}, status_code=200)
+        # return JSONResponse(content={'status':test_status, 'DataFrame': [],'Table_rcorr':dfe.to_json(orient='records')}, status_code=200)
 
-    return {'DataFrame': all_res, "Table_rcorr": df1.to_json(orient='records')}
-    # return {'DataFrame': all_res, "Table_rcorr": df1.to_json(orient='records'), "rplot":html_str}
 
 @router.get("/linear_regressor_pinguin")
 async def linear_regression_pinguin(dependent_variable: str,
