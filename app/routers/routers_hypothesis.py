@@ -1190,7 +1190,7 @@ async def LDA(workflow_id: str,
 
     # return {'coefficients': df_coefs.to_json(orient='split'), 'intercept': df_intercept.to_json(orient='split')}
 
-
+# TODO: Should we Delete this????
 @router.get("/principal_component_analysis")
 async def principal_component_analysis(workflow_id: str,
                                        step_id: str,
@@ -1249,18 +1249,60 @@ async def kmeans_clustering(workflow_id: str,
                             run_id: str,
                             n_clusters: int,
                             independent_variables: list[str] | None = Query(default=None)):
-    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
-    for columns in dataset.columns:
-        if columns not in independent_variables:
-            dataset = dataset.drop(str(columns), axis=1)
+    dfv = pd.DataFrame()
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
+    # Load Datasets
+    to_return = {'cluster_centers': dfv.to_json(orient='records'), 'sum_squared_dist' : '','iterations_No': ''}
+    try:
+        test_status = 'Dataset is not defined'
+        dfv['variables'] = independent_variables
+        dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
 
-    X = np.array(dataset)
+        selected_datasources = pd.unique(dfv['Datasource'])
+        test_status = 'Unable to retrieve datasets'
+        dataset = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
+        independent_variables = dfv['Variable'].tolist()
+        selected_columns = pd.unique(dfv['Variable'])
+        for columns in dataset.columns:
+            if columns not in selected_columns:
+                dataset = dataset.drop(str(columns), axis=1)
+        test_status = 'Unable to compute KMeans. Variables with numeric values must be selected.'
+        # X = np.array(dataset)
+        kmeans = KMeans(n_clusters=n_clusters, random_state=0).fit(dataset)
+        df = pd.DataFrame(kmeans.cluster_centers_, columns=dataset.columns)
+        print(kmeans.cluster_centers_)
+        to_return={'cluster_centers': df.to_json(orient='records'), 'sum_squared_dist' : kmeans.inertia_,
+                   'iterations_No': kmeans.n_iter_}
+                # 'labels': kmeans.labels_.tolist(),
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            # Load existing data into a dict.
+            file_data = json.load(f)
+            # Join new data
+            new_data = {
+                    "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                    "workflow_id": workflow_id,
+                    "run_id": run_id,
+                    "step_id": step_id,
+                    "test_name": "KMeans",
+                    "test_params": {
+                        'selected_variables': independent_variables,
+                        'n_clusters': n_clusters
+                    },
+                    "test_results": to_return
+            }
+            file_data['results'] = new_data
+            file_data['Output_datasets'] = []
+            # Set file's current position at offset.
+            f.seek(0)
+            # convert back to json.
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        return JSONResponse(content={'status':'Success', 'results': to_return}, status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status': test_status, 'results': to_return}, status_code=200)
 
-    kmeans = KMeans(n_clusters=n_clusters, random_state=0).fit(X)
-
-    return {'Coordinates of cluster centers': kmeans.cluster_centers_.tolist(),
-            'Labels of each point ': kmeans.labels_.tolist(),
-            'Sum of squared distances of samples to their closest cluster center' : kmeans.inertia_}
 
 # TODO DELETE NEWER IMPLEMENTATION LATER IN THE FILE
 # @router.get("/linear_regressor")
@@ -2577,19 +2619,50 @@ async def risk_ratio_1(
     return {'table': df.to_json(orient="records")}
 
 @router.get("/two_sided_risk_ci")
-async def two_sided_risk_ci(events: int,
+async def two_sided_risk_ci(workflow_id: str,
+                            step_id: str,
+                            run_id: str,
+                            events: int,
                             total: int,
                             alpha: float | None = Query(default=0.05),
                             confint: str | None = Query("wald",
                                                        regex="^(wald)$|^(hypergeometric)$")):
+    test_status = 'Unable to compute the estimated risk.'
+    to_return = {'estimated risk': '', 'lower bound': '', 'upper bound': '',
+                 'standard error': ''}
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    try:
+        r = risk_ci(events=events, total=total, alpha=alpha, confint=confint)
+        estimated_risk = r.point_estimate
+        lower_bound = r.lower_bound
+        upper_bound = r.upper_bound
+        standard_error = r.standard_error
+        to_return = {'estimated risk': estimated_risk, 'lower bound': lower_bound, 'upper bound': upper_bound, 'standard error': standard_error}
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            file_data = json.load(f)
+            new_data = {
+                "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                "workflow_id": workflow_id,
+                "run_id": run_id,
+                "step_id": step_id,
+                "test_name": 'Linear discriminant analysis',
+                "test_params": {'events': str(events),
+                                'total': str(total),
+                                'alpha': str(alpha),
+                                'confint': confint},
+                "test_results": to_return,
+                "Output_datasets": [],
+                "Saved_plots": []
+            }
+            file_data['results'] |= new_data
+            f.seek(0)
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        return JSONResponse(content={'status': 'Success', 'result': to_return}, status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status': test_status, 'result': to_return}, status_code=200)
 
-    r = risk_ci(events=events, total=total, alpha=alpha, confint=confint)
-    estimated_risk = r.point_estimate
-    lower_bound = r.lower_bound
-    upper_bound = r.upper_bound
-    standard_error = r.standard_error
-
-    return {'estimated risk': estimated_risk, 'lower bound': lower_bound, 'upper bound': upper_bound, 'standard error': standard_error}
 
 @router.get("/two_sided_incident_rate")
 async def two_sided_risk_ci(events: int,
@@ -2614,14 +2687,41 @@ async def risk_ratio_function(workflow_id: str,
                               exposed_without: int,
                               unexposed_without: int,
                               alpha: float | None = Query(default=0.05)):
-
-    r = risk_ratio(a=exposed_with, b=unexposed_with, c=exposed_without, d=unexposed_without, alpha=alpha)
-    print(r)
-    estimated_risk = r.point_estimate
-    lower_bound = r.lower_bound
-    upper_bound = r.upper_bound
-    standard_error = r.standard_error
-    return {'estimated_risk': estimated_risk, 'lower_bound': lower_bound, 'upper_bound': upper_bound, 'standard_error': standard_error}
+    test_status = 'Unable to compute the estimated risk.'
+    to_return = {'estimated_risk': '', 'lower_bound': '', 'upper_bound': '',
+                 'standard_error': ''}
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    try:
+        r = risk_ratio(a=exposed_with, b=unexposed_with, c=exposed_without, d=unexposed_without, alpha=alpha)
+        estimated_risk = r.point_estimate
+        lower_bound = r.lower_bound
+        upper_bound = r.upper_bound
+        standard_error = r.standard_error
+        to_return = {'estimated_risk': estimated_risk, 'lower_bound': lower_bound, 'upper_bound': upper_bound, 'standard_error': standard_error}
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            file_data = json.load(f)
+            new_data = {
+                "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                "workflow_id": workflow_id,
+                "run_id": run_id,
+                "step_id": step_id,
+                "test_name": 'Risk_ratio',
+                "test_params": {'exposed_with': str(exposed_with),
+                                'unexposed_with': str(unexposed_with),
+                                'exposed_without': str(exposed_without),
+                                'unexposed_without': str(unexposed_without)},
+                "test_results": to_return,
+                "Output_datasets": [],
+                "Saved_plots": []
+            }
+            file_data['results'] |= new_data
+            f.seek(0)
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        return JSONResponse(content={'status': 'Success', 'result': to_return}, status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status': test_status, 'result': to_return}, status_code=200)
 
 @router.get("/risk_difference_function")
 async def risk_difference_function(
@@ -2633,14 +2733,43 @@ async def risk_difference_function(
         exposed_without: int,
         unexposed_without: int,
         alpha: float | None = Query(default=0.05)):
+    test_status = 'Unable to compute the estimated risk.'
+    to_return = {'risk_difference': '', 'lower_bound': '', 'upper_bound': '',
+                 'standard_error': ''}
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    try:
+        r = risk_difference(a=exposed_with, b=unexposed_with, c=exposed_without, d=unexposed_without, alpha=alpha)
+        estimated_risk = r.point_estimate
+        lower_bound = r.lower_bound
+        upper_bound = r.upper_bound
+        standard_error = r.standard_error
+        to_return = {'risk_difference': estimated_risk, 'lower_bound': lower_bound, 'upper_bound': upper_bound,
+                     'standard_error': standard_error}
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            file_data = json.load(f)
+            new_data = {
+                "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                "workflow_id": workflow_id,
+                "run_id": run_id,
+                "step_id": step_id,
+                "test_name": 'Risk_difference',
+                "test_params": {'exposed_with': str(exposed_with),
+                                'unexposed_with': str(unexposed_with),
+                                'exposed_without': str(exposed_without),
+                                'unexposed_without': str(unexposed_without)},
+                "test_results": to_return,
+                "Output_datasets": [],
+                "Saved_plots": []
+            }
+            file_data['results'] |= new_data
+            f.seek(0)
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        return JSONResponse(content={'status': 'Success', 'result': to_return}, status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status': test_status, 'result': to_return}, status_code=200)
 
-    r = risk_difference(a=exposed_with, b=unexposed_with, c=exposed_without, d=unexposed_without, alpha=alpha)
-    estimated_risk = r.point_estimate
-    lower_bound = r.lower_bound
-    upper_bound = r.upper_bound
-    standard_error = r.standard_error
-
-    return {'risk_difference': estimated_risk, 'lower_bound': lower_bound, 'upper_bound': upper_bound, 'standard_error': standard_error}
 
 @router.get("/number_needed_to_treat_function")
 async def number_needed_to_treat_function(
@@ -2652,14 +2781,43 @@ async def number_needed_to_treat_function(
         exposed_without: int,
         unexposed_without: int,
         alpha: float | None = Query(default=0.05)):
+    test_status = 'Unable to compute the estimated risk.'
+    to_return = {'nnt': '', 'lower_bound': '', 'upper_bound': '',
+                 'standard_error': ''}
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    try:
+        r = number_needed_to_treat(a=exposed_with, b=unexposed_with, c=exposed_without, d=unexposed_without, alpha=alpha)
+        estimated_risk = r.point_estimate
+        lower_bound = r.lower_bound
+        upper_bound = r.upper_bound
+        standard_error = r.standard_error
+        to_return = {'nnt': estimated_risk, 'lower_bound': lower_bound, 'upper_bound': upper_bound,
+                     'standard_error': standard_error}
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            file_data = json.load(f)
+            new_data = {
+                "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                "workflow_id": workflow_id,
+                "run_id": run_id,
+                "step_id": step_id,
+                "test_name": 'Number_needed_to_treat',
+                "test_params": {'exposed_with': str(exposed_with),
+                                'unexposed_with': str(unexposed_with),
+                                'exposed_without': str(exposed_without),
+                                'unexposed_without': str(unexposed_without)},
+                "test_results": to_return,
+                "Output_datasets": [],
+                "Saved_plots": []
+            }
+            file_data['results'] |= new_data
+            f.seek(0)
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        return JSONResponse(content={'status': 'Success', 'result': to_return}, status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status': test_status, 'result': to_return}, status_code=200)
 
-    r = number_needed_to_treat(a=exposed_with, b=unexposed_with, c=exposed_without, d=unexposed_without, alpha=alpha)
-    estimated_risk = r.point_estimate
-    lower_bound = r.lower_bound
-    upper_bound = r.upper_bound
-    standard_error = r.standard_error
-
-    return {'nnt': estimated_risk, 'lower_bound': lower_bound, 'upper_bound': upper_bound, 'standard_error': standard_error}
 
 @router.get("/odds_ratio_function")
 async def odds_ratio_function(
@@ -2671,14 +2829,43 @@ async def odds_ratio_function(
         exposed_without: int,
         unexposed_without: int,
         alpha: float | None = Query(default=0.05)):
+    test_status = 'Unable to compute the estimated risk.'
+    to_return = {'odds_ratio': '', 'lower_bound': '', 'upper_bound': '',
+                 'standard_error': ''}
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    try:
+        r = odds_ratio(a=exposed_with, b=unexposed_with, c=exposed_without, d=unexposed_without, alpha=alpha)
+        estimated_risk = r.point_estimate
+        lower_bound = r.lower_bound
+        upper_bound = r.upper_bound
+        standard_error = r.standard_error
+        to_return = {'odds_ratio': estimated_risk, 'lower_bound': lower_bound, 'upper_bound': upper_bound,
+                     'standard_error': standard_error}
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            file_data = json.load(f)
+            new_data = {
+                "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                "workflow_id": workflow_id,
+                "run_id": run_id,
+                "step_id": step_id,
+                "test_name": 'Odds_ratio',
+                "test_params": {'exposed_with': str(exposed_with),
+                                'unexposed_with': str(unexposed_with),
+                                'exposed_without': str(exposed_without),
+                                'unexposed_without': str(unexposed_without)},
+                "test_results": to_return,
+                "Output_datasets": [],
+                "Saved_plots": []
+            }
+            file_data['results'] |= new_data
+            f.seek(0)
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        return JSONResponse(content={'status': 'Success', 'result': to_return}, status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status': test_status, 'result': to_return}, status_code=200)
 
-    r = odds_ratio(a=exposed_with, b=unexposed_with, c=exposed_without, d=unexposed_without, alpha=alpha)
-    estimated_risk = r.point_estimate
-    lower_bound = r.lower_bound
-    upper_bound = r.upper_bound
-    standard_error = r.standard_error
-
-    return {'odds_ratio': estimated_risk, 'lower_bound': lower_bound, 'upper_bound': upper_bound, 'standard_error': standard_error}
 
 @router.get("/incidence_rate_ratio_function")
 async def incidence_rate_ratio_function(
@@ -2690,14 +2877,44 @@ async def incidence_rate_ratio_function(
         person_time_exposed: int,
         person_time_unexposed: int,
         alpha: float | None = Query(default=0.05)):
+    test_status = 'Unable to compute the estimated risk.'
+    to_return = {'incident_rate_ratio': '', 'lower_bound': '', 'upper_bound': '',
+                 'standard_error': ''}
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    try:
+        r = incidence_rate_ratio(a=exposed_with, c=unexposed_with, t1=person_time_exposed, t2=person_time_unexposed, alpha=alpha)
+        estimated_risk = r.point_estimate
+        lower_bound = r.lower_bound
+        upper_bound = r.upper_bound
+        standard_error = r.standard_error
+        to_return = {'incident_rate_ratio': estimated_risk, 'lower_bound': lower_bound, 'upper_bound': upper_bound,
+                     'standard_error': standard_error}
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            file_data = json.load(f)
+            new_data = {
+                "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                "workflow_id": workflow_id,
+                "run_id": run_id,
+                "step_id": step_id,
+                "test_name": 'Incidence_rate_ratio',
+                "test_params": {'exposed_with': str(exposed_with),
+                                'unexposed_with': str(unexposed_with),
+                                'person_time_exposed': str(person_time_exposed),
+                                'person_time_unexposed': str(person_time_unexposed)},
+                "test_results": to_return,
+                "Output_datasets": [],
+                "Saved_plots": []
+            }
+            file_data['results'] |= new_data
+            f.seek(0)
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        return JSONResponse(content={'status': 'Success', 'result': to_return}, status_code=200)
 
-    r = incidence_rate_ratio(a=exposed_with, c=unexposed_with, t1=person_time_exposed, t2=person_time_unexposed, alpha=alpha)
-    estimated_risk = r.point_estimate
-    lower_bound = r.lower_bound
-    upper_bound = r.upper_bound
-    standard_error = r.standard_error
-    print(r)
-    return {'incident_rate_ratio': estimated_risk, 'lower_bound': lower_bound, 'upper_bound': upper_bound, 'standard_error': standard_error}
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status': test_status, 'result': to_return}, status_code=200)
+
 
 @router.get("/incidence_rate_difference_function")
 async def incidence_rate_difference_function(
@@ -2709,14 +2926,43 @@ async def incidence_rate_difference_function(
         person_time_exposed: int,
         person_time_unexposed: int,
         alpha: float | None = Query(default=0.05)):
+    test_status = 'Unable to compute the estimated risk.'
+    to_return = {'incident_rate_difference': '', 'lower_bound': '', 'upper_bound': '',
+                 'standard_error': ''}
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    try:
+        r = incidence_rate_difference(a=exposed_with, c=unexposed_with, t1=person_time_exposed, t2=person_time_unexposed, alpha=alpha)
+        estimated_risk = r.point_estimate
+        lower_bound = r.lower_bound
+        upper_bound = r.upper_bound
+        standard_error = r.standard_error
+        to_return = {'incident_rate_difference': estimated_risk, 'lower_bound': lower_bound, 'upper_bound': upper_bound,
+                     'standard_error': standard_error}
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            file_data = json.load(f)
+            new_data = {
+                "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                "workflow_id": workflow_id,
+                "run_id": run_id,
+                "step_id": step_id,
+                "test_name": 'Incident_rate_difference',
+                "test_params": {'exposed_with': str(exposed_with),
+                                'unexposed_with': str(unexposed_with),
+                                'person_time_exposed': str(person_time_exposed),
+                                'person_time_unexposed': str(person_time_unexposed)},
+                "test_results": to_return,
+                "Output_datasets": [],
+                "Saved_plots": []
+            }
+            file_data['results'] |= new_data
+            f.seek(0)
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        return JSONResponse(content={'status': 'Success', 'result': to_return}, status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status': test_status, 'result': to_return}, status_code=200)
 
-    r = incidence_rate_difference(a=exposed_with, c=unexposed_with, t1=person_time_exposed, t2=person_time_unexposed, alpha=alpha)
-    estimated_risk = r.point_estimate
-    lower_bound = r.lower_bound
-    upper_bound = r.upper_bound
-    standard_error = r.standard_error
-
-    return {'incident_rate_difference': estimated_risk, 'lower_bound': lower_bound, 'upper_bound': upper_bound, 'standard_error': standard_error}
 
 @router.get("/correlations_pingouin")
 async def correlations_pingouin(workflow_id: str,
