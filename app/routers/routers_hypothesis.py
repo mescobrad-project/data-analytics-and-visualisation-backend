@@ -1037,17 +1037,47 @@ async def LDA(workflow_id: str,
               shrinkage_2: float | None = Query(default=None, gt=-1, lt=1),
               # shrinkage_3: float | None = Query(default=None),
               independent_variables: list[str] | None = Query(default=None)):
+    dfv = pd.DataFrame()
+    df = pd.DataFrame()
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
+    to_return={'number_of_features': '',
+            'features_columns': [],
+            'number_of_classes':'',
+            'classes_': [],
+            'number_of_components': '',
+            'explained_variance_ratio': df.to_json(orient='records'),
+            'means_': df.to_json(orient='records'),
+            'priors_': df.to_json(orient='records'),
+            'scalings_': df.to_json(orient='records'),
+            'xbar_': df.to_json(orient='records'),
+            'coefficients': df.to_json(orient='records'),
+            'intercept': df.to_json(orient='records')}
+    # Load Datasets
+    try:
+        test_status = 'Dataset is not defined'
+        dfv['variables'] = independent_variables
+        dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
 
-    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
-    # dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
-    df_label = dataset[dependent_variable]
-    for columns in dataset.columns:
-        if columns not in independent_variables:
-            dataset = dataset.drop(str(columns), axis=1)
+        selected_datasources = pd.unique(dfv['Datasource'])
+        independent_variables = dfv['Variable']
+        dependent_variable = dependent_variable.split("--")[1]
+        selected_columns = pd.unique(dfv['Variable'])
 
-    features_columns = dataset.columns
-    X = np.array(dataset)
-    Y = np.array(df_label.astype('float64'))
+        # We expect only one here
+        test_status = 'Unable to retrieve datasets'
+        dataset = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
+
+        # dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+        # dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
+        df_label = dataset[str(dependent_variable)]
+        for columns in dataset.columns:
+            if columns not in selected_columns:
+                dataset = dataset.drop(str(columns), axis=1)
+        test_status = 'Unable to compute LDA. Variables with numeric values must be selected.'
+        features_columns = dataset.columns
+        X = np.array(dataset)
+        Y = np.array(df_label.astype('float64'))
 
     # target_names = np.unique(Y)
     # sc = StandardScaler()
@@ -1076,47 +1106,47 @@ async def LDA(workflow_id: str,
     # # plt.title("LDA of IRIS dataset")
     # # plt.show()
 
-    if solver == 'lsqr' or solver == 'eigen':
-        if shrinkage_1 == 'float':
-            clf = LinearDiscriminantAnalysis(solver=solver, shrinkage=shrinkage_2)
-        elif shrinkage_1 == 'auto':
-            clf = LinearDiscriminantAnalysis(solver=solver, shrinkage=shrinkage_1)
+        if solver == 'lsqr' or solver == 'eigen':
+            if shrinkage_1 == 'float':
+                clf = LinearDiscriminantAnalysis(solver=solver, shrinkage=shrinkage_2)
+            elif shrinkage_1 == 'auto':
+                clf = LinearDiscriminantAnalysis(solver=solver, shrinkage=shrinkage_1)
+            else:
+                clf = LinearDiscriminantAnalysis(solver=solver)
         else:
             clf = LinearDiscriminantAnalysis(solver=solver)
-    else:
-        clf = LinearDiscriminantAnalysis(solver=solver)
-    # print(solver)
-    clf.fit(X,Y)
+        # print(solver)
+        clf.fit(X,Y)
 
-    classes = clf.classes_
-    number_of_classes = len(clf.classes_)
-    number_of_components = min(len(clf.classes_) - 1, clf.n_features_in_)
-    if solver == 'svd':
-        df_xbar = pd.DataFrame(clf.xbar_, columns=['xbar'])
-        df_xbar.insert(loc=0, column='Feature', value=features_columns)
-        df_scalings = pd.DataFrame(clf.scalings_, columns=[i + 1 for i in range(number_of_components)])
-        df_scalings.insert(loc=0, column='Feature', value=features_columns)
-    else:
-        df_xbar = pd.DataFrame()
-        df_scalings = pd.DataFrame()
+        classes = clf.classes_
+        number_of_classes = len(clf.classes_)
+        number_of_components = min(len(clf.classes_) - 1, clf.n_features_in_)
+        if solver == 'svd':
+            df_xbar = pd.DataFrame(clf.xbar_, columns=['xbar'])
+            df_xbar.insert(loc=0, column='Feature', value=features_columns)
+            df_scalings = pd.DataFrame(clf.scalings_, columns=[i + 1 for i in range(number_of_components)])
+            df_scalings.insert(loc=0, column='Feature', value=features_columns)
+        else:
+            df_xbar = pd.DataFrame()
+            df_scalings = pd.DataFrame()
 
-    df_mean = pd.DataFrame(clf.means_, columns=features_columns)
-    df_mean.insert(loc=0, column='Class', value=classes)
-    df_prior = pd.DataFrame(clf.priors_, columns=['priors'])
-    df_prior.insert(loc=0, column='Class', value=classes)
+        df_mean = pd.DataFrame(clf.means_, columns=features_columns)
+        df_mean.insert(loc=0, column='Class', value=classes)
+        df_prior = pd.DataFrame(clf.priors_, columns=['priors'])
+        df_prior.insert(loc=0, column='Class', value=classes)
 
-    if solver == 'eigen' or solver =='svd':
-        df_explained_variance_ratio = pd.DataFrame(clf.explained_variance_ratio_, columns=['Variance ratio'])
-        df_explained_variance_ratio.insert(loc=0, column='Component', value=[i + 1 for i in range(number_of_components)])
-    else:
-        df_explained_variance_ratio = pd.DataFrame()
+        if solver == 'eigen' or solver =='svd':
+            df_explained_variance_ratio = pd.DataFrame(clf.explained_variance_ratio_, columns=['Variance ratio'])
+            df_explained_variance_ratio.insert(loc=0, column='Component', value=[i + 1 for i in range(number_of_components)])
+        else:
+            df_explained_variance_ratio = pd.DataFrame()
 
-    df_coefs = pd.DataFrame(clf.coef_, columns=features_columns)
-    df_intercept = pd.DataFrame(clf.intercept_, columns=['intercept'])
-    df_coefs['intercept'] = df_intercept['intercept']
-    if df_coefs.shape[0] == len(classes):
-        df_coefs.insert(loc=0, column='Class', value=classes)
-    try:
+        df_coefs = pd.DataFrame(clf.coef_, columns=features_columns)
+        df_intercept = pd.DataFrame(clf.intercept_, columns=['intercept'])
+        df_coefs['intercept'] = df_intercept['intercept']
+        if df_coefs.shape[0] == len(classes):
+            df_coefs.insert(loc=0, column='Class', value=classes)
+
         to_return = {
             'number_of_features': int(clf.n_features_in_),
             'features_columns': features_columns.tolist(),
@@ -1131,12 +1161,32 @@ async def LDA(workflow_id: str,
             'coefficients': df_coefs.to_json(orient='records'),
             'intercept': df_intercept.to_json(orient='records')
         }
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            file_data = json.load(f)
+            new_data = {
+                "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                "workflow_id": workflow_id,
+                "run_id": run_id,
+                "step_id": step_id,
+                "test_name": 'Linear discriminant analysis',
+                "test_params": {'Dependent': dependent_variable,
+                                'Independent Variables': list(selected_columns),
+                                'solver':solver,
+                                'shrinkage': shrinkage_1},
+                "test_results": to_return,
+                "Output_datasets": [],
+                "Saved_plots": []
+            }
+            file_data['results'] |= new_data
+            f.seek(0)
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        print(test_status)
         print(to_return)
-        return to_return
+        return JSONResponse(content={'status': 'Success', 'result': to_return}, status_code=200)
     except Exception as e:
         print(e)
-        print("Error : Creating QQPlot")
-        return {}
+        return JSONResponse(content={'status': test_status, 'result': to_return}, status_code=200)
 
     # return {'coefficients': df_coefs.to_json(orient='split'), 'intercept': df_intercept.to_json(orient='split')}
 
