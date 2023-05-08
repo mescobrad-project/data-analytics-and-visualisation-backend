@@ -2035,9 +2035,7 @@ async def ancova_2(workflow_id: str,
     try:
         test_status = 'Dataset is not defined'
         dv = dv.split("--")[1]
-        print(dv)
         between = between.split("--")[1]
-        print(between)
         dfv['variables'] = covar
         dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
 
@@ -3842,91 +3840,157 @@ async def canonical_correlation(workflow_id: str,
                                 n_components: int | None = Query(default=2),
                                 independent_variables_1: list[str] | None = Query(default=None),
                                 independent_variables_2: list[str] | None = Query(default=None)):
-
-    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+    dfv = pd.DataFrame()
+    dfv2 = pd.DataFrame()
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
+    # Load Datasets
+    try:
+        test_status = 'Dataset is not defined'
+        dfv['variables1'] = independent_variables_1
+        dfv[['Datasource', 'Variable1']] = dfv["variables1"].apply(lambda x: pd.Series(str(x).split("--")))
+        dfv2['variables2'] = independent_variables_2
+        dfv2[['Datasource', 'Variable2']] = dfv2["variables2"].apply(lambda x: pd.Series(str(x).split("--")))
+        independent_variables_1 = dfv["Variable1"].tolist()
+        independent_variables_2 = dfv2["Variable2"].tolist()
+        selected_datasources = pd.unique(dfv['Datasource'])
+        test_status = 'Variables cannot be found in the same Dataset'
+        if selected_datasources != pd.unique(dfv2['Datasource']):
+            print(selected_datasources+"      vs     "+pd.unique(dfv2['Datasource']))
+            raise Exception
 
-    X = dataset[dataset.columns.intersection(independent_variables_1)]
-    Y =dataset[dataset.columns.intersection(independent_variables_2)]
+        test_status = 'Unable to retrieve datasets'
+        # We expect only one here
+        dataset = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
 
-    # First, let’s see if there is any correlation between the features of this dataset.
-    corr_XY = pd.concat([X,Y],axis=1, join='inner').corr()
-    plt.figure(figsize=(5, 5))
-    sns.heatmap(corr_XY, cmap='coolwarm', annot=True, linewidths=1, vmin=-1)
-    plt.savefig(path_to_storage + "/output/CCA_XYcorr.svg", format="svg")
+        X = dataset[dataset.columns.intersection(independent_variables_1)]
+        Y = dataset[dataset.columns.intersection(independent_variables_2)]
 
-    # Number of components to keep. Should be in [1, min(n_samples, n_features, n_targets)].
-    if n_components > min(X.shape[0], len(independent_variables_1), len(independent_variables_2)):
-        n_components = min(X.shape[0], len(independent_variables_1), len(independent_variables_2))
+        test_status = 'Unable to compute Canonical correlation for the selected columns.'
+        # First, let’s see if there is any correlation between the features of this dataset.
+        corr_XY = pd.concat([X,Y],axis=1, join='inner').corr()
+        plt.figure(figsize=(5, 5))
+        sns.heatmap(corr_XY, cmap='coolwarm', annot=True, linewidths=1, vmin=-1)
+        plt.savefig(path_to_storage + "/output/CCA_XYcorr.svg", format="svg")
+        # Number of components to keep. Should be in [1, min(n_samples, n_features, n_targets)].
+        if n_components > min(X.shape[0], len(independent_variables_1), len(independent_variables_2)):
+            n_components = min(X.shape[0], len(independent_variables_1), len(independent_variables_2))
 
-    my_cca = CCA(n_components=n_components)
-    # Fit the model
-    my_cca.fit(X, Y)
-    X_c, Y_c = my_cca.transform(X, Y)
+        my_cca = CCA(n_components=n_components)
+        # Fit the model
+        my_cca.fit(X, Y)
+        X_c, Y_c = my_cca.transform(X, Y)
+        # Now let’s check if there is any dependency between our canonical variates.
+        comp_corr = [np.corrcoef(X_c[:, i], Y_c[:, i])[1][0] for i in range(n_components)]
+        comp_titles = ['Comp'+ str(i+1) for i in range(n_components)]
+        plt.figure(figsize=(5, 5))
+        plt.bar(comp_titles, comp_corr, color='lightgrey', width=0.8, edgecolor='k')
+        plt.savefig(path_to_storage + "/output/CCA_comp_corr.svg", format="svg")
 
-    # Now let’s check if there is any dependency between our canonical variates.
-    comp_corr = [np.corrcoef(X_c[:, i], Y_c[:, i])[1][0] for i in range(n_components)]
-    comp_titles = ['Comp'+ str(i+1) for i in range(n_components)]
-    plt.figure(figsize=(5, 5))
-    plt.bar(comp_titles, comp_corr, color='lightgrey', width=0.8, edgecolor='k')
-    plt.savefig(path_to_storage + "/output/CCA_comp_corr.svg", format="svg")
+        fig, axs = plt.subplots(1, n_components, figsize=(n_components*8, 8), sharey='row')
+        for i in range(n_components):
+            axs[i].scatter(X_c[:, i], Y_c[:, i], marker="s", label='Comp'+ str(i+1))
+            z = np.polyfit(X_c[:, i], Y_c[:, i], 1)
+            p = np.poly1d(z)
+            axs[i].plot(X_c[:, i], p(X_c[:, i]), color="red", linewidth=3, linestyle="--")
+            axs[i].legend(loc='upper left')
+            axs[i].set_ylabel('CCY_'+str(i+1), fontsize=14)
+            axs[i].set_xlabel('CCX_'+str(i+1), fontsize=14)
+            axs[i].set_title('Comp'+str(i+1)+' , corr = %.2f' %
+                      np.corrcoef(X_c[:, i], Y_c[:, i])[0, 1])
+        plt.savefig(path_to_storage + "/output/CCA_XY_c_corr.svg", format="svg")
+        coef_df = pd.DataFrame(np.round(my_cca.coef_, 5), columns=Y.columns)
+        coef_df.index = X.columns
+        plt.figure(figsize=(5, 5))
+        s= sns.heatmap(coef_df, cmap='coolwarm', annot=True, linewidths=1, vmin=-1)
+        s.set(xlabel='Y samle', ylabel='X sample')
+        # plt.title = "CCA coefficients."
+        plt.savefig(path_to_storage + "/output/CCA_coefs.svg", format="svg")
+        plt.show()
 
-    fig, axs = plt.subplots(1, n_components, figsize=(n_components*8, 8), sharey='row')
-    for i in range(n_components):
-        axs[i].scatter(X_c[:, i], Y_c[:, i], marker="s", label='Comp'+ str(i+1))
-        z = np.polyfit(X_c[:, i], Y_c[:, i], 1)
-        p = np.poly1d(z)
-        axs[i].plot(X_c[:, i], p(X_c[:, i]), color="red", linewidth=3, linestyle="--")
-        axs[i].legend(loc='upper left')
-        axs[i].set_ylabel('CCY_'+str(i+1), fontsize=14)
-        axs[i].set_xlabel('CCX_'+str(i+1), fontsize=14)
-        axs[i].set_title('Comp'+str(i+1)+' , corr = %.2f' %
-                  np.corrcoef(X_c[:, i], Y_c[:, i])[0, 1])
-    plt.savefig(path_to_storage + "/output/CCA_XY_c_corr.svg", format="svg")
+        xweights = pd.DataFrame(my_cca.x_weights_, columns=comp_titles)
+        xweights.insert(loc=0, column='Feature', value=independent_variables_1)
+        yweights = pd.DataFrame(my_cca.y_weights_, columns=comp_titles)
+        yweights.insert(loc=0, column='Feature', value=independent_variables_2)
+        xloadings = pd.DataFrame(my_cca.x_loadings_, columns=comp_titles)
+        xloadings.insert(loc=0, column='Feature', value=independent_variables_1)
+        yloadings = pd.DataFrame(my_cca.y_loadings_, columns=comp_titles)
+        yloadings.insert(loc=0, column='Feature', value=independent_variables_2)
+        xrotations = pd.DataFrame(my_cca.x_rotations_, columns=comp_titles)
+        xrotations.insert(loc=0, column='Feature', value=independent_variables_1)
+        yrotations = pd.DataFrame(my_cca.y_rotations_, columns=comp_titles)
+        yrotations.insert(loc=0, column='Feature', value=independent_variables_2)
+        Xc_df = pd.DataFrame(X_c, columns=comp_titles)
+        Yc_df = pd.DataFrame(Y_c, columns=comp_titles)
+        Xc_df.to_csv(path_to_storage + '/output/Xc_df.csv', index=False)
+        Yc_df.to_csv(path_to_storage + '/output/Yc_df.csv', index=False)
 
-    coef_df = pd.DataFrame(np.round(my_cca.coef_, 5), columns=[Y.columns])
-    coef_df.index = X.columns
-    print(coef_df)
-    plt.figure(figsize=(5, 5))
-    s= sns.heatmap(coef_df, cmap='coolwarm', annot=True, linewidths=1, vmin=-1)
-    s.set(xlabel='Y samle', ylabel='X sample')
-    # plt.title = "CCA coefficients."
-    plt.savefig(path_to_storage + "/output/CCA_coefs.svg", format="svg")
-    plt.show()
-
-    xweights = pd.DataFrame(my_cca.x_weights_, columns=comp_titles)
-    xweights.insert(loc=0, column='Feature', value=independent_variables_1)
-    yweights = pd.DataFrame(my_cca.y_weights_, columns=comp_titles)
-    yweights.insert(loc=0, column='Feature', value=independent_variables_2)
-    xloadings = pd.DataFrame(my_cca.x_loadings_, columns=comp_titles)
-    xloadings.insert(loc=0, column='Feature', value=independent_variables_1)
-    yloadings = pd.DataFrame(my_cca.y_loadings_, columns=comp_titles)
-    yloadings.insert(loc=0, column='Feature', value=independent_variables_2)
-    xrotations = pd.DataFrame(my_cca.x_rotations_, columns=comp_titles)
-    xrotations.insert(loc=0, column='Feature', value=independent_variables_1)
-    yrotations = pd.DataFrame(my_cca.y_rotations_, columns=comp_titles)
-    yrotations.insert(loc=0, column='Feature', value=independent_variables_2)
-    Xc_df = pd.DataFrame(X_c, columns=comp_titles)
-    Yc_df = pd.DataFrame(Y_c, columns=comp_titles)
-
-    return {'xweights': xweights.to_json(orient='records'),
-            'yweights': yweights.to_json(orient='records'),
-            'xloadings': xloadings.to_json(orient='records'),
-            'yloadings': yloadings.to_json(orient='records'),
-            'xrotations': xrotations.to_json(orient='records'),
-            'yrotations': yrotations.to_json(orient='records'),
-            'coef_df': coef_df.to_json(orient='records'),
-            'Xc_df': Xc_df.to_json(orient='records'),
-            'Yc_df': Yc_df.to_json(orient='records')}
-    # return {'The left singular vectors of the cross-covariance matrices of each iteration.': my_cca.x_weights_.tolist(),
-    #         'The right singular vectors of the cross-covariance matrices of each iteration.': my_cca.y_weights_.tolist(),
-    #         'The loadings of X.': my_cca.x_loadings_.tolist(),
-    #         'The loadings of Y.': my_cca.y_loadings_.tolist(),
-    #         'The projection matrix used to transform X.': my_cca.x_rotations_.tolist(),
-    #         'The projection matrix used to transform Y.': my_cca.y_rotations_.tolist(),
-    #         'The coefficients of the linear model.': my_cca.coef_.tolist(),
-    #         'Transformed X': X_c.tolist(),
-    #         'Transformed Y': Y_c.tolist()}
+        test_status = 'Erro in creating info file.'
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            # Load existing data into a dict.
+            file_data = json.load(f)
+            # Join new data
+            new_data = {
+                    "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                    "workflow_id": workflow_id,
+                    "run_id": run_id,
+                    "step_id": step_id,
+                    "test_name": 'Canonical correlation',
+                    "test_params": {
+                        "Training vectors": independent_variables_1,
+                        "Target vectors": independent_variables_2
+                    },
+                    "test_results":{'xweights': xweights.to_dict(),
+                                     'yweights': yweights.to_dict(),
+                                     'xloadings': xloadings.to_dict(),
+                                     'yloadings': yloadings.to_dict(),
+                                     'xrotations': xrotations.to_dict(),
+                                     'yrotations': yrotations.to_dict(),
+                                     'coef_df': coef_df.to_dict()}
+            }
+            file_data['results'] = new_data
+            file_data['Output_datasets'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                step_id + '/analysis_output' + '/Xc_df.csv'},
+                                            {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id + '/analysis_output' + '/Yc_df.csv'}
+                                            ]
+            file_data['Saved_plots'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                             step_id + '/analysis_output/CCA_XYcorr.svg'},
+                                        {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                 step_id + '/analysis_output/CCA_comp_corr.svg'},
+                                        {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                 step_id + '/analysis_output/CCA_XY_c_corr.svg'},
+                                        {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                 step_id + '/analysis_output/CCA_coefs.svg'}]
+            # Set file's current position at offset.
+            f.seek(0)
+            # convert back to json.
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        return JSONResponse(content={'status': 'Success',
+                                     'xweights': xweights.to_json(orient='records'),
+                                     'yweights': yweights.to_json(orient='records'),
+                                     'xloadings': xloadings.to_json(orient='records'),
+                                     'yloadings': yloadings.to_json(orient='records'),
+                                     'xrotations': xrotations.to_json(orient='records'),
+                                     'yrotations': yrotations.to_json(orient='records'),
+                                     'coef_df': coef_df.to_json(orient='records'),
+                                     'Xc_df': Xc_df.to_json(orient='records'),
+                                     'Yc_df': Yc_df.to_json(orient='records')},
+                            status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status': test_status,
+                                     'xweights': "[]",
+                                     'yweights': "[]",
+                                     'xloadings': "[]",
+                                     'yloadings': "[]",
+                                     'xrotations': "[]",
+                                     'yrotations': "[]",
+                                     'coef_df': "[]",
+                                     'Xc_df': "[]",
+                                     'Yc_df': "[]"},
+                            status_code=200)
 
 @router.get("/granger_analysis")
 async def compute_granger_analysis(workflow_id: str,
