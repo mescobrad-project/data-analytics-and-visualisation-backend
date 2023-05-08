@@ -516,24 +516,21 @@ async def point_biserial_correlation(workflow_id: str, step_id: str, run_id: str
                                      ):
     dfv = pd.DataFrame()
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
     # Load Datasets
     try:
+        test_status = 'Dataset is not defined'
         dfv['variables'] = [column_1, column_2]
         dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
-    except Exception as e:
-        # df["Error"] = ["Dataset is not defined"]
-        return {'transformed array': {}, 'data': {}, 'results': {}}
-    selected_datasources = pd.unique(dfv['Datasource'])
-    # We expect only one here
-    try:
+
+        selected_datasources = pd.unique(dfv['Datasource'])
+        test_status='Unable to retrieve datasets'
+        # We expect only one here
         data = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
         column_1 = dfv['Variable'][0]
         column_2 = dfv['Variable'][1]
-    except Exception as e:
-        print("Unable to retrieve datasets")
-        return {'transformed array': {}, 'data': {}, 'results': {}}
+        test_status = 'Unable to compute Point Biserial correlation for the selected columns. NaNs or nonnumeric values are selected.'
 
-    try:
         le = LabelEncoder()
         new_column_1 = 'le_'+str(column_1)
         data[new_column_1] = le.fit_transform(data[str(column_1)])
@@ -587,46 +584,45 @@ async def point_biserial_correlation(workflow_id: str, step_id: str, run_id: str
                     'correlation': pointbiserialr_test[0],
                     'p_value': pointbiserialr_test[1]
                     }
-            try:
-                with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
-                    # Load existing data into a dict.
-                    file_data = json.load(f)
-                    # Join new data
-                    new_data = {
-                        "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
-                        "workflow_id": workflow_id,
-                        "run_id": run_id,
-                        "step_id": step_id,
-                        "test_name": 'Point Biserial Correlation',
-                        "test_params": {'Binary variable': str(column_1),
-                                        'Variable': str(column_2)},
-                        "test_results": data_to_return,
-                        "Output_datasets":[{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
-                                                    step_id + '/analysis_output' + '/new_dataset.csv'}],
-                        "Saved_plots": [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
-                                                 step_id + '/analysis_output/BoxPlot.svg'},
-                                        {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
-                                                 step_id + '/analysis_output/HistogramPlot_GroupA.svg'},
-                                        {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
-                                                 step_id + '/analysis_output/HistogramPlot_GroupB.svg'},
-                                        {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
-                                                 step_id + '/analysis_output/Scatter_Two_Variables.svg'}]
-                        }
-                    file_data['results'] |= new_data
-                    f.seek(0)
-                    json.dump(file_data, f, indent=4)
-                    f.truncate()
-            except Exception as e:
-                print(e)
 
+            with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+                # Load existing data into a dict.
+                file_data = json.load(f)
+                # Join new data
+                new_data = {
+                    "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                    "workflow_id": workflow_id,
+                    "run_id": run_id,
+                    "step_id": step_id,
+                    "test_name": 'Point Biserial Correlation',
+                    "test_params": {'Binary variable': str(column_1),
+                                    'Variable': str(column_2)},
+                    "test_results": data_to_return,
+                    "Output_datasets":[{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                step_id + '/analysis_output' + '/new_dataset.csv'}],
+                    "Saved_plots": [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                             step_id + '/analysis_output/BoxPlot.svg'},
+                                    {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                             step_id + '/analysis_output/HistogramPlot_GroupA.svg'},
+                                    {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                             step_id + '/analysis_output/HistogramPlot_GroupB.svg'},
+                                    {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                             step_id + '/analysis_output/Scatter_Two_Variables.svg'}]
+                    }
+                file_data['results'] |= new_data
+                f.seek(0)
+                json.dump(file_data, f, indent=4)
+                f.truncate()
             data_to_return['new_dataset'] = df.to_json(orient='records')
+            data_to_return['status'] = 'Success'
             return data_to_return
+            return JSONResponse(content={data_to_return}, status_code=200)
         else:
+            test_status = 'Dichotomus Variable must be selected.'
             raise Exception
     except Exception as e:
         print(e)
-        return {
-                    'sample_A': {
+        return JSONResponse(content={'status': test_status, 'sample_A': {
                         'value': '',
                         'N': '',
                         'N_clean':  '',
@@ -646,7 +642,8 @@ async def point_biserial_correlation(workflow_id: str, step_id: str, run_id: str
                     },
                     'correlation': '',
                     'p_value': '',
-                    'new_dataset': []}
+                    'new_dataset': []}, status_code=200)
+
 
 @router.get("/check_homoscedasticity", tags=['hypothesis_testing'])
 async def check_homoskedasticity(workflow_id: str,
@@ -659,22 +656,21 @@ async def check_homoskedasticity(workflow_id: str,
                                                                       regex="^(trimmed)$|^(median)$|^(mean)$")):
     dfv = pd.DataFrame()
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
     # Load Datasets
     try:
+        test_status = 'Dataset is not defined'
         dfv['variables'] = columns
         dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
-    except Exception as e:
-        print('dfv ' + str(e))
-        return {'statistic': "", 'p_value': "", 'variance': ""}
-    selected_datasources = pd.unique(dfv['Datasource'])
-    # We expect only one here
-    try:
+
+        selected_datasources = pd.unique(dfv['Datasource'])
+        test_status = 'Unable to retrieve datasets'
+        # We expect only one here
         data = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
         columns = dfv['Variable']
-    except Exception as e:
-        print('data ' + str(e))
-        return {'statistic': "", 'p_value': "", 'variance': ""}
-    try:
+
+        test_status = 'Unable to compute Homoscedasticity for the selected columns. NaNs or nonnumeric values are selected.'
+
         args = []
         var = []
         i = 0
@@ -720,10 +716,10 @@ async def check_homoskedasticity(workflow_id: str,
             f.seek(0)
             json.dump(file_data, f, indent=4)
             f.truncate()
+        return JSONResponse(content={'status': 'Success','statistic': statistic, 'p_value': p_value, 'variance': var}, status_code=200)
     except Exception as e:
-        return {'statistic': "", 'p_value': "", 'variance': ""}
-
-    return {'statistic': statistic, 'p_value': p_value, 'variance': var}
+        print(e)
+        return JSONResponse(content={'status':test_status,'statistic': "", 'p_value': "", 'variance': ""}, status_code=200)
 
 
 @router.get("/transformed_data_for_use_in_an_ANOVA", tags=['hypothesis_testing'])
@@ -735,24 +731,21 @@ async def transform_data_anova(
     dfv = pd.DataFrame()
     df = pd.DataFrame()
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
     # Load Datasets
     try:
+        test_status = 'Dataset is not defined'
         dfv['variables'] = variables
         dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
-    except Exception as e:
-        df["Error"] = ["Dataset is not defined"]
-        return {'Dataframe': df.to_json(orient="records")}
-    selected_datasources = pd.unique(dfv['Datasource'])
-    # We expect only one here
-    try:
+
+        selected_datasources = pd.unique(dfv['Datasource'])
+        test_status = 'Unable to retrieve datasets'
+        # We expect only one here
         data = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
         variables = dfv['Variable']
-    except Exception as e:
-        df["Error"] = ["Unable to retrieve dataset"]
-        print(e)
-        return {'Dataframe': df.to_json(orient="records")}
-    # Keep requested Columns
-    try:
+
+        test_status = 'Unable to compute Obrien transformation for the selected columns. NaNs or nonnumeric values are selected.'
+        # Keep requested Columns
         selected_columns = pd.unique(dfv['Variable'])
         args = []
         args_name=[]
@@ -783,24 +776,21 @@ async def transform_data_anova(
                                                     step_id + '/analysis_output' + '/new_dataset.csv'}],
             'Saved_plots': []
         }
-    except Exception as e:
-        df["Error"] = ["Unable to compute obrientransform for the selected columns"]
-        print(e)
-        return {'Dataframe': df.to_json(orient="records")}
-    try:
+
         with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
             file_data = json.load(f)
             file_data['results'] |= new_data
             f.seek(0)
             json.dump(file_data, f, indent=4)
             f.truncate()
+        return JSONResponse(content={'status': 'Success',
+                                     'Dataframe': df.to_json(orient="records")},
+                            status_code=200)
     except Exception as e:
         print(e)
-        return {'Dataframe': df.to_json(orient="records")}
-    # tx, ty = obrientransform(data[str(column_1)], data[str(column_2)])
-    return {'Dataframe': df.to_json(orient="records")}
-    # return {'transformed_1': list(tx), 'transformed_2': list(ty)}
-
+        return JSONResponse(content={'status':test_status,
+                                     'Dataframe': df.to_json(orient="records")},
+                            status_code=200)
 
 @router.get("/statistical_tests", tags=['hypothesis_testing'])
 async def statistical_tests(workflow_id: str,
