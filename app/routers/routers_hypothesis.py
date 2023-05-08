@@ -62,48 +62,56 @@ data = data.drop(["Unnamed: 0"], axis=1)
 # data = pd.read_csv('example_data/sample_questionnaire.csv')
 
 def normality_test_content_results(column: str, selected_dataframe,path_to_storage:str):
-    if (column):
-        # Creating Box-plot
-        html_str_B = create_plots(plot_type='BoxPlot', column=column,second_column='', selected_dataframe=selected_dataframe, path_to_storage=path_to_storage, filename='BoxPlot')
-        # Creating QQ-plot
-        html_str = create_plots(plot_type='QQPlot', column=column, second_column='', selected_dataframe=selected_dataframe, path_to_storage=path_to_storage, filename='QQPlot')
-        # Creating Probability-plot
-        html_str_P = create_plots(plot_type='PPlot', column=column, second_column='', selected_dataframe=selected_dataframe, path_to_storage=path_to_storage, filename='PPlot')
-        #Creating histogram
-        html_str_H = create_plots(plot_type='HistogramPlot', column=column, second_column='', selected_dataframe=selected_dataframe, path_to_storage=path_to_storage, filename='HistogramPlot')
-        skewtosend = compute_skewness(column, selected_dataframe)
-        kurtosistosend = compute_kurtosis(column, selected_dataframe)
-        st_dev = np.std(selected_dataframe[str(column)])
-        # Used Statistics lib for cross-checking
-        # standard_deviation = statistics.stdev(data[str(column)])
-        median_value = float(np.percentile(selected_dataframe[str(column)], 50))
-        # Used a different way to calculate Median
-        # TODO: we must investigate why it returns a different value
-        # med2 = np.median(data[str(column)])
-        mean_value = np.mean(selected_dataframe[str(column)])
-        num_rows = selected_dataframe[str(column)].shape
-        top5 = sorted(selected_dataframe[str(column)].tolist(), reverse=True)[:5]
-        last5 = sorted(selected_dataframe[str(column)].tolist(), reverse=True)[-5:]
-        return {'plot_column': column, 'qqplot': html_str, 'histogramplot': html_str_H, 'boxplot': html_str_B, 'probplot': html_str_P, 'skew': skewtosend, 'kurtosis': kurtosistosend, 'standard_deviation': st_dev, "median": median_value, "mean": mean_value, "sample_N": num_rows, "top_5": top5, "last_5": last5}
-    else:
-        return {'plot_column': "", 'qqplot': "", 'histogramplot': "", 'boxplot': "", 'probplot': "",
-                'skew': 0, 'kurtosis': 0,
-                'standard_deviation': 0, "median": 0,
-                "mean": 0, "sample_N": 0, "top_5": [], "last_5": []}
+    try:
+        if (selected_dataframe[column].dtypes == 'float64' or selected_dataframe[column].dtypes =='int64'):
+            # Creating Box-plot
+            html_str_B = create_plots(plot_type='BoxPlot', column=column,second_column='', selected_dataframe=selected_dataframe, path_to_storage=path_to_storage, filename='BoxPlot')
+            # Creating QQ-plot
+            html_str = create_plots(plot_type='QQPlot', column=column, second_column='', selected_dataframe=selected_dataframe, path_to_storage=path_to_storage, filename='QQPlot')
+            # Creating Probability-plot
+            html_str_P = create_plots(plot_type='PPlot', column=column, second_column='', selected_dataframe=selected_dataframe, path_to_storage=path_to_storage, filename='PPlot')
+            #Creating histogram
+            html_str_H = create_plots(plot_type='HistogramPlot', column=column, second_column='', selected_dataframe=selected_dataframe, path_to_storage=path_to_storage, filename='HistogramPlot')
+            skewtosend = compute_skewness(column, selected_dataframe)
+            kurtosistosend = compute_kurtosis(column, selected_dataframe)
+            st_dev = np.std(selected_dataframe[str(column)])
+            # Used Statistics lib for cross-checking
+            # standard_deviation = statistics.stdev(data[str(column)])
+            median_value = float(np.percentile(selected_dataframe[str(column)], 50))
+            # Used a different way to calculate Median
+            # TODO: we must investigate why it returns a different value
+            # med2 = np.median(data[str(column)])
+            mean_value = np.mean(selected_dataframe[str(column)])
+            num_rows = selected_dataframe[str(column)].shape
+            top5 = sorted(selected_dataframe[str(column)].tolist(), reverse=True)[:5]
+            last5 = sorted(selected_dataframe[str(column)].tolist(), reverse=True)[-5:]
+            return {'plot_column': column, 'qqplot': html_str, 'histogramplot': html_str_H, 'boxplot': html_str_B, 'probplot': html_str_P, 'skew': skewtosend, 'kurtosis': kurtosistosend, 'standard_deviation': st_dev, "median": median_value, "mean": mean_value, "sample_N": num_rows, "top_5": top5, "last_5": last5}
+        else:
+            raise Exception
+    except Exception as e:
+        print('normality_test_content_results  ' +e)
+        return -1
 
 def transformation_extra_content_results(column_In: str, column_Out:str, selected_dataframe,path_to_storage:str):
-    fig = plt.figure()
-    plt.plot(selected_dataframe[str(column_In)], selected_dataframe[str(column_In)],
-             color='blue', marker="*")
-    plt.plot(selected_dataframe[str(column_Out)], selected_dataframe[str(column_In)],
-             color='red', marker="o")
-    plt.title("Transformed data Comparison")
-    plt.xlabel("out_array")
-    plt.ylabel("in_array")
-    plt.savefig(path_to_storage + "/output/ComparisonPlot.svg", format="svg")
-    plt.show()
-    html_str_Transf = mpld3.fig_to_html(fig)
-    return html_str_Transf
+    try:
+        if (selected_dataframe[column_In].dtypes == 'float64' or selected_dataframe[column_In].dtypes == 'int64'):
+            fig = plt.figure()
+            plt.plot(selected_dataframe[str(column_In)], selected_dataframe[str(column_In)],
+                     color='blue', marker="*")
+            plt.plot(selected_dataframe[str(column_Out)], selected_dataframe[str(column_In)],
+                     color='red', marker="o")
+            plt.title("Transformed data Comparison")
+            plt.xlabel("out_array")
+            plt.ylabel("in_array")
+            plt.savefig(path_to_storage + "/output/ComparisonPlot.svg", format="svg")
+            plt.show()
+            html_str_Transf = mpld3.fig_to_html(fig)
+            return html_str_Transf
+        else:
+            raise Exception
+    except Exception as e:
+        print('transformation_extra_content_results '+ e)
+        return -1
 
 class FunctionOutputItem(BaseModel):
     """
@@ -230,25 +238,20 @@ async def normal_tests(workflow_id: str, step_id: str, run_id: str,
 
     dfv = pd.DataFrame()
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
     # Load Datasets
     try:
+        test_status = 'Dataset is not defined'
         dfv['variables'] = [column]
         dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
-    except Exception as e:
-        # df["Error"] = ["Dataset is not defined"]
-        return {'statistic': "", 'p_value': "", 'Description': "", 'results': {}, 'critical_values': [],
-                'significance_level': []}
-    selected_datasources = pd.unique(dfv['Datasource'])
-    # We expect only one here
-    try:
+
+        selected_datasources = pd.unique(dfv['Datasource'])
+        test_status='Unable to retrieve datasets'
+
         data = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
         column = dfv['Variable'][0]
-    except Exception as e:
-        # df["Error"] = ["Unable to retrieve datasets"]
-        return {'statistic': "", 'p_value': "", 'Description': "", 'results': {}, 'critical_values': [],
-                'significance_level': []}
 
-    try:
         results_to_send = normality_test_content_results(column, data, path_to_storage)
         # region AmCharts_CODE_REGION
         # # ******************************************
@@ -267,6 +270,14 @@ async def normal_tests(workflow_id: str, step_id: str, run_id: str,
         # # ******************************************
         # endregion
         # Prepare content for info.json
+        test_status = 'Unable to compute ' + name_test + \
+                      ' for the selected columns. NaNs or nonnumeric values are selected.'
+
+        if results_to_send == -1:
+            results_to_send = {'plot_column': "", 'qqplot': "", 'histogramplot': "", 'boxplot': "", 'probplot': "",
+             'skew': 0, 'kurtosis': 0, 'standard_deviation': 0, "median": 0,
+             "mean": 0, "sample_N": 0, "top_5": [], "last_5": []}
+            raise Exception
         new_data = {
             "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
             "workflow_id": workflow_id,
@@ -303,37 +314,21 @@ async def normal_tests(workflow_id: str, step_id: str, run_id: str,
         if name_test == 'Shapiro-Wilk':
             shapiro_test = shapiro(data[str(column)])
             descr = 'Sample looks Gaussian (fail to reject H0)' if shapiro_test.pvalue > 0.05 else 'Sample does not look Gaussian (reject H0)'
-            with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
-                file_data = json.load(f)
-                new_data['test_results'] |= {
-                    'statistic': shapiro_test.statistic, 'p_value': shapiro_test.pvalue, 'Description': descr}
-                file_data['results'] = new_data
-                f.seek(0)
-                json.dump(file_data, f, indent=4)
-                f.truncate()
-            return{'statistic': shapiro_test.statistic, 'p_value': shapiro_test.pvalue, 'Description': descr, 'results': results_to_send}
+            statistic = shapiro_test.statistic
+            p_value = shapiro_test.pvalue
         elif name_test == 'Kolmogorov-Smirnov':
             ks_test = kstest(data[str(column)], 'norm', alternative=alternative)
             descr = 'Sample looks Gaussian (fail to reject H0)' if ks_test.pvalue > 0.05 else 'Sample does not look Gaussian (reject H0)'
-            with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
-                file_data = json.load(f)
-                new_data['test_results']|= {
-                    'statistic': ks_test.statistic, 'p_value': ks_test.pvalue, 'Description': descr}
-                file_data['results'] = new_data
-                f.seek(0)
-                json.dump(file_data, f, indent=4)
-                f.truncate()
-            return{'statistic': ks_test.statistic, 'p_value': ks_test.pvalue, 'Description':descr, 'results': results_to_send}
+            statistic = ks_test.statistic
+            p_value = ks_test.pvalue
         elif name_test == 'Anderson-Darling':
             anderson_test = anderson(data[str(column)])
             list_anderson = []
             for i in range(len(anderson_test.critical_values)):
                 sl, cv = anderson_test.significance_level[i], anderson_test.critical_values[i]
                 if anderson_test.statistic < anderson_test.critical_values[i]:
-                    # print('%.3f: %.3f, data looks normal (fail to reject H0)' % (sl, cv))
                     list_anderson.append('%.3f: %.3f, data looks normal (fail to reject H0)' % (sl, cv))
                 else:
-                    # print('%.3f: %.3f, data does not look normal (reject H0)' % (sl, cv))
                     list_anderson.append('%.3f: %.3f, data does not look normal (reject H0)' % (sl, cv))
             with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
                 file_data = json.load(f)
@@ -343,37 +338,31 @@ async def normal_tests(workflow_id: str, step_id: str, run_id: str,
                 f.seek(0)
                 json.dump(file_data, f, indent=4)
                 f.truncate()
-            return{'statistic':anderson_test.statistic, 'critical_values': list(anderson_test.critical_values), 'significance_level': list(anderson_test.significance_level), 'Description': list_anderson, 'results': results_to_send}
+            return JSONResponse(content={'status': 'Success','statistic':anderson_test.statistic, 'critical_values': list(anderson_test.critical_values), 'significance_level': list(anderson_test.significance_level), 'Description': list_anderson, 'results': results_to_send}, status_code=200)
         elif name_test == 'D’Agostino’s K^2':
             stat, p = normaltest(data[str(column)], nan_policy=nan_policy)
             descr = 'Sample looks Gaussian (fail to reject H0)' if p > 0.05 else 'Sample does not look Gaussian (reject H0)'
-            with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
-                file_data = json.load(f)
-                new_data['test_results']|= {
-                    'statistic': stat, 'p_value': p, 'Description': descr}
-                file_data['results'] = new_data
-                f.seek(0)
-                json.dump(file_data, f, indent=4)
-                f.truncate()
-            return{'statistic': stat, 'p_value': p, 'Description':descr, 'results': results_to_send}
+            statistic = stat
+            p_value = p
         elif name_test == 'Jarque-Bera':
             jarque_bera_test = jarque_bera(data[str(column)])
             statistic = jarque_bera_test.statistic
-            pvalue = jarque_bera_test.pvalue
-            descr = 'Sample looks Gaussian (fail to reject H0)' if pvalue > 0.05 else 'Sample does not look Gaussian (reject H0)'
-            with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
-                file_data = json.load(f)
-                new_data['test_results']|= {
-                    'statistic': statistic, 'p_value': pvalue, 'Description': descr}
-                file_data['results'] = new_data
-                f.seek(0)
-                json.dump(file_data, f, indent=4)
-                f.truncate()
-            return {'statistic': statistic, 'p_value': pvalue, 'Description': descr, 'results': results_to_send}
+            p_value = jarque_bera_test.pvalue
+            descr = 'Sample looks Gaussian (fail to reject H0)' if p_value > 0.05 else 'Sample does not look Gaussian (reject H0)'
+
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            file_data = json.load(f)
+            new_data['test_results']|= {
+                'statistic': statistic, 'p_value': p_value, 'Description': descr}
+            file_data['results'] = new_data
+            f.seek(0)
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        return JSONResponse(content={'status': 'Success','statistic': statistic, 'p_value': p_value, 'Description': descr, 'results': results_to_send}, status_code=200)
     except Exception as e:
         # df["Error"] = ["Unable to conduct Normality test"]
         print(e)
-        return {'statistic': "", 'p_value': "", 'Description': "", 'results': {}, 'critical_values': [], 'significance_level':[]}
+        return JSONResponse(content={'status':test_status,'statistic': "", 'p_value': "", 'Description': "", 'results': {}, 'critical_values': [], 'significance_level':[]}, status_code=200)
 
 @router.get("/transform_data", tags=['hypothesis_testing'])
 async def transform_data(workflow_id: str,
@@ -386,22 +375,21 @@ async def transform_data(workflow_id: str,
                          alpha: Optional[float] = None) -> dict:
     dfv = pd.DataFrame()
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
     # Load Datasets
     try:
+        test_status = 'Dataset is not defined'
         dfv['variables'] = [column]
         dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
-    except Exception as e:
-        # df["Error"] = ["Dataset is not defined"]
-        return {'transformed array': {}, 'data': {}, 'results': {}}
-    selected_datasources = pd.unique(dfv['Datasource'])
-    # We expect only one here
-    try:
+
+        selected_datasources = pd.unique(dfv['Datasource'])
+        test_status='Unable to retrieve datasets'
+        # We expect only one here
         data = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
         column = dfv['Variable'][0]
-    except Exception as e:
-        print("Unable to retrieve datasets")
-        return {'transformed array': {}, 'data': {}, 'results': {}}
-    try:
+        test_status = 'Unable to compute ' + name_transform + \
+                      ' for the selected columns. NaNs or nonnumeric values are selected.'
+
         newColumnName = "Transf_" + column
         if name_transform == 'Box-Cox':
             if lmbd == None:
@@ -437,7 +425,17 @@ async def transform_data(workflow_id: str,
 
         data.to_csv(path_to_storage + '/output/new_dataset.csv', index=False)
         results_to_send = normality_test_content_results(newColumnName, data, path_to_storage)
-        results_to_send['transf_plot'] = transformation_extra_content_results(column, newColumnName, data, path_to_storage)
+        if results_to_send == -1:
+            results_to_send = {'plot_column': "", 'qqplot': "", 'histogramplot': "", 'boxplot': "", 'probplot': "",
+                               'skew': 0, 'kurtosis': 0, 'standard_deviation': 0, "median": 0,
+                               "mean": 0, "sample_N": 0, "top_5": [], "last_5": []}
+            raise Exception
+        results_to_send_extra = transformation_extra_content_results(column, newColumnName, data, path_to_storage)
+        if results_to_send_extra== -1:
+            results_to_send['transf_plot']=''
+            raise Exception
+
+        results_to_send['transf_plot'] = results_to_send_extra
         # Prepare content for info.json
         new_data = {
             "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
@@ -480,10 +478,10 @@ async def transform_data(workflow_id: str,
             f.seek(0)
             json.dump(file_data, f, indent=4)
             f.truncate()
-        return {'transformed array': data[newColumnName].to_json(orient='records'), 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
+        return JSONResponse(content={'status': 'Success','transformed array': data[newColumnName].to_json(orient='records'), 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}, status_code=200)
     except Exception as e:
         print(e)
-        return {'transformed array': {}, 'data': {}, 'results': {}}
+        return JSONResponse(content={'status':test_status,'transformed array': {}, 'data': {}, 'results': {}}, status_code=200)
 
 
 # @router.get("/compute_pearson_correlation", tags=['hypothesis_testing'])
