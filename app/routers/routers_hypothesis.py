@@ -2509,50 +2509,97 @@ async def kaplan_meier(workflow_id: str,
                        at_risk_counts: bool | None = Query(default=True),
                        label: str | None = Query(default=None),
                        alpha: float | None = Query(default=0.05)):
-    # to_return = {}
-    #
-    # fig = plt.figure(1)
-    # ax = plt.subplot(111)
-
-    # dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
-    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
+    # Load Datasets
+    try:
+        test_status = 'Dataset is not defined'
+        selected_datasource = column_1.split("--")[0]
+        column_1 = column_1.split("--")[1]
+        column_2 = column_2.split("--")[1]
+        test_status = 'Unable to retrieve datasets'
+        # We expect only one here
+        dataset = load_data_from_csv(path_to_storage + "/" + selected_datasource)
 
-    kmf = KaplanMeierFitter(alpha=alpha, label=label)
-    kmf.fit(dataset[column_1], dataset[column_2])
-    kmf.plot_survival_function(at_risk_counts=at_risk_counts)
-    plt.ylabel("Survival probability")
-    plt.savefig(path_to_storage + "/output/survival_function.svg", format="svg")
-    plt.show()
+        test_status = 'Unable to compute Kaplan Meier Fitter test for the selected columns. '
+        kmf = KaplanMeierFitter(alpha=alpha, label=label)
+        kmf.fit(dataset[column_1], dataset[column_2])
+        kmf.plot_survival_function(at_risk_counts=at_risk_counts)
+        plt.ylabel("Survival probability")
+        plt.savefig(path_to_storage + "/output/survival_function.svg", format="svg")
+        plt.show()
 
+        df = kmf.survival_function_
+        timeline = pd.DataFrame(kmf.timeline)
+        conditional_time_to_event = pd.DataFrame(kmf.conditional_time_to_event_)
+        confidence_interval = kmf.confidence_interval_
+        event_table = kmf.event_table
+        confidence_interval_cumulative_density = kmf.confidence_interval_cumulative_density_
+        cumulative_density = kmf.cumulative_density_
+        median_survival_time = kmf.median_survival_time_
 
-    df = kmf.survival_function_
-    timeline = pd.DataFrame(kmf.timeline)
-    conditional_time_to_event = pd.DataFrame(kmf.conditional_time_to_event_)
-    confidence_interval = kmf.confidence_interval_
-    event_table = kmf.event_table
-    confidence_interval_cumulative_density = kmf.confidence_interval_cumulative_density_
-    cumulative_density = kmf.cumulative_density_
-    median_survival_time = kmf.median_survival_time_
-
-    df.insert(0, "timeline", timeline)
-    confidence_interval.insert(0, "timeline", timeline)
-    confidence_interval.columns = confidence_interval.columns.str.replace('.', ',', regex=True)
-    conditional_time_to_event.insert(0, "timeline", timeline)
-    event_table.insert(0, "event_at", timeline)
-    confidence_interval_cumulative_density.insert(0, "timeline", timeline)
-    confidence_interval_cumulative_density.columns = confidence_interval_cumulative_density.columns.str.replace('.', ',', regex=True)
-    cumulative_density.insert(0, "timeline", timeline)
-
-
-    return {"survival_function":df.to_json(orient="records"),
-            "confidence_interval": confidence_interval.to_json(orient='records'),
-            'event_table': event_table.to_json(orient="records"),
-            "conditional_time_to_event": conditional_time_to_event.to_json(orient="records"),
-            "confidence_interval_cumulative_density":confidence_interval_cumulative_density.to_json(orient="records"),
-            "cumulative_density" : cumulative_density.to_json(orient='records'),
-            "timeline" : timeline.to_json(orient='records'),
-            "median_survival_time": str(median_survival_time)}
+        df.insert(0, "timeline", timeline)
+        confidence_interval.insert(0, "timeline", timeline)
+        confidence_interval.columns = confidence_interval.columns.str.replace('.', ',', regex=True)
+        conditional_time_to_event.insert(0, "timeline", timeline)
+        event_table.insert(0, "event_at", timeline)
+        confidence_interval_cumulative_density.insert(0, "timeline", timeline)
+        confidence_interval_cumulative_density.columns = confidence_interval_cumulative_density.columns.str.replace('.', ',', regex=True)
+        cumulative_density.insert(0, "timeline", timeline)
+        test_status = 'Erro in creating info file.'
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            file_data = json.load(f)
+            file_data['results'] |= {
+                "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                "workflow_id": workflow_id,
+                "run_id": run_id,
+                "step_id": step_id,
+                "test_name": 'Kaplan Meier Fitter',
+                "test_params": {
+                    'selected_exposure_variable': column_1,
+                    'selected_outcome_variable': column_2,
+                    'selected_at_risk_counts': at_risk_counts,
+                    'selected_alpha': alpha,
+                    'selected_label': label,
+                },
+                "test_results": {
+                    "survival_function":df.to_dict(),
+                    "confidence_interval": confidence_interval.to_dict(),
+                    'event_table': event_table.to_dict(),
+                    "conditional_time_to_event": conditional_time_to_event.to_dict(),
+                    "confidence_interval_cumulative_density":confidence_interval_cumulative_density.to_dict(),
+                    "cumulative_density" : cumulative_density.to_dict(),
+                    "timeline" : timeline.to_dict(),
+                    "median_survival_time": str(median_survival_time)
+                },
+                "Output_datasets": [],
+                'Saved_plots': [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                             step_id + '/analysis_output/survival_function.svg'}
+                                    ]
+            }
+            f.seek(0)
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        return JSONResponse(content={'status': 'Success', "survival_function":df.to_json(orient="records"),
+                                     "confidence_interval": confidence_interval.to_json(orient='records'),
+                                     'event_table': event_table.to_json(orient="records"),
+                                     "conditional_time_to_event": conditional_time_to_event.to_json(orient="records"),
+                                     "confidence_interval_cumulative_density":confidence_interval_cumulative_density.to_json(orient="records"),
+                                     "cumulative_density" : cumulative_density.to_json(orient='records'),
+                                     "timeline" : timeline.to_json(orient='records'),
+                                     "median_survival_time": str(median_survival_time)},
+                            status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status': test_status, "survival_function":'[]',
+                                         "confidence_interval": '[]',
+                                         'event_table': '[]',
+                                         "conditional_time_to_event": '[]',
+                                         "confidence_interval_cumulative_density":'[]',
+                                         "cumulative_density" : '[]',
+                                         "timeline" : '[]',
+                                         "median_survival_time": ''},
+                                status_code=200)
 
 
 @router.get("/fisher")
