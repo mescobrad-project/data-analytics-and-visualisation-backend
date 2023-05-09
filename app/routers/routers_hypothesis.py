@@ -2096,43 +2096,85 @@ async def linear_mixed_effects_model(workflow_id: str,
                      groups: str,
                      independent: list[str] | None = Query(default=None),
                      use_sqrt: bool | None = Query(default=True)):
+    dfv = pd.DataFrame()
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
+    # Load Datasets
+    try:
+        test_status = 'Dataset is not defined'
+        dependent = dependent.split("--")[1]
+        groups = groups.split("--")[1]
+        dfv['variables'] = independent
+        dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
+        selected_datasources = pd.unique(dfv['Datasource'])
+        test_status = 'Unable to retrieve datasets'
+        # We expect only one here
+        data = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
+        independent = dfv['Variable'].tolist()
 
-    # data = pd.read_csv('example_data/mescobrad_dataset.csv')
-    data = load_file_csv_direct(workflow_id, run_id, step_id)
-    z = dependent + "~"
-    for i in range(len(independent)):
-        z = z + "+" + independent[i]
+        test_status = 'Unable to compute Mixed Linear Model Regression test for the selected columns. Nonnumeric values are selected for the Dependent variable.'
+        z = dependent + "~"
+        for i in range(len(independent)):
+            z = z + "+" + independent[i]
 
-    md = smf.mixedlm(z, data, groups=data[groups], use_sqrt=use_sqrt)
-    mdf = md.fit()
-    df = mdf.summary()
-    df_0 = df.tables[0]
-    tbl1_res = []
-    for ind, row in df_0.iterrows():
-        temp_to_append = {
-            'id': ind,
-            "col0": row[0],
-            "col1": row[1],
-            "col2": row[2],
-            "col3": row[3],
-        }
-        tbl1_res.append(temp_to_append)
-    df_1 = df.tables[1]
-    tbl2_res = []
-    for ind, row in df_1.iterrows():
-        temp_to_append = {
-            'id': ind,
-            "col0": row[0],
-            "col1": row[1],
-            "col2": row[2],
-            "col3": row[3],
-            "col4": row[4],
-            "col5": row[5],
-        }
-        tbl2_res.append(temp_to_append)
-    print(df)
+        md = smf.mixedlm(z, data, groups=data[groups], use_sqrt=use_sqrt)
+        mdf = md.fit()
+        df = mdf.summary()
+        df_0 = df.tables[0]
+        tbl1_res = []
+        for ind, row in df_0.iterrows():
+            temp_to_append = {
+                'id': ind,
+                "col0": row[0],
+                "col1": row[1],
+                "col2": row[2],
+                "col3": row[3],
+            }
+            tbl1_res.append(temp_to_append)
+        df_1 = df.tables[1]
+        tbl2_res = []
+        for ind, row in df_1.iterrows():
+            temp_to_append = {
+                'id': ind,
+                "col0": row[0],
+                "col1": row[1],
+                "col2": row[2],
+                "col3": row[3],
+                "col4": row[4],
+                "col5": row[5],
+            }
+            tbl2_res.append(temp_to_append)
 
-    return {'first_table': tbl1_res, 'second_table': tbl2_res}
+        test_status = 'Erro in creating info file.'
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            file_data = json.load(f)
+            file_data['results'] |= {
+                "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                "workflow_id": workflow_id,
+                "run_id": run_id,
+                "step_id": step_id,
+                "test_name": 'Linear Mixed Effects Model',
+                "test_params": {
+                    'selected_depedent_variable': dependent,
+                    'selected_groups':groups,
+                    'selected_covariate_variables':independent
+                },
+                "test_results": {
+                    'model':tbl1_res,
+                    'coeficients':tbl2_res
+                },
+                "Output_datasets":[],
+                'Saved_plots': []
+            }
+            f.seek(0)
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        return JSONResponse(content={'status': 'Success','first_table': tbl1_res, 'second_table': tbl2_res},
+                            status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status': test_status, 'first_table': [], 'second_table': []},
+                            status_code=200)
     # return {'first_table': df_0.to_json(orient='split'), 'second_table': df_1.to_json(orient='split')}
 
 @router.get("/poisson_regression")
