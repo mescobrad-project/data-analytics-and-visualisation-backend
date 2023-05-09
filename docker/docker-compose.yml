@@ -16,7 +16,7 @@ services:
       - mri-freesurfer-network
     shm_size: 1gb
 
-  analytics-backend:
+  cd:
     build:
       context: ".."
       dockerfile: ./docker/Dockerfile

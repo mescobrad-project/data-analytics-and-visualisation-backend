@@ -371,6 +371,8 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/Mixed_Anova"
             case "general_stats_average":
                 url_to_redirect += "/General_Stats_Average"
+            case "back_average":
+                url_to_redirect += "/back_average"
             case "general_stats_min":
                 url_to_redirect +="/General_Stats_Min"
             case "general_stats_max":

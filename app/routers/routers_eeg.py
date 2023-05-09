@@ -47,7 +47,7 @@ from yasa import spindles_detect
 from pyedflib import highlevel
 from app.pydantic_models import *
 
-router = APIRouter()
+router = APIRouter( )
 
 # region EEG Function pre-processing and functions
 # TODO Finalise the use of file dynamically
@@ -2294,3 +2294,48 @@ async def return_envelopetrend(
             else:
                 return {'Channel not found'}
     return {'Channel not found'}
+
+
+@router.get("/back_average", tags=["back_average"])
+async def back_average(
+        workflow_id: str,
+        step_id: str,
+        run_id: str,
+        # pick_channel: list | None = ["F4-Ref"],
+        time_before_event: float | None = None,
+        time_after_event: float | None = None,
+        min_ptp_amplitude: float | None = None,
+        max_ptp_amplitude: float | None = None,
+        annotation_name: str | None = None,
+):
+    """This function applies a back average"""
+
+    # Load the file from local or interim EDFBrowser storage
+    data = load_file_from_local_or_interim_edfbrowser_storage("original", workflow_id, run_id, step_id)
+
+    # Extract events from annotations
+    events = mne.events_from_annotations(data, regexp=annotation_name)
+
+    # Apply epochs without any baseline correction
+    # This function uses only the channels that are marked as "data" in the montage
+    # epochs = mne.Epochs(raw = data, picks= "data" ,events = events[0], tmin = time_before_event, tmax = time_after_event, reject= {'eeg':max_ptp_amplitude}, flat= {'eeg' :min_ptp_amplitude}, baseline=None)
+    epochs = mne.Epochs(raw = data, picks="data",events = events[0],tmin = time_before_event, tmax = time_after_event, baseline=None)
+    print(epochs)
+    raw_data = epochs.get_data()
+    print(raw_data)
+
+    # epochs.plot(picks=["F4-Ref"], show=True)
+    # evoked = epochs.average()
+
+
+    # epochs.plot_image
+    evoked = epochs.average(picks="all", by_event_type=False)
+    plot = evoked.plot(show=True)
+    plot.savefig(get_local_storage_path(workflow_id, step_id, run_id) + "/output/" + 'back_average_plot.png')
+    # plot.savefig(NeurodesktopStorageLocation + '/back_average_plot.png')
+    print(evoked)
+
+    # mne.viz.plot_evoked(evoked, show=True)
+
+    return True
+
