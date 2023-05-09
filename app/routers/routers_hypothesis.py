@@ -2613,18 +2613,57 @@ async def fisher(
         # variable_bottom_right: int,
         alternative: Optional[str] | None = Query("two-sided",
                                                   regex="^(two-sided)$|^(less)$|^(greater)$")):
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
+    # Load Datasets
+    try:
+        test_status = 'Dataset is not defined'
+        selected_datasource = variable_column.split("--")[0]
+        variable_column = variable_column.split("--")[1]
+        variable_row = variable_row.split("--")[1]
+        test_status = 'Unable to retrieve datasets'
+        # We expect only one here
+        data = load_data_from_csv(path_to_storage + "/" + selected_datasource)
 
-    data = load_file_csv_direct(workflow_id, run_id, step_id)
-    row_var = data[variable_row]
-    column_var = data[variable_column]
-    # df = [[variable_top_left,variable_top_right], [variable_bottom_left,variable_bottom_right]]
+        test_status = 'Unable to compute Fisher exact test for the selected columns. '
+        row_var = data[variable_row]
+        column_var = data[variable_column]
 
-    df = pd.crosstab(index=row_var,columns=column_var)
-    df1 = pd.crosstab(index=row_var,columns=column_var, margins=True, margins_name= "Total")
+        df = pd.crosstab(index=row_var,columns=column_var)
+        df1 = pd.crosstab(index=row_var,columns=column_var, margins=True, margins_name= "Total")
+        odd_ratio, p_value = fisher_exact(df, alternative=alternative)
 
-    odd_ratio, p_value = fisher_exact(df, alternative=alternative)
-
-    return {'odd_ratio': odd_ratio, "p_value": p_value, "crosstab":df1.to_json(orient='split')}
+        test_status = 'Erro in creating info file.'
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            file_data = json.load(f)
+            file_data['results'] |= {
+                "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                "workflow_id": workflow_id,
+                "run_id": run_id,
+                "step_id": step_id,
+                "test_name": 'Fisher exact',
+                "test_params": {
+                    'variable_column': variable_column,
+                    'variable_row': variable_row,
+                    'alternative': alternative
+                },
+                "test_results": {
+                    'odd_ratio': odd_ratio,
+                    "p_value": p_value,
+                    "crosstab":df1.to_dict()
+                },
+                "Output_datasets": [],
+                'Saved_plots': []
+            }
+            f.seek(0)
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        return JSONResponse(content={'status': 'Success', 'odd_ratio': odd_ratio, "p_value": p_value, "crosstab":df1.to_json(orient='split')},
+                            status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status': test_status, 'odd_ratio': '', "p_value": '', "crosstab":"{\"columns\":[0,1,\"Total\"],\"index\":[0,1,\"Total\"],\"data\":[[0,0,0],[0,0,0],[0,0,0]]}"},
+                            status_code=200)
 
 @router.get("/mc_nemar")
 async def mc_nemar(workflow_id: str,
