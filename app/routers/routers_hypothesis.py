@@ -2609,8 +2609,6 @@ async def fisher(
         run_id: str,
         variable_column: str,
         variable_row: str,
-        # variable_bottom_left: int,
-        # variable_bottom_right: int,
         alternative: Optional[str] | None = Query("two-sided",
                                                   regex="^(two-sided)$|^(less)$|^(greater)$")):
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
@@ -2633,7 +2631,7 @@ async def fisher(
         df1 = pd.crosstab(index=row_var,columns=column_var, margins=True, margins_name= "Total")
         odd_ratio, p_value = fisher_exact(df, alternative=alternative)
 
-        test_status = 'Erro in creating info file.'
+        test_status = 'Error in creating info file.'
         with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
             file_data = json.load(f)
             file_data['results'] |= {
@@ -2673,18 +2671,74 @@ async def mc_nemar(workflow_id: str,
                    variable_row: str,
                    exact: bool | None = Query(default=False),
                    correction: bool | None = Query(default=True)):
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
+    # Load Datasets
+    try:
+        test_status = 'Dataset is not defined'
+        selected_datasource = variable_column.split("--")[0]
+        variable_column = variable_column.split("--")[1]
+        variable_row = variable_row.split("--")[1]
+        test_status = 'Unable to retrieve datasets'
+        # We expect only one here
+        data = load_data_from_csv(path_to_storage + "/" + selected_datasource)
+        test_status = 'Unable to compute McNemar test for the selected columns.'
 
-    # df = [[variable_top_left,variable_top_right], [variable_bottom_left,variable_bottom_right]]
-    data = load_file_csv_direct(workflow_id, run_id, step_id)
-    # TODO row must be  dichotomous ????
-    row_var = data[variable_row]
-    column_var = data[variable_column]
-    df = pd.crosstab(index=row_var,columns=column_var)
-    df1 = pd.crosstab(index=row_var,columns=column_var, margins=True, margins_name= "Total")
+        # I used LabelEncoder() to convert str to int, but I made it a comment
+        # because the user does not have the tranformed
+        # dataset to know what 0 and 1 means
+        row_var = data[variable_row]
+        # if row_var.dtypes != 'int64':
+        #     le = LabelEncoder()
+        #     row_var = le.fit_transform(data[variable_row])
+        column_var = data[variable_column]
+        # if column_var.dtypes != 'int64':
+        #     le = LabelEncoder()
+        #     column_var = le.fit_transform(data[variable_column])
 
-    result = mcnemar(df, exact=exact, correction=correction)
+        df = pd.crosstab(index=row_var,columns=column_var)
+        df1 = pd.crosstab(index=row_var,columns=column_var, margins=True, margins_name= "Total")
 
-    return {'statistic': result.statistic, "p_value": result.pvalue, "crosstab":df1.to_json(orient='split')}
+        result = mcnemar(df, exact=exact, correction=correction)
+        test_status = 'Error in creating info file.'
+        statistic = result.statistic if not np.isinf(result.statistic) else 'infinity'
+        print(result.statistic)
+        print(statistic)
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            file_data = json.load(f)
+            file_data['results'] |= {
+                "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                "workflow_id": workflow_id,
+                "run_id": run_id,
+                "step_id": step_id,
+                "test_name": 'McNemar',
+                "test_params": {
+                    'variable_column': variable_column,
+                    'variable_row': variable_row,
+                    'exact': exact,
+                    'correction': correction
+                },
+                "test_results": {
+                    'statistic': statistic,
+                    "p_value": result.pvalue,
+                    "crosstab": df1.to_dict()
+                },
+                "Output_datasets": [],
+                'Saved_plots': []
+            }
+            f.seek(0)
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        return JSONResponse(content={'status': 'Success', 'statistic': result.statistic,
+                                     "p_value": result.pvalue,
+                                     "crosstab":df1.to_json(orient='split')},
+                            status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status': test_status, 'statistic': '', "p_value": '',
+                                     "crosstab": "{\"columns\":[0,1,\"Total\"],\"index\":[0,1,\"Total\"],\"data\":[[0,0,0],[0,0,0],[0,0,0]]}"},
+                            status_code=200)
+    # return {'statistic': result.statistic, "p_value": result.pvalue, "crosstab":df1.to_json(orient='split')}
 
 @router.get("/all_statistics")
 async def all_statistics():
