@@ -13,7 +13,7 @@ from app.utils.utils_general import create_local_step
 router = APIRouter()
 
 WFAddress = os.environ.get('WFAddress') if os.environ.get(
-    'WFAddress') else "http://100.0.0.1:8000"
+    'WFAddress') else "https://esbk.platform.mes-cobrad.eu"
 
 TestRunId = os.environ.get('TestRunId') if os.environ.get(
     'TestRunId') else "fe2b0997-6974-4fee-9178-a3291ea1744c"
@@ -25,7 +25,7 @@ NeurodesktopStorageLocation = os.environ.get('NeurodesktopStorageLocation') if o
     'NeurodesktopStorageLocation') else "/neurodesktop-storage"
 
 FrontendAddress = os.environ.get('FrontendAddress') if os.environ.get(
-    'FrontendAddress') else "http://localhost:3000"
+    'FrontendAddress') else "http://localhost:3005"
 
 ExistingFunctions = [
     # EEG
@@ -163,13 +163,39 @@ async def test_task_complete() -> dict:
     # channels = data.ch_names
     print(WFAddress)
     headers = {"Content-Type": "application/json"}
+
+    saved_files = []
+    # saved files should be the same as those upload in a previous step or the call should happen here
+    # TODO
     data = {
-        "action": "complete",
-        "metadata": {}
+        "datalake" : saved_files,
+        # "trino:": [        ],
     }
-    url = WFAddress + "/run/" + TestRunId + "/step/" + TestStepId
+    url = WFAddress + "/expert_system_backend/run/" + TestRunId + "/step/" + TestStepId + "/task/script/complete"
     print(url)
     response = requests.put(url=url, data=data, headers=headers)
+    print("Test Response: Task Ping")
+    print(response)
+
+    return {'test': "test"}
+
+
+@router.get("/task/complete", tags=["test_task_complete"])
+async def test_task_complete() -> dict:
+    # channels = data.ch_names
+    print(WFAddress)
+    headers = {"Content-Type": "application/json"}
+
+    saved_files = []
+    # saved files should be the same as those upload in a previous step or the call should happen here
+    # TODO
+    data = {
+        "datalake": saved_files,
+        # "trino:": [        ],
+    }
+    url = WFAddress + "/expert_system_backend/run/" + TestRunId + "/step/" + TestStepId + "/task/script/complete"
+    print(url)
+    response = requests.patch(url=url, data=data, headers=headers)
     print("Test Response: Task Ping")
     print(response)
 
