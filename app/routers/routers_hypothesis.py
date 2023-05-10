@@ -2028,25 +2028,64 @@ async def ancova_2(workflow_id: str,
                    covar: list[str] | None = Query(default=None),
                    effsize: str | None = Query("np2",
                                                regex="^(np2)$|^(n2)$")):
+    dfv = pd.DataFrame()
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
+    # Load Datasets
+    try:
+        test_status = 'Dataset is not defined'
+        dv = dv.split("--")[1]
+        between = between.split("--")[1]
+        dfv['variables'] = covar
+        dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
 
-    # df_data = pd.read_csv('example_data/mescobrad_dataset.csv')
-    df_data = load_file_csv_direct(workflow_id, run_id, step_id)
+        selected_datasources = pd.unique(dfv['Datasource'])
+        test_status = 'Unable to retrieve datasets'
+        # We expect only one here
+        df_data = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
+        covar = dfv['Variable'].tolist()
 
-    df = ancova(data=df_data, dv=dv, covar=covar, between=between, effsize=effsize)
-    df = df.fillna('')
-    all_res = []
-    for ind, row in df.iterrows():
-        temp_to_append = {
-            'id': ind,
-            'Source': row['Source'],
-            'SS': row['SS'],
-            'DF': row['DF'],
-            'F': row['F'],
-            'p-unc': row['p-unc'],
-            'np2': row['np2']
-        }
-        all_res.append(temp_to_append)
-    return {'DataFrame': all_res}
+        test_status = 'Unable to compute Ancova test for the selected columns. Nonnumeric values are selected for the Dependent variable or the Covariates.'
+        df = ancova(data=df_data, dv=dv, covar=covar, between=between, effsize=effsize)
+        df = df.fillna('')
+        all_res = []
+        for ind, row in df.iterrows():
+            temp_to_append = {
+                'id': ind,
+                'Source': row['Source'],
+                'SS': row['SS'],
+                'DF': row['DF'],
+                'F': row['F'],
+                'p-unc': row['p-unc'],
+                'np2': row['np2']
+            }
+            all_res.append(temp_to_append)
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            file_data = json.load(f)
+            file_data['results'] |= {
+                "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                "workflow_id": workflow_id,
+                "run_id": run_id,
+                "step_id": step_id,
+                "test_name": 'Ancova test',
+                "test_params": {
+                    'selected_depedent_variable': dv,
+                    'selected_between_factor':between,
+                    'selected_covariate_variables':covar
+                },
+                "test_results": all_res,
+                "Output_datasets":[],
+                'Saved_plots': []
+            }
+            f.seek(0)
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        return JSONResponse(content={'status': 'Success','DataFrame': all_res},
+                            status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status': test_status, 'Dataframe': []},
+                            status_code=200)
     # return {'ANCOVA':df.to_json(orient="split")}
 
 @router.get("/linear_mixed_effects_model")
@@ -2057,43 +2096,85 @@ async def linear_mixed_effects_model(workflow_id: str,
                      groups: str,
                      independent: list[str] | None = Query(default=None),
                      use_sqrt: bool | None = Query(default=True)):
+    dfv = pd.DataFrame()
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
+    # Load Datasets
+    try:
+        test_status = 'Dataset is not defined'
+        dependent = dependent.split("--")[1]
+        groups = groups.split("--")[1]
+        dfv['variables'] = independent
+        dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
+        selected_datasources = pd.unique(dfv['Datasource'])
+        test_status = 'Unable to retrieve datasets'
+        # We expect only one here
+        data = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
+        independent = dfv['Variable'].tolist()
 
-    # data = pd.read_csv('example_data/mescobrad_dataset.csv')
-    data = load_file_csv_direct(workflow_id, run_id, step_id)
-    z = dependent + "~"
-    for i in range(len(independent)):
-        z = z + "+" + independent[i]
+        test_status = 'Unable to compute Mixed Linear Model Regression test for the selected columns. Nonnumeric values are selected for the Dependent variable.'
+        z = dependent + "~"
+        for i in range(len(independent)):
+            z = z + "+" + independent[i]
 
-    md = smf.mixedlm(z, data, groups=data[groups], use_sqrt=use_sqrt)
-    mdf = md.fit()
-    df = mdf.summary()
-    df_0 = df.tables[0]
-    tbl1_res = []
-    for ind, row in df_0.iterrows():
-        temp_to_append = {
-            'id': ind,
-            "col0": row[0],
-            "col1": row[1],
-            "col2": row[2],
-            "col3": row[3],
-        }
-        tbl1_res.append(temp_to_append)
-    df_1 = df.tables[1]
-    tbl2_res = []
-    for ind, row in df_1.iterrows():
-        temp_to_append = {
-            'id': ind,
-            "col0": row[0],
-            "col1": row[1],
-            "col2": row[2],
-            "col3": row[3],
-            "col4": row[4],
-            "col5": row[5],
-        }
-        tbl2_res.append(temp_to_append)
-    print(df)
+        md = smf.mixedlm(z, data, groups=data[groups], use_sqrt=use_sqrt)
+        mdf = md.fit()
+        df = mdf.summary()
+        df_0 = df.tables[0]
+        tbl1_res = []
+        for ind, row in df_0.iterrows():
+            temp_to_append = {
+                'id': ind,
+                "col0": row[0],
+                "col1": row[1],
+                "col2": row[2],
+                "col3": row[3],
+            }
+            tbl1_res.append(temp_to_append)
+        df_1 = df.tables[1]
+        tbl2_res = []
+        for ind, row in df_1.iterrows():
+            temp_to_append = {
+                'id': ind,
+                "col0": row[0],
+                "col1": row[1],
+                "col2": row[2],
+                "col3": row[3],
+                "col4": row[4],
+                "col5": row[5],
+            }
+            tbl2_res.append(temp_to_append)
 
-    return {'first_table': tbl1_res, 'second_table': tbl2_res}
+        test_status = 'Erro in creating info file.'
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            file_data = json.load(f)
+            file_data['results'] |= {
+                "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                "workflow_id": workflow_id,
+                "run_id": run_id,
+                "step_id": step_id,
+                "test_name": 'Linear Mixed Effects Model',
+                "test_params": {
+                    'selected_depedent_variable': dependent,
+                    'selected_groups':groups,
+                    'selected_covariate_variables':independent
+                },
+                "test_results": {
+                    'model':tbl1_res,
+                    'coeficients':tbl2_res
+                },
+                "Output_datasets":[],
+                'Saved_plots': []
+            }
+            f.seek(0)
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        return JSONResponse(content={'status': 'Success','first_table': tbl1_res, 'second_table': tbl2_res},
+                            status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status': test_status, 'first_table': [], 'second_table': []},
+                            status_code=200)
     # return {'first_table': df_0.to_json(orient='split'), 'second_table': df_1.to_json(orient='split')}
 
 @router.get("/poisson_regression")
@@ -2428,50 +2509,97 @@ async def kaplan_meier(workflow_id: str,
                        at_risk_counts: bool | None = Query(default=True),
                        label: str | None = Query(default=None),
                        alpha: float | None = Query(default=0.05)):
-    # to_return = {}
-    #
-    # fig = plt.figure(1)
-    # ax = plt.subplot(111)
-
-    # dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
-    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
+    # Load Datasets
+    try:
+        test_status = 'Dataset is not defined'
+        selected_datasource = column_1.split("--")[0]
+        column_1 = column_1.split("--")[1]
+        column_2 = column_2.split("--")[1]
+        test_status = 'Unable to retrieve datasets'
+        # We expect only one here
+        dataset = load_data_from_csv(path_to_storage + "/" + selected_datasource)
 
-    kmf = KaplanMeierFitter(alpha=alpha, label=label)
-    kmf.fit(dataset[column_1], dataset[column_2])
-    kmf.plot_survival_function(at_risk_counts=at_risk_counts)
-    plt.ylabel("Survival probability")
-    plt.savefig(path_to_storage + "/output/survival_function.svg", format="svg")
-    plt.show()
+        test_status = 'Unable to compute Kaplan Meier Fitter test for the selected columns. '
+        kmf = KaplanMeierFitter(alpha=alpha, label=label)
+        kmf.fit(dataset[column_1], dataset[column_2])
+        kmf.plot_survival_function(at_risk_counts=at_risk_counts)
+        plt.ylabel("Survival probability")
+        plt.savefig(path_to_storage + "/output/survival_function.svg", format="svg")
+        plt.show()
 
+        df = kmf.survival_function_
+        timeline = pd.DataFrame(kmf.timeline)
+        conditional_time_to_event = pd.DataFrame(kmf.conditional_time_to_event_)
+        confidence_interval = kmf.confidence_interval_
+        event_table = kmf.event_table
+        confidence_interval_cumulative_density = kmf.confidence_interval_cumulative_density_
+        cumulative_density = kmf.cumulative_density_
+        median_survival_time = kmf.median_survival_time_
 
-    df = kmf.survival_function_
-    timeline = pd.DataFrame(kmf.timeline)
-    conditional_time_to_event = pd.DataFrame(kmf.conditional_time_to_event_)
-    confidence_interval = kmf.confidence_interval_
-    event_table = kmf.event_table
-    confidence_interval_cumulative_density = kmf.confidence_interval_cumulative_density_
-    cumulative_density = kmf.cumulative_density_
-    median_survival_time = kmf.median_survival_time_
-
-    df.insert(0, "timeline", timeline)
-    confidence_interval.insert(0, "timeline", timeline)
-    confidence_interval.columns = confidence_interval.columns.str.replace('.', ',', regex=True)
-    conditional_time_to_event.insert(0, "timeline", timeline)
-    event_table.insert(0, "event_at", timeline)
-    confidence_interval_cumulative_density.insert(0, "timeline", timeline)
-    confidence_interval_cumulative_density.columns = confidence_interval_cumulative_density.columns.str.replace('.', ',', regex=True)
-    cumulative_density.insert(0, "timeline", timeline)
-
-
-    return {"survival_function":df.to_json(orient="records"),
-            "confidence_interval": confidence_interval.to_json(orient='records'),
-            'event_table': event_table.to_json(orient="records"),
-            "conditional_time_to_event": conditional_time_to_event.to_json(orient="records"),
-            "confidence_interval_cumulative_density":confidence_interval_cumulative_density.to_json(orient="records"),
-            "cumulative_density" : cumulative_density.to_json(orient='records'),
-            "timeline" : timeline.to_json(orient='records'),
-            "median_survival_time": str(median_survival_time)}
+        df.insert(0, "timeline", timeline)
+        confidence_interval.insert(0, "timeline", timeline)
+        confidence_interval.columns = confidence_interval.columns.str.replace('.', ',', regex=True)
+        conditional_time_to_event.insert(0, "timeline", timeline)
+        event_table.insert(0, "event_at", timeline)
+        confidence_interval_cumulative_density.insert(0, "timeline", timeline)
+        confidence_interval_cumulative_density.columns = confidence_interval_cumulative_density.columns.str.replace('.', ',', regex=True)
+        cumulative_density.insert(0, "timeline", timeline)
+        test_status = 'Erro in creating info file.'
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            file_data = json.load(f)
+            file_data['results'] |= {
+                "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                "workflow_id": workflow_id,
+                "run_id": run_id,
+                "step_id": step_id,
+                "test_name": 'Kaplan Meier Fitter',
+                "test_params": {
+                    'selected_exposure_variable': column_1,
+                    'selected_outcome_variable': column_2,
+                    'selected_at_risk_counts': at_risk_counts,
+                    'selected_alpha': alpha,
+                    'selected_label': label,
+                },
+                "test_results": {
+                    "survival_function":df.to_dict(),
+                    "confidence_interval": confidence_interval.to_dict(),
+                    'event_table': event_table.to_dict(),
+                    "conditional_time_to_event": conditional_time_to_event.to_dict(),
+                    "confidence_interval_cumulative_density":confidence_interval_cumulative_density.to_dict(),
+                    "cumulative_density" : cumulative_density.to_dict(),
+                    "timeline" : timeline.to_dict(),
+                    "median_survival_time": str(median_survival_time)
+                },
+                "Output_datasets": [],
+                'Saved_plots': [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                             step_id + '/analysis_output/survival_function.svg'}
+                                    ]
+            }
+            f.seek(0)
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        return JSONResponse(content={'status': 'Success', "survival_function":df.to_json(orient="records"),
+                                     "confidence_interval": confidence_interval.to_json(orient='records'),
+                                     'event_table': event_table.to_json(orient="records"),
+                                     "conditional_time_to_event": conditional_time_to_event.to_json(orient="records"),
+                                     "confidence_interval_cumulative_density":confidence_interval_cumulative_density.to_json(orient="records"),
+                                     "cumulative_density" : cumulative_density.to_json(orient='records'),
+                                     "timeline" : timeline.to_json(orient='records'),
+                                     "median_survival_time": str(median_survival_time)},
+                            status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status': test_status, "survival_function":'[]',
+                                         "confidence_interval": '[]',
+                                         'event_table': '[]',
+                                         "conditional_time_to_event": '[]',
+                                         "confidence_interval_cumulative_density":'[]',
+                                         "cumulative_density" : '[]',
+                                         "timeline" : '[]',
+                                         "median_survival_time": ''},
+                                status_code=200)
 
 
 @router.get("/fisher")
@@ -2481,22 +2609,59 @@ async def fisher(
         run_id: str,
         variable_column: str,
         variable_row: str,
-        # variable_bottom_left: int,
-        # variable_bottom_right: int,
         alternative: Optional[str] | None = Query("two-sided",
                                                   regex="^(two-sided)$|^(less)$|^(greater)$")):
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
+    # Load Datasets
+    try:
+        test_status = 'Dataset is not defined'
+        selected_datasource = variable_column.split("--")[0]
+        variable_column = variable_column.split("--")[1]
+        variable_row = variable_row.split("--")[1]
+        test_status = 'Unable to retrieve datasets'
+        # We expect only one here
+        data = load_data_from_csv(path_to_storage + "/" + selected_datasource)
 
-    data = load_file_csv_direct(workflow_id, run_id, step_id)
-    row_var = data[variable_row]
-    column_var = data[variable_column]
-    # df = [[variable_top_left,variable_top_right], [variable_bottom_left,variable_bottom_right]]
+        test_status = 'Unable to compute Fisher exact test for the selected columns. '
+        row_var = data[variable_row]
+        column_var = data[variable_column]
 
-    df = pd.crosstab(index=row_var,columns=column_var)
-    df1 = pd.crosstab(index=row_var,columns=column_var, margins=True, margins_name= "Total")
+        df = pd.crosstab(index=row_var,columns=column_var)
+        df1 = pd.crosstab(index=row_var,columns=column_var, margins=True, margins_name= "Total")
+        odd_ratio, p_value = fisher_exact(df, alternative=alternative)
 
-    odd_ratio, p_value = fisher_exact(df, alternative=alternative)
-
-    return {'odd_ratio': odd_ratio, "p_value": p_value, "crosstab":df1.to_json(orient='split')}
+        test_status = 'Error in creating info file.'
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            file_data = json.load(f)
+            file_data['results'] |= {
+                "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                "workflow_id": workflow_id,
+                "run_id": run_id,
+                "step_id": step_id,
+                "test_name": 'Fisher exact',
+                "test_params": {
+                    'variable_column': variable_column,
+                    'variable_row': variable_row,
+                    'alternative': alternative
+                },
+                "test_results": {
+                    'odd_ratio': odd_ratio,
+                    "p_value": p_value,
+                    "crosstab":df1.to_dict()
+                },
+                "Output_datasets": [],
+                'Saved_plots': []
+            }
+            f.seek(0)
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        return JSONResponse(content={'status': 'Success', 'odd_ratio': odd_ratio, "p_value": p_value, "crosstab":df1.to_json(orient='split')},
+                            status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status': test_status, 'odd_ratio': '', "p_value": '', "crosstab":"{\"columns\":[0,1,\"Total\"],\"index\":[0,1,\"Total\"],\"data\":[[0,0,0],[0,0,0],[0,0,0]]}"},
+                            status_code=200)
 
 @router.get("/mc_nemar")
 async def mc_nemar(workflow_id: str,
@@ -2506,18 +2671,72 @@ async def mc_nemar(workflow_id: str,
                    variable_row: str,
                    exact: bool | None = Query(default=False),
                    correction: bool | None = Query(default=True)):
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
+    # Load Datasets
+    try:
+        test_status = 'Dataset is not defined'
+        selected_datasource = variable_column.split("--")[0]
+        variable_column = variable_column.split("--")[1]
+        variable_row = variable_row.split("--")[1]
+        test_status = 'Unable to retrieve datasets'
+        # We expect only one here
+        data = load_data_from_csv(path_to_storage + "/" + selected_datasource)
+        test_status = 'Unable to compute McNemar test for the selected columns.'
 
-    # df = [[variable_top_left,variable_top_right], [variable_bottom_left,variable_bottom_right]]
-    data = load_file_csv_direct(workflow_id, run_id, step_id)
-    # TODO row must be  dichotomous ????
-    row_var = data[variable_row]
-    column_var = data[variable_column]
-    df = pd.crosstab(index=row_var,columns=column_var)
-    df1 = pd.crosstab(index=row_var,columns=column_var, margins=True, margins_name= "Total")
+        # I used LabelEncoder() to convert str to int, but I made it a comment
+        # because the user does not have the tranformed
+        # dataset to know what 0 and 1 means
+        row_var = data[variable_row]
+        # if row_var.dtypes != 'int64':
+        #     le = LabelEncoder()
+        #     row_var = le.fit_transform(data[variable_row])
+        column_var = data[variable_column]
+        # if column_var.dtypes != 'int64':
+        #     le = LabelEncoder()
+        #     column_var = le.fit_transform(data[variable_column])
 
-    result = mcnemar(df, exact=exact, correction=correction)
+        df = pd.crosstab(index=row_var,columns=column_var)
+        df1 = pd.crosstab(index=row_var,columns=column_var, margins=True, margins_name= "Total")
 
-    return {'statistic': result.statistic, "p_value": result.pvalue, "crosstab":df1.to_json(orient='split')}
+        result = mcnemar(df, exact=exact, correction=correction)
+        test_status = 'Error in creating info file.'
+        statistic = result.statistic if not np.isinf(result.statistic) else 'infinity'
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            file_data = json.load(f)
+            file_data['results'] |= {
+                "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                "workflow_id": workflow_id,
+                "run_id": run_id,
+                "step_id": step_id,
+                "test_name": 'McNemar',
+                "test_params": {
+                    'variable_column': variable_column,
+                    'variable_row': variable_row,
+                    'exact': exact,
+                    'correction': correction
+                },
+                "test_results": {
+                    'statistic': statistic,
+                    "p_value": result.pvalue,
+                    "crosstab": df1.to_dict()
+                },
+                "Output_datasets": [],
+                'Saved_plots': []
+            }
+            f.seek(0)
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        return JSONResponse(content={'status': 'Success', 'statistic': result.statistic,
+                                     "p_value": result.pvalue,
+                                     "crosstab":df1.to_json(orient='split')},
+                            status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status': test_status, 'statistic': '', "p_value": '',
+                                     "crosstab": "{\"columns\":[0,1,\"Total\"],\"index\":[0,1,\"Total\"],\"data\":[[0,0,0],[0,0,0],[0,0,0]]}"},
+                            status_code=200)
+    # return {'statistic': result.statistic, "p_value": result.pvalue, "crosstab":df1.to_json(orient='split')}
 
 @router.get("/all_statistics")
 async def all_statistics():
@@ -2566,45 +2785,98 @@ async def risk_ratio_1(
         alpha: float | None = Query(default=0.05),
         method: str | None = Query("risk_ratio",
                                    regex="^(risk_ratio)$|^(risk_difference)$|^(number_needed_to_treat)$|^(odds_ratio)$|^(incidence_rate_ratio)$|^(incidence_rate_difference)$")):
-
-    to_return = {}
-
-    fig = plt.figure(1)
-    ax = plt.subplot(111)
-
-    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
-
-    # zepid.datasets
-    # dataset = load_sample_data(False)
-    # print(load_sample_data(False))
-    if method == 'risk_ratio':
-        rr = RiskRatio(reference=reference, alpha=alpha)
-        rr.fit(dataset, exposure=exposure, outcome=outcome)
-    elif method == 'risk_difference':
-        rr = RiskDifference(reference=reference, alpha=alpha)
-        rr.fit(dataset, exposure=exposure, outcome=outcome)
-    elif method == 'number_needed_to_treat':
-        rr = NNT(reference=reference, alpha=alpha)
-        rr.fit(dataset, exposure=exposure, outcome=outcome)
-        df = rr.results
-        return {'table': df.to_json(orient="records")}
-    elif method == 'odds_ratio':
-        rr = OddsRatio(reference=reference, alpha=alpha)
-        rr.fit(dataset, exposure=exposure, outcome=outcome)
-    elif method == 'incidence_rate_ratio':
-        rr = IncidenceRateRatio(reference=reference, alpha=alpha)
-        rr.fit(dataset, exposure=exposure, outcome=outcome, time=time)
-    elif method == "incidence_rate_difference":
-        rr = IncidenceRateDifference(reference=reference, alpha=alpha)
-        rr.fit(dataset, exposure=exposure, outcome=outcome, time=time)
-    else:
-        return {'table':''}
-
-    df = rr.results
-    rr.plot()
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
-    plt.savefig(path_to_storage +"/output/Risktest.svg", format="svg")
-    return {'table': df.to_json(orient="records")}
+    test_status = ''
+    # Load Datasets
+    try:
+        test_status = 'Dataset is not defined'
+        selected_datasource = exposure.split("--")[0]
+        exposure = exposure.split("--")[1]
+        outcome = outcome.split("--")[1]
+        if time is not None: time = time.split("--")[1]
+        else: time = None
+        print([exposure, outcome, time])
+        test_status = 'Unable to retrieve datasets'
+        # We expect only one here
+        dataset = load_data_from_csv(path_to_storage + "/" + selected_datasource)
+        # Change binary str values to 0,1
+        df_tranf = pd.DataFrame()
+        if dataset[exposure].dtypes != 'int64':
+            le = LabelEncoder()
+            dataset[exposure] = le.fit_transform(dataset[exposure])
+            df_tranf['index'] = [0, 1]
+            df_tranf['exposure'] = [str(x) for x in le.classes_]
+        if dataset[outcome].dtypes != 'int64':
+            le = LabelEncoder()
+            dataset[outcome] = le.fit_transform(dataset[outcome])
+            df_tranf['index'] = [0, 1]
+            df_tranf['outcome'] = [str(x) for x in le.classes_]
+        test_status = 'Unable to compute ' + method + ' test for the selected columns. '
+        if method == 'risk_ratio':
+            rr = RiskRatio(reference=reference, alpha=alpha)
+            rr.fit(dataset, exposure=exposure, outcome=outcome)
+        elif method == 'risk_difference':
+            rr = RiskDifference(reference=reference, alpha=alpha)
+            rr.fit(dataset, exposure=exposure, outcome=outcome)
+        elif method == 'number_needed_to_treat':
+            rr = NNT(reference=reference, alpha=alpha)
+            rr.fit(dataset, exposure=exposure, outcome=outcome)
+            df = rr.results
+            return JSONResponse(content={'status': 'Success',
+                                     'table': df.to_json(orient="records"), 'col_transormed':df_tranf.to_json(orient="records")},
+                                                        status_code=200)
+        elif method == 'odds_ratio':
+            rr = OddsRatio(reference=reference, alpha=alpha)
+            rr.fit(dataset, exposure=exposure, outcome=outcome)
+        elif method == 'incidence_rate_ratio':
+            rr = IncidenceRateRatio(reference=reference, alpha=alpha)
+            rr.fit(dataset, exposure=exposure, outcome=outcome, time=time)
+        elif method == "incidence_rate_difference":
+            rr = IncidenceRateDifference(reference=reference, alpha=alpha)
+            rr.fit(dataset, exposure=exposure, outcome=outcome, time=time)
+        else:
+            raise Exception
+        # print(rr.summary())
+        df = rr.results
+        df.insert(loc=0, column='Ref:', value=[0,1])
+        fig = plt.figure(1)
+        ax = plt.subplot(111)
+        rr.plot()
+        plt.savefig(path_to_storage +"/output/Risktest.svg", format="svg")
+        test_status = 'Error in creating info file.'
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            file_data = json.load(f)
+            file_data['results'] |= {
+                "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                "workflow_id": workflow_id,
+                "run_id": run_id,
+                "step_id": step_id,
+                "test_name": method,
+                "test_params": {
+                    'exposure': exposure,
+                    'outcome': outcome,
+                    'time': time,
+                    'reference': reference,
+                    'alpha': alpha
+                },
+                "test_results": {
+                    'table': df.to_dict()
+                },
+                "Output_datasets": [],
+                'Saved_plots': [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                             step_id + '/analysis_output/Risktest.svg'}
+                                    ]
+            }
+            f.seek(0)
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        return JSONResponse(content={'status': 'Success',
+                                     'table': df.to_json(orient="records"), 'col_transormed':df_tranf.to_json(orient="records")},
+                                                        status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status': test_status, 'table':'[]', 'col_transormed':'[]'},
+                            status_code=200)
 
 @router.get("/two_sided_risk_ci")
 async def two_sided_risk_ci(workflow_id: str,
@@ -3801,91 +4073,157 @@ async def canonical_correlation(workflow_id: str,
                                 n_components: int | None = Query(default=2),
                                 independent_variables_1: list[str] | None = Query(default=None),
                                 independent_variables_2: list[str] | None = Query(default=None)):
-
-    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+    dfv = pd.DataFrame()
+    dfv2 = pd.DataFrame()
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
+    # Load Datasets
+    try:
+        test_status = 'Dataset is not defined'
+        dfv['variables1'] = independent_variables_1
+        dfv[['Datasource', 'Variable1']] = dfv["variables1"].apply(lambda x: pd.Series(str(x).split("--")))
+        dfv2['variables2'] = independent_variables_2
+        dfv2[['Datasource', 'Variable2']] = dfv2["variables2"].apply(lambda x: pd.Series(str(x).split("--")))
+        independent_variables_1 = dfv["Variable1"].tolist()
+        independent_variables_2 = dfv2["Variable2"].tolist()
+        selected_datasources = pd.unique(dfv['Datasource'])
+        test_status = 'Variables cannot be found in the same Dataset'
+        if selected_datasources != pd.unique(dfv2['Datasource']):
+            print(selected_datasources+"      vs     "+pd.unique(dfv2['Datasource']))
+            raise Exception
 
-    X = dataset[dataset.columns.intersection(independent_variables_1)]
-    Y =dataset[dataset.columns.intersection(independent_variables_2)]
+        test_status = 'Unable to retrieve datasets'
+        # We expect only one here
+        dataset = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
 
-    # First, let’s see if there is any correlation between the features of this dataset.
-    corr_XY = pd.concat([X,Y],axis=1, join='inner').corr()
-    plt.figure(figsize=(5, 5))
-    sns.heatmap(corr_XY, cmap='coolwarm', annot=True, linewidths=1, vmin=-1)
-    plt.savefig(path_to_storage + "/output/CCA_XYcorr.svg", format="svg")
+        X = dataset[dataset.columns.intersection(independent_variables_1)]
+        Y = dataset[dataset.columns.intersection(independent_variables_2)]
 
-    # Number of components to keep. Should be in [1, min(n_samples, n_features, n_targets)].
-    if n_components > min(X.shape[0], len(independent_variables_1), len(independent_variables_2)):
-        n_components = min(X.shape[0], len(independent_variables_1), len(independent_variables_2))
+        test_status = 'Unable to compute Canonical correlation for the selected columns.'
+        # First, let’s see if there is any correlation between the features of this dataset.
+        corr_XY = pd.concat([X,Y],axis=1, join='inner').corr()
+        plt.figure(figsize=(5, 5))
+        sns.heatmap(corr_XY, cmap='coolwarm', annot=True, linewidths=1, vmin=-1)
+        plt.savefig(path_to_storage + "/output/CCA_XYcorr.svg", format="svg")
+        # Number of components to keep. Should be in [1, min(n_samples, n_features, n_targets)].
+        if n_components > min(X.shape[0], len(independent_variables_1), len(independent_variables_2)):
+            n_components = min(X.shape[0], len(independent_variables_1), len(independent_variables_2))
 
-    my_cca = CCA(n_components=n_components)
-    # Fit the model
-    my_cca.fit(X, Y)
-    X_c, Y_c = my_cca.transform(X, Y)
+        my_cca = CCA(n_components=n_components)
+        # Fit the model
+        my_cca.fit(X, Y)
+        X_c, Y_c = my_cca.transform(X, Y)
+        # Now let’s check if there is any dependency between our canonical variates.
+        comp_corr = [np.corrcoef(X_c[:, i], Y_c[:, i])[1][0] for i in range(n_components)]
+        comp_titles = ['Comp'+ str(i+1) for i in range(n_components)]
+        plt.figure(figsize=(5, 5))
+        plt.bar(comp_titles, comp_corr, color='lightgrey', width=0.8, edgecolor='k')
+        plt.savefig(path_to_storage + "/output/CCA_comp_corr.svg", format="svg")
 
-    # Now let’s check if there is any dependency between our canonical variates.
-    comp_corr = [np.corrcoef(X_c[:, i], Y_c[:, i])[1][0] for i in range(n_components)]
-    comp_titles = ['Comp'+ str(i+1) for i in range(n_components)]
-    plt.figure(figsize=(5, 5))
-    plt.bar(comp_titles, comp_corr, color='lightgrey', width=0.8, edgecolor='k')
-    plt.savefig(path_to_storage + "/output/CCA_comp_corr.svg", format="svg")
+        fig, axs = plt.subplots(1, n_components, figsize=(n_components*8, 8), sharey='row')
+        for i in range(n_components):
+            axs[i].scatter(X_c[:, i], Y_c[:, i], marker="s", label='Comp'+ str(i+1))
+            z = np.polyfit(X_c[:, i], Y_c[:, i], 1)
+            p = np.poly1d(z)
+            axs[i].plot(X_c[:, i], p(X_c[:, i]), color="red", linewidth=3, linestyle="--")
+            axs[i].legend(loc='upper left')
+            axs[i].set_ylabel('CCY_'+str(i+1), fontsize=14)
+            axs[i].set_xlabel('CCX_'+str(i+1), fontsize=14)
+            axs[i].set_title('Comp'+str(i+1)+' , corr = %.2f' %
+                      np.corrcoef(X_c[:, i], Y_c[:, i])[0, 1])
+        plt.savefig(path_to_storage + "/output/CCA_XY_c_corr.svg", format="svg")
+        coef_df = pd.DataFrame(np.round(my_cca.coef_, 5), columns=Y.columns)
+        coef_df.index = X.columns
+        plt.figure(figsize=(5, 5))
+        s= sns.heatmap(coef_df, cmap='coolwarm', annot=True, linewidths=1, vmin=-1)
+        s.set(xlabel='Y samle', ylabel='X sample')
+        # plt.title = "CCA coefficients."
+        plt.savefig(path_to_storage + "/output/CCA_coefs.svg", format="svg")
+        plt.show()
 
-    fig, axs = plt.subplots(1, n_components, figsize=(n_components*8, 8), sharey='row')
-    for i in range(n_components):
-        axs[i].scatter(X_c[:, i], Y_c[:, i], marker="s", label='Comp'+ str(i+1))
-        z = np.polyfit(X_c[:, i], Y_c[:, i], 1)
-        p = np.poly1d(z)
-        axs[i].plot(X_c[:, i], p(X_c[:, i]), color="red", linewidth=3, linestyle="--")
-        axs[i].legend(loc='upper left')
-        axs[i].set_ylabel('CCY_'+str(i+1), fontsize=14)
-        axs[i].set_xlabel('CCX_'+str(i+1), fontsize=14)
-        axs[i].set_title('Comp'+str(i+1)+' , corr = %.2f' %
-                  np.corrcoef(X_c[:, i], Y_c[:, i])[0, 1])
-    plt.savefig(path_to_storage + "/output/CCA_XY_c_corr.svg", format="svg")
+        xweights = pd.DataFrame(my_cca.x_weights_, columns=comp_titles)
+        xweights.insert(loc=0, column='Feature', value=independent_variables_1)
+        yweights = pd.DataFrame(my_cca.y_weights_, columns=comp_titles)
+        yweights.insert(loc=0, column='Feature', value=independent_variables_2)
+        xloadings = pd.DataFrame(my_cca.x_loadings_, columns=comp_titles)
+        xloadings.insert(loc=0, column='Feature', value=independent_variables_1)
+        yloadings = pd.DataFrame(my_cca.y_loadings_, columns=comp_titles)
+        yloadings.insert(loc=0, column='Feature', value=independent_variables_2)
+        xrotations = pd.DataFrame(my_cca.x_rotations_, columns=comp_titles)
+        xrotations.insert(loc=0, column='Feature', value=independent_variables_1)
+        yrotations = pd.DataFrame(my_cca.y_rotations_, columns=comp_titles)
+        yrotations.insert(loc=0, column='Feature', value=independent_variables_2)
+        Xc_df = pd.DataFrame(X_c, columns=comp_titles)
+        Yc_df = pd.DataFrame(Y_c, columns=comp_titles)
+        Xc_df.to_csv(path_to_storage + '/output/Xc_df.csv', index=False)
+        Yc_df.to_csv(path_to_storage + '/output/Yc_df.csv', index=False)
 
-    coef_df = pd.DataFrame(np.round(my_cca.coef_, 5), columns=[Y.columns])
-    coef_df.index = X.columns
-    print(coef_df)
-    plt.figure(figsize=(5, 5))
-    s= sns.heatmap(coef_df, cmap='coolwarm', annot=True, linewidths=1, vmin=-1)
-    s.set(xlabel='Y samle', ylabel='X sample')
-    # plt.title = "CCA coefficients."
-    plt.savefig(path_to_storage + "/output/CCA_coefs.svg", format="svg")
-    plt.show()
-
-    xweights = pd.DataFrame(my_cca.x_weights_, columns=comp_titles)
-    xweights.insert(loc=0, column='Feature', value=independent_variables_1)
-    yweights = pd.DataFrame(my_cca.y_weights_, columns=comp_titles)
-    yweights.insert(loc=0, column='Feature', value=independent_variables_2)
-    xloadings = pd.DataFrame(my_cca.x_loadings_, columns=comp_titles)
-    xloadings.insert(loc=0, column='Feature', value=independent_variables_1)
-    yloadings = pd.DataFrame(my_cca.y_loadings_, columns=comp_titles)
-    yloadings.insert(loc=0, column='Feature', value=independent_variables_2)
-    xrotations = pd.DataFrame(my_cca.x_rotations_, columns=comp_titles)
-    xrotations.insert(loc=0, column='Feature', value=independent_variables_1)
-    yrotations = pd.DataFrame(my_cca.y_rotations_, columns=comp_titles)
-    yrotations.insert(loc=0, column='Feature', value=independent_variables_2)
-    Xc_df = pd.DataFrame(X_c, columns=comp_titles)
-    Yc_df = pd.DataFrame(Y_c, columns=comp_titles)
-
-    return {'xweights': xweights.to_json(orient='records'),
-            'yweights': yweights.to_json(orient='records'),
-            'xloadings': xloadings.to_json(orient='records'),
-            'yloadings': yloadings.to_json(orient='records'),
-            'xrotations': xrotations.to_json(orient='records'),
-            'yrotations': yrotations.to_json(orient='records'),
-            'coef_df': coef_df.to_json(orient='records'),
-            'Xc_df': Xc_df.to_json(orient='records'),
-            'Yc_df': Yc_df.to_json(orient='records')}
-    # return {'The left singular vectors of the cross-covariance matrices of each iteration.': my_cca.x_weights_.tolist(),
-    #         'The right singular vectors of the cross-covariance matrices of each iteration.': my_cca.y_weights_.tolist(),
-    #         'The loadings of X.': my_cca.x_loadings_.tolist(),
-    #         'The loadings of Y.': my_cca.y_loadings_.tolist(),
-    #         'The projection matrix used to transform X.': my_cca.x_rotations_.tolist(),
-    #         'The projection matrix used to transform Y.': my_cca.y_rotations_.tolist(),
-    #         'The coefficients of the linear model.': my_cca.coef_.tolist(),
-    #         'Transformed X': X_c.tolist(),
-    #         'Transformed Y': Y_c.tolist()}
+        test_status = 'Erro in creating info file.'
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            # Load existing data into a dict.
+            file_data = json.load(f)
+            # Join new data
+            new_data = {
+                    "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                    "workflow_id": workflow_id,
+                    "run_id": run_id,
+                    "step_id": step_id,
+                    "test_name": 'Canonical correlation',
+                    "test_params": {
+                        "Training vectors": independent_variables_1,
+                        "Target vectors": independent_variables_2
+                    },
+                    "test_results":{'xweights': xweights.to_dict(),
+                                     'yweights': yweights.to_dict(),
+                                     'xloadings': xloadings.to_dict(),
+                                     'yloadings': yloadings.to_dict(),
+                                     'xrotations': xrotations.to_dict(),
+                                     'yrotations': yrotations.to_dict(),
+                                     'coef_df': coef_df.to_dict()}
+            }
+            file_data['results'] = new_data
+            file_data['Output_datasets'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                step_id + '/analysis_output' + '/Xc_df.csv'},
+                                            {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id + '/analysis_output' + '/Yc_df.csv'}
+                                            ]
+            file_data['Saved_plots'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                             step_id + '/analysis_output/CCA_XYcorr.svg'},
+                                        {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                 step_id + '/analysis_output/CCA_comp_corr.svg'},
+                                        {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                 step_id + '/analysis_output/CCA_XY_c_corr.svg'},
+                                        {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                 step_id + '/analysis_output/CCA_coefs.svg'}]
+            # Set file's current position at offset.
+            f.seek(0)
+            # convert back to json.
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        return JSONResponse(content={'status': 'Success',
+                                     'xweights': xweights.to_json(orient='records'),
+                                     'yweights': yweights.to_json(orient='records'),
+                                     'xloadings': xloadings.to_json(orient='records'),
+                                     'yloadings': yloadings.to_json(orient='records'),
+                                     'xrotations': xrotations.to_json(orient='records'),
+                                     'yrotations': yrotations.to_json(orient='records'),
+                                     'coef_df': coef_df.to_json(orient='records'),
+                                     'Xc_df': Xc_df.to_json(orient='records'),
+                                     'Yc_df': Yc_df.to_json(orient='records')},
+                            status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status': test_status,
+                                     'xweights': "[]",
+                                     'yweights': "[]",
+                                     'xloadings': "[]",
+                                     'yloadings': "[]",
+                                     'xrotations': "[]",
+                                     'yrotations': "[]",
+                                     'coef_df': "[]",
+                                     'Xc_df': "[]",
+                                     'Yc_df': "[]"},
+                            status_code=200)
 
 @router.get("/granger_analysis")
 async def compute_granger_analysis(workflow_id: str,
