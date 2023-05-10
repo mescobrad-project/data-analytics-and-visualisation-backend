@@ -2687,18 +2687,23 @@ async def mc_nemar(workflow_id: str,
         # I used LabelEncoder() to convert str to int, but I made it a comment
         # because the user does not have the tranformed
         # dataset to know what 0 and 1 means
+        df_tranf = pd.DataFrame()
         row_var = data[variable_row]
-        # if row_var.dtypes != 'int64':
-        #     le = LabelEncoder()
-        #     row_var = le.fit_transform(data[variable_row])
+        if row_var.dtypes != 'int64':
+            le = LabelEncoder()
+            row_var = le.fit_transform(data[variable_row])
+            df_tranf['index'] = [0, 1]
+            df_tranf[variable_row] = [str(x) for x in le.classes_]
         column_var = data[variable_column]
-        # if column_var.dtypes != 'int64':
-        #     le = LabelEncoder()
-        #     column_var = le.fit_transform(data[variable_column])
+        if column_var.dtypes != 'int64':
+            le = LabelEncoder()
+            column_var = le.fit_transform(data[variable_column])
+            df_tranf['index'] = [0, 1]
+            df_tranf[variable_column] = [str(x) for x in le.classes_]
 
         df = pd.crosstab(index=row_var,columns=column_var)
         df1 = pd.crosstab(index=row_var,columns=column_var, margins=True, margins_name= "Total")
-
+        print(df1)
         result = mcnemar(df, exact=exact, correction=correction)
         test_status = 'Error in creating info file.'
         statistic = result.statistic if not np.isinf(result.statistic) else 'infinity'
@@ -2729,12 +2734,12 @@ async def mc_nemar(workflow_id: str,
             f.truncate()
         return JSONResponse(content={'status': 'Success', 'statistic': result.statistic,
                                      "p_value": result.pvalue,
-                                     "crosstab":df1.to_json(orient='split')},
+                                     "crosstab":df1.to_json(orient='split'), 'col_transormed':df_tranf.to_json(orient="records")},
                             status_code=200)
     except Exception as e:
         print(e)
         return JSONResponse(content={'status': test_status, 'statistic': '', "p_value": '',
-                                     "crosstab": "{\"columns\":[0,1,\"Total\"],\"index\":[0,1,\"Total\"],\"data\":[[0,0,0],[0,0,0],[0,0,0]]}"},
+                                     "crosstab": "{\"columns\":[0,1,\"Total\"],\"index\":[0,1,\"Total\"],\"data\":[[0,0,0],[0,0,0],[0,0,0]]}", 'col_transormed':'[]'},
                             status_code=200)
     # return {'statistic': result.statistic, "p_value": result.pvalue, "crosstab":df1.to_json(orient='split')}
 
