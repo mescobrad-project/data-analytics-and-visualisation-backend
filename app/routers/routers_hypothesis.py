@@ -2702,8 +2702,6 @@ async def mc_nemar(workflow_id: str,
         result = mcnemar(df, exact=exact, correction=correction)
         test_status = 'Error in creating info file.'
         statistic = result.statistic if not np.isinf(result.statistic) else 'infinity'
-        print(result.statistic)
-        print(statistic)
         with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
             file_data = json.load(f)
             file_data['results'] |= {
@@ -2787,45 +2785,98 @@ async def risk_ratio_1(
         alpha: float | None = Query(default=0.05),
         method: str | None = Query("risk_ratio",
                                    regex="^(risk_ratio)$|^(risk_difference)$|^(number_needed_to_treat)$|^(odds_ratio)$|^(incidence_rate_ratio)$|^(incidence_rate_difference)$")):
-
-    to_return = {}
-
-    fig = plt.figure(1)
-    ax = plt.subplot(111)
-
-    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
-
-    # zepid.datasets
-    # dataset = load_sample_data(False)
-    # print(load_sample_data(False))
-    if method == 'risk_ratio':
-        rr = RiskRatio(reference=reference, alpha=alpha)
-        rr.fit(dataset, exposure=exposure, outcome=outcome)
-    elif method == 'risk_difference':
-        rr = RiskDifference(reference=reference, alpha=alpha)
-        rr.fit(dataset, exposure=exposure, outcome=outcome)
-    elif method == 'number_needed_to_treat':
-        rr = NNT(reference=reference, alpha=alpha)
-        rr.fit(dataset, exposure=exposure, outcome=outcome)
-        df = rr.results
-        return {'table': df.to_json(orient="records")}
-    elif method == 'odds_ratio':
-        rr = OddsRatio(reference=reference, alpha=alpha)
-        rr.fit(dataset, exposure=exposure, outcome=outcome)
-    elif method == 'incidence_rate_ratio':
-        rr = IncidenceRateRatio(reference=reference, alpha=alpha)
-        rr.fit(dataset, exposure=exposure, outcome=outcome, time=time)
-    elif method == "incidence_rate_difference":
-        rr = IncidenceRateDifference(reference=reference, alpha=alpha)
-        rr.fit(dataset, exposure=exposure, outcome=outcome, time=time)
-    else:
-        return {'table':''}
-
-    df = rr.results
-    rr.plot()
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
-    plt.savefig(path_to_storage +"/output/Risktest.svg", format="svg")
-    return {'table': df.to_json(orient="records")}
+    test_status = ''
+    # Load Datasets
+    try:
+        test_status = 'Dataset is not defined'
+        selected_datasource = exposure.split("--")[0]
+        exposure = exposure.split("--")[1]
+        outcome = outcome.split("--")[1]
+        if time is not None: time = time.split("--")[1]
+        else: time = None
+        print([exposure, outcome, time])
+        test_status = 'Unable to retrieve datasets'
+        # We expect only one here
+        dataset = load_data_from_csv(path_to_storage + "/" + selected_datasource)
+        # Change binary str values to 0,1
+        df_tranf = pd.DataFrame()
+        if dataset[exposure].dtypes != 'int64':
+            le = LabelEncoder()
+            dataset[exposure] = le.fit_transform(dataset[exposure])
+            df_tranf['index'] = [0, 1]
+            df_tranf['exposure'] = [str(x) for x in le.classes_]
+        if dataset[outcome].dtypes != 'int64':
+            le = LabelEncoder()
+            dataset[outcome] = le.fit_transform(dataset[outcome])
+            df_tranf['index'] = [0, 1]
+            df_tranf['outcome'] = [str(x) for x in le.classes_]
+        test_status = 'Unable to compute ' + method + ' test for the selected columns. '
+        if method == 'risk_ratio':
+            rr = RiskRatio(reference=reference, alpha=alpha)
+            rr.fit(dataset, exposure=exposure, outcome=outcome)
+        elif method == 'risk_difference':
+            rr = RiskDifference(reference=reference, alpha=alpha)
+            rr.fit(dataset, exposure=exposure, outcome=outcome)
+        elif method == 'number_needed_to_treat':
+            rr = NNT(reference=reference, alpha=alpha)
+            rr.fit(dataset, exposure=exposure, outcome=outcome)
+            df = rr.results
+            return JSONResponse(content={'status': 'Success',
+                                     'table': df.to_json(orient="records"), 'col_transormed':df_tranf.to_json(orient="records")},
+                                                        status_code=200)
+        elif method == 'odds_ratio':
+            rr = OddsRatio(reference=reference, alpha=alpha)
+            rr.fit(dataset, exposure=exposure, outcome=outcome)
+        elif method == 'incidence_rate_ratio':
+            rr = IncidenceRateRatio(reference=reference, alpha=alpha)
+            rr.fit(dataset, exposure=exposure, outcome=outcome, time=time)
+        elif method == "incidence_rate_difference":
+            rr = IncidenceRateDifference(reference=reference, alpha=alpha)
+            rr.fit(dataset, exposure=exposure, outcome=outcome, time=time)
+        else:
+            raise Exception
+        # print(rr.summary())
+        df = rr.results
+        df.insert(loc=0, column='Ref:', value=[0,1])
+        fig = plt.figure(1)
+        ax = plt.subplot(111)
+        rr.plot()
+        plt.savefig(path_to_storage +"/output/Risktest.svg", format="svg")
+        test_status = 'Error in creating info file.'
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            file_data = json.load(f)
+            file_data['results'] |= {
+                "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                "workflow_id": workflow_id,
+                "run_id": run_id,
+                "step_id": step_id,
+                "test_name": method,
+                "test_params": {
+                    'exposure': exposure,
+                    'outcome': outcome,
+                    'time': time,
+                    'reference': reference,
+                    'alpha': alpha
+                },
+                "test_results": {
+                    'table': df.to_dict()
+                },
+                "Output_datasets": [],
+                'Saved_plots': [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                             step_id + '/analysis_output/Risktest.svg'}
+                                    ]
+            }
+            f.seek(0)
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        return JSONResponse(content={'status': 'Success',
+                                     'table': df.to_json(orient="records"), 'col_transormed':df_tranf.to_json(orient="records")},
+                                                        status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status': test_status, 'table':'[]', 'col_transormed':'[]'},
+                            status_code=200)
 
 @router.get("/two_sided_risk_ci")
 async def two_sided_risk_ci(workflow_id: str,
