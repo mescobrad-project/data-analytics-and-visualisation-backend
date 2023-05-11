@@ -3,6 +3,7 @@ import pandas as pd
 import json
 from sklearn.cross_decomposition import CCA
 from sklearn.preprocessing import LabelEncoder
+from sphinx.addnodes import index
 from statsmodels.tsa.stattools import grangercausalitytests
 from factor_analyzer.factor_analyzer import calculate_bartlett_sphericity
 from factor_analyzer.factor_analyzer import calculate_kmo
@@ -4040,67 +4041,126 @@ async def analysis_mediation(workflow_id: str,
         exposure = exposure.split("--")[1]
         dfm['variables'] = mediator
         dfm[['Datasource', 'Variable']] = dfm["variables"].apply(lambda x: pd.Series(str(x).split("--")))
-        dfi['variables'] = independent
-        dfi[['Datasource', 'Variable']] = dfi["variables"].apply(lambda x: pd.Series(str(x).split("--")))
         mediator = dfm['Variable'].tolist()
-        independent = dfi['Variable'].tolist()
-        print(workflow_id, step_id, run_id,dependent_1,exposure,mediator,independent)
-
+        if independent != ['']:
+            dfi['variables'] = independent
+            dfi[['Datasource', 'Variable']] = dfi["variables"].apply(lambda x: pd.Series(str(x).split("--")))
+            independent = dfi['Variable'].tolist()
+        if (dependent_1 == exposure) or (dependent_1 in mediator) or (exposure in mediator):
+            test_status = 'Select different columns for outcome, predictor and mediator variables'
+            raise Exception
+        elif (dependent_1 in independent) or (exposure in independent):
+            test_status = 'Select different columns for outcome, predictor and covar variables'
+            raise Exception
+        for med in mediator:
+            if med in independent:
+                test_status = 'Mediator columns cannot be in covar variables'
+                raise Exception
         test_status = 'Unable to retrieve datasets'
         data = load_data_from_csv(path_to_storage + "/" + selected_datasource)
 
         # We want X to affect Y. If there is no relationship between X and Y, there is nothing to mediate.
         # model.0 <- lm(Y ~ X, myData)
-        z=''
-        for i in range(len(independent)):
-            z = z + "+" + independent[i]
 
-        output_str = dependent_1 + "~" + exposure + z
 
-        print("output_str = " + output_str)
-        model0 = sm.GLM.from_formula(output_str, data)
-        print(model0)
+        # We use penguin
+        # if mediator != ['']:
+        #     print("no med")
+        #     dfm['variables'] = mediator
+        #     dfm[['Datasource', 'Variable']] = dfm["variables"].apply(lambda x: pd.Series(str(x).split("--")))
+        #     mediator = dfm['Variable'].tolist()
+        #     z_m = ''
+        #     for i in range(len(mediator)):
+        #         z_m = z_m + "+" + mediator[i] if z_m != '' else mediator[i]
+        # if independent != ['']:
+        #     print("no ind")
+        #     dfi['variables'] = independent
+        #     dfi[['Datasource', 'Variable']] = dfi["variables"].apply(lambda x: pd.Series(str(x).split("--")))
+        #     independent = dfi['Variable'].tolist()
+        #     z = ''
+        #     for i in range(len(independent)):
+        #         z = z + "+" + independent[i] if z != '' else independent[i]
+        # output_str = dependent_1 + "~" + exposure + "+" + z if z!='' else dependent_1 + "~" + exposure
+        #         print("output_str = " + output_str)
+        #         model0 = sm.GLM.from_formula(output_str, data)
+        # m1 = model0.fit()
+        # df = m1.summary()
         # We want X to affect M. If X and M have no relationship, M is just a third variable that may or may not
         # be associated with Y. A mediation makes sense only if X affects M.
         # model.M <- lm(M ~ X, myData)
-        z_m=''
-        for i in range(len(mediator)):
-            z_m = z_m + "+" + mediator[i]
-        mediator_str = z_m + "~" + exposure
-        print("mediator_str = "+mediator_str)
-        mediator_model = sm.OLS.from_formula(mediator_str, data)
-        print(mediator_model)
+
+        # mediator_str = z_m + "~" + exposure
+        # print("mediator_str = "+mediator_str)
+        # mediator_model = sm.OLS.from_formula(mediator[i]+ "~" + exposure, data)
+        # res = mediator_model.fit()
+
         # We want M to affect Y, but X to no longer affect Y (or X to still affect Y but in a smaller
         # magnitude). If a mediation effect exists, the effect of X on Y will disappear
         # (or at least weaken) when M is included in the regression. The effect of X on Y goes through M.
         # model.Y <- lm(Y ~ X + M, myData)
-        outcome_str = dependent_1 + "~" + exposure + z_m + z
-        print("outcome_str = "+outcome_str)
-        outcome_model = sm.GLM.from_formula(outcome_str, data)
-        print(outcome_model)
-
+        # outcome_str = dependent_1 + "~" + exposure + "+" + z_m + "+" + z
+        # print("outcome_str = "+outcome_str)
+        # outcome_model = sm.GLM.from_formula(outcome_str, data)
+        # res = outcome_model.fit()
+        # print(res.summary())
         # Call analysis with the models
         # results <- mediate(model.M, model.Y, treat='X', mediator='M',
         #                    boot=TRUE, sims=500)
-        med = Mediation(outcome_model, mediator_model, exposure, mediator).fit()
-        df = med.summary()
-        df['index']= df.index
+        # it accepts only one Mediator
+        # med = Mediation(outcome_model, mediator_model, exposure, mediator).fit()
+        # df = med.summary()
 
-        df1, dist = mediation_analysis(data=data, x=exposure, m=mediator, y=dependent_1,
-                                 covar=independent, seed=42,return_dist=True)
+        test_status = 'Unable to compute Mediation Analysis.'
+        # df1, dist = mediation_analysis(data=data, x=exposure, m=mediator, y=dependent_1,
+        #                          covar=independent, seed=42,return_dist=True)
             # .round(3)
-        df1.columns = df1.columns.str.replace('.', ',', regex=True)
-
-        print(dist)
-        print(df)
-        print(df1)
-        return JSONResponse(content={'status':'Success', 'Result': df.to_json(orient='records'),
-                                     'Result2':df1.to_json(orient='records')},
+        # df1.columns = df1.columns.str.replace('.', ',', regex=True)
+        if independent != ['']:
+            df, dist = mediation_analysis(data=data, x=exposure, m=mediator, y=dependent_1,
+                                           covar=independent, seed=42, return_dist=True)
+        else:
+            df, dist = mediation_analysis(data=data, x=exposure, m=mediator, y=dependent_1,
+                                           seed=42, return_dist=True)
+        df.columns = df.columns.str.replace('.', ',', regex=True)
+        # fig = plt.figure()
+        # ax = fig.add_subplot()
+        # ax1 = fig.add_subplot()
+        # ax = sns.kdeplot(dist[0])
+        # ax1 =sns.kdeplot(dist[1])
+        # plt.show()
+        # sns.kdeplot(df["flipper_length_mm"])
+        # print(dist)
+        # print(df)
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            # Load existing data into a dict.
+            file_data = json.load(f)
+            # Join new data
+            new_data = {
+                    "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                    "workflow_id": workflow_id,
+                    "run_id": run_id,
+                    "step_id": step_id,
+                    "test_name": "Mediation analysis",
+                    "test_params": {
+                        'outcome variable': dependent_1,
+                        'predictor variable': exposure,
+                        'mediator variable': mediator,
+                        'independent variable': independent
+                    },
+                    "test_results": df.to_dict()
+            }
+            file_data['results'] = new_data
+            file_data['Output_datasets'] = []
+            # Set file's current position at offset.
+            f.seek(0)
+            # convert back to json.
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        return JSONResponse(content={'status':'Success', 'Result': df.to_json(orient='records')},
                             status_code=200)
     except Exception as e:
         print(e)
-        return JSONResponse(content={'status': test_status, 'Result': '[]',
-                                     'Result2':'[]'},
+        return JSONResponse(content={'status': test_status, 'Result': '[]'},
                             status_code=200)
 
 @router.get("/canonical_correlation_analysis")
