@@ -181,7 +181,7 @@ async def test_task_complete() -> dict:
 
 
 @router.get("/task/complete", tags=["test_task_complete"])
-async def test_task_complete() -> dict:
+async def task_complete() -> dict:
     # channels = data.ch_names
     print(WFAddress)
     headers = {"Content-Type": "application/json"}

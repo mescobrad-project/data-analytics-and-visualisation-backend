@@ -61,7 +61,7 @@ NeurodesktopStorageLocation = os.environ.get('NeurodesktopStorageLocation') if o
 
 # endregion
 
-def rose_plot( angles, bins=12, density=None, offset=0, lab_unit="degrees",
+def rose_plot( workflow_id, run_id, step_id, angles, bins=12, density=None, offset=0, lab_unit="degrees",
               start_zero=False, **param_dict):
     """
     Plot polar histogram of angles on ax. ax must have been created using
@@ -114,8 +114,9 @@ def rose_plot( angles, bins=12, density=None, offset=0, lab_unit="degrees",
     # html_str = mpld3.fig_to_html(fig)
     # ax.savefig(NeurodesktopStorageLocation + '/rose_plot.png')
     # plt.show()
-    plt.savefig(NeurodesktopStorageLocation + '/rose_plot.png')
-
+    # plt.savefig(NeurodesktopStorageLocation + '/rose_plot.png')
+    plt.savefig(
+        get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + 'rose_plot.png')
     return ax
 
 def calcsmape(actual, forecast):
@@ -232,18 +233,28 @@ async def return_autocorrelation(workflow_id: str, step_id: str, run_id: str,
                 to_return['confint'] = z[1].tolist()
                 to_return['qstat'] = z[2].tolist()
                 to_return['pvalues'] = z[3].tolist()
-                plot_acf(z, adjusted=input_adjusted, alpha=input_alpha, lags=len(z[0].tolist())-1, ax=ax)
+                # plot_acf(z, adjusted=input_adjusted, alpha=input_alpha, lags=len(z[0].tolist())-1, ax=ax)
                 # ax.set_xticks(np.arange(1, len(z[0].tolist()), step=1))
             elif input_qstat:
                 to_return['values_autocorrelation'] = z[0].tolist()
                 to_return['qstat'] = z[1].tolist()
                 to_return['pvalues'] = z[2].tolist()
-                plot_acf(z, adjusted=input_adjusted, lags=len(z[0].tolist())-1, ax=ax)
+                # plot_acf(z, adjusted=input_adjusted, lags=len(z[0].tolist())-1, ax=ax)
                 # ax.set_xticks(np.arange(1, len(z[0].tolist()), step=1))
             elif input_alpha:
                 to_return['values_autocorrelation'] = z[0].tolist()
                 to_return['confint'] = z[1].tolist()
-                plot_acf(z, adjusted=input_adjusted, alpha=input_alpha, lags=len(z[0].tolist()) -1, ax=ax)
+                plot_acf(x=raw_data[i],
+                         adjusted=input_adjusted,
+                         # qstat=input_qstat,
+                         fft=input_fft,
+                         bartlett_confint=input_bartlett_confint,
+                         missing=input_missing,
+                         alpha=input_alpha,
+                         lags=input_nlags,
+                         ax=ax,
+                         use_vlines=True)
+                # plot_acf(z, adjusted=input_adjusted, alpha=input_alpha, lags=len(z[0].tolist()) -1, ax=ax)
                 # ax.set_xticks(np.arange(1, len(z[0].tolist()), step=1))
             else:
                 to_return['values_autocorrelation'] = z.tolist()
@@ -260,12 +271,16 @@ async def return_autocorrelation(workflow_id: str, step_id: str, run_id: str,
                         bartlett_confint=input_bartlett_confint,
                         missing=input_missing, alpha=input_alpha,
                         ax=ax,
+                        lags=input_nlags,
                         use_vlines=True)
                 # ax.set_xticks(np.arange(1, len(z.tolist()), step=1))
 
+            # plt.show()
             print("RETURNING VALUES")
             print(to_return)
-            plt.show()
+            plt.savefig(get_local_storage_path(workflow_id, step_id, run_id) + "/output/" + 'autocorrelation.png')
+
+            # plt.show()
 
             # Prepare the data to be written to the config file
             parameter_data = {
@@ -578,14 +593,14 @@ async def estimate_stft(
             plt.title('STFT Magnitude')
             plt.ylabel('Frequency [Hz]')
             plt.xlabel('Time [sec]')
-            plt.show()
+            # plt.show()
 
             # Convert the plot to HTML
             html_str = mpld3.fig_to_html(fig)
             to_return["figure"] = html_str
 
             # Save the plot to the local storage
-            plt.savefig(get_local_storage_path(workflow_id, step_id, run_id) + "/output/" + 'plot.png')
+            plt.savefig(get_local_storage_path(workflow_id, step_id, run_id) + "/output/" + 'stft_plot.png')
 
             # Prepare the data to be written to the config file
             parameter_data = {
@@ -1549,8 +1564,8 @@ async def sleep_transition_matrix(workflow_id: str,
     # plt.show()
     #  Temporarilly saved in root directory should change to commented
     # fig.savefig( path_to_storage + "/output/" + 'sleep_transition_matrix.png')
-    plt.savefig(NeurodesktopStorageLocation + '/sleep_transition_matrix.png')
-
+    # plt.savefig(NeurodesktopStorageLocation + '/sleep_transition_matrix.png')
+    plt.savefig(get_local_storage_path(workflow_id,run_id, step_id) + "/output/" + 'sleep_transition_matrix.png')
 
     # html_str = mpld3.fig_to_html(fig)
     # to_return["figure"] = html_str
@@ -1608,7 +1623,9 @@ async def spectrogram_yasa(
             #  Temporarilly saved in root directory should change to commented
 
             # fig.savefig(path_to_storage + "/output/" + 'spectrogram.png')
-            plt.savefig(NeurodesktopStorageLocation + '/spectrogram.png')
+            # plt.savefig(NeurodesktopStorageLocation + '/spectrogram.png')
+            plt.savefig(
+                get_local_storage_path(workflow_id,run_id, step_id) + "/output/" + 'spectrogram.png')
 
             return {'figure': to_return}
     return {'Channel not found'}
@@ -1685,8 +1702,9 @@ async def spindles_detect_two_dataframes(
         # html_str = mpld3.fig_to_html(fig)
         # to_return["figure"] = html_str
         #  Temporarilly saved in root directory should change to commented
-        plt.savefig(NeurodesktopStorageLocation + '/spindles.png')
-
+        # plt.savefig(NeurodesktopStorageLocation + '/spindles.png')
+        plt.savefig(
+            get_local_storage_path(workflow_id, run_id, step_id ) + "/output/" + 'spindles.png')
         # Transpose dataframes and add id column
         # df_1 = df_1.T
         df_1.insert(0, 'id', range(1, 1 + len(df_1)))
@@ -1733,7 +1751,7 @@ async def sw_detect_two_dataframes(workflow_id: str,
         to_return = {}
         # plt.figure("rose_plot")
         # ax = plt.subplot(projection='polar')
-        figure_2 = rose_plot( df_1['PhaseAtSigmaPeak'], density=False, offset=0, lab_unit='degrees', start_zero=False)
+        figure_2 = rose_plot(workflow_id, run_id, step_id, df_1['PhaseAtSigmaPeak'], density=False, offset=0, lab_unit='degrees', start_zero=False)
 
         # plt.savefig(NeurodesktopStorageLocation + '/rose_plot.png')
         to_return['figure_2'] = figure_2
@@ -1747,8 +1765,9 @@ async def sw_detect_two_dataframes(workflow_id: str,
         # html_str = mpld3.fig_to_html(fig)
         # to_return["figure"] = html_str
         #  Temporarilly saved in root directory should change to commented
-        plt.savefig(NeurodesktopStorageLocation + '/slowwaves.png')
-
+        # plt.savefig(NeurodesktopStorageLocation + '/slowwaves.png')
+        plt.savefig(
+            get_local_storage_path(workflow_id, run_id, step_id ) + "/output/" + 'slowwaves.png')
         # Transpose dataframes and add id column
         df_1_old = df_1
         # df_1 = df_1.T
@@ -1815,8 +1834,9 @@ async def calculate_pac_values(workflow_id: str,
     # html_str = mpld3.fig_to_html(fig)
     # to_return["figure"] = html_str
     #  Temporarilly saved in root directory should change to commented
-    plt.savefig(NeurodesktopStorageLocation + '/pac_values.png')
-
+    # plt.savefig(NeurodesktopStorageLocation + '/pac_values.png')
+    plt.savefig(
+        get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + 'pac_values.png')
     return {'Figure':to_return}
 
 @router.get("/extra_PAC_values")
@@ -1909,8 +1929,9 @@ async def calculate_extra_pac_values(workflow_id: str,
     # to_return["figure"] = html_str
 
     #  Temporarilly saved in root directory should change to commented
-    plt.savefig(NeurodesktopStorageLocation + '/extra_pac_values.png')
-
+    # plt.savefig(NeurodesktopStorageLocation + '/extra_pac_values.png')
+    plt.savefig(
+        get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + 'extra_pac_values.png')
     return {'Figure': to_return}
 
 
@@ -2332,6 +2353,7 @@ async def back_average(
         workflow_id: str,
         step_id: str,
         run_id: str,
+        input_name: str,
         # pick_channel: list | None = ["F4-Ref"],
         time_before_event: float | None = None,
         time_after_event: float | None = None,
@@ -2350,7 +2372,7 @@ async def back_average(
     # Apply epochs without any baseline correction
     # This function uses only the channels that are marked as "data" in the montage
     # epochs = mne.Epochs(raw = data, picks= "data" ,events = events[0], tmin = time_before_event, tmax = time_after_event, reject= {'eeg':max_ptp_amplitude}, flat= {'eeg' :min_ptp_amplitude}, baseline=None)
-    epochs = mne.Epochs(raw = data, picks="data",events = events[0],tmin = time_before_event, tmax = time_after_event, baseline=None)
+    epochs = mne.Epochs(raw = data, picks=input_name,events = events[0],tmin = time_before_event, tmax = time_after_event, baseline=None)
     print(epochs)
     raw_data = epochs.get_data()
     print(raw_data)
@@ -2360,7 +2382,7 @@ async def back_average(
 
 
     # epochs.plot_image
-    evoked = epochs.average(picks="all", by_event_type=False)
+    evoked = epochs.average(picks=input_name, by_event_type=False)
     plot = evoked.plot(show=True)
     plot.savefig(get_local_storage_path(workflow_id, step_id, run_id) + "/output/" + 'back_average_plot.png')
     # plot.savefig(NeurodesktopStorageLocation + '/back_average_plot.png')
