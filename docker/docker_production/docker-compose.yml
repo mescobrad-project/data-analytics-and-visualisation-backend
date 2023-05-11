@@ -41,7 +41,7 @@ services:
     container_name: analytics_backend
     restart: always
     environment:
-      WFAddress: expertsystem_web_1
+      WFAddress: https://esbk.platform.mes-cobrad.eu
       NeurodesktopStorageLocation: /neurodesktop-storage
       NeurodesktopPort: 8081
       FrontendAddress: https://analytics.platform.mes-cobrad.eu
