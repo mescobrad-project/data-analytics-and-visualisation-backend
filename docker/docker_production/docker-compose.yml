@@ -44,7 +44,7 @@ services:
       WFAddress: expertsystem_web_1
       NeurodesktopStorageLocation: /neurodesktop-storage
       NeurodesktopPort: 8081
-      FrontendAddress: http://10.129.150.120:3005
+      FrontendAddress: https://analytics.platform.mes-cobrad.eu
     volumes:
       - '/home/ntua/neurodesktop-storage:/neurodesktop-storage'
     ports:
