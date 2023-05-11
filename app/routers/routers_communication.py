@@ -25,7 +25,7 @@ NeurodesktopStorageLocation = os.environ.get('NeurodesktopStorageLocation') if o
     'NeurodesktopStorageLocation') else "/neurodesktop-storage"
 
 FrontendAddress = os.environ.get('FrontendAddress') if os.environ.get(
-    'FrontendAddress') else "http://localhost:3000"
+    'FrontendAddress') else "http://localhost:3005"
 
 ExistingFunctions = [
     # EEG
