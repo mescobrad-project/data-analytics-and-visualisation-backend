@@ -2,6 +2,12 @@ import csv
 from fastapi import Query, APIRouter
 import pyActigraphy
 import os
+import pandas as pd
+from pyActigraphy.analysis import Cosinor
+import plotly.graph_objects as go
+from lmfit import fit_report
+
+
 import pandas
 import plotly.graph_objs as go
 
@@ -188,23 +194,56 @@ async def return_roenneberg():
 
 @router.get("/return_weekly_activity", tags=["actigraphy_analysis"])
 async def return_weekly_activity():
-    raw = pyActigraphy.io.read_raw_rpx('example_data/actigraph/0345-024_18_07_2022_13_00_00_New_Analysis.csv')
+    datetime_list = [
+                     '2022-07-18 12:00:00', '2022-07-19 12:00:00', '2022-07-20 12:00:00', '2022-07-21 12:00:00',
+                     '2022-07-22 12:00:00', '2022-07-23 12:00:00', '2022-07-24 12:00:00', '2022-07-25 12:00:00'
+                    ]
+    # raw = pyActigraphy.io.read_raw_rpx(
+    #                                     'example_data/actigraph/0345-024_18_07_2022_13_00_00_New_Analysis.csv',
+    #                                     start_time='2022-07-18 12:00:00',
+    #                                     period='1 day',
+    #                                     language='ENG_UK'
+    #                                   )
+    day_count = 1
+    for i in datetime_list:
+        raw = pyActigraphy.io.read_raw_rpx(
+            'example_data/actigraph/0345-024_18_07_2022_13_00_00_New_Analysis.csv',
+            start_time=i,
+            period='1 day',
+            language='ENG_UK'
+        )
+        layout = go.Layout(
+            title="Actigraphy data weekly activity day " + str(day_count),
+            xaxis=dict(title="Date time"),
+            yaxis=dict(title="Counts/period"),
+            showlegend=False
+        )
+        output = go.Figure(data=[go.Scatter(x=raw.data.index.astype(str), y=raw.data)], layout=layout)
+        output.show()
+        day_count = day_count + 1
     # raw.name
     # raw.start_time
     # raw.duration()
     # raw.uuid
     # raw.frequency
-    layout = go.Layout(
-        title="Actigraphy data weekly activity",
-        xaxis=dict(title="Date time"),
-        yaxis=dict(title="Counts/period"),
-        showlegend=False
-    )
-    output = go.Figure(data=[go.Scatter(x=raw.data.index.astype(str), y=raw.data)], layout=layout)
+
+@router.get("/rest_to_activity_probability", tags=["actigraphy_analysis"])
+async def rest_to_activity_probability():
+    raw = pyActigraphy.io.read_raw_rpx('example_data/actigraph/0345-024_18_07_2022_13_00_00_New_Analysis.csv', period='7days')
+
+    # create objects for layout and traces
+    layout = go.Layout(title="", xaxis=dict(title=""), showlegend=False)
+    pRA, pRA_weights = raw.pRA(0, start='00:00:00', period='8H')
+    layout.update(title="Rest->Activity transition probability", xaxis=dict(title="Time [min]"), showlegend=False);
+    output = go.Figure(data=go.Scatter(x=pRA.index, y=pRA, name='', mode='markers'), layout=layout)
     return output.show()
 
-@router.get("/return_daily_activity", tags=["actigraphy_analysis"])
-async def return_daily_activity():
+@router.get("/sleep_diary", tags=["actigraphy_analysis"])
+async def sleep_diary():
+    raw = pyActigraphy.io.read_raw_rpx('example_data/actigraph/0345-024_18_07_2022_13_00_00_New_Analysis.csv')
+    return raw.start_time, raw.duration()
+@router.get("/return_average_daily_activity", tags=["actigraphy_analysis"])
+async def return_average_daily_activity():
     raw = pyActigraphy.io.read_raw_rpx('example_data/actigraph/0345-024_18_07_2022_13_00_00_New_Analysis.csv')
     # raw.name
     # raw.start_time
@@ -289,3 +328,134 @@ def return_rawObject():
 
 ww = return_rawObject()
 print(ww)
+
+
+@router.get("/actigraphy_metrics")
+async def actigraphymetrics(workflow_id: str,
+                            step_id: str,
+                            run_id: str,
+                            i: int,
+                            binarize: bool | None = Query(default=True),
+                            threshold: int | None = Query(default=4),
+                            metric: str | None = Query(default='IS', enum=['IS','ISm','IV','IVm', 'L5','M10','RA','L5p','ADAT','ADATp','M10p','RAp','kRA','kAR']),
+                            prefix_offset: str | None = Query(default="Hour",
+                                                              regex="^(Hour)$|^(Minute)$|^(Day)$")):
+
+    raw = pyActigraphy.io.read_raw_rpx('example_data/actigraph/0345-024_18_07_2022_13_00_00_New_Analysis.csv')
+    if metric == 'IS':
+        if prefix_offset == 'Hour':
+            freq = f"{i}{pd.offsets.Hour._prefix}"
+        else:
+            freq = f"{i}{pd.offsets.Minute._prefix}"
+        xx = raw.IS(binarize=binarize, threshold=threshold, freq=freq)
+
+        return {'IS': xx}
+    elif metric == 'ISm':
+        xx = raw.ISm(binarize=binarize, threshold=threshold)
+        return {'ISm': xx}
+    elif metric == 'IV':
+        if prefix_offset == 'Hour':
+            freq = f"{i}{pd.offsets.Hour._prefix}"
+        else:
+            freq = f"{i}{pd.offsets.Minute._prefix}"
+        xx = raw.IV(binarize=binarize, threshold=threshold, freq=freq)
+
+        return {'IV': xx}
+    elif metric == 'IVm':
+        xx = raw.IVm(binarize=binarize, threshold=threshold)
+        return {'IVm': xx}
+    elif metric == 'L5':
+        xx = raw.L5(binarize=binarize, threshold=threshold)
+        return {'L5': xx}
+    elif metric == 'M10':
+        xx = raw.M10(binarize=binarize, threshold=threshold)
+        return {'M10': xx}
+    elif metric == 'RA':
+        xx = raw.RA(binarize=binarize, threshold=threshold)
+        return {'RA': xx}
+    elif metric == 'L5p':
+        if prefix_offset == 'Hour':
+            freq = f"{i}{pd.offsets.Hour._prefix}"
+        elif prefix_offset == 'Minute':
+            freq = f"{i}{pd.offsets.Minute._prefix}"
+        else:
+            freq = f"{i}{pd.offsets.Day._prefix}"
+        xx = raw.L5p(binarize=binarize, threshold=threshold, period=freq)
+        return {'L5p': xx}
+    elif metric == 'ADAT':
+        xx = raw.ADAT(binarize=binarize, threshold=threshold)
+        return {'ADAT': xx}
+    elif metric == 'ADATp':
+        if prefix_offset == 'Hour':
+            freq = f"{i}{pd.offsets.Hour._prefix}"
+        elif prefix_offset == 'Minute':
+            freq = f"{i}{pd.offsets.Minute._prefix}"
+        else:
+            freq = f"{i}{pd.offsets.Day._prefix}"
+        xx = raw.ADATp(binarize=binarize, threshold=threshold,period=freq)
+        return {'ADATp': xx}
+    elif metric == 'M10p':
+        if prefix_offset == 'Hour':
+            freq = f"{i}{pd.offsets.Hour._prefix}"
+        elif prefix_offset == 'Minute':
+            freq = f"{i}{pd.offsets.Minute._prefix}"
+        else:
+            freq = f"{i}{pd.offsets.Day._prefix}"
+        xx = raw.M10p(binarize=binarize, threshold=threshold,period=freq)
+        return {'M10p': xx}
+    elif metric == 'RAp':
+        if prefix_offset == 'Hour':
+            freq = f"{i}{pd.offsets.Hour._prefix}"
+        elif prefix_offset == 'Minute':
+            freq = f"{i}{pd.offsets.Minute._prefix}"
+        else:
+            freq = f"{i}{pd.offsets.Day._prefix}"
+        xx = raw.RAp(binarize=binarize, threshold=threshold,period=freq)
+        return {'RAp': xx}
+    elif metric == 'kRA':
+        xx = raw.kRA()
+        return {'kRA': xx}
+    elif metric == 'kAR':
+        xx = raw.kAR()
+        return {'kAR': xx}
+
+@router.get("/cosinor_analysis_initial_values")
+async def cosinoranalysisinitialvalues(workflow_id: str,
+                                       step_id: str,
+                                       run_id: str):
+
+    cosinor = Cosinor()
+
+    return {'Initial Values': cosinor.fit_initial_params.valuesdict()}
+
+@router.get("/cosinor_analysis")
+async def cosinoranalysis(workflow_id: str,
+                          step_id: str,
+                          run_id: str,
+                          Period: int | None = Query(default=None),
+                          set_new_values: bool | None = Query(default=False),
+                          change_period: bool | None = Query(default=False)):
+
+    raw = pyActigraphy.io.read_raw_rpx('example_data/actigraph/0345-024_18_07_2022_13_00_00_New_Analysis.csv')
+
+    cosinor = Cosinor()
+
+    if set_new_values == False:
+        results = cosinor.fit(raw, verbose=True)
+        return {'Result':results.params.valuesdict(), 'Akaike information criterium': results.aic, 'Reduced Chi^2': results.redchi, "report":fit_report(results)}
+    else:
+        if change_period == True:
+            cosinor.fit_initial_params['Period'].value = Period
+        results = cosinor.fit(raw, verbose=True)
+        # TODO: create plot
+        return {'Result': results.params.valuesdict(), 'Akaike information criterium': results.aic,
+                'Reduced Chi^2': results.redchi, "report": fit_report(results)}
+
+
+
+
+
+
+
+
+
