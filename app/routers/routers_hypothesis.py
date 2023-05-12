@@ -3,6 +3,7 @@ import pandas as pd
 import json
 from sklearn.cross_decomposition import CCA
 from sklearn.preprocessing import LabelEncoder
+from sphinx.addnodes import index
 from statsmodels.tsa.stattools import grangercausalitytests
 from factor_analyzer.factor_analyzer import calculate_bartlett_sphericity
 from factor_analyzer.factor_analyzer import calculate_kmo
@@ -43,7 +44,7 @@ from statsmodels.discrete.conditional_models import ConditionalLogit
 from zepid.base import RiskRatio, RiskDifference, OddsRatio, IncidenceRateRatio, IncidenceRateDifference, NNT
 from zepid import load_sample_data
 from zepid.calc import risk_ci, incidence_rate_ci, risk_ratio, risk_difference, number_needed_to_treat, odds_ratio, incidence_rate_ratio, incidence_rate_difference
-from app.pydantic_models import ModelMultipleComparisons
+# from app.pydantic_models import ModelMultipleComparisons
 from app.utils.utils_datalake import fget_object, get_saved_dataset_for_Hypothesis, upload_object
 from app.utils.utils_general import get_local_storage_path, get_single_file_from_local_temp_storage, load_data_from_csv, \
     load_file_csv_direct, get_all_files_from_local_temp_storage
@@ -62,48 +63,56 @@ data = data.drop(["Unnamed: 0"], axis=1)
 # data = pd.read_csv('example_data/sample_questionnaire.csv')
 
 def normality_test_content_results(column: str, selected_dataframe,path_to_storage:str):
-    if (column):
-        # Creating Box-plot
-        html_str_B = create_plots(plot_type='BoxPlot', column=column,second_column='', selected_dataframe=selected_dataframe, path_to_storage=path_to_storage, filename='BoxPlot')
-        # Creating QQ-plot
-        html_str = create_plots(plot_type='QQPlot', column=column, second_column='', selected_dataframe=selected_dataframe, path_to_storage=path_to_storage, filename='QQPlot')
-        # Creating Probability-plot
-        html_str_P = create_plots(plot_type='PPlot', column=column, second_column='', selected_dataframe=selected_dataframe, path_to_storage=path_to_storage, filename='PPlot')
-        #Creating histogram
-        html_str_H = create_plots(plot_type='HistogramPlot', column=column, second_column='', selected_dataframe=selected_dataframe, path_to_storage=path_to_storage, filename='HistogramPlot')
-        skewtosend = compute_skewness(column, selected_dataframe)
-        kurtosistosend = compute_kurtosis(column, selected_dataframe)
-        st_dev = np.std(selected_dataframe[str(column)])
-        # Used Statistics lib for cross-checking
-        # standard_deviation = statistics.stdev(data[str(column)])
-        median_value = float(np.percentile(selected_dataframe[str(column)], 50))
-        # Used a different way to calculate Median
-        # TODO: we must investigate why it returns a different value
-        # med2 = np.median(data[str(column)])
-        mean_value = np.mean(selected_dataframe[str(column)])
-        num_rows = selected_dataframe[str(column)].shape
-        top5 = sorted(selected_dataframe[str(column)].tolist(), reverse=True)[:5]
-        last5 = sorted(selected_dataframe[str(column)].tolist(), reverse=True)[-5:]
-        return {'plot_column': column, 'qqplot': html_str, 'histogramplot': html_str_H, 'boxplot': html_str_B, 'probplot': html_str_P, 'skew': skewtosend, 'kurtosis': kurtosistosend, 'standard_deviation': st_dev, "median": median_value, "mean": mean_value, "sample_N": num_rows, "top_5": top5, "last_5": last5}
-    else:
-        return {'plot_column': "", 'qqplot': "", 'histogramplot': "", 'boxplot': "", 'probplot': "",
-                'skew': 0, 'kurtosis': 0,
-                'standard_deviation': 0, "median": 0,
-                "mean": 0, "sample_N": 0, "top_5": [], "last_5": []}
+    try:
+        if (selected_dataframe[column].dtypes == 'float64' or selected_dataframe[column].dtypes =='int64'):
+            # Creating Box-plot
+            html_str_B = create_plots(plot_type='BoxPlot', column=column,second_column='', selected_dataframe=selected_dataframe, path_to_storage=path_to_storage, filename='BoxPlot')
+            # Creating QQ-plot
+            html_str = create_plots(plot_type='QQPlot', column=column, second_column='', selected_dataframe=selected_dataframe, path_to_storage=path_to_storage, filename='QQPlot')
+            # Creating Probability-plot
+            html_str_P = create_plots(plot_type='PPlot', column=column, second_column='', selected_dataframe=selected_dataframe, path_to_storage=path_to_storage, filename='PPlot')
+            #Creating histogram
+            html_str_H = create_plots(plot_type='HistogramPlot', column=column, second_column='', selected_dataframe=selected_dataframe, path_to_storage=path_to_storage, filename='HistogramPlot')
+            skewtosend = compute_skewness(column, selected_dataframe)
+            kurtosistosend = compute_kurtosis(column, selected_dataframe)
+            st_dev = np.std(selected_dataframe[str(column)])
+            # Used Statistics lib for cross-checking
+            # standard_deviation = statistics.stdev(data[str(column)])
+            median_value = float(np.percentile(selected_dataframe[str(column)], 50))
+            # Used a different way to calculate Median
+            # TODO: we must investigate why it returns a different value
+            # med2 = np.median(data[str(column)])
+            mean_value = np.mean(selected_dataframe[str(column)])
+            num_rows = selected_dataframe[str(column)].shape
+            top5 = sorted(selected_dataframe[str(column)].tolist(), reverse=True)[:5]
+            last5 = sorted(selected_dataframe[str(column)].tolist(), reverse=True)[-5:]
+            return {'plot_column': column, 'qqplot': html_str, 'histogramplot': html_str_H, 'boxplot': html_str_B, 'probplot': html_str_P, 'skew': skewtosend, 'kurtosis': kurtosistosend, 'standard_deviation': st_dev, "median": median_value, "mean": mean_value, "sample_N": num_rows, "top_5": top5, "last_5": last5}
+        else:
+            raise Exception
+    except Exception as e:
+        print('normality_test_content_results  ' +e)
+        return -1
 
 def transformation_extra_content_results(column_In: str, column_Out:str, selected_dataframe,path_to_storage:str):
-    fig = plt.figure()
-    plt.plot(selected_dataframe[str(column_In)], selected_dataframe[str(column_In)],
-             color='blue', marker="*")
-    plt.plot(selected_dataframe[str(column_Out)], selected_dataframe[str(column_In)],
-             color='red', marker="o")
-    plt.title("Transformed data Comparison")
-    plt.xlabel("out_array")
-    plt.ylabel("in_array")
-    plt.savefig(path_to_storage + "/output/ComparisonPlot.svg", format="svg")
-    plt.show()
-    html_str_Transf = mpld3.fig_to_html(fig)
-    return html_str_Transf
+    try:
+        if (selected_dataframe[column_In].dtypes == 'float64' or selected_dataframe[column_In].dtypes == 'int64'):
+            fig = plt.figure()
+            plt.plot(selected_dataframe[str(column_In)], selected_dataframe[str(column_In)],
+                     color='blue', marker="*")
+            plt.plot(selected_dataframe[str(column_Out)], selected_dataframe[str(column_In)],
+                     color='red', marker="o")
+            plt.title("Transformed data Comparison")
+            plt.xlabel("out_array")
+            plt.ylabel("in_array")
+            plt.savefig(path_to_storage + "/output/ComparisonPlot.svg", format="svg")
+            plt.show()
+            html_str_Transf = mpld3.fig_to_html(fig)
+            return html_str_Transf
+        else:
+            raise Exception
+    except Exception as e:
+        print('transformation_extra_content_results '+ e)
+        return -1
 
 class FunctionOutputItem(BaseModel):
     """
@@ -230,25 +239,20 @@ async def normal_tests(workflow_id: str, step_id: str, run_id: str,
 
     dfv = pd.DataFrame()
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
     # Load Datasets
     try:
+        test_status = 'Dataset is not defined'
         dfv['variables'] = [column]
         dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
-    except Exception as e:
-        # df["Error"] = ["Dataset is not defined"]
-        return {'statistic': "", 'p_value': "", 'Description': "", 'results': {}, 'critical_values': [],
-                'significance_level': []}
-    selected_datasources = pd.unique(dfv['Datasource'])
-    # We expect only one here
-    try:
+
+        selected_datasources = pd.unique(dfv['Datasource'])
+        test_status='Unable to retrieve datasets'
+
         data = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
         column = dfv['Variable'][0]
-    except Exception as e:
-        # df["Error"] = ["Unable to retrieve datasets"]
-        return {'statistic': "", 'p_value': "", 'Description': "", 'results': {}, 'critical_values': [],
-                'significance_level': []}
 
-    try:
         results_to_send = normality_test_content_results(column, data, path_to_storage)
         # region AmCharts_CODE_REGION
         # # ******************************************
@@ -267,6 +271,14 @@ async def normal_tests(workflow_id: str, step_id: str, run_id: str,
         # # ******************************************
         # endregion
         # Prepare content for info.json
+        test_status = 'Unable to compute ' + name_test + \
+                      ' for the selected columns. NaNs or nonnumeric values are selected.'
+
+        if results_to_send == -1:
+            results_to_send = {'plot_column': "", 'qqplot': "", 'histogramplot': "", 'boxplot': "", 'probplot': "",
+             'skew': 0, 'kurtosis': 0, 'standard_deviation': 0, "median": 0,
+             "mean": 0, "sample_N": 0, "top_5": [], "last_5": []}
+            raise Exception
         new_data = {
             "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
             "workflow_id": workflow_id,
@@ -303,37 +315,21 @@ async def normal_tests(workflow_id: str, step_id: str, run_id: str,
         if name_test == 'Shapiro-Wilk':
             shapiro_test = shapiro(data[str(column)])
             descr = 'Sample looks Gaussian (fail to reject H0)' if shapiro_test.pvalue > 0.05 else 'Sample does not look Gaussian (reject H0)'
-            with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
-                file_data = json.load(f)
-                new_data['test_results'] |= {
-                    'statistic': shapiro_test.statistic, 'p_value': shapiro_test.pvalue, 'Description': descr}
-                file_data['results'] = new_data
-                f.seek(0)
-                json.dump(file_data, f, indent=4)
-                f.truncate()
-            return{'statistic': shapiro_test.statistic, 'p_value': shapiro_test.pvalue, 'Description': descr, 'results': results_to_send}
+            statistic = shapiro_test.statistic
+            p_value = shapiro_test.pvalue
         elif name_test == 'Kolmogorov-Smirnov':
             ks_test = kstest(data[str(column)], 'norm', alternative=alternative)
             descr = 'Sample looks Gaussian (fail to reject H0)' if ks_test.pvalue > 0.05 else 'Sample does not look Gaussian (reject H0)'
-            with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
-                file_data = json.load(f)
-                new_data['test_results']|= {
-                    'statistic': ks_test.statistic, 'p_value': ks_test.pvalue, 'Description': descr}
-                file_data['results'] = new_data
-                f.seek(0)
-                json.dump(file_data, f, indent=4)
-                f.truncate()
-            return{'statistic': ks_test.statistic, 'p_value': ks_test.pvalue, 'Description':descr, 'results': results_to_send}
+            statistic = ks_test.statistic
+            p_value = ks_test.pvalue
         elif name_test == 'Anderson-Darling':
             anderson_test = anderson(data[str(column)])
             list_anderson = []
             for i in range(len(anderson_test.critical_values)):
                 sl, cv = anderson_test.significance_level[i], anderson_test.critical_values[i]
                 if anderson_test.statistic < anderson_test.critical_values[i]:
-                    # print('%.3f: %.3f, data looks normal (fail to reject H0)' % (sl, cv))
                     list_anderson.append('%.3f: %.3f, data looks normal (fail to reject H0)' % (sl, cv))
                 else:
-                    # print('%.3f: %.3f, data does not look normal (reject H0)' % (sl, cv))
                     list_anderson.append('%.3f: %.3f, data does not look normal (reject H0)' % (sl, cv))
             with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
                 file_data = json.load(f)
@@ -343,37 +339,31 @@ async def normal_tests(workflow_id: str, step_id: str, run_id: str,
                 f.seek(0)
                 json.dump(file_data, f, indent=4)
                 f.truncate()
-            return{'statistic':anderson_test.statistic, 'critical_values': list(anderson_test.critical_values), 'significance_level': list(anderson_test.significance_level), 'Description': list_anderson, 'results': results_to_send}
+            return JSONResponse(content={'status': 'Success','statistic':anderson_test.statistic, 'critical_values': list(anderson_test.critical_values), 'significance_level': list(anderson_test.significance_level), 'Description': list_anderson, 'results': results_to_send}, status_code=200)
         elif name_test == 'D’Agostino’s K^2':
             stat, p = normaltest(data[str(column)], nan_policy=nan_policy)
             descr = 'Sample looks Gaussian (fail to reject H0)' if p > 0.05 else 'Sample does not look Gaussian (reject H0)'
-            with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
-                file_data = json.load(f)
-                new_data['test_results']|= {
-                    'statistic': stat, 'p_value': p, 'Description': descr}
-                file_data['results'] = new_data
-                f.seek(0)
-                json.dump(file_data, f, indent=4)
-                f.truncate()
-            return{'statistic': stat, 'p_value': p, 'Description':descr, 'results': results_to_send}
+            statistic = stat
+            p_value = p
         elif name_test == 'Jarque-Bera':
             jarque_bera_test = jarque_bera(data[str(column)])
             statistic = jarque_bera_test.statistic
-            pvalue = jarque_bera_test.pvalue
-            descr = 'Sample looks Gaussian (fail to reject H0)' if pvalue > 0.05 else 'Sample does not look Gaussian (reject H0)'
-            with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
-                file_data = json.load(f)
-                new_data['test_results']|= {
-                    'statistic': statistic, 'p_value': pvalue, 'Description': descr}
-                file_data['results'] = new_data
-                f.seek(0)
-                json.dump(file_data, f, indent=4)
-                f.truncate()
-            return {'statistic': statistic, 'p_value': pvalue, 'Description': descr, 'results': results_to_send}
+            p_value = jarque_bera_test.pvalue
+            descr = 'Sample looks Gaussian (fail to reject H0)' if p_value > 0.05 else 'Sample does not look Gaussian (reject H0)'
+
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            file_data = json.load(f)
+            new_data['test_results']|= {
+                'statistic': statistic, 'p_value': p_value, 'Description': descr}
+            file_data['results'] = new_data
+            f.seek(0)
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        return JSONResponse(content={'status': 'Success','statistic': statistic, 'p_value': p_value, 'Description': descr, 'results': results_to_send}, status_code=200)
     except Exception as e:
         # df["Error"] = ["Unable to conduct Normality test"]
         print(e)
-        return {'statistic': "", 'p_value': "", 'Description': "", 'results': {}, 'critical_values': [], 'significance_level':[]}
+        return JSONResponse(content={'status':test_status,'statistic': "", 'p_value': "", 'Description': "", 'results': {}, 'critical_values': [], 'significance_level':[]}, status_code=200)
 
 @router.get("/transform_data", tags=['hypothesis_testing'])
 async def transform_data(workflow_id: str,
@@ -386,22 +376,21 @@ async def transform_data(workflow_id: str,
                          alpha: Optional[float] = None) -> dict:
     dfv = pd.DataFrame()
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
     # Load Datasets
     try:
+        test_status = 'Dataset is not defined'
         dfv['variables'] = [column]
         dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
-    except Exception as e:
-        # df["Error"] = ["Dataset is not defined"]
-        return {'transformed array': {}, 'data': {}, 'results': {}}
-    selected_datasources = pd.unique(dfv['Datasource'])
-    # We expect only one here
-    try:
+
+        selected_datasources = pd.unique(dfv['Datasource'])
+        test_status='Unable to retrieve datasets'
+        # We expect only one here
         data = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
         column = dfv['Variable'][0]
-    except Exception as e:
-        print("Unable to retrieve datasets")
-        return {'transformed array': {}, 'data': {}, 'results': {}}
-    try:
+        test_status = 'Unable to compute ' + name_transform + \
+                      ' for the selected columns. NaNs or nonnumeric values are selected.'
+
         newColumnName = "Transf_" + column
         if name_transform == 'Box-Cox':
             if lmbd == None:
@@ -437,7 +426,17 @@ async def transform_data(workflow_id: str,
 
         data.to_csv(path_to_storage + '/output/new_dataset.csv', index=False)
         results_to_send = normality_test_content_results(newColumnName, data, path_to_storage)
-        results_to_send['transf_plot'] = transformation_extra_content_results(column, newColumnName, data, path_to_storage)
+        if results_to_send == -1:
+            results_to_send = {'plot_column': "", 'qqplot': "", 'histogramplot': "", 'boxplot': "", 'probplot': "",
+                               'skew': 0, 'kurtosis': 0, 'standard_deviation': 0, "median": 0,
+                               "mean": 0, "sample_N": 0, "top_5": [], "last_5": []}
+            raise Exception
+        results_to_send_extra = transformation_extra_content_results(column, newColumnName, data, path_to_storage)
+        if results_to_send_extra== -1:
+            results_to_send['transf_plot']=''
+            raise Exception
+
+        results_to_send['transf_plot'] = results_to_send_extra
         # Prepare content for info.json
         new_data = {
             "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
@@ -480,10 +479,10 @@ async def transform_data(workflow_id: str,
             f.seek(0)
             json.dump(file_data, f, indent=4)
             f.truncate()
-        return {'transformed array': data[newColumnName].to_json(orient='records'), 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}
+        return JSONResponse(content={'status': 'Success','transformed array': data[newColumnName].to_json(orient='records'), 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}, status_code=200)
     except Exception as e:
         print(e)
-        return {'transformed array': {}, 'data': {}, 'results': {}}
+        return JSONResponse(content={'status':test_status,'transformed array': {}, 'data': {}, 'results': {}}, status_code=200)
 
 
 # @router.get("/compute_pearson_correlation", tags=['hypothesis_testing'])
@@ -518,24 +517,21 @@ async def point_biserial_correlation(workflow_id: str, step_id: str, run_id: str
                                      ):
     dfv = pd.DataFrame()
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
     # Load Datasets
     try:
+        test_status = 'Dataset is not defined'
         dfv['variables'] = [column_1, column_2]
         dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
-    except Exception as e:
-        # df["Error"] = ["Dataset is not defined"]
-        return {'transformed array': {}, 'data': {}, 'results': {}}
-    selected_datasources = pd.unique(dfv['Datasource'])
-    # We expect only one here
-    try:
+
+        selected_datasources = pd.unique(dfv['Datasource'])
+        test_status='Unable to retrieve datasets'
+        # We expect only one here
         data = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
         column_1 = dfv['Variable'][0]
         column_2 = dfv['Variable'][1]
-    except Exception as e:
-        print("Unable to retrieve datasets")
-        return {'transformed array': {}, 'data': {}, 'results': {}}
+        test_status = 'Unable to compute Point Biserial correlation for the selected columns. NaNs or nonnumeric values are selected.'
 
-    try:
         le = LabelEncoder()
         new_column_1 = 'le_'+str(column_1)
         data[new_column_1] = le.fit_transform(data[str(column_1)])
@@ -589,46 +585,45 @@ async def point_biserial_correlation(workflow_id: str, step_id: str, run_id: str
                     'correlation': pointbiserialr_test[0],
                     'p_value': pointbiserialr_test[1]
                     }
-            try:
-                with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
-                    # Load existing data into a dict.
-                    file_data = json.load(f)
-                    # Join new data
-                    new_data = {
-                        "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
-                        "workflow_id": workflow_id,
-                        "run_id": run_id,
-                        "step_id": step_id,
-                        "test_name": 'Point Biserial Correlation',
-                        "test_params": {'Binary variable': str(column_1),
-                                        'Variable': str(column_2)},
-                        "test_results": data_to_return,
-                        "Output_datasets":[{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
-                                                    step_id + '/analysis_output' + '/new_dataset.csv'}],
-                        "Saved_plots": [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
-                                                 step_id + '/analysis_output/BoxPlot.svg'},
-                                        {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
-                                                 step_id + '/analysis_output/HistogramPlot_GroupA.svg'},
-                                        {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
-                                                 step_id + '/analysis_output/HistogramPlot_GroupB.svg'},
-                                        {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
-                                                 step_id + '/analysis_output/Scatter_Two_Variables.svg'}]
-                        }
-                    file_data['results'] |= new_data
-                    f.seek(0)
-                    json.dump(file_data, f, indent=4)
-                    f.truncate()
-            except Exception as e:
-                print(e)
 
+            with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+                # Load existing data into a dict.
+                file_data = json.load(f)
+                # Join new data
+                new_data = {
+                    "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                    "workflow_id": workflow_id,
+                    "run_id": run_id,
+                    "step_id": step_id,
+                    "test_name": 'Point Biserial Correlation',
+                    "test_params": {'Binary variable': str(column_1),
+                                    'Variable': str(column_2)},
+                    "test_results": data_to_return,
+                    "Output_datasets":[{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                step_id + '/analysis_output' + '/new_dataset.csv'}],
+                    "Saved_plots": [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                             step_id + '/analysis_output/BoxPlot.svg'},
+                                    {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                             step_id + '/analysis_output/HistogramPlot_GroupA.svg'},
+                                    {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                             step_id + '/analysis_output/HistogramPlot_GroupB.svg'},
+                                    {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                             step_id + '/analysis_output/Scatter_Two_Variables.svg'}]
+                    }
+                file_data['results'] |= new_data
+                f.seek(0)
+                json.dump(file_data, f, indent=4)
+                f.truncate()
             data_to_return['new_dataset'] = df.to_json(orient='records')
+            data_to_return['status'] = 'Success'
             return data_to_return
+            return JSONResponse(content={data_to_return}, status_code=200)
         else:
+            test_status = 'Dichotomus Variable must be selected.'
             raise Exception
     except Exception as e:
         print(e)
-        return {
-                    'sample_A': {
+        return JSONResponse(content={'status': test_status, 'sample_A': {
                         'value': '',
                         'N': '',
                         'N_clean':  '',
@@ -648,7 +643,8 @@ async def point_biserial_correlation(workflow_id: str, step_id: str, run_id: str
                     },
                     'correlation': '',
                     'p_value': '',
-                    'new_dataset': []}
+                    'new_dataset': []}, status_code=200)
+
 
 @router.get("/check_homoscedasticity", tags=['hypothesis_testing'])
 async def check_homoskedasticity(workflow_id: str,
@@ -661,22 +657,21 @@ async def check_homoskedasticity(workflow_id: str,
                                                                       regex="^(trimmed)$|^(median)$|^(mean)$")):
     dfv = pd.DataFrame()
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
     # Load Datasets
     try:
+        test_status = 'Dataset is not defined'
         dfv['variables'] = columns
         dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
-    except Exception as e:
-        print('dfv ' + str(e))
-        return {'statistic': "", 'p_value': "", 'variance': ""}
-    selected_datasources = pd.unique(dfv['Datasource'])
-    # We expect only one here
-    try:
+
+        selected_datasources = pd.unique(dfv['Datasource'])
+        test_status = 'Unable to retrieve datasets'
+        # We expect only one here
         data = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
         columns = dfv['Variable']
-    except Exception as e:
-        print('data ' + str(e))
-        return {'statistic': "", 'p_value': "", 'variance': ""}
-    try:
+
+        test_status = 'Unable to compute Homoscedasticity for the selected columns. NaNs or nonnumeric values are selected.'
+
         args = []
         var = []
         i = 0
@@ -722,24 +717,89 @@ async def check_homoskedasticity(workflow_id: str,
             f.seek(0)
             json.dump(file_data, f, indent=4)
             f.truncate()
+        return JSONResponse(content={'status': 'Success','statistic': statistic, 'p_value': p_value, 'variance': var}, status_code=200)
     except Exception as e:
-        return {'statistic': "", 'p_value': "", 'variance': ""}
-
-    return {'statistic': statistic, 'p_value': p_value, 'variance': var}
+        print(e)
+        return JSONResponse(content={'status':test_status,'statistic': "", 'p_value': "", 'variance': ""}, status_code=200)
 
 
 @router.get("/transformed_data_for_use_in_an_ANOVA", tags=['hypothesis_testing'])
-async def transform_data_anova(column_1: str, column_2: str):
-    tx, ty = obrientransform(data[str(column_1)], data[str(column_2)])
-    return {'transformed_1': list(tx), 'transformed_2': list(ty)}
+async def transform_data_anova(
+        workflow_id: str,
+        step_id: str,
+        run_id: str,
+        variables: list[str] | None = Query(default=None)):
+    dfv = pd.DataFrame()
+    df = pd.DataFrame()
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
+    # Load Datasets
+    try:
+        test_status = 'Dataset is not defined'
+        dfv['variables'] = variables
+        dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
 
+        selected_datasources = pd.unique(dfv['Datasource'])
+        test_status = 'Unable to retrieve datasets'
+        # We expect only one here
+        data = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
+        variables = dfv['Variable']
+
+        test_status = 'Unable to compute Obrien transformation for the selected columns. NaNs or nonnumeric values are selected.'
+        # Keep requested Columns
+        selected_columns = pd.unique(dfv['Variable'])
+        args = []
+        args_name=[]
+        for column in data.columns:
+            if column not in selected_columns:
+                data = data.drop(str(column), axis=1)
+            else:
+                args.append(data[column])
+                args_name.append(column)
+
+        tall = obrientransform(*args)
+        df = pd.DataFrame(tall, index=args_name)
+        df = df.T
+        df.to_csv(path_to_storage + '/output/new_dataset.csv', index=False)
+
+        new_data = {
+            "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+            "workflow_id": workflow_id,
+            "run_id": run_id,
+            "step_id": step_id,
+            "test_name": 'Obrien Transform test',
+            "test_params": {
+                'selected_variable': variables.to_dict()
+            },
+            "test_results": {
+            },
+            "Output_datasets":[{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                    step_id + '/analysis_output' + '/new_dataset.csv'}],
+            'Saved_plots': []
+        }
+
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            file_data = json.load(f)
+            file_data['results'] |= new_data
+            f.seek(0)
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        return JSONResponse(content={'status': 'Success',
+                                     'Dataframe': df.to_json(orient="records")},
+                            status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status':test_status,
+                                     'Dataframe': df.to_json(orient="records")},
+                            status_code=200)
 
 @router.get("/statistical_tests", tags=['hypothesis_testing'])
 async def statistical_tests(workflow_id: str,
                             step_id: str,
                             run_id: str,
-                            column_1: str,
-                            column_2: str,
+                            columns: list[str] | None = Query(default=None),
+                            # column_1: str,
+                            # column_2: str,
                             correction: bool = True,
                             nan_policy: Optional[str] | None = Query("propagate",
                                                                      regex="^(propagate)$|^(raise)$|^(omit)$"),
@@ -753,66 +813,205 @@ async def statistical_tests(workflow_id: str,
                                                                  regex="^(auto)$|^(approx)$|^(exact)$"),
                             zero_method: Optional[str] | None = Query("pratt",
                                                                  regex="^(pratt)$|^(wilcox)$|^(zsplit)$")):
-    data = load_file_csv_direct(workflow_id, run_id, step_id)
+    dfv = pd.DataFrame()
+    df = pd.DataFrame()
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status=''
+    # Load Datasets
+    try:
+        test_status = 'Dataset is not defined'
+        dfv['variables'] = columns
+        dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
 
-    if statistical_test == "Welch t-test":
-        statistic, p_value = ttest_ind(data[str(column_1)], data[str(column_2)], nan_policy=nan_policy, equal_var=False, alternative=alternative)
-    elif statistical_test == "Independent t-test":
-        statistic, p_value = ttest_ind(data[str(column_1)], data[str(column_2)], nan_policy=nan_policy, alternative=alternative)
-    elif statistical_test == "t-test on TWO RELATED samples of scores":
-        if np.shape(data[str(column_1)])[0] != np.shape(data[str(column_2)])[0]:
-            return {'error': 'Unequal length arrays'}
-        statistic, p_value = ttest_rel(data[str(column_1)], data[str(column_2)], nan_policy=nan_policy, alternative=alternative)
-    elif statistical_test == "Mann-Whitney U rank test":
-        statistic, p_value = mannwhitneyu(data[str(column_1)], data[str(column_2)], alternative=alternative, method=method)
-    elif statistical_test == "Wilcoxon signed-rank test":
-        if np.shape(data[str(column_1)])[0] != np.shape(data[str(column_2)])[0]:
-            return {'error': 'Unequal length arrays'}
-        statistic, p_value = wilcoxon(data[str(column_1)], data[str(column_2)], alternative=alternative, correction=correction, zero_method=zero_method, mode=mode)
-    elif statistical_test == "Alexander Govern test":
-        z = alexandergovern(data[str(column_1)], data[str(column_2)])
-        return {'mean_positive': np.mean(data[str(column_1)]), 'standard_deviation_positive': np.std(data[str(column_1)]),
-                'mean_negative': np.mean(data[str(column_2)]), 'standard_deviation_negative': np.std(data[str(column_2)]),
-                'statistic, p_value': z}
-    elif statistical_test == "Kruskal-Wallis H-test":
-        statistic, p_value = kruskal(data[str(column_1)], data[str(column_2)], nan_policy=nan_policy)
-    elif statistical_test == "one-way ANOVA":
-        statistic, p_value = f_oneway(data[str(column_1)], data[str(column_2)])
-    elif statistical_test == "Wilcoxon rank-sum statistic":
-        statistic, p_value = ranksums(data[str(column_1)], data[str(column_2)], nan_policy=nan_policy, alternative=alternative)
-    elif statistical_test == "one-way chi-square test":
-        statistic, p_value = chisquare(data[str(column_1)], data[str(column_2)])
-    return {'mean_positive': np.mean(data[str(column_1)]), 'standard_deviation_positive': np.std(data[str(column_1)]),
-            'mean_negative': np.mean(data[str(column_2)]), 'standard_deviation_negative': np.std(data[str(column_2)]),
-            'statistic': statistic, 'p-value': p_value}
+        selected_datasources = pd.unique(dfv['Datasource'])
+        # We expect only one here
+        test_status='Unable to retrieve datasets'
+        data = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
+        columns = dfv['Variable'].tolist()
+        selected_columns = pd.unique(dfv['Variable'])
+        for column in data.columns:
+            if column not in selected_columns:
+                data = data.drop(str(column), axis=1)
+
+        test_status = 'Unable to compute ' + statistical_test + \
+                      ' for the selected columns. NaNs or nonnumeric values are selected.'
+        if statistical_test == "Welch t-test":
+            if len(data.columns) != 2:
+                test_status = 'Two variables must be selected for '+statistical_test
+                raise Exception
+            statistic, p_value = ttest_ind(data.iloc[:, 0],data.iloc[:, 1], nan_policy=nan_policy, equal_var=False, alternative=alternative)
+        elif statistical_test == "Independent t-test":
+            if len(data.columns) != 2:
+                test_status = 'Two variables must be selected for ' + statistical_test
+                raise Exception
+            statistic, p_value = ttest_ind(data.iloc[:, 0],data.iloc[:, 1], nan_policy=nan_policy, alternative=alternative)
+        elif statistical_test == "t-test on TWO RELATED samples of scores":
+            if len(data.columns) != 2:
+                test_status = 'Two variables must be selected for ' + statistical_test
+                raise Exception
+            elif np.shape(data.iloc[:, 0])[0] != np.shape(data.iloc[:, 1])[0]:
+                test_status = 'The arrays must have the same shape for' + statistical_test
+                raise Exception
+            statistic, p_value = ttest_rel(data.iloc[:, 0],data.iloc[:, 1], nan_policy=nan_policy, alternative=alternative)
+        elif statistical_test == "Mann-Whitney U rank test":
+            if len(data.columns) != 2:
+                test_status = 'Two variables must be selected for ' + statistical_test
+                raise Exception
+            statistic, p_value = mannwhitneyu(data.iloc[:, 0],data.iloc[:, 1], nan_policy=nan_policy, alternative=alternative, method=method)
+        elif statistical_test == "Wilcoxon signed-rank test":
+            if len(data.columns) != 2:
+                test_status = 'Two variables must be selected for ' + statistical_test
+                raise Exception
+            elif np.shape(data.iloc[:, 0])[0] != np.shape(data.iloc[:, 1])[0]:
+                test_status = 'The arrays must have the same shape for' + statistical_test
+                raise Exception
+            statistic, p_value = wilcoxon(data.iloc[:, 0],data.iloc[:, 1], alternative=alternative, nan_policy=nan_policy, correction=correction, zero_method=zero_method, mode=mode)
+        elif statistical_test == "Alexander Govern test":
+            samples = []
+            for k in data.columns:
+                samples.append(data[k])
+            AlexanderGovernResult = alexandergovern(*samples, nan_policy=nan_policy)
+            statistic, p_value = AlexanderGovernResult.statistic, AlexanderGovernResult.pvalue
+        elif statistical_test == "Kruskal-Wallis H-test":
+            samples = []
+            for k in data.columns:
+                samples.append(data[k])
+            statistic, p_value = kruskal(*samples, nan_policy=nan_policy)
+        elif statistical_test == "one-way ANOVA":
+            samples = []
+            for k in data.columns:
+                samples.append(data[k])
+            statistic, p_value = f_oneway(*samples)
+        elif statistical_test == "Wilcoxon rank-sum statistic":
+            if len(data.columns) != 2:
+                test_status = 'Two variables must be selected for ' + statistical_test
+                raise Exception
+            statistic, p_value = ranksums(data.iloc[:, 0],data.iloc[:, 1], nan_policy=nan_policy, alternative=alternative)
+        elif statistical_test == "one-way chi-square test":
+            samples = []
+            for k in data.columns:
+                samples.append(data[k])
+            # TODO: We can have several f_obs columns of observed frequencies and
+            #  f_exp column of the expected frequencies
+            statistic, p_value = chisquare(*samples)
+        # Provide Mean and Std for all cases
+        df = pd.DataFrame(data=
+                          {"Variable": data.columns,
+                           'mean': data.mean(),
+                           "standard deviation": data.std()},
+                          index=data.columns)
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            # Load existing data into a dict.
+            file_data = json.load(f)
+            # Join new data
+            new_data = {
+                    "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                    "workflow_id": workflow_id,
+                    "run_id": run_id,
+                    "step_id": step_id,
+                    "test_name": statistical_test,
+                    "test_params": {
+                        'selected_method': method,
+                        'selected_variable': columns,
+                        'nan_policy': nan_policy,
+                        'alternative': alternative,
+                        'correction': correction,
+                        'mode': mode,
+                        'zero_method': zero_method
+                    },
+                    "test_results": {
+                        'statistic': statistic,
+                        'p-value': p_value,
+                        'Mean & std': df.to_dict()}
+            }
+            file_data['results'] = new_data
+            file_data['Output_datasets'] = []
+            # Set file's current position at offset.
+            f.seek(0)
+            # convert back to json.
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        return JSONResponse(content={'status': 'Success', 'statistic': statistic,
+                                     'p-value': p_value, 'mean_std': df.to_json(orient='records')}, status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status':test_status, 'statistic': '',
+                                     'p-value': '', 'mean_std': df.to_json(orient='records')}, status_code=200)
 
 
-@router.post("/multiple_comparisons", tags=['hypothesis_testing'])
-async def p_value_correction(input_config: ModelMultipleComparisons):
-    method = input_config.method
-    alpha = input_config.alpha
-    p_value = input_config.p_value
+@router.get("/multiple_comparisons", tags=['hypothesis_testing'])
+async def p_value_correction(workflow_id: str,
+                             step_id: str,
+                             run_id: str,
+                             method: str,
+                             alpha: float,
+                             p_value: list[str] | None = Query(default=None)):
+    dfv = pd.DataFrame()
+    df = pd.DataFrame()
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
+    # Load Datasets
+    try:
+        test_status = 'Dataset is not defined'
+        dfv['variables'] = p_value
+        dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
 
-    if method == 'Bonferroni':
-        z = multipletests(pvals=p_value, alpha=alpha, method='bonferroni')
-        y = [str(x) for x in z[0]]
-        return {'rejected': list(y), 'corrected_p_values': list(z[1])}
-    elif method == 'sidak':
-        z = multipletests(pvals=p_value, alpha=alpha, method='sidak')
-        y = [str(x) for x in z[0]]
-        return {'rejected': list(y), 'corrected_p_values': list(z[1])}
-    elif method == 'benjamini-hochberg':
-        z = multipletests(pvals=p_value, alpha=alpha, method='fdr_bh')
-        y = [str(x) for x in z[0]]
-        return {'rejected': list(y), 'corrected_p_values': list(z[1])}
-    elif method == 'benjamini-yekutieli':
-        z = multipletests(pvals=p_value, alpha=alpha, method='fdr_by')
-        y = [str(x) for x in z[0]]
-        return {'rejected': list(y), 'corrected_p_values': list(z[1])}
-    else:
-        z = multipletests(pvals=p_value, alpha=alpha, method= method)
-        y = [str(x) for x in z[0]]
-        return {'rejected': list(y), 'corrected_p_values': list(z[1])}
+        selected_datasources = pd.unique(dfv['Datasource'])
+        # We expect only one here
+        test_status = 'Unable to retrieve datasets'
+        data = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
+        # We expect only 1 column
+        if len(pd.unique(dfv['Variable'])) != 1:
+            test_status = 'Only 1 set of p-values is expected'
+            raise Exception
+
+        p_value = dfv['Variable'][0]
+        test_status = 'Unable to compute ' + method + ' Multitest for the selected p-values.'
+        if method == 'Bonferroni':
+            z = multipletests(pvals=data[p_value], alpha=alpha, method='bonferroni')
+        elif method == 'sidak':
+            z = multipletests(pvals=data[p_value], alpha=alpha, method='sidak')
+        elif method == 'benjamini-hochberg':
+            z = multipletests(pvals=data[p_value], alpha=alpha, method='fdr_bh')
+        elif method == 'benjamini-yekutieli':
+            z = multipletests(pvals=data[p_value], alpha=alpha, method='fdr_by')
+        else:
+            z = multipletests(pvals=data[p_value], alpha=alpha, method= method)
+
+        df['p_values'] = data[p_value]
+        df['rejected'] = [str(x) for x in z[0]]
+        df['corrected_p_values'] = z[1]
+        df.to_csv(path_to_storage + '/output/new_dataset.csv', index=False)
+
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            # Load existing data into a dict.
+            file_data = json.load(f)
+            # Join new data
+            new_data = {
+                    "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                    "workflow_id": workflow_id,
+                    "run_id": run_id,
+                    "step_id": step_id,
+                    "test_name": "Multitesting and adjustment of pvalues",
+                    "test_params": {
+                        'selected_method': method,
+                        'selected_variable': p_value,
+                        'alpha': alpha
+                    },
+                    "test_results": ''
+            }
+            file_data['results'] = new_data
+            file_data['Output_datasets'] = [{"file": 'expertsystem/workflow/'+ workflow_id+'/'+ run_id+'/'+
+                                         step_id+'/analysis_output' + '/new_dataset.csv'}]
+            # Set file's current position at offset.
+            f.seek(0)
+            # convert back to json.
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        return {'status':'Success', 'result': df.to_json(orient='records')}
+    except Exception as e:
+        print(e)
+        return {'status':test_status,'result': df.to_json(orient='records')}
 
 
 @router.get("/return_LDA", tags=["return_LDA"])
@@ -827,17 +1026,47 @@ async def LDA(workflow_id: str,
               shrinkage_2: float | None = Query(default=None, gt=-1, lt=1),
               # shrinkage_3: float | None = Query(default=None),
               independent_variables: list[str] | None = Query(default=None)):
+    dfv = pd.DataFrame()
+    df = pd.DataFrame()
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
+    to_return={'number_of_features': '',
+            'features_columns': [],
+            'number_of_classes':'',
+            'classes_': [],
+            'number_of_components': '',
+            'explained_variance_ratio': df.to_json(orient='records'),
+            'means_': df.to_json(orient='records'),
+            'priors_': df.to_json(orient='records'),
+            'scalings_': df.to_json(orient='records'),
+            'xbar_': df.to_json(orient='records'),
+            'coefficients': df.to_json(orient='records'),
+            'intercept': df.to_json(orient='records')}
+    # Load Datasets
+    try:
+        test_status = 'Dataset is not defined'
+        dfv['variables'] = independent_variables
+        dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
 
-    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
-    # dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
-    df_label = dataset[dependent_variable]
-    for columns in dataset.columns:
-        if columns not in independent_variables:
-            dataset = dataset.drop(str(columns), axis=1)
+        selected_datasources = pd.unique(dfv['Datasource'])
+        independent_variables = dfv['Variable']
+        dependent_variable = dependent_variable.split("--")[1]
+        selected_columns = pd.unique(dfv['Variable'])
 
-    features_columns = dataset.columns
-    X = np.array(dataset)
-    Y = np.array(df_label.astype('float64'))
+        # We expect only one here
+        test_status = 'Unable to retrieve datasets'
+        dataset = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
+
+        # dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+        # dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
+        df_label = dataset[str(dependent_variable)]
+        for columns in dataset.columns:
+            if columns not in selected_columns:
+                dataset = dataset.drop(str(columns), axis=1)
+        test_status = 'Unable to compute LDA. Variables with numeric values must be selected.'
+        features_columns = dataset.columns
+        X = np.array(dataset)
+        Y = np.array(df_label.astype('float64'))
 
     # target_names = np.unique(Y)
     # sc = StandardScaler()
@@ -866,47 +1095,47 @@ async def LDA(workflow_id: str,
     # # plt.title("LDA of IRIS dataset")
     # # plt.show()
 
-    if solver == 'lsqr' or solver == 'eigen':
-        if shrinkage_1 == 'float':
-            clf = LinearDiscriminantAnalysis(solver=solver, shrinkage=shrinkage_2)
-        elif shrinkage_1 == 'auto':
-            clf = LinearDiscriminantAnalysis(solver=solver, shrinkage=shrinkage_1)
+        if solver == 'lsqr' or solver == 'eigen':
+            if shrinkage_1 == 'float':
+                clf = LinearDiscriminantAnalysis(solver=solver, shrinkage=shrinkage_2)
+            elif shrinkage_1 == 'auto':
+                clf = LinearDiscriminantAnalysis(solver=solver, shrinkage=shrinkage_1)
+            else:
+                clf = LinearDiscriminantAnalysis(solver=solver)
         else:
             clf = LinearDiscriminantAnalysis(solver=solver)
-    else:
-        clf = LinearDiscriminantAnalysis(solver=solver)
-    # print(solver)
-    clf.fit(X,Y)
+        # print(solver)
+        clf.fit(X,Y)
 
-    classes = clf.classes_
-    number_of_classes = len(clf.classes_)
-    number_of_components = min(len(clf.classes_) - 1, clf.n_features_in_)
-    if solver == 'svd':
-        df_xbar = pd.DataFrame(clf.xbar_, columns=['xbar'])
-        df_xbar.insert(loc=0, column='Feature', value=features_columns)
-        df_scalings = pd.DataFrame(clf.scalings_, columns=[i + 1 for i in range(number_of_components)])
-        df_scalings.insert(loc=0, column='Feature', value=features_columns)
-    else:
-        df_xbar = pd.DataFrame()
-        df_scalings = pd.DataFrame()
+        classes = clf.classes_
+        number_of_classes = len(clf.classes_)
+        number_of_components = min(len(clf.classes_) - 1, clf.n_features_in_)
+        if solver == 'svd':
+            df_xbar = pd.DataFrame(clf.xbar_, columns=['xbar'])
+            df_xbar.insert(loc=0, column='Feature', value=features_columns)
+            df_scalings = pd.DataFrame(clf.scalings_, columns=[i + 1 for i in range(number_of_components)])
+            df_scalings.insert(loc=0, column='Feature', value=features_columns)
+        else:
+            df_xbar = pd.DataFrame()
+            df_scalings = pd.DataFrame()
 
-    df_mean = pd.DataFrame(clf.means_, columns=features_columns)
-    df_mean.insert(loc=0, column='Class', value=classes)
-    df_prior = pd.DataFrame(clf.priors_, columns=['priors'])
-    df_prior.insert(loc=0, column='Class', value=classes)
+        df_mean = pd.DataFrame(clf.means_, columns=features_columns)
+        df_mean.insert(loc=0, column='Class', value=classes)
+        df_prior = pd.DataFrame(clf.priors_, columns=['priors'])
+        df_prior.insert(loc=0, column='Class', value=classes)
 
-    if solver == 'eigen' or solver =='svd':
-        df_explained_variance_ratio = pd.DataFrame(clf.explained_variance_ratio_, columns=['Variance ratio'])
-        df_explained_variance_ratio.insert(loc=0, column='Component', value=[i + 1 for i in range(number_of_components)])
-    else:
-        df_explained_variance_ratio = pd.DataFrame()
+        if solver == 'eigen' or solver =='svd':
+            df_explained_variance_ratio = pd.DataFrame(clf.explained_variance_ratio_, columns=['Variance ratio'])
+            df_explained_variance_ratio.insert(loc=0, column='Component', value=[i + 1 for i in range(number_of_components)])
+        else:
+            df_explained_variance_ratio = pd.DataFrame()
 
-    df_coefs = pd.DataFrame(clf.coef_, columns=features_columns)
-    df_intercept = pd.DataFrame(clf.intercept_, columns=['intercept'])
-    df_coefs['intercept'] = df_intercept['intercept']
-    if df_coefs.shape[0] == len(classes):
-        df_coefs.insert(loc=0, column='Class', value=classes)
-    try:
+        df_coefs = pd.DataFrame(clf.coef_, columns=features_columns)
+        df_intercept = pd.DataFrame(clf.intercept_, columns=['intercept'])
+        df_coefs['intercept'] = df_intercept['intercept']
+        if df_coefs.shape[0] == len(classes):
+            df_coefs.insert(loc=0, column='Class', value=classes)
+
         to_return = {
             'number_of_features': int(clf.n_features_in_),
             'features_columns': features_columns.tolist(),
@@ -921,16 +1150,36 @@ async def LDA(workflow_id: str,
             'coefficients': df_coefs.to_json(orient='records'),
             'intercept': df_intercept.to_json(orient='records')
         }
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            file_data = json.load(f)
+            new_data = {
+                "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                "workflow_id": workflow_id,
+                "run_id": run_id,
+                "step_id": step_id,
+                "test_name": 'Linear discriminant analysis',
+                "test_params": {'Dependent': dependent_variable,
+                                'Independent Variables': list(selected_columns),
+                                'solver':solver,
+                                'shrinkage': shrinkage_1},
+                "test_results": to_return,
+                "Output_datasets": [],
+                "Saved_plots": []
+            }
+            file_data['results'] |= new_data
+            f.seek(0)
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        print(test_status)
         print(to_return)
-        return to_return
+        return JSONResponse(content={'status': 'Success', 'result': to_return}, status_code=200)
     except Exception as e:
         print(e)
-        print("Error : Creating QQPlot")
-        return {}
+        return JSONResponse(content={'status': test_status, 'result': to_return}, status_code=200)
 
     # return {'coefficients': df_coefs.to_json(orient='split'), 'intercept': df_intercept.to_json(orient='split')}
 
-
+# TODO: Should we Delete this????
 @router.get("/principal_component_analysis")
 async def principal_component_analysis(workflow_id: str,
                                        step_id: str,
@@ -989,18 +1238,60 @@ async def kmeans_clustering(workflow_id: str,
                             run_id: str,
                             n_clusters: int,
                             independent_variables: list[str] | None = Query(default=None)):
-    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
-    for columns in dataset.columns:
-        if columns not in independent_variables:
-            dataset = dataset.drop(str(columns), axis=1)
+    dfv = pd.DataFrame()
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
+    # Load Datasets
+    to_return = {'cluster_centers': dfv.to_json(orient='records'), 'sum_squared_dist' : '','iterations_No': ''}
+    try:
+        test_status = 'Dataset is not defined'
+        dfv['variables'] = independent_variables
+        dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
 
-    X = np.array(dataset)
+        selected_datasources = pd.unique(dfv['Datasource'])
+        test_status = 'Unable to retrieve datasets'
+        dataset = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
+        independent_variables = dfv['Variable'].tolist()
+        selected_columns = pd.unique(dfv['Variable'])
+        for columns in dataset.columns:
+            if columns not in selected_columns:
+                dataset = dataset.drop(str(columns), axis=1)
+        test_status = 'Unable to compute KMeans. Variables with numeric values must be selected.'
+        # X = np.array(dataset)
+        kmeans = KMeans(n_clusters=n_clusters, random_state=0).fit(dataset)
+        df = pd.DataFrame(kmeans.cluster_centers_, columns=dataset.columns)
+        print(kmeans.cluster_centers_)
+        to_return={'cluster_centers': df.to_json(orient='records'), 'sum_squared_dist' : kmeans.inertia_,
+                   'iterations_No': kmeans.n_iter_}
+                # 'labels': kmeans.labels_.tolist(),
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            # Load existing data into a dict.
+            file_data = json.load(f)
+            # Join new data
+            new_data = {
+                    "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                    "workflow_id": workflow_id,
+                    "run_id": run_id,
+                    "step_id": step_id,
+                    "test_name": "KMeans",
+                    "test_params": {
+                        'selected_variables': independent_variables,
+                        'n_clusters': n_clusters
+                    },
+                    "test_results": to_return
+            }
+            file_data['results'] = new_data
+            file_data['Output_datasets'] = []
+            # Set file's current position at offset.
+            f.seek(0)
+            # convert back to json.
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        return JSONResponse(content={'status':'Success', 'results': to_return}, status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status': test_status, 'results': to_return}, status_code=200)
 
-    kmeans = KMeans(n_clusters=n_clusters, random_state=0).fit(X)
-
-    return {'Coordinates of cluster centers': kmeans.cluster_centers_.tolist(),
-            'Labels of each point ': kmeans.labels_.tolist(),
-            'Sum of squared distances of samples to their closest cluster center' : kmeans.inertia_}
 
 # TODO DELETE NEWER IMPLEMENTATION LATER IN THE FILE
 # @router.get("/linear_regressor")
@@ -1738,25 +2029,64 @@ async def ancova_2(workflow_id: str,
                    covar: list[str] | None = Query(default=None),
                    effsize: str | None = Query("np2",
                                                regex="^(np2)$|^(n2)$")):
+    dfv = pd.DataFrame()
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
+    # Load Datasets
+    try:
+        test_status = 'Dataset is not defined'
+        dv = dv.split("--")[1]
+        between = between.split("--")[1]
+        dfv['variables'] = covar
+        dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
 
-    # df_data = pd.read_csv('example_data/mescobrad_dataset.csv')
-    df_data = load_file_csv_direct(workflow_id, run_id, step_id)
+        selected_datasources = pd.unique(dfv['Datasource'])
+        test_status = 'Unable to retrieve datasets'
+        # We expect only one here
+        df_data = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
+        covar = dfv['Variable'].tolist()
 
-    df = ancova(data=df_data, dv=dv, covar=covar, between=between, effsize=effsize)
-    df = df.fillna('')
-    all_res = []
-    for ind, row in df.iterrows():
-        temp_to_append = {
-            'id': ind,
-            'Source': row['Source'],
-            'SS': row['SS'],
-            'DF': row['DF'],
-            'F': row['F'],
-            'p-unc': row['p-unc'],
-            'np2': row['np2']
-        }
-        all_res.append(temp_to_append)
-    return {'DataFrame': all_res}
+        test_status = 'Unable to compute Ancova test for the selected columns. Nonnumeric values are selected for the Dependent variable or the Covariates.'
+        df = ancova(data=df_data, dv=dv, covar=covar, between=between, effsize=effsize)
+        df = df.fillna('')
+        all_res = []
+        for ind, row in df.iterrows():
+            temp_to_append = {
+                'id': ind,
+                'Source': row['Source'],
+                'SS': row['SS'],
+                'DF': row['DF'],
+                'F': row['F'],
+                'p-unc': row['p-unc'],
+                'np2': row['np2']
+            }
+            all_res.append(temp_to_append)
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            file_data = json.load(f)
+            file_data['results'] |= {
+                "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                "workflow_id": workflow_id,
+                "run_id": run_id,
+                "step_id": step_id,
+                "test_name": 'Ancova test',
+                "test_params": {
+                    'selected_depedent_variable': dv,
+                    'selected_between_factor':between,
+                    'selected_covariate_variables':covar
+                },
+                "test_results": all_res,
+                "Output_datasets":[],
+                'Saved_plots': []
+            }
+            f.seek(0)
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        return JSONResponse(content={'status': 'Success','DataFrame': all_res},
+                            status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status': test_status, 'Dataframe': []},
+                            status_code=200)
     # return {'ANCOVA':df.to_json(orient="split")}
 
 @router.get("/linear_mixed_effects_model")
@@ -1767,43 +2097,85 @@ async def linear_mixed_effects_model(workflow_id: str,
                      groups: str,
                      independent: list[str] | None = Query(default=None),
                      use_sqrt: bool | None = Query(default=True)):
+    dfv = pd.DataFrame()
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
+    # Load Datasets
+    try:
+        test_status = 'Dataset is not defined'
+        dependent = dependent.split("--")[1]
+        groups = groups.split("--")[1]
+        dfv['variables'] = independent
+        dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
+        selected_datasources = pd.unique(dfv['Datasource'])
+        test_status = 'Unable to retrieve datasets'
+        # We expect only one here
+        data = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
+        independent = dfv['Variable'].tolist()
 
-    # data = pd.read_csv('example_data/mescobrad_dataset.csv')
-    data = load_file_csv_direct(workflow_id, run_id, step_id)
-    z = dependent + "~"
-    for i in range(len(independent)):
-        z = z + "+" + independent[i]
+        test_status = 'Unable to compute Mixed Linear Model Regression test for the selected columns. Nonnumeric values are selected for the Dependent variable.'
+        z = dependent + "~"
+        for i in range(len(independent)):
+            z = z + "+" + independent[i]
 
-    md = smf.mixedlm(z, data, groups=data[groups], use_sqrt=use_sqrt)
-    mdf = md.fit()
-    df = mdf.summary()
-    df_0 = df.tables[0]
-    tbl1_res = []
-    for ind, row in df_0.iterrows():
-        temp_to_append = {
-            'id': ind,
-            "col0": row[0],
-            "col1": row[1],
-            "col2": row[2],
-            "col3": row[3],
-        }
-        tbl1_res.append(temp_to_append)
-    df_1 = df.tables[1]
-    tbl2_res = []
-    for ind, row in df_1.iterrows():
-        temp_to_append = {
-            'id': ind,
-            "col0": row[0],
-            "col1": row[1],
-            "col2": row[2],
-            "col3": row[3],
-            "col4": row[4],
-            "col5": row[5],
-        }
-        tbl2_res.append(temp_to_append)
-    print(df)
+        md = smf.mixedlm(z, data, groups=data[groups], use_sqrt=use_sqrt)
+        mdf = md.fit()
+        df = mdf.summary()
+        df_0 = df.tables[0]
+        tbl1_res = []
+        for ind, row in df_0.iterrows():
+            temp_to_append = {
+                'id': ind,
+                "col0": row[0],
+                "col1": row[1],
+                "col2": row[2],
+                "col3": row[3],
+            }
+            tbl1_res.append(temp_to_append)
+        df_1 = df.tables[1]
+        tbl2_res = []
+        for ind, row in df_1.iterrows():
+            temp_to_append = {
+                'id': ind,
+                "col0": row[0],
+                "col1": row[1],
+                "col2": row[2],
+                "col3": row[3],
+                "col4": row[4],
+                "col5": row[5],
+            }
+            tbl2_res.append(temp_to_append)
 
-    return {'first_table': tbl1_res, 'second_table': tbl2_res}
+        test_status = 'Erro in creating info file.'
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            file_data = json.load(f)
+            file_data['results'] |= {
+                "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                "workflow_id": workflow_id,
+                "run_id": run_id,
+                "step_id": step_id,
+                "test_name": 'Linear Mixed Effects Model',
+                "test_params": {
+                    'selected_depedent_variable': dependent,
+                    'selected_groups':groups,
+                    'selected_covariate_variables':independent
+                },
+                "test_results": {
+                    'model':tbl1_res,
+                    'coeficients':tbl2_res
+                },
+                "Output_datasets":[],
+                'Saved_plots': []
+            }
+            f.seek(0)
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        return JSONResponse(content={'status': 'Success','first_table': tbl1_res, 'second_table': tbl2_res},
+                            status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status': test_status, 'first_table': [], 'second_table': []},
+                            status_code=200)
     # return {'first_table': df_0.to_json(orient='split'), 'second_table': df_1.to_json(orient='split')}
 
 @router.get("/poisson_regression")
@@ -1967,7 +2339,7 @@ async def time_varying_covariates(
         dataset_long[column_1+'*'+column_2] = dataset_long[column_1]*dataset_long[column_2]
 
     cph = CoxTimeVaryingFitter(alpha=alpha, penalizer=penalizer, l1_ratio=l1_ratio)
-
+    print(cph)
     cph.fit(dataset_long, event_col=event_col, id_col='id', weights_col=weights_col,start_col='start', stop_col='stop',strata=strata)
 
     df = cph.summary
@@ -2138,50 +2510,97 @@ async def kaplan_meier(workflow_id: str,
                        at_risk_counts: bool | None = Query(default=True),
                        label: str | None = Query(default=None),
                        alpha: float | None = Query(default=0.05)):
-    # to_return = {}
-    #
-    # fig = plt.figure(1)
-    # ax = plt.subplot(111)
-
-    # dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
-    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
+    # Load Datasets
+    try:
+        test_status = 'Dataset is not defined'
+        selected_datasource = column_1.split("--")[0]
+        column_1 = column_1.split("--")[1]
+        column_2 = column_2.split("--")[1]
+        test_status = 'Unable to retrieve datasets'
+        # We expect only one here
+        dataset = load_data_from_csv(path_to_storage + "/" + selected_datasource)
 
-    kmf = KaplanMeierFitter(alpha=alpha, label=label)
-    kmf.fit(dataset[column_1], dataset[column_2])
-    kmf.plot_survival_function(at_risk_counts=at_risk_counts)
-    plt.ylabel("Survival probability")
-    plt.savefig(path_to_storage + "/output/survival_function.svg", format="svg")
-    plt.show()
+        test_status = 'Unable to compute Kaplan Meier Fitter test for the selected columns. '
+        kmf = KaplanMeierFitter(alpha=alpha, label=label)
+        kmf.fit(dataset[column_1], dataset[column_2])
+        kmf.plot_survival_function(at_risk_counts=at_risk_counts)
+        plt.ylabel("Survival probability")
+        plt.savefig(path_to_storage + "/output/survival_function.svg", format="svg")
+        plt.show()
 
+        df = kmf.survival_function_
+        timeline = pd.DataFrame(kmf.timeline)
+        conditional_time_to_event = pd.DataFrame(kmf.conditional_time_to_event_)
+        confidence_interval = kmf.confidence_interval_
+        event_table = kmf.event_table
+        confidence_interval_cumulative_density = kmf.confidence_interval_cumulative_density_
+        cumulative_density = kmf.cumulative_density_
+        median_survival_time = kmf.median_survival_time_
 
-    df = kmf.survival_function_
-    timeline = pd.DataFrame(kmf.timeline)
-    conditional_time_to_event = pd.DataFrame(kmf.conditional_time_to_event_)
-    confidence_interval = kmf.confidence_interval_
-    event_table = kmf.event_table
-    confidence_interval_cumulative_density = kmf.confidence_interval_cumulative_density_
-    cumulative_density = kmf.cumulative_density_
-    median_survival_time = kmf.median_survival_time_
-
-    df.insert(0, "timeline", timeline)
-    confidence_interval.insert(0, "timeline", timeline)
-    confidence_interval.columns = confidence_interval.columns.str.replace('.', ',', regex=True)
-    conditional_time_to_event.insert(0, "timeline", timeline)
-    event_table.insert(0, "event_at", timeline)
-    confidence_interval_cumulative_density.insert(0, "timeline", timeline)
-    confidence_interval_cumulative_density.columns = confidence_interval_cumulative_density.columns.str.replace('.', ',', regex=True)
-    cumulative_density.insert(0, "timeline", timeline)
-
-
-    return {"survival_function":df.to_json(orient="records"),
-            "confidence_interval": confidence_interval.to_json(orient='records'),
-            'event_table': event_table.to_json(orient="records"),
-            "conditional_time_to_event": conditional_time_to_event.to_json(orient="records"),
-            "confidence_interval_cumulative_density":confidence_interval_cumulative_density.to_json(orient="records"),
-            "cumulative_density" : cumulative_density.to_json(orient='records'),
-            "timeline" : timeline.to_json(orient='records'),
-            "median_survival_time": str(median_survival_time)}
+        df.insert(0, "timeline", timeline)
+        confidence_interval.insert(0, "timeline", timeline)
+        confidence_interval.columns = confidence_interval.columns.str.replace('.', ',', regex=True)
+        conditional_time_to_event.insert(0, "timeline", timeline)
+        event_table.insert(0, "event_at", timeline)
+        confidence_interval_cumulative_density.insert(0, "timeline", timeline)
+        confidence_interval_cumulative_density.columns = confidence_interval_cumulative_density.columns.str.replace('.', ',', regex=True)
+        cumulative_density.insert(0, "timeline", timeline)
+        test_status = 'Erro in creating info file.'
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            file_data = json.load(f)
+            file_data['results'] |= {
+                "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                "workflow_id": workflow_id,
+                "run_id": run_id,
+                "step_id": step_id,
+                "test_name": 'Kaplan Meier Fitter',
+                "test_params": {
+                    'selected_exposure_variable': column_1,
+                    'selected_outcome_variable': column_2,
+                    'selected_at_risk_counts': at_risk_counts,
+                    'selected_alpha': alpha,
+                    'selected_label': label,
+                },
+                "test_results": {
+                    "survival_function":df.to_dict(),
+                    "confidence_interval": confidence_interval.to_dict(),
+                    'event_table': event_table.to_dict(),
+                    "conditional_time_to_event": conditional_time_to_event.to_dict(),
+                    "confidence_interval_cumulative_density":confidence_interval_cumulative_density.to_dict(),
+                    "cumulative_density" : cumulative_density.to_dict(),
+                    "timeline" : timeline.to_dict(),
+                    "median_survival_time": str(median_survival_time)
+                },
+                "Output_datasets": [],
+                'Saved_plots': [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                             step_id + '/analysis_output/survival_function.svg'}
+                                    ]
+            }
+            f.seek(0)
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        return JSONResponse(content={'status': 'Success', "survival_function":df.to_json(orient="records"),
+                                     "confidence_interval": confidence_interval.to_json(orient='records'),
+                                     'event_table': event_table.to_json(orient="records"),
+                                     "conditional_time_to_event": conditional_time_to_event.to_json(orient="records"),
+                                     "confidence_interval_cumulative_density":confidence_interval_cumulative_density.to_json(orient="records"),
+                                     "cumulative_density" : cumulative_density.to_json(orient='records'),
+                                     "timeline" : timeline.to_json(orient='records'),
+                                     "median_survival_time": str(median_survival_time)},
+                            status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status': test_status, "survival_function":'[]',
+                                         "confidence_interval": '[]',
+                                         'event_table': '[]',
+                                         "conditional_time_to_event": '[]',
+                                         "confidence_interval_cumulative_density":'[]',
+                                         "cumulative_density" : '[]',
+                                         "timeline" : '[]',
+                                         "median_survival_time": ''},
+                                status_code=200)
 
 
 @router.get("/fisher")
@@ -2191,22 +2610,59 @@ async def fisher(
         run_id: str,
         variable_column: str,
         variable_row: str,
-        # variable_bottom_left: int,
-        # variable_bottom_right: int,
         alternative: Optional[str] | None = Query("two-sided",
                                                   regex="^(two-sided)$|^(less)$|^(greater)$")):
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
+    # Load Datasets
+    try:
+        test_status = 'Dataset is not defined'
+        selected_datasource = variable_column.split("--")[0]
+        variable_column = variable_column.split("--")[1]
+        variable_row = variable_row.split("--")[1]
+        test_status = 'Unable to retrieve datasets'
+        # We expect only one here
+        data = load_data_from_csv(path_to_storage + "/" + selected_datasource)
 
-    data = load_file_csv_direct(workflow_id, run_id, step_id)
-    row_var = data[variable_row]
-    column_var = data[variable_column]
-    # df = [[variable_top_left,variable_top_right], [variable_bottom_left,variable_bottom_right]]
+        test_status = 'Unable to compute Fisher exact test for the selected columns. '
+        row_var = data[variable_row]
+        column_var = data[variable_column]
 
-    df = pd.crosstab(index=row_var,columns=column_var)
-    df1 = pd.crosstab(index=row_var,columns=column_var, margins=True, margins_name= "Total")
+        df = pd.crosstab(index=row_var,columns=column_var)
+        df1 = pd.crosstab(index=row_var,columns=column_var, margins=True, margins_name= "Total")
+        odd_ratio, p_value = fisher_exact(df, alternative=alternative)
 
-    odd_ratio, p_value = fisher_exact(df, alternative=alternative)
-
-    return {'odd_ratio': odd_ratio, "p_value": p_value, "crosstab":df1.to_json(orient='split')}
+        test_status = 'Error in creating info file.'
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            file_data = json.load(f)
+            file_data['results'] |= {
+                "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                "workflow_id": workflow_id,
+                "run_id": run_id,
+                "step_id": step_id,
+                "test_name": 'Fisher exact',
+                "test_params": {
+                    'variable_column': variable_column,
+                    'variable_row': variable_row,
+                    'alternative': alternative
+                },
+                "test_results": {
+                    'odd_ratio': odd_ratio,
+                    "p_value": p_value,
+                    "crosstab":df1.to_dict()
+                },
+                "Output_datasets": [],
+                'Saved_plots': []
+            }
+            f.seek(0)
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        return JSONResponse(content={'status': 'Success', 'odd_ratio': odd_ratio, "p_value": p_value, "crosstab":df1.to_json(orient='split')},
+                            status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status': test_status, 'odd_ratio': '', "p_value": '', "crosstab":"{\"columns\":[0,1,\"Total\"],\"index\":[0,1,\"Total\"],\"data\":[[0,0,0],[0,0,0],[0,0,0]]}"},
+                            status_code=200)
 
 @router.get("/mc_nemar")
 async def mc_nemar(workflow_id: str,
@@ -2216,17 +2672,77 @@ async def mc_nemar(workflow_id: str,
                    variable_row: str,
                    exact: bool | None = Query(default=False),
                    correction: bool | None = Query(default=True)):
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
+    # Load Datasets
+    try:
+        test_status = 'Dataset is not defined'
+        selected_datasource = variable_column.split("--")[0]
+        variable_column = variable_column.split("--")[1]
+        variable_row = variable_row.split("--")[1]
+        test_status = 'Unable to retrieve datasets'
+        # We expect only one here
+        data = load_data_from_csv(path_to_storage + "/" + selected_datasource)
+        test_status = 'Unable to compute McNemar test for the selected columns.'
 
-    # df = [[variable_top_left,variable_top_right], [variable_bottom_left,variable_bottom_right]]
-    data = load_file_csv_direct(workflow_id, run_id, step_id)
-    row_var = data[variable_row]
-    column_var = data[variable_column]
-    df = pd.crosstab(index=row_var,columns=column_var)
-    df1 = pd.crosstab(index=row_var,columns=column_var, margins=True, margins_name= "Total")
+        # I used LabelEncoder() to convert str to int, but I made it a comment
+        # because the user does not have the tranformed
+        # dataset to know what 0 and 1 means
+        df_tranf = pd.DataFrame()
+        row_var = data[variable_row]
+        if row_var.dtypes != 'int64':
+            le = LabelEncoder()
+            row_var = le.fit_transform(data[variable_row])
+            df_tranf['index'] = [0, 1]
+            df_tranf[variable_row] = [str(x) for x in le.classes_]
+        column_var = data[variable_column]
+        if column_var.dtypes != 'int64':
+            le = LabelEncoder()
+            column_var = le.fit_transform(data[variable_column])
+            df_tranf['index'] = [0, 1]
+            df_tranf[variable_column] = [str(x) for x in le.classes_]
 
-    result = mcnemar(df, exact=exact, correction=correction)
+        df = pd.crosstab(index=row_var,columns=column_var)
+        df1 = pd.crosstab(index=row_var,columns=column_var, margins=True, margins_name= "Total")
 
-    return {'statistic': result.statistic, "p_value": result.pvalue, "crosstab":df1.to_json(orient='split')}
+        result = mcnemar(df, exact=exact, correction=correction)
+        test_status = 'Error in creating info file.'
+        statistic = result.statistic if not np.isinf(result.statistic) else 'infinity'
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            file_data = json.load(f)
+            file_data['results'] |= {
+                "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                "workflow_id": workflow_id,
+                "run_id": run_id,
+                "step_id": step_id,
+                "test_name": 'McNemar',
+                "test_params": {
+                    'variable_column': variable_column,
+                    'variable_row': variable_row,
+                    'exact': exact,
+                    'correction': correction
+                },
+                "test_results": {
+                    'statistic': statistic,
+                    "p_value": result.pvalue,
+                    "crosstab": df1.to_dict()
+                },
+                "Output_datasets": [],
+                'Saved_plots': []
+            }
+            f.seek(0)
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        return JSONResponse(content={'status': 'Success', 'statistic': result.statistic,
+                                     "p_value": result.pvalue,
+                                     "crosstab":df1.to_json(orient='split'), 'col_transormed':df_tranf.to_json(orient="records")},
+                            status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status': test_status, 'statistic': '', "p_value": '',
+                                     "crosstab": "{\"columns\":[0,1,\"Total\"],\"index\":[0,1,\"Total\"],\"data\":[[0,0,0],[0,0,0],[0,0,0]]}", 'col_transormed':'[]'},
+                            status_code=200)
+    # return {'statistic': result.statistic, "p_value": result.pvalue, "crosstab":df1.to_json(orient='split')}
 
 @router.get("/all_statistics")
 async def all_statistics():
@@ -2275,60 +2791,143 @@ async def risk_ratio_1(
         alpha: float | None = Query(default=0.05),
         method: str | None = Query("risk_ratio",
                                    regex="^(risk_ratio)$|^(risk_difference)$|^(number_needed_to_treat)$|^(odds_ratio)$|^(incidence_rate_ratio)$|^(incidence_rate_difference)$")):
-
-    to_return = {}
-
-    fig = plt.figure(1)
-    ax = plt.subplot(111)
-
-    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
-
-    # zepid.datasets
-    # dataset = load_sample_data(False)
-    # print(load_sample_data(False))
-    if method == 'risk_ratio':
-        rr = RiskRatio(reference=reference, alpha=alpha)
-        rr.fit(dataset, exposure=exposure, outcome=outcome)
-    elif method == 'risk_difference':
-        rr = RiskDifference(reference=reference, alpha=alpha)
-        rr.fit(dataset, exposure=exposure, outcome=outcome)
-    elif method == 'number_needed_to_treat':
-        rr = NNT(reference=reference, alpha=alpha)
-        rr.fit(dataset, exposure=exposure, outcome=outcome)
-        df = rr.results
-        return {'table': df.to_json(orient="records")}
-    elif method == 'odds_ratio':
-        rr = OddsRatio(reference=reference, alpha=alpha)
-        rr.fit(dataset, exposure=exposure, outcome=outcome)
-    elif method == 'incidence_rate_ratio':
-        rr = IncidenceRateRatio(reference=reference, alpha=alpha)
-        rr.fit(dataset, exposure=exposure, outcome=outcome, time=time)
-    elif method == "incidence_rate_difference":
-        rr = IncidenceRateDifference(reference=reference, alpha=alpha)
-        rr.fit(dataset, exposure=exposure, outcome=outcome, time=time)
-    else:
-        return {'table':''}
-
-    df = rr.results
-    rr.plot()
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
-    plt.savefig(path_to_storage +"/output/Risktest.svg", format="svg")
-    return {'table': df.to_json(orient="records")}
+    test_status = ''
+    # Load Datasets
+    try:
+        test_status = 'Dataset is not defined'
+        selected_datasource = exposure.split("--")[0]
+        exposure = exposure.split("--")[1]
+        outcome = outcome.split("--")[1]
+        if time is not None: time = time.split("--")[1]
+        else: time = None
+        test_status = 'Unable to retrieve datasets'
+        # We expect only one here
+        dataset = load_data_from_csv(path_to_storage + "/" + selected_datasource)
+        # Change binary str values to 0,1
+        df_tranf = pd.DataFrame()
+        if dataset[exposure].dtypes != 'int64':
+            le = LabelEncoder()
+            dataset[exposure] = le.fit_transform(dataset[exposure])
+            df_tranf['index'] = [0, 1]
+            df_tranf['exposure'] = [str(x) for x in le.classes_]
+        if dataset[outcome].dtypes != 'int64':
+            le = LabelEncoder()
+            dataset[outcome] = le.fit_transform(dataset[outcome])
+            df_tranf['index'] = [0, 1]
+            df_tranf['outcome'] = [str(x) for x in le.classes_]
+        test_status = 'Unable to compute ' + method + ' test for the selected columns. '
+        if method == 'risk_ratio':
+            rr = RiskRatio(reference=reference, alpha=alpha)
+            rr.fit(dataset, exposure=exposure, outcome=outcome)
+        elif method == 'risk_difference':
+            rr = RiskDifference(reference=reference, alpha=alpha)
+            rr.fit(dataset, exposure=exposure, outcome=outcome)
+        elif method == 'number_needed_to_treat':
+            rr = NNT(reference=reference, alpha=alpha)
+            rr.fit(dataset, exposure=exposure, outcome=outcome)
+            df = rr.results
+            return JSONResponse(content={'status': 'Success',
+                                     'table': df.to_json(orient="records"), 'col_transormed':df_tranf.to_json(orient="records")},
+                                                        status_code=200)
+        elif method == 'odds_ratio':
+            rr = OddsRatio(reference=reference, alpha=alpha)
+            rr.fit(dataset, exposure=exposure, outcome=outcome)
+        elif method == 'incidence_rate_ratio':
+            rr = IncidenceRateRatio(reference=reference, alpha=alpha)
+            rr.fit(dataset, exposure=exposure, outcome=outcome, time=time)
+        elif method == "incidence_rate_difference":
+            rr = IncidenceRateDifference(reference=reference, alpha=alpha)
+            rr.fit(dataset, exposure=exposure, outcome=outcome, time=time)
+        else:
+            raise Exception
+        # print(rr.summary())
+        df = rr.results
+        df.insert(loc=0, column='Ref:', value=[0,1])
+        fig = plt.figure(1)
+        ax = plt.subplot(111)
+        rr.plot()
+        plt.savefig(path_to_storage +"/output/Risktest.svg", format="svg")
+        test_status = 'Error in creating info file.'
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            file_data = json.load(f)
+            file_data['results'] |= {
+                "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                "workflow_id": workflow_id,
+                "run_id": run_id,
+                "step_id": step_id,
+                "test_name": method,
+                "test_params": {
+                    'exposure': exposure,
+                    'outcome': outcome,
+                    'time': time,
+                    'reference': reference,
+                    'alpha': alpha
+                },
+                "test_results": {
+                    'table': df.to_dict()
+                },
+                "Output_datasets": [],
+                'Saved_plots': [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                             step_id + '/analysis_output/Risktest.svg'}
+                                    ]
+            }
+            f.seek(0)
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        return JSONResponse(content={'status': 'Success',
+                                     'table': df.to_json(orient="records"), 'col_transormed':df_tranf.to_json(orient="records")},
+                                                        status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status': test_status, 'table':'[]', 'col_transormed':'[]'},
+                            status_code=200)
 
 @router.get("/two_sided_risk_ci")
-async def two_sided_risk_ci(events: int,
+async def two_sided_risk_ci(workflow_id: str,
+                            step_id: str,
+                            run_id: str,
+                            events: int,
                             total: int,
                             alpha: float | None = Query(default=0.05),
                             confint: str | None = Query("wald",
                                                        regex="^(wald)$|^(hypergeometric)$")):
+    test_status = 'Unable to compute the estimated risk.'
+    to_return = {'estimated risk': '', 'lower bound': '', 'upper bound': '',
+                 'standard error': ''}
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    try:
+        r = risk_ci(events=events, total=total, alpha=alpha, confint=confint)
+        estimated_risk = r.point_estimate
+        lower_bound = r.lower_bound
+        upper_bound = r.upper_bound
+        standard_error = r.standard_error
+        to_return = {'estimated risk': estimated_risk, 'lower bound': lower_bound, 'upper bound': upper_bound, 'standard error': standard_error}
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            file_data = json.load(f)
+            new_data = {
+                "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                "workflow_id": workflow_id,
+                "run_id": run_id,
+                "step_id": step_id,
+                "test_name": 'Linear discriminant analysis',
+                "test_params": {'events': str(events),
+                                'total': str(total),
+                                'alpha': str(alpha),
+                                'confint': confint},
+                "test_results": to_return,
+                "Output_datasets": [],
+                "Saved_plots": []
+            }
+            file_data['results'] |= new_data
+            f.seek(0)
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        return JSONResponse(content={'status': 'Success', 'result': to_return}, status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status': test_status, 'result': to_return}, status_code=200)
 
-    r = risk_ci(events=events, total=total, alpha=alpha, confint=confint)
-    estimated_risk = r.point_estimate
-    lower_bound = r.lower_bound
-    upper_bound = r.upper_bound
-    standard_error = r.standard_error
-
-    return {'estimated risk': estimated_risk, 'lower bound': lower_bound, 'upper bound': upper_bound, 'standard error': standard_error}
 
 @router.get("/two_sided_incident_rate")
 async def two_sided_risk_ci(events: int,
@@ -2353,14 +2952,41 @@ async def risk_ratio_function(workflow_id: str,
                               exposed_without: int,
                               unexposed_without: int,
                               alpha: float | None = Query(default=0.05)):
-
-    r = risk_ratio(a=exposed_with, b=unexposed_with, c=exposed_without, d=unexposed_without, alpha=alpha)
-    print(r)
-    estimated_risk = r.point_estimate
-    lower_bound = r.lower_bound
-    upper_bound = r.upper_bound
-    standard_error = r.standard_error
-    return {'estimated_risk': estimated_risk, 'lower_bound': lower_bound, 'upper_bound': upper_bound, 'standard_error': standard_error}
+    test_status = 'Unable to compute the estimated risk.'
+    to_return = {'estimated_risk': '', 'lower_bound': '', 'upper_bound': '',
+                 'standard_error': ''}
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    try:
+        r = risk_ratio(a=exposed_with, b=unexposed_with, c=exposed_without, d=unexposed_without, alpha=alpha)
+        estimated_risk = r.point_estimate
+        lower_bound = r.lower_bound
+        upper_bound = r.upper_bound
+        standard_error = r.standard_error
+        to_return = {'estimated_risk': estimated_risk, 'lower_bound': lower_bound, 'upper_bound': upper_bound, 'standard_error': standard_error}
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            file_data = json.load(f)
+            new_data = {
+                "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                "workflow_id": workflow_id,
+                "run_id": run_id,
+                "step_id": step_id,
+                "test_name": 'Risk_ratio',
+                "test_params": {'exposed_with': str(exposed_with),
+                                'unexposed_with': str(unexposed_with),
+                                'exposed_without': str(exposed_without),
+                                'unexposed_without': str(unexposed_without)},
+                "test_results": to_return,
+                "Output_datasets": [],
+                "Saved_plots": []
+            }
+            file_data['results'] |= new_data
+            f.seek(0)
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        return JSONResponse(content={'status': 'Success', 'result': to_return}, status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status': test_status, 'result': to_return}, status_code=200)
 
 @router.get("/risk_difference_function")
 async def risk_difference_function(
@@ -2372,14 +2998,43 @@ async def risk_difference_function(
         exposed_without: int,
         unexposed_without: int,
         alpha: float | None = Query(default=0.05)):
+    test_status = 'Unable to compute the estimated risk.'
+    to_return = {'risk_difference': '', 'lower_bound': '', 'upper_bound': '',
+                 'standard_error': ''}
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    try:
+        r = risk_difference(a=exposed_with, b=unexposed_with, c=exposed_without, d=unexposed_without, alpha=alpha)
+        estimated_risk = r.point_estimate
+        lower_bound = r.lower_bound
+        upper_bound = r.upper_bound
+        standard_error = r.standard_error
+        to_return = {'risk_difference': estimated_risk, 'lower_bound': lower_bound, 'upper_bound': upper_bound,
+                     'standard_error': standard_error}
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            file_data = json.load(f)
+            new_data = {
+                "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                "workflow_id": workflow_id,
+                "run_id": run_id,
+                "step_id": step_id,
+                "test_name": 'Risk_difference',
+                "test_params": {'exposed_with': str(exposed_with),
+                                'unexposed_with': str(unexposed_with),
+                                'exposed_without': str(exposed_without),
+                                'unexposed_without': str(unexposed_without)},
+                "test_results": to_return,
+                "Output_datasets": [],
+                "Saved_plots": []
+            }
+            file_data['results'] |= new_data
+            f.seek(0)
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        return JSONResponse(content={'status': 'Success', 'result': to_return}, status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status': test_status, 'result': to_return}, status_code=200)
 
-    r = risk_difference(a=exposed_with, b=unexposed_with, c=exposed_without, d=unexposed_without, alpha=alpha)
-    estimated_risk = r.point_estimate
-    lower_bound = r.lower_bound
-    upper_bound = r.upper_bound
-    standard_error = r.standard_error
-
-    return {'risk_difference': estimated_risk, 'lower_bound': lower_bound, 'upper_bound': upper_bound, 'standard_error': standard_error}
 
 @router.get("/number_needed_to_treat_function")
 async def number_needed_to_treat_function(
@@ -2391,14 +3046,43 @@ async def number_needed_to_treat_function(
         exposed_without: int,
         unexposed_without: int,
         alpha: float | None = Query(default=0.05)):
+    test_status = 'Unable to compute the estimated risk.'
+    to_return = {'nnt': '', 'lower_bound': '', 'upper_bound': '',
+                 'standard_error': ''}
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    try:
+        r = number_needed_to_treat(a=exposed_with, b=unexposed_with, c=exposed_without, d=unexposed_without, alpha=alpha)
+        estimated_risk = r.point_estimate
+        lower_bound = r.lower_bound
+        upper_bound = r.upper_bound
+        standard_error = r.standard_error
+        to_return = {'nnt': estimated_risk, 'lower_bound': lower_bound, 'upper_bound': upper_bound,
+                     'standard_error': standard_error}
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            file_data = json.load(f)
+            new_data = {
+                "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                "workflow_id": workflow_id,
+                "run_id": run_id,
+                "step_id": step_id,
+                "test_name": 'Number_needed_to_treat',
+                "test_params": {'exposed_with': str(exposed_with),
+                                'unexposed_with': str(unexposed_with),
+                                'exposed_without': str(exposed_without),
+                                'unexposed_without': str(unexposed_without)},
+                "test_results": to_return,
+                "Output_datasets": [],
+                "Saved_plots": []
+            }
+            file_data['results'] |= new_data
+            f.seek(0)
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        return JSONResponse(content={'status': 'Success', 'result': to_return}, status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status': test_status, 'result': to_return}, status_code=200)
 
-    r = number_needed_to_treat(a=exposed_with, b=unexposed_with, c=exposed_without, d=unexposed_without, alpha=alpha)
-    estimated_risk = r.point_estimate
-    lower_bound = r.lower_bound
-    upper_bound = r.upper_bound
-    standard_error = r.standard_error
-
-    return {'nnt': estimated_risk, 'lower_bound': lower_bound, 'upper_bound': upper_bound, 'standard_error': standard_error}
 
 @router.get("/odds_ratio_function")
 async def odds_ratio_function(
@@ -2410,14 +3094,43 @@ async def odds_ratio_function(
         exposed_without: int,
         unexposed_without: int,
         alpha: float | None = Query(default=0.05)):
+    test_status = 'Unable to compute the estimated risk.'
+    to_return = {'odds_ratio': '', 'lower_bound': '', 'upper_bound': '',
+                 'standard_error': ''}
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    try:
+        r = odds_ratio(a=exposed_with, b=unexposed_with, c=exposed_without, d=unexposed_without, alpha=alpha)
+        estimated_risk = r.point_estimate
+        lower_bound = r.lower_bound
+        upper_bound = r.upper_bound
+        standard_error = r.standard_error
+        to_return = {'odds_ratio': estimated_risk, 'lower_bound': lower_bound, 'upper_bound': upper_bound,
+                     'standard_error': standard_error}
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            file_data = json.load(f)
+            new_data = {
+                "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                "workflow_id": workflow_id,
+                "run_id": run_id,
+                "step_id": step_id,
+                "test_name": 'Odds_ratio',
+                "test_params": {'exposed_with': str(exposed_with),
+                                'unexposed_with': str(unexposed_with),
+                                'exposed_without': str(exposed_without),
+                                'unexposed_without': str(unexposed_without)},
+                "test_results": to_return,
+                "Output_datasets": [],
+                "Saved_plots": []
+            }
+            file_data['results'] |= new_data
+            f.seek(0)
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        return JSONResponse(content={'status': 'Success', 'result': to_return}, status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status': test_status, 'result': to_return}, status_code=200)
 
-    r = odds_ratio(a=exposed_with, b=unexposed_with, c=exposed_without, d=unexposed_without, alpha=alpha)
-    estimated_risk = r.point_estimate
-    lower_bound = r.lower_bound
-    upper_bound = r.upper_bound
-    standard_error = r.standard_error
-
-    return {'odds_ratio': estimated_risk, 'lower_bound': lower_bound, 'upper_bound': upper_bound, 'standard_error': standard_error}
 
 @router.get("/incidence_rate_ratio_function")
 async def incidence_rate_ratio_function(
@@ -2429,14 +3142,44 @@ async def incidence_rate_ratio_function(
         person_time_exposed: int,
         person_time_unexposed: int,
         alpha: float | None = Query(default=0.05)):
+    test_status = 'Unable to compute the estimated risk.'
+    to_return = {'incident_rate_ratio': '', 'lower_bound': '', 'upper_bound': '',
+                 'standard_error': ''}
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    try:
+        r = incidence_rate_ratio(a=exposed_with, c=unexposed_with, t1=person_time_exposed, t2=person_time_unexposed, alpha=alpha)
+        estimated_risk = r.point_estimate
+        lower_bound = r.lower_bound
+        upper_bound = r.upper_bound
+        standard_error = r.standard_error
+        to_return = {'incident_rate_ratio': estimated_risk, 'lower_bound': lower_bound, 'upper_bound': upper_bound,
+                     'standard_error': standard_error}
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            file_data = json.load(f)
+            new_data = {
+                "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                "workflow_id": workflow_id,
+                "run_id": run_id,
+                "step_id": step_id,
+                "test_name": 'Incidence_rate_ratio',
+                "test_params": {'exposed_with': str(exposed_with),
+                                'unexposed_with': str(unexposed_with),
+                                'person_time_exposed': str(person_time_exposed),
+                                'person_time_unexposed': str(person_time_unexposed)},
+                "test_results": to_return,
+                "Output_datasets": [],
+                "Saved_plots": []
+            }
+            file_data['results'] |= new_data
+            f.seek(0)
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        return JSONResponse(content={'status': 'Success', 'result': to_return}, status_code=200)
 
-    r = incidence_rate_ratio(a=exposed_with, c=unexposed_with, t1=person_time_exposed, t2=person_time_unexposed, alpha=alpha)
-    estimated_risk = r.point_estimate
-    lower_bound = r.lower_bound
-    upper_bound = r.upper_bound
-    standard_error = r.standard_error
-    print(r)
-    return {'incident_rate_ratio': estimated_risk, 'lower_bound': lower_bound, 'upper_bound': upper_bound, 'standard_error': standard_error}
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status': test_status, 'result': to_return}, status_code=200)
+
 
 @router.get("/incidence_rate_difference_function")
 async def incidence_rate_difference_function(
@@ -2448,14 +3191,43 @@ async def incidence_rate_difference_function(
         person_time_exposed: int,
         person_time_unexposed: int,
         alpha: float | None = Query(default=0.05)):
+    test_status = 'Unable to compute the estimated risk.'
+    to_return = {'incident_rate_difference': '', 'lower_bound': '', 'upper_bound': '',
+                 'standard_error': ''}
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    try:
+        r = incidence_rate_difference(a=exposed_with, c=unexposed_with, t1=person_time_exposed, t2=person_time_unexposed, alpha=alpha)
+        estimated_risk = r.point_estimate
+        lower_bound = r.lower_bound
+        upper_bound = r.upper_bound
+        standard_error = r.standard_error
+        to_return = {'incident_rate_difference': estimated_risk, 'lower_bound': lower_bound, 'upper_bound': upper_bound,
+                     'standard_error': standard_error}
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            file_data = json.load(f)
+            new_data = {
+                "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                "workflow_id": workflow_id,
+                "run_id": run_id,
+                "step_id": step_id,
+                "test_name": 'Incident_rate_difference',
+                "test_params": {'exposed_with': str(exposed_with),
+                                'unexposed_with': str(unexposed_with),
+                                'person_time_exposed': str(person_time_exposed),
+                                'person_time_unexposed': str(person_time_unexposed)},
+                "test_results": to_return,
+                "Output_datasets": [],
+                "Saved_plots": []
+            }
+            file_data['results'] |= new_data
+            f.seek(0)
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        return JSONResponse(content={'status': 'Success', 'result': to_return}, status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status': test_status, 'result': to_return}, status_code=200)
 
-    r = incidence_rate_difference(a=exposed_with, c=unexposed_with, t1=person_time_exposed, t2=person_time_unexposed, alpha=alpha)
-    estimated_risk = r.point_estimate
-    lower_bound = r.lower_bound
-    upper_bound = r.upper_bound
-    standard_error = r.standard_error
-
-    return {'incident_rate_difference': estimated_risk, 'lower_bound': lower_bound, 'upper_bound': upper_bound, 'standard_error': standard_error}
 
 @router.get("/correlations_pingouin")
 async def correlations_pingouin(workflow_id: str,
@@ -2467,11 +3239,30 @@ async def correlations_pingouin(workflow_id: str,
                                                                           regex="^(two-sided)$|^(less)$|^(greater)$"),
                                 method: Optional[str] | None = Query("pearson",
                                                                      regex="^(pearson)$|^(spearman)$|^(kendall)$|^(bicor)$|^(percbend)$|^(shepherd)$|^(skipped)$")):
-    data = load_file_csv_direct(workflow_id, run_id, step_id)
-    df = data[column_2]
+    dfv = pd.DataFrame()
+    # dfe = pd.DataFrame()
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
+    # Load Datasets
+    try:
+        test_status = 'Dataset is not defined'
+        dfv['variables'] = column_2
+        dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
 
-    df1 = df.rcorr(stars=False).round(5)
-    corrs = df.corr()
+        selected_datasources = pd.unique(dfv['Datasource'])
+        test_status='Unable to retrieve datasets'
+        data = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
+        column_2 = dfv['Variable'].tolist()
+        selected_columns = pd.unique(dfv['Variable'])
+        for column in data.columns:
+            if column not in selected_columns:
+                data = data.drop(str(column), axis=1)
+
+        test_status = 'Unable to compute ' + method+' correlation.'
+        df = data[column_2]
+        # Not for all methods -
+        # df1 = df.rcorr(stars=False).round(5)
+        # corrs = df.corr()
 
     # mask = np.zeros_like(corrs)
     # mask[np.triu_indices_from(mask)] = True
@@ -2487,33 +3278,61 @@ async def correlations_pingouin(workflow_id: str,
     # ss = mpld3.save_json(fig, 'ss.json')
     # html_str = mpld3.fig_to_html(fig)
 
-    all_res = []
-    count=0
-    for i in column_2:
-        for j in column_2:
-            if i == j or column_2.index(j) < column_2.index(i):
-                continue
-            res = pingouin.corr(x=data[i], y=data[j], method=method, alternative=alternative).round(5)
-            res.insert(0,'Cor', i + "-" + j, True)
-            count = count + 1
-            for ind, row in res.iterrows():
-                temp_to_append = {
-                    "id": count,
-                    "Cor": row['Cor'],
-                    "n": row['n'],
-                    "r": row['r'],
-                    "CI95%": "[" + str(row['CI95%'].item(0)) + "," + str(row['CI95%'].item(1)) + "]",
-                    "p-val": row['p-val'],
-                    "power": row['power']
-                }
-                if method == 'pearson':
-                    temp_to_append["BF10"] = row['BF10']
-                if method == 'shepherd':
-                    temp_to_append["outliers"] = row['outliers']
-            all_res.append(temp_to_append)
+        all_res = []
+        count=0
+        for i in column_2:
+            for j in column_2:
+                if i == j or column_2.index(j) < column_2.index(i):
+                    continue
+                res = pingouin.corr(x=data[i], y=data[j], method=method, alternative=alternative).round(5)
+                res.insert(0,'Cor', i + "-" + j, True)
+                count = count + 1
+                for ind, row in res.iterrows():
+                    temp_to_append = {
+                        "id": count,
+                        "Cor": row['Cor'],
+                        "n": row['n'],
+                        "r": row['r'],
+                        "CI95%": "[" + str(row['CI95%'].item(0)) + "," + str(row['CI95%'].item(1)) + "]",
+                        "p-val": row['p-val'],
+                        "power": row['power']
+                    }
+                    if method == 'pearson':
+                        temp_to_append["BF10"] = row['BF10']
+                    if method == 'shepherd':
+                        temp_to_append["outliers"] = row['outliers']
+                all_res.append(temp_to_append)
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            # Load existing data into a dict.
+            file_data = json.load(f)
+            # Join new data
+            new_data = {
+                    "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                    "workflow_id": workflow_id,
+                    "run_id": run_id,
+                    "step_id": step_id,
+                    "test_name": "Correlation test",
+                    "test_params": {
+                        'selected_method': method,
+                        'selected_variable': column_2,
+                        'alternative': alternative
+                    },
+                    "test_results": all_res
+            }
+            file_data['results'] = new_data
+            file_data['Output_datasets'] = []
+            # Set file's current position at offset.
+            f.seek(0)
+            # convert back to json.
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        return JSONResponse(content={'status':'Success', 'DataFrame': all_res}, status_code=200)
+        # return JSONResponse(content={'status':'Success', 'DataFrame': all_res, "Table_rcorr": df1.to_json(orient='records')}, status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status':test_status, 'DataFrame': []}, status_code=200)
+        # return JSONResponse(content={'status':test_status, 'DataFrame': [],'Table_rcorr':dfe.to_json(orient='records')}, status_code=200)
 
-    return {'DataFrame': all_res, "Table_rcorr": df1.to_json(orient='records')}
-    # return {'DataFrame': all_res, "Table_rcorr": df1.to_json(orient='records'), "rplot":html_str}
 
 @router.get("/linear_regressor_pinguin")
 async def linear_regression_pinguin(dependent_variable: str,
@@ -3214,50 +4033,142 @@ async def analysis_mediation(workflow_id: str,
                              run_id: str,
                              dependent_1: str,
                              exposure: str,
-                             mediator: str,
-                             independent_1: list[str] | None = Query(default=None),
-                             independent_2: list[str] | None = Query(default=None)):
+                             mediator: list[str] | None = Query(default=None),
+                             independent: list[str] | None = Query(default=None)):
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
+    dfm = pd.DataFrame()
+    dfi = pd.DataFrame()
+    print(workflow_id, step_id, run_id, dependent_1, exposure, mediator, independent)
+    # Load Datasets
+    try:
+        test_status = 'Dataset is not defined'
+        selected_datasource = dependent_1.split("--")[0]
+        dependent_1 = dependent_1.split("--")[1]
+        exposure = exposure.split("--")[1]
+        dfm['variables'] = mediator
+        dfm[['Datasource', 'Variable']] = dfm["variables"].apply(lambda x: pd.Series(str(x).split("--")))
+        mediator = dfm['Variable'].tolist()
+        if independent != ['']:
+            dfi['variables'] = independent
+            dfi[['Datasource', 'Variable']] = dfi["variables"].apply(lambda x: pd.Series(str(x).split("--")))
+            independent = dfi['Variable'].tolist()
+        if (dependent_1 == exposure) or (dependent_1 in mediator) or (exposure in mediator):
+            test_status = 'Select different columns for outcome, predictor and mediator variables'
+            raise Exception
+        elif (dependent_1 in independent) or (exposure in independent):
+            test_status = 'Select different columns for outcome, predictor and covar variables'
+            raise Exception
+        for med in mediator:
+            if med in independent:
+                test_status = 'Mediator columns cannot be in covar variables'
+                raise Exception
+        test_status = 'Unable to retrieve datasets'
+        data = load_data_from_csv(path_to_storage + "/" + selected_datasource)
 
-    print(workflow_id, step_id, run_id,dependent_1,exposure,mediator,independent_1,independent_2)
-    # data = pd.read_csv('example_data/mescobrad_dataset.csv')
-    data = load_file_csv_direct(workflow_id, run_id, step_id)
-    z = dependent_1 + "~"
-    for i in range(len(independent_1)):
-        z = z + "+" + independent_1[i]
+        # We want X to affect Y. If there is no relationship between X and Y, there is nothing to mediate.
+        # model.0 <- lm(Y ~ X, myData)
 
-    print("print first - "+z)
-    if mediator not in z:
-        z = z + "+" + mediator
-    print("print second - "+z)
 
-    if exposure not in z:
-        z = z + "+" + exposure
-    outcome_model = sm.GLM.from_formula(z, data)
-    print("print third - "+z)
-    print(outcome_model)
-    z = mediator + "~"
-    for i in range(len(independent_2)):
-        z = z + "+" + independent_2[i]
-    print("print fourth - "+z)
+        # We use penguin
+        # if mediator != ['']:
+        #     print("no med")
+        #     dfm['variables'] = mediator
+        #     dfm[['Datasource', 'Variable']] = dfm["variables"].apply(lambda x: pd.Series(str(x).split("--")))
+        #     mediator = dfm['Variable'].tolist()
+        #     z_m = ''
+        #     for i in range(len(mediator)):
+        #         z_m = z_m + "+" + mediator[i] if z_m != '' else mediator[i]
+        # if independent != ['']:
+        #     print("no ind")
+        #     dfi['variables'] = independent
+        #     dfi[['Datasource', 'Variable']] = dfi["variables"].apply(lambda x: pd.Series(str(x).split("--")))
+        #     independent = dfi['Variable'].tolist()
+        #     z = ''
+        #     for i in range(len(independent)):
+        #         z = z + "+" + independent[i] if z != '' else independent[i]
+        # output_str = dependent_1 + "~" + exposure + "+" + z if z!='' else dependent_1 + "~" + exposure
+        #         print("output_str = " + output_str)
+        #         model0 = sm.GLM.from_formula(output_str, data)
+        # m1 = model0.fit()
+        # df = m1.summary()
+        # We want X to affect M. If X and M have no relationship, M is just a third variable that may or may not
+        # be associated with Y. A mediation makes sense only if X affects M.
+        # model.M <- lm(M ~ X, myData)
 
-    if exposure not in z:
-        z = z + "+" + exposure
-    print("print fifth - "+z)
+        # mediator_str = z_m + "~" + exposure
+        # print("mediator_str = "+mediator_str)
+        # mediator_model = sm.OLS.from_formula(mediator[i]+ "~" + exposure, data)
+        # res = mediator_model.fit()
 
-    mediator_model = sm.OLS.from_formula(z, data)
-    med = Mediation(outcome_model, mediator_model, exposure, mediator).fit()
-    df = med.summary()
-    df['index']= df.index
+        # We want M to affect Y, but X to no longer affect Y (or X to still affect Y but in a smaller
+        # magnitude). If a mediation effect exists, the effect of X on Y will disappear
+        # (or at least weaken) when M is included in the regression. The effect of X on Y goes through M.
+        # model.Y <- lm(Y ~ X + M, myData)
+        # outcome_str = dependent_1 + "~" + exposure + "+" + z_m + "+" + z
+        # print("outcome_str = "+outcome_str)
+        # outcome_model = sm.GLM.from_formula(outcome_str, data)
+        # res = outcome_model.fit()
+        # print(res.summary())
+        # Call analysis with the models
+        # results <- mediate(model.M, model.Y, treat='X', mediator='M',
+        #                    boot=TRUE, sims=500)
+        # it accepts only one Mediator
+        # med = Mediation(outcome_model, mediator_model, exposure, mediator).fit()
+        # df = med.summary()
 
-    df1, dist = mediation_analysis(data=data, x=exposure, m=mediator, y=dependent_1,
-                             covar=independent_1, seed=42,return_dist=True)\
-        # .round(3)
-    df1.columns = df1.columns.str.replace('.', ',', regex=True)
-
-    print(dist)
-    print(df)
-    print(df1)
-    return {'Result': df.to_json(orient='records'), 'Result2':df1.to_json(orient='records')}
+        test_status = 'Unable to compute Mediation Analysis.'
+        # df1, dist = mediation_analysis(data=data, x=exposure, m=mediator, y=dependent_1,
+        #                          covar=independent, seed=42,return_dist=True)
+            # .round(3)
+        # df1.columns = df1.columns.str.replace('.', ',', regex=True)
+        if independent != ['']:
+            df, dist = mediation_analysis(data=data, x=exposure, m=mediator, y=dependent_1,
+                                           covar=independent, seed=42, return_dist=True)
+        else:
+            df, dist = mediation_analysis(data=data, x=exposure, m=mediator, y=dependent_1,
+                                           seed=42, return_dist=True)
+        df.columns = df.columns.str.replace('.', ',', regex=True)
+        # fig = plt.figure()
+        # ax = fig.add_subplot()
+        # ax1 = fig.add_subplot()
+        # ax = sns.kdeplot(dist[0])
+        # ax1 =sns.kdeplot(dist[1])
+        # plt.show()
+        # sns.kdeplot(df["flipper_length_mm"])
+        # print(dist)
+        # print(df)
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            # Load existing data into a dict.
+            file_data = json.load(f)
+            # Join new data
+            new_data = {
+                    "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                    "workflow_id": workflow_id,
+                    "run_id": run_id,
+                    "step_id": step_id,
+                    "test_name": "Mediation analysis",
+                    "test_params": {
+                        'outcome variable': dependent_1,
+                        'predictor variable': exposure,
+                        'mediator variable': mediator,
+                        'independent variable': independent
+                    },
+                    "test_results": df.to_dict()
+            }
+            file_data['results'] = new_data
+            file_data['Output_datasets'] = []
+            # Set file's current position at offset.
+            f.seek(0)
+            # convert back to json.
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        return JSONResponse(content={'status':'Success', 'Result': df.to_json(orient='records')},
+                            status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status': test_status, 'Result': '[]'},
+                            status_code=200)
 
 @router.get("/canonical_correlation_analysis")
 async def canonical_correlation(workflow_id: str,
@@ -3266,91 +4177,157 @@ async def canonical_correlation(workflow_id: str,
                                 n_components: int | None = Query(default=2),
                                 independent_variables_1: list[str] | None = Query(default=None),
                                 independent_variables_2: list[str] | None = Query(default=None)):
-
-    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+    dfv = pd.DataFrame()
+    dfv2 = pd.DataFrame()
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
+    # Load Datasets
+    try:
+        test_status = 'Dataset is not defined'
+        dfv['variables1'] = independent_variables_1
+        dfv[['Datasource', 'Variable1']] = dfv["variables1"].apply(lambda x: pd.Series(str(x).split("--")))
+        dfv2['variables2'] = independent_variables_2
+        dfv2[['Datasource', 'Variable2']] = dfv2["variables2"].apply(lambda x: pd.Series(str(x).split("--")))
+        independent_variables_1 = dfv["Variable1"].tolist()
+        independent_variables_2 = dfv2["Variable2"].tolist()
+        selected_datasources = pd.unique(dfv['Datasource'])
+        test_status = 'Variables cannot be found in the same Dataset'
+        if selected_datasources != pd.unique(dfv2['Datasource']):
+            print(selected_datasources+"      vs     "+pd.unique(dfv2['Datasource']))
+            raise Exception
 
-    X = dataset[dataset.columns.intersection(independent_variables_1)]
-    Y =dataset[dataset.columns.intersection(independent_variables_2)]
+        test_status = 'Unable to retrieve datasets'
+        # We expect only one here
+        dataset = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
 
-    # First, let’s see if there is any correlation between the features of this dataset.
-    corr_XY = pd.concat([X,Y],axis=1, join='inner').corr()
-    plt.figure(figsize=(5, 5))
-    sns.heatmap(corr_XY, cmap='coolwarm', annot=True, linewidths=1, vmin=-1)
-    plt.savefig(path_to_storage + "/output/CCA_XYcorr.svg", format="svg")
+        X = dataset[dataset.columns.intersection(independent_variables_1)]
+        Y = dataset[dataset.columns.intersection(independent_variables_2)]
 
-    # Number of components to keep. Should be in [1, min(n_samples, n_features, n_targets)].
-    if n_components > min(X.shape[0], len(independent_variables_1), len(independent_variables_2)):
-        n_components = min(X.shape[0], len(independent_variables_1), len(independent_variables_2))
+        test_status = 'Unable to compute Canonical correlation for the selected columns.'
+        # First, let’s see if there is any correlation between the features of this dataset.
+        corr_XY = pd.concat([X,Y],axis=1, join='inner').corr()
+        plt.figure(figsize=(5, 5))
+        sns.heatmap(corr_XY, cmap='coolwarm', annot=True, linewidths=1, vmin=-1)
+        plt.savefig(path_to_storage + "/output/CCA_XYcorr.svg", format="svg")
+        # Number of components to keep. Should be in [1, min(n_samples, n_features, n_targets)].
+        if n_components > min(X.shape[0], len(independent_variables_1), len(independent_variables_2)):
+            n_components = min(X.shape[0], len(independent_variables_1), len(independent_variables_2))
 
-    my_cca = CCA(n_components=n_components)
-    # Fit the model
-    my_cca.fit(X, Y)
-    X_c, Y_c = my_cca.transform(X, Y)
+        my_cca = CCA(n_components=n_components)
+        # Fit the model
+        my_cca.fit(X, Y)
+        X_c, Y_c = my_cca.transform(X, Y)
+        # Now let’s check if there is any dependency between our canonical variates.
+        comp_corr = [np.corrcoef(X_c[:, i], Y_c[:, i])[1][0] for i in range(n_components)]
+        comp_titles = ['Comp'+ str(i+1) for i in range(n_components)]
+        plt.figure(figsize=(5, 5))
+        plt.bar(comp_titles, comp_corr, color='lightgrey', width=0.8, edgecolor='k')
+        plt.savefig(path_to_storage + "/output/CCA_comp_corr.svg", format="svg")
 
-    # Now let’s check if there is any dependency between our canonical variates.
-    comp_corr = [np.corrcoef(X_c[:, i], Y_c[:, i])[1][0] for i in range(n_components)]
-    comp_titles = ['Comp'+ str(i+1) for i in range(n_components)]
-    plt.figure(figsize=(5, 5))
-    plt.bar(comp_titles, comp_corr, color='lightgrey', width=0.8, edgecolor='k')
-    plt.savefig(path_to_storage + "/output/CCA_comp_corr.svg", format="svg")
+        fig, axs = plt.subplots(1, n_components, figsize=(n_components*8, 8), sharey='row')
+        for i in range(n_components):
+            axs[i].scatter(X_c[:, i], Y_c[:, i], marker="s", label='Comp'+ str(i+1))
+            z = np.polyfit(X_c[:, i], Y_c[:, i], 1)
+            p = np.poly1d(z)
+            axs[i].plot(X_c[:, i], p(X_c[:, i]), color="red", linewidth=3, linestyle="--")
+            axs[i].legend(loc='upper left')
+            axs[i].set_ylabel('CCY_'+str(i+1), fontsize=14)
+            axs[i].set_xlabel('CCX_'+str(i+1), fontsize=14)
+            axs[i].set_title('Comp'+str(i+1)+' , corr = %.2f' %
+                      np.corrcoef(X_c[:, i], Y_c[:, i])[0, 1])
+        plt.savefig(path_to_storage + "/output/CCA_XY_c_corr.svg", format="svg")
+        coef_df = pd.DataFrame(np.round(my_cca.coef_, 5), columns=Y.columns)
+        coef_df.index = X.columns
+        plt.figure(figsize=(5, 5))
+        s= sns.heatmap(coef_df, cmap='coolwarm', annot=True, linewidths=1, vmin=-1)
+        s.set(xlabel='Y samle', ylabel='X sample')
+        # plt.title = "CCA coefficients."
+        plt.savefig(path_to_storage + "/output/CCA_coefs.svg", format="svg")
+        plt.show()
 
-    fig, axs = plt.subplots(1, n_components, figsize=(n_components*8, 8), sharey='row')
-    for i in range(n_components):
-        axs[i].scatter(X_c[:, i], Y_c[:, i], marker="s", label='Comp'+ str(i+1))
-        z = np.polyfit(X_c[:, i], Y_c[:, i], 1)
-        p = np.poly1d(z)
-        axs[i].plot(X_c[:, i], p(X_c[:, i]), color="red", linewidth=3, linestyle="--")
-        axs[i].legend(loc='upper left')
-        axs[i].set_ylabel('CCY_'+str(i+1), fontsize=14)
-        axs[i].set_xlabel('CCX_'+str(i+1), fontsize=14)
-        axs[i].set_title('Comp'+str(i+1)+' , corr = %.2f' %
-                  np.corrcoef(X_c[:, i], Y_c[:, i])[0, 1])
-    plt.savefig(path_to_storage + "/output/CCA_XY_c_corr.svg", format="svg")
+        xweights = pd.DataFrame(my_cca.x_weights_, columns=comp_titles)
+        xweights.insert(loc=0, column='Feature', value=independent_variables_1)
+        yweights = pd.DataFrame(my_cca.y_weights_, columns=comp_titles)
+        yweights.insert(loc=0, column='Feature', value=independent_variables_2)
+        xloadings = pd.DataFrame(my_cca.x_loadings_, columns=comp_titles)
+        xloadings.insert(loc=0, column='Feature', value=independent_variables_1)
+        yloadings = pd.DataFrame(my_cca.y_loadings_, columns=comp_titles)
+        yloadings.insert(loc=0, column='Feature', value=independent_variables_2)
+        xrotations = pd.DataFrame(my_cca.x_rotations_, columns=comp_titles)
+        xrotations.insert(loc=0, column='Feature', value=independent_variables_1)
+        yrotations = pd.DataFrame(my_cca.y_rotations_, columns=comp_titles)
+        yrotations.insert(loc=0, column='Feature', value=independent_variables_2)
+        Xc_df = pd.DataFrame(X_c, columns=comp_titles)
+        Yc_df = pd.DataFrame(Y_c, columns=comp_titles)
+        Xc_df.to_csv(path_to_storage + '/output/Xc_df.csv', index=False)
+        Yc_df.to_csv(path_to_storage + '/output/Yc_df.csv', index=False)
 
-    coef_df = pd.DataFrame(np.round(my_cca.coef_, 5), columns=[Y.columns])
-    coef_df.index = X.columns
-    print(coef_df)
-    plt.figure(figsize=(5, 5))
-    s= sns.heatmap(coef_df, cmap='coolwarm', annot=True, linewidths=1, vmin=-1)
-    s.set(xlabel='Y samle', ylabel='X sample')
-    # plt.title = "CCA coefficients."
-    plt.savefig(path_to_storage + "/output/CCA_coefs.svg", format="svg")
-    plt.show()
-
-    xweights = pd.DataFrame(my_cca.x_weights_, columns=comp_titles)
-    xweights.insert(loc=0, column='Feature', value=independent_variables_1)
-    yweights = pd.DataFrame(my_cca.y_weights_, columns=comp_titles)
-    yweights.insert(loc=0, column='Feature', value=independent_variables_2)
-    xloadings = pd.DataFrame(my_cca.x_loadings_, columns=comp_titles)
-    xloadings.insert(loc=0, column='Feature', value=independent_variables_1)
-    yloadings = pd.DataFrame(my_cca.y_loadings_, columns=comp_titles)
-    yloadings.insert(loc=0, column='Feature', value=independent_variables_2)
-    xrotations = pd.DataFrame(my_cca.x_rotations_, columns=comp_titles)
-    xrotations.insert(loc=0, column='Feature', value=independent_variables_1)
-    yrotations = pd.DataFrame(my_cca.y_rotations_, columns=comp_titles)
-    yrotations.insert(loc=0, column='Feature', value=independent_variables_2)
-    Xc_df = pd.DataFrame(X_c, columns=comp_titles)
-    Yc_df = pd.DataFrame(Y_c, columns=comp_titles)
-
-    return {'xweights': xweights.to_json(orient='records'),
-            'yweights': yweights.to_json(orient='records'),
-            'xloadings': xloadings.to_json(orient='records'),
-            'yloadings': yloadings.to_json(orient='records'),
-            'xrotations': xrotations.to_json(orient='records'),
-            'yrotations': yrotations.to_json(orient='records'),
-            'coef_df': coef_df.to_json(orient='records'),
-            'Xc_df': Xc_df.to_json(orient='records'),
-            'Yc_df': Yc_df.to_json(orient='records')}
-    # return {'The left singular vectors of the cross-covariance matrices of each iteration.': my_cca.x_weights_.tolist(),
-    #         'The right singular vectors of the cross-covariance matrices of each iteration.': my_cca.y_weights_.tolist(),
-    #         'The loadings of X.': my_cca.x_loadings_.tolist(),
-    #         'The loadings of Y.': my_cca.y_loadings_.tolist(),
-    #         'The projection matrix used to transform X.': my_cca.x_rotations_.tolist(),
-    #         'The projection matrix used to transform Y.': my_cca.y_rotations_.tolist(),
-    #         'The coefficients of the linear model.': my_cca.coef_.tolist(),
-    #         'Transformed X': X_c.tolist(),
-    #         'Transformed Y': Y_c.tolist()}
+        test_status = 'Erro in creating info file.'
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            # Load existing data into a dict.
+            file_data = json.load(f)
+            # Join new data
+            new_data = {
+                    "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                    "workflow_id": workflow_id,
+                    "run_id": run_id,
+                    "step_id": step_id,
+                    "test_name": 'Canonical correlation',
+                    "test_params": {
+                        "Training vectors": independent_variables_1,
+                        "Target vectors": independent_variables_2
+                    },
+                    "test_results":{'xweights': xweights.to_dict(),
+                                     'yweights': yweights.to_dict(),
+                                     'xloadings': xloadings.to_dict(),
+                                     'yloadings': yloadings.to_dict(),
+                                     'xrotations': xrotations.to_dict(),
+                                     'yrotations': yrotations.to_dict(),
+                                     'coef_df': coef_df.to_dict()}
+            }
+            file_data['results'] = new_data
+            file_data['Output_datasets'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                step_id + '/analysis_output' + '/Xc_df.csv'},
+                                            {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id + '/analysis_output' + '/Yc_df.csv'}
+                                            ]
+            file_data['Saved_plots'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                             step_id + '/analysis_output/CCA_XYcorr.svg'},
+                                        {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                 step_id + '/analysis_output/CCA_comp_corr.svg'},
+                                        {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                 step_id + '/analysis_output/CCA_XY_c_corr.svg'},
+                                        {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                 step_id + '/analysis_output/CCA_coefs.svg'}]
+            # Set file's current position at offset.
+            f.seek(0)
+            # convert back to json.
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        return JSONResponse(content={'status': 'Success',
+                                     'xweights': xweights.to_json(orient='records'),
+                                     'yweights': yweights.to_json(orient='records'),
+                                     'xloadings': xloadings.to_json(orient='records'),
+                                     'yloadings': yloadings.to_json(orient='records'),
+                                     'xrotations': xrotations.to_json(orient='records'),
+                                     'yrotations': yrotations.to_json(orient='records'),
+                                     'coef_df': coef_df.to_json(orient='records'),
+                                     'Xc_df': Xc_df.to_json(orient='records'),
+                                     'Yc_df': Yc_df.to_json(orient='records')},
+                            status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status': test_status,
+                                     'xweights': "[]",
+                                     'yweights': "[]",
+                                     'xloadings': "[]",
+                                     'yloadings': "[]",
+                                     'xrotations': "[]",
+                                     'yrotations': "[]",
+                                     'coef_df': "[]",
+                                     'Xc_df': "[]",
+                                     'Yc_df': "[]"},
+                            status_code=200)
 
 @router.get("/granger_analysis")
 async def compute_granger_analysis(workflow_id: str,
@@ -3454,22 +4431,40 @@ async def compute_mixed_anova_pinguin(workflow_id: str,
                                                                        regex="^(True)$|^(auto)$"),
                                         effsize: str | None = Query("np2",
                                                                     regex="^(np2)$|^(n2)$|^(ng2)$")):
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
+    # Load Datasets
+    try:
+        test_status = 'Dataset is not defined'
+        selected_datasource = dependent_variable.split("--")[0]
+        dependent_variable = dependent_variable.split("--")[1]
+        subject = subject.split("--")[1]
+        within = within.split("--")[1]
+        between = between.split("--")[1]
+        test_status = 'Unable to retrieve datasets'
+        # We expect only one here
+        dataset = load_data_from_csv(path_to_storage + "/" + selected_datasource)
+        test_status = 'Unable to compute mixed Anova test for the selected columns.'
 
-    # dataset = load_file_csv_direct(workflow_id, run_id, step_id)
-    dataset = pingouin.read_dataset('mixed_anova')
-    print(dataset)
-    print(dataset.dtypes)
-    check_for_nan = dataset['Group'].isnull().values.any()
-    print(check_for_nan)
-    # if correction_1==True:
-    df = pingouin.mixed_anova(data=dataset, dv=dependent_variable, subject=subject, within=within, between=between,
-                              effsize=effsize, correction=correction)
+        # dataset = pingouin.read_dataset('mixed_anova')
+        # print(dataset)
+        # print(dataset.dtypes)
+        # TODO in SPSS they check repeated measures before this
+        # TODO check between factor for nans
+        # TODO check if within and between factors are categorical
+        # check_for_nan = dataset['Group'].isnull().values.any()
+        # print(check_for_nan)
+        # if correction_1==True:
+        df = pingouin.mixed_anova(data=dataset, dv=dependent_variable, subject=subject, within=within, between=between,
+                                  effsize=effsize, correction=correction)
 
-    return {'Dataframe': df.to_json(orient="records")}
-    # else:
-    #     df = pingouin.mixed_anova(data=dataset, dv=dependent_variable, subject=subject, within=within, between=between,
-    #                               effsize=effsize, correction=correction_2)
-    #     print(df)
+        return JSONResponse(content={'status': 'Success', 'Dataframe': df.to_json(orient="records")},
+                            status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status': test_status, 'table': '[]', 'col_transormed': '[]'},
+                            status_code=200)
+
 
 @router.get("/calculate_anova_pinguin")
 #SS-type should be a valid integer, currently accepting as string in order to use the inlande field validation of strings
@@ -3497,39 +4492,29 @@ async def compute_mean(workflow_id: str,
     df = pd.DataFrame()
     dfv = pd.DataFrame()
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
     # Load Datasets
     try:
+        test_status = 'Dataset is not defined'
         dfv['variables'] = variables
         dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
-    except Exception as e:
-        df["Error"] = ["Dataset is not defined"]
-        return {'Dataframe': df.to_json(orient="records")}
-    selected_datasources = pd.unique(dfv['Datasource'])
-    for ds in selected_datasources:
-        try:
+        selected_datasources = pd.unique(dfv['Datasource'])
+        test_status = 'Unable to retrieve datasets'
+        for ds in selected_datasources:
             dataset = load_data_from_csv(path_to_storage + "/" + ds)
-        except Exception as e:
-            df["Error"] = ["Unable to retrieve datasets"]
-            print(e)
-            return {'Dataframe': df.to_json(orient="records")}
-        # Keep requested Columns
-        selected_columns = pd.unique(dfv['Variable'])
-        for columns in dataset.columns:
-            if columns not in selected_columns:
-                dataset = dataset.drop(str(columns), axis=1)
-        # Get mean values
-        try:
+            # Keep requested Columns
+            selected_columns = pd.unique(dfv['Variable'])
+            for columns in dataset.columns:
+                if columns not in selected_columns:
+                    dataset = dataset.drop(str(columns), axis=1)
+            # Get mean values
+            test_status = 'Unable to compute the average values for the selected columns'
             for column in dataset.columns:
                 res = statisticsMean(column, dataset)
                 if (res!= -1):
                     df[column] = [res]
                 else: df[column] = ["N/A"]
-        except Exception as e:
-            df["Error"] = ["Unable to compute the average values for the selected columns"]
-            print(e)
-            return {'Dataframe': df.to_json(orient="records")}
-    print(df)
-    try:
+        test_status = 'Unable to create info.json file'
         with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
             # Load existing data into a dict.
             file_data = json.load(f)
@@ -3550,10 +4535,13 @@ async def compute_mean(workflow_id: str,
             # convert back to json.
             json.dump(file_data, f, indent=4)
             f.truncate()
+        return JSONResponse(content={'Dataframe': df.to_json(orient="records")},
+                            status_code=200)
     except Exception as e:
-        df["Error"] = ["Creating info.json file"]
+        df["Error"] = test_status
         print(e)
-    return {'Dataframe': df.to_json(orient="records")}
+        return JSONResponse(content={'Dataframe': df.to_json(orient="records")},
+                            status_code=200)
 
 @router.get("/compute_min")
 async def compute_mean(workflow_id: str,
@@ -3563,39 +4551,30 @@ async def compute_mean(workflow_id: str,
     df = pd.DataFrame()
     dfv = pd.DataFrame()
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
     # Load Datasets
     try:
+        test_status = 'Dataset is not defined'
         dfv['variables'] = variables
         dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
-    except Exception as e:
-        df["Error"] = ["Dataset is not defined"]
-        return {'Dataframe': df.to_json(orient="records")}
-    selected_datasources = pd.unique(dfv['Datasource'])
-    for ds in selected_datasources:
-        try:
+
+        selected_datasources = pd.unique(dfv['Datasource'])
+        test_status = 'Unable to retrieve datasets'
+        for ds in selected_datasources:
             dataset = load_data_from_csv(path_to_storage + "/" + ds)
-        except Exception as e:
-            df["Error"] = ["Unable to retrieve datasets"]
-            print(e)
-            return {'Dataframe': df.to_json(orient="records")}
-        # Keep requested Columns
-        selected_columns = pd.unique(dfv['Variable'])
-        for columns in dataset.columns:
-            if columns not in selected_columns:
-                dataset = dataset.drop(str(columns), axis=1)
-        # Get min values
-        try:
+            # Keep requested Columns
+            selected_columns = pd.unique(dfv['Variable'])
+            for columns in dataset.columns:
+                if columns not in selected_columns:
+                    dataset = dataset.drop(str(columns), axis=1)
+            # Get min values
+            test_status = 'Unable to compute the min values for the selected columns'
             for column in dataset.columns:
                 res = statisticsMin(column, dataset)
                 if (res!= -1):
                     df[column] = [res]
                 else: df[column] = ["N/A"]
-        except Exception as e:
-            df["Error"] = ["Unable to compute the min values for the selected columns"]
-            print(e)
-            return {'Dataframe': df.to_json(orient="records")}
-    print(df)
-    try:
+        test_status = 'Unable to create info.json file'
         with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
             # Load existing data into a dict.
             file_data = json.load(f)
@@ -3616,10 +4595,13 @@ async def compute_mean(workflow_id: str,
             # convert back to json.
             json.dump(file_data, f, indent=4)
             f.truncate()
+        return JSONResponse(content={'Dataframe': df.to_json(orient="records")},
+                                status_code=200)
     except Exception as e:
-        df["Error"] = ["Creating info.json file"]
+        df["Error"] = test_status
         print(e)
-    return {'Dataframe': df.to_json(orient="records")}
+        return JSONResponse(content={'Dataframe': df.to_json(orient="records")},
+                                status_code=200)
 
 @router.get("/compute_max")
 async def compute_mean(workflow_id: str,
@@ -3629,39 +4611,31 @@ async def compute_mean(workflow_id: str,
     df = pd.DataFrame()
     dfv = pd.DataFrame()
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
     # Load Datasets
     try:
+        test_status = 'Dataset is not defined'
         dfv['variables'] = variables
         dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
-    except Exception as e:
-        df["Error"] = ["Dataset is not defined"]
-        return {'Dataframe': df.to_json(orient="records")}
-    selected_datasources = pd.unique(dfv['Datasource'])
-    for ds in selected_datasources:
-        try:
+
+        selected_datasources = pd.unique(dfv['Datasource'])
+        test_status = 'Unable to retrieve datasets'
+        for ds in selected_datasources:
             dataset = load_data_from_csv(path_to_storage + "/" + ds)
-        except Exception as e:
-            df["Error"] = ["Unable to retrieve datasets"]
-            print(e)
-            return {'Dataframe': df.to_json(orient="records")}
-        # Keep requested Columns
-        selected_columns = pd.unique(dfv['Variable'])
-        for columns in dataset.columns:
-            if columns not in selected_columns:
-                dataset = dataset.drop(str(columns), axis=1)
-        # Get max values
-        try:
+            # Keep requested Columns
+            selected_columns = pd.unique(dfv['Variable'])
+            for columns in dataset.columns:
+                if columns not in selected_columns:
+                    dataset = dataset.drop(str(columns), axis=1)
+            # Get max values
+            test_status = 'Unable to compute the max values for the selected columns'
             for column in dataset.columns:
                 res = statisticsMax(column, dataset)
                 if (res!= -1):
                     df[column] = [res]
                 else: df[column] = ["N/A"]
-        except Exception as e:
-            df["Error"] = ["Unable to compute the max values for the selected columns"]
-            print(e)
-            return {'Dataframe': df.to_json(orient="records")}
-    print(df)
-    try:
+
+        test_status = 'Unable to create info.json file'
         with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
             # Load existing data into a dict.
             file_data = json.load(f)
@@ -3682,8 +4656,12 @@ async def compute_mean(workflow_id: str,
             # convert back to json.
             json.dump(file_data, f, indent=4)
             f.truncate()
+        return JSONResponse(content={'Dataframe': df.to_json(orient="records")},
+                            status_code=200)
     except Exception as e:
-        df["Error"] = ["Creating info.json file"]
+        df["Error"] = test_status
         print(e)
+        return JSONResponse(content={'Dataframe': df.to_json(orient="records")},
+                            status_code=200)
 
-    return {'Dataframe': df.to_json(orient="records")}
+
