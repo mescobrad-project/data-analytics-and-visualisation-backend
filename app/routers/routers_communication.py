@@ -159,7 +159,8 @@ async def test_task_ping() -> dict:
 
 # TODO
 @router.get("/test/task/complete", tags=["test_task_complete"])
-async def test_task_complete() -> dict:
+async def test_task_complete(run_id: str,
+                             step_id: str) -> dict:
     # channels = data.ch_names
     print(WFAddress)
     headers = {"Content-Type": "application/json"}
@@ -171,13 +172,13 @@ async def test_task_complete() -> dict:
         "datalake" : saved_files,
         # "trino:": [        ],
     }
-    url = WFAddress + "/expert_system_backend/run/" + TestRunId + "/step/" + TestStepId + "/task/script/complete"
+    url = WFAddress + "/run/" + run_id + "/step/" + step_id + "/task/script/complete"
     print(url)
     response = requests.put(url=url, data=data, headers=headers)
     print("Test Response: Task Ping")
     print(response)
 
-    return {'test': "test"}
+    return {'test': response}
 
 
 @router.get("/task/complete", tags=["test_task_complete"])
