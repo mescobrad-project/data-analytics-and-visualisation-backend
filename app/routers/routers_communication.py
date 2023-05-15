@@ -257,6 +257,8 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/actigraphy"
             case "actigraphy_viewer_general":
                 url_to_redirect += "/actigraphy/general"
+            case "actigraphy_cosinor":
+                url_to_redirect += "/Actigraphy_Cosinor"
             #  MRI
             case "mri_viewer":
                 url_to_redirect += "/mri"
