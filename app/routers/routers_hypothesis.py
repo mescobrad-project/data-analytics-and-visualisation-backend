@@ -2,6 +2,8 @@ import numpy as np
 import pandas as pd
 import json
 from sklearn.cross_decomposition import CCA
+from sklearn.manifold import MDS, TSNE
+from sklearn.decomposition import FastICA
 from sklearn.preprocessing import LabelEncoder
 from sphinx.addnodes import index
 from statsmodels.tsa.stattools import grangercausalitytests
@@ -4640,3 +4642,129 @@ async def compute_mean(workflow_id: str,
                             status_code=200)
 
 
+@router.get("/fastica")
+async def compute_fast_ica(workflow_id: str,
+                           step_id: str,
+                           run_id: str,
+                           n_components: int,
+                           max_iter: int | None = Query(default=200),
+                           algorithm: str | None = Query("parallel",
+                                                         regex="^(parallel)$|^(deflation)$"),
+                           fun: str | None = Query("logcosh",
+                                                   regex="^(logcosh)$|^(exp)$|^(cube)$"),
+                           independent_variables: list[str] | None = Query(default=None)):
+
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+
+    for columns in dataset.columns:
+        if columns not in independent_variables:
+            dataset = dataset.drop(str(columns), axis=1)
+
+    X = np.array(dataset)
+
+    transformer = FastICA(n_components=n_components, max_iter=max_iter, algorithm=algorithm, fun=fun)
+
+    X_transformed = transformer.fit_transform(X)
+
+    df = pd.DataFrame(X_transformed)
+    df_components = pd.DataFrame(transformer.components_)
+    df_mixing = pd.DataFrame(transformer.mixing_)
+
+    return {'transformed': df.to_json(orient='split'), 'components': df_components.to_json(orient='split'), 'mixing': df_mixing.to_json(orient='split')}
+
+@router.get("/multidimensional_scaling")
+async def compute_multidimensional_scaling(workflow_id: str,
+                                           step_id: str,
+                                           run_id: str,
+                                           n_components: int | None = Query(default=2),
+                                           max_iter: int | None = Query(default=300),
+                                           metric: bool | None = Query(default=True),
+                                           dissimilarity: str | None = Query("euclidean",
+                                                                             regex="^(euclidean)$|^(precomputed)$"),
+                                           independent_variables: list[str] | None = Query(default=None)):
+
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+
+    for columns in dataset.columns:
+        if columns not in independent_variables:
+            dataset = dataset.drop(str(columns), axis=1)
+
+    X = np.array(dataset)
+
+    transformer = MDS(n_components=n_components, max_iter=max_iter, metric=metric, dissimilarity=dissimilarity)
+
+    X_transformed = transformer.fit_transform(X)
+
+    df = pd.DataFrame(X_transformed)
+
+    df_embedding = pd.DataFrame(transformer.embedding_)
+    df_dissimilarity = pd.DataFrame(transformer.dissimilarity_matrix_)
+
+    return {'transformed': df.to_json(orient='split'), 'position of the dataset in the embedding space':df_embedding.to_json(orient='split'),
+            'Pairwise dissimilarities between the points': df_dissimilarity.to_json(orient='split')}
+
+@router.get("/multidimensional_scaling")
+async def compute_multidimensional_scaling(workflow_id: str,
+                                           step_id: str,
+                                           run_id: str,
+                                           n_components: int | None = Query(default=2),
+                                           max_iter: int | None = Query(default=300),
+                                           metric: bool | None = Query(default=True),
+                                           dissimilarity: str | None = Query("euclidean",
+                                                                             regex="^(euclidean)$|^(precomputed)$"),
+                                           independent_variables: list[str] | None = Query(default=None)):
+
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+
+    for columns in dataset.columns:
+        if columns not in independent_variables:
+            dataset = dataset.drop(str(columns), axis=1)
+
+    X = np.array(dataset)
+
+    transformer = MDS(n_components=n_components, max_iter=max_iter, metric=metric, dissimilarity=dissimilarity)
+
+    X_transformed = transformer.fit_transform(X)
+
+    df = pd.DataFrame(X_transformed)
+
+    df_embedding = pd.DataFrame(transformer.embedding_)
+    df_dissimilarity = pd.DataFrame(transformer.dissimilarity_matrix_)
+
+    return {'transformed': df.to_json(orient='split'),
+            'position of the dataset in the embedding space': df_embedding.to_json(orient='split'),
+            'Pairwise dissimilarities between the points': df_dissimilarity.to_json(orient='split')}
+
+@router.get("/tsne")
+async def compute_tsne(workflow_id: str,
+                       step_id: str,
+                       run_id: str,
+                       n_components: int | None = Query(default=2),
+                       n_iter: int | None = Query(default=1000),
+                       perplexity: float | None = Query(default=30.0),
+                       early_exaggeration: float | None = Query(default=12.0),
+                       init: str | None = Query("pca",
+                                                regex="^(pca)$|^(random)$"),
+                       method: str | None = Query("barnes_hut",
+                                                  regex="^(barnes_hut)$|^(exact)$"),
+                       independent_variables: list[str] | None = Query(default=None)):
+
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+
+    for columns in dataset.columns:
+        if columns not in independent_variables:
+            dataset = dataset.drop(str(columns), axis=1)
+
+    X = np.array(dataset)
+
+    transformer = TSNE(n_components=n_components, n_iter=n_iter, perplexity=perplexity, early_exaggeration=early_exaggeration, init=init, method=method)
+
+    X_transformed = transformer.fit_transform(X)
+
+    df = pd.DataFrame(X_transformed)
+
+    df_embedding = pd.DataFrame(transformer.embedding_)
+
+
+    return {'transformed': df.to_json(orient='split'), 'embeddings_vector':df_embedding.to_json(orient='split'),
+            'Kullback-Leibler divergence after optimization': transformer.kl_divergence_}
