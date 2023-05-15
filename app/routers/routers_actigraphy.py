@@ -448,6 +448,7 @@ async def cosinoranalysis(workflow_id: str,
         if change_period == True:
             cosinor.fit_initial_params['Period'].value = Period
         results = cosinor.fit(raw, verbose=True)
+        # TODO: create plot
         return {'Result': results.params.valuesdict(), 'Akaike information criterium': results.aic,
                 'Reduced Chi^2': results.redchi, "report": fit_report(results)}
 
