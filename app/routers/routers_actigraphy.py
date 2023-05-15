@@ -425,6 +425,7 @@ async def cosinoranalysisinitialvalues(workflow_id: str,
                                        run_id: str):
 
     cosinor = Cosinor()
+    print(cosinor.fit_initial_params['Period'])
 
     return {'Initial Values': cosinor.fit_initial_params.valuesdict()}
 

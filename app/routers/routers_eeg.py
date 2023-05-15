@@ -18,6 +18,7 @@ from scipy import signal
 from scipy.integrate import simps
 from pmdarima.arima import auto_arima
 import seaborn as seaborn
+from yasa import SleepStaging
 # import pywt
 import mne
 import matplotlib.pyplot as plt
@@ -1306,6 +1307,33 @@ async def return_predictions(workflow_id: str, step_id: str, run_id: str,input_n
             prediction, confint = model.predict(n_periods=int(z), return_conf_int=True)
             return {'predictions': prediction.tolist(), 'error': smape, 'confint': confint, 'first_table':results_as_html_1, 'second_table':results_as_html_2, 'third_table':results_as_html_3}
     return {'Channel not found'}
+
+@router.get("/sleep_stage_classification", tags=["sleep_stage_classification"])
+async def sleep_stage_classify(workflow_id: str, step_id: str, run_id: str,
+                               eeg_name: str,
+                               eog_name: str | None = Query(default=None),
+                               emg_name: str | None = Query(default=None),
+                               file_used: str | None = Query("original", regex="^(original)$|^(printed)$")):
+
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+
+    data = load_file_from_local_or_interim_edfbrowser_storage(file_used, workflow_id, run_id, step_id)
+
+    sls = SleepStaging(data, eeg_name=eeg_name, eog_name=eog_name, emg_name=emg_name)
+
+    y_pred = sls.predict()
+
+    df = sls.predict_proba()
+
+    confidence = sls.predict_proba().max(1)
+
+    df_pred = pd.DataFrame({'Stage': y_pred, 'Confidence': confidence})
+
+    df.to_csv(path_to_storage + '/output/new_dataset_1.csv', index=False)
+    df_pred.to_csv(path_to_storage + '/output/new_dataset.csv', index=False)
+
+    return {'Predicted probability for each sleep stage for each 30-sec epoch of data': df.to_json(orient='split'),
+            'dataframe with the predicted stages and confidence': df_pred.to_json(orient='split')}
 
 # Spindles detection
 @router.get("/spindles_detection")
