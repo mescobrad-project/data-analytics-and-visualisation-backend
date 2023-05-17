@@ -128,6 +128,9 @@ ExistingFunctions = [
     "general_stats_average",
     "general_stats_min",
     "general_stats_max",
+    "GeneralizedEstimatingEquations",
+    "ChooseFactors",
+    "GrangerAnalysis",
     # Dashboard
     "dashboard",
 ]
@@ -407,6 +410,10 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect +="/General_Stats_Min"
             case "general_stats_max":
                 url_to_redirect +="/General_Stats_Max"
+            case "ChooseFactors":
+                url_to_redirect += "/ChooseFactors"
+            case "GrangerAnalysis":
+                url_to_redirect += "/GrangerAnalysis"
             # Dashboard
             case "dashboard":
                 url_to_redirect += "/dashboard"
