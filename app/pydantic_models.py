@@ -34,7 +34,10 @@ class ModelSelectionChannelReference(BaseModel):
     selection_start_time: str
     end_time: str
 
-class ModelMultipleComparisons(BaseModel):
-    p_value: list
-    method: str
-    alpha: float
+# class ModelMultipleComparisons(BaseModel):
+#     workflow_id: str
+#     step_id: str
+#     run_id: str
+#     p_value: list
+#     method: str
+#     alpha: float
