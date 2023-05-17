@@ -2,6 +2,8 @@ import numpy as np
 import pandas as pd
 import json
 from sklearn.cross_decomposition import CCA
+from sklearn.manifold import MDS, TSNE
+from sklearn.decomposition import FastICA
 from sklearn.preprocessing import LabelEncoder
 from sphinx.addnodes import index
 from statsmodels.tsa.stattools import grangercausalitytests
@@ -3460,6 +3462,8 @@ async def linear_regression_statsmodels(workflow_id: str, step_id: str, run_id: 
                                         independent_variables: list[str] | None = Query(default=None)):
     data = load_file_csv_direct(workflow_id, run_id, step_id)
 
+    print(data)
+
     x = data[independent_variables]
     y = data[dependent_variable]
 
@@ -3552,6 +3556,8 @@ async def linear_regression_statsmodels(workflow_id: str, step_id: str, run_id: 
         results_goldfeldquandt = dict(zip(labels, z))
         goldfeld_test = pd.DataFrame(results_goldfeldquandt.values(), index=results_goldfeldquandt.keys())
         goldfeld_test.rename(columns={0: 'Values'}, inplace=True)
+
+        print(inf_dict)
 
         response = {'DataFrame with all available influence results':df_final_influence.to_html(),'first_table': df_0.to_json(orient='split'), 'second table': df_1.to_html(),
                 'third table': df_2.to_dict(), 'dataframe white test': white_test.to_json(orient='split'),
@@ -3743,8 +3749,9 @@ async def choose_number_of_factors(workflow_id: str,
     fa.fit(dataset)
 
     original_eigen_values, common_factor_eigen_values = fa.get_eigenvalues()
+    print(type(original_eigen_values))
 
-    to_return = {}
+
 
     fig = plt.figure(1)
 
@@ -3754,13 +3761,15 @@ async def choose_number_of_factors(workflow_id: str,
     plt.xlabel('Factors')
     plt.ylabel('Eigenvalue')
     plt.grid()
+    plt.savefig(get_local_storage_path(workflow_id, run_id, step_id) + '/output/factor_eigen_values.png')
     plt.show()
 
-    html_str = mpld3.fig_to_html(fig)
-    to_return["figure_1"] = html_str
+    # html_str = mpld3.fig_to_html(fig)
+    df_orig_eigen_values = pd.DataFrame({'Factors': ['Factor' + str(i) for i in range(len(independent_variables))],
+                                          'Original Eigen Values': original_eigen_values})
+    to_return = {'df_orig_eigen_values': df_orig_eigen_values.to_json(orient='records')}
 
-    return {'Original Eigenvalues': original_eigen_values.tolist(),
-            'Figure': to_return}
+    return to_return
 
 
 @router.get("/calculate_factor_analysis")
@@ -4326,17 +4335,35 @@ async def canonical_correlation(workflow_id: str,
 async def compute_granger_analysis(workflow_id: str,
                                    step_id: str,
                                    run_id: str,
-                                   num_lags: int,
                                    predictor_variable: str,
                                    response_variable: str,
-                                   all_lags_up_to : bool | None = Query(default=False)):
+                                   num_lags: list[int] | None = Query(default=None)):
+                                   # all_lags_up_to : bool | None = Query(default=False)):
 
     dataset = load_file_csv_direct(workflow_id, run_id, step_id)
 
-    if all_lags_up_to==False:
-        print(grangercausalitytests(dataset[[response_variable, predictor_variable]], maxlag=[num_lags]))
+    # if all_lags_up_to==False:
+    #     print(grangercausalitytests(dataset[[response_variable, predictor_variable]], maxlag=[num_lags]))
+    # else:
+    if len(num_lags) == 1:
+        granger_result = grangercausalitytests(dataset[[response_variable, predictor_variable]], maxlag=num_lags[0])
     else:
-        print(grangercausalitytests(dataset[[response_variable, predictor_variable]], maxlag=num_lags))
+        granger_result = grangercausalitytests(dataset[[response_variable, predictor_variable]], maxlag=num_lags)
+    # Union[int, List[int]]
+
+    # print(type(granger_result))
+    # print(granger_result)
+    # # df_granger = pd.DataFrame(data=granger_result)
+    # print(granger_result.keys())
+    lag_numbers = list(granger_result.keys())
+    to_return = {'lags': [], 'num_lags': lag_numbers}
+    for lag in lag_numbers:
+        to_return['lags'].append(granger_result[lag][0])
+    print(to_return)
+    print(type(to_return['lags'][0]['ssr_ftest']))
+    # return to_return
+
+
 
 @router.get("/calculate_one_way_welch_anova")
 async def compute_one_way_welch_anova(workflow_id: str,
@@ -4640,3 +4667,129 @@ async def compute_mean(workflow_id: str,
                             status_code=200)
 
 
+@router.get("/fastica")
+async def compute_fast_ica(workflow_id: str,
+                           step_id: str,
+                           run_id: str,
+                           n_components: int,
+                           max_iter: int | None = Query(default=200),
+                           algorithm: str | None = Query("parallel",
+                                                         regex="^(parallel)$|^(deflation)$"),
+                           fun: str | None = Query("logcosh",
+                                                   regex="^(logcosh)$|^(exp)$|^(cube)$"),
+                           independent_variables: list[str] | None = Query(default=None)):
+
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+
+    for columns in dataset.columns:
+        if columns not in independent_variables:
+            dataset = dataset.drop(str(columns), axis=1)
+
+    X = np.array(dataset)
+
+    transformer = FastICA(n_components=n_components, max_iter=max_iter, algorithm=algorithm, fun=fun)
+
+    X_transformed = transformer.fit_transform(X)
+
+    df = pd.DataFrame(X_transformed)
+    df_components = pd.DataFrame(transformer.components_)
+    df_mixing = pd.DataFrame(transformer.mixing_)
+
+    return {'transformed': df.to_json(orient='split'), 'components': df_components.to_json(orient='split'), 'mixing': df_mixing.to_json(orient='split')}
+
+@router.get("/multidimensional_scaling")
+async def compute_multidimensional_scaling(workflow_id: str,
+                                           step_id: str,
+                                           run_id: str,
+                                           n_components: int | None = Query(default=2),
+                                           max_iter: int | None = Query(default=300),
+                                           metric: bool | None = Query(default=True),
+                                           dissimilarity: str | None = Query("euclidean",
+                                                                             regex="^(euclidean)$|^(precomputed)$"),
+                                           independent_variables: list[str] | None = Query(default=None)):
+
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+
+    for columns in dataset.columns:
+        if columns not in independent_variables:
+            dataset = dataset.drop(str(columns), axis=1)
+
+    X = np.array(dataset)
+
+    transformer = MDS(n_components=n_components, max_iter=max_iter, metric=metric, dissimilarity=dissimilarity)
+
+    X_transformed = transformer.fit_transform(X)
+
+    df = pd.DataFrame(X_transformed)
+
+    df_embedding = pd.DataFrame(transformer.embedding_)
+    df_dissimilarity = pd.DataFrame(transformer.dissimilarity_matrix_)
+
+    return {'transformed': df.to_json(orient='split'), 'position of the dataset in the embedding space':df_embedding.to_json(orient='split'),
+            'Pairwise dissimilarities between the points': df_dissimilarity.to_json(orient='split')}
+
+@router.get("/multidimensional_scaling")
+async def compute_multidimensional_scaling(workflow_id: str,
+                                           step_id: str,
+                                           run_id: str,
+                                           n_components: int | None = Query(default=2),
+                                           max_iter: int | None = Query(default=300),
+                                           metric: bool | None = Query(default=True),
+                                           dissimilarity: str | None = Query("euclidean",
+                                                                             regex="^(euclidean)$|^(precomputed)$"),
+                                           independent_variables: list[str] | None = Query(default=None)):
+
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+
+    for columns in dataset.columns:
+        if columns not in independent_variables:
+            dataset = dataset.drop(str(columns), axis=1)
+
+    X = np.array(dataset)
+
+    transformer = MDS(n_components=n_components, max_iter=max_iter, metric=metric, dissimilarity=dissimilarity)
+
+    X_transformed = transformer.fit_transform(X)
+
+    df = pd.DataFrame(X_transformed)
+
+    df_embedding = pd.DataFrame(transformer.embedding_)
+    df_dissimilarity = pd.DataFrame(transformer.dissimilarity_matrix_)
+
+    return {'transformed': df.to_json(orient='split'),
+            'position of the dataset in the embedding space': df_embedding.to_json(orient='split'),
+            'Pairwise dissimilarities between the points': df_dissimilarity.to_json(orient='split')}
+
+@router.get("/tsne")
+async def compute_tsne(workflow_id: str,
+                       step_id: str,
+                       run_id: str,
+                       n_components: int | None = Query(default=2),
+                       n_iter: int | None = Query(default=1000),
+                       perplexity: float | None = Query(default=30.0),
+                       early_exaggeration: float | None = Query(default=12.0),
+                       init: str | None = Query("pca",
+                                                regex="^(pca)$|^(random)$"),
+                       method: str | None = Query("barnes_hut",
+                                                  regex="^(barnes_hut)$|^(exact)$"),
+                       independent_variables: list[str] | None = Query(default=None)):
+
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+
+    for columns in dataset.columns:
+        if columns not in independent_variables:
+            dataset = dataset.drop(str(columns), axis=1)
+
+    X = np.array(dataset)
+
+    transformer = TSNE(n_components=n_components, n_iter=n_iter, perplexity=perplexity, early_exaggeration=early_exaggeration, init=init, method=method)
+
+    X_transformed = transformer.fit_transform(X)
+
+    df = pd.DataFrame(X_transformed)
+
+    df_embedding = pd.DataFrame(transformer.embedding_)
+
+
+    return {'transformed': df.to_json(orient='split'), 'embeddings_vector':df_embedding.to_json(orient='split'),
+            'Kullback-Leibler divergence after optimization': transformer.kl_divergence_}
