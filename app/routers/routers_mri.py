@@ -472,13 +472,14 @@ async def return_free_surfer(input_test_name: str, input_file: str,
 async def return_reconall_stats(workflow_id: str,
                             step_id: str,
                             run_id: str,
-                            subject_id: str = None,
                             file_name: str = None) -> dict:
 
     path_to_file = get_local_storage_path(workflow_id, run_id, step_id)
-    path_to_file = os.path.join(path_to_file, "output", subject_id, "stats", file_name)
+    path_to_file = os.path.join(path_to_file, "output", "ucl_test", "stats", file_name)
 
     stats_dict = load_stats_measurements(path_to_file)
+    #if not stats_dict["table"].empty:
+    stats_dict["table"] = stats_dict["table"].to_dict('records')
     return stats_dict
 
 @router.get("/return_aseg_stats", tags=["return_aseg_stats"])

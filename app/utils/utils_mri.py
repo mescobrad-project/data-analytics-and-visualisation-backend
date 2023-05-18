@@ -79,20 +79,25 @@ def load_stats_measurements(stats_path) -> dict:
     except Exception as e:
         print(e)
         print("File could not be opened")
-        return pd.DataFrame()
+        return {"measurements": pd.DataFrame(), "table": pd.DataFrame(), "columns": []}
     try:
         file_str = f.read()
         if "# ColHeaders" in file_str:
             file_list = file_str.split("# ColHeaders")
             list_of_lists = [row.split() for row in file_list[-1].split('\n')]
             df = pd.DataFrame(list_of_lists[1:-1], columns=list_of_lists[0])
+            columns = [
+                {"field": name,
+                 "headerName": name,
+                 "flex": 2} for name in df.columns]
+            df["id"] = df.index
         else:
             df = pd.DataFrame()
 
     except Exception as e:
         print(e)
         print("File has wrong format")
-        return {"measurements": pd.DataFrame(), "table": df}
+        return {"measurements": pd.DataFrame(), "table": df, "columns": columns}
     try:
         measure_dict = {}
         lines = file_str.split('\n')
@@ -105,5 +110,5 @@ def load_stats_measurements(stats_path) -> dict:
     except Exception as e:
         print("File has wrong format in Measure")
         print("Ignoring Measures...")
-    return {"measurements": measure_dict, "table": df}
+    return {"measurements": measure_dict, "table": df, "columns": columns}
 
