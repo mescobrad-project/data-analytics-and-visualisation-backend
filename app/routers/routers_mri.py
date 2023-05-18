@@ -12,13 +12,12 @@ import mne
 import matplotlib.pyplot as plt
 import mpld3
 import numpy as np
-from app.utils.utils_mri import plot_aseg
 
 from app.utils.utils_general import validate_and_convert_peaks, validate_and_convert_power_spectral_density, \
     create_notebook_mne_plot, get_neurodesk_display_id, get_local_storage_path, get_single_file_from_local_temp_storage, \
     NeurodesktopStorageLocation, get_local_neurodesk_storage_path
 
-from app.utils.utils_mri import load_stats_measurements
+from app.utils.utils_mri import load_stats_measurements_table, load_stats_measurements_measures, plot_aseg
 
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -467,9 +466,9 @@ async def return_free_surfer(input_test_name: str, input_file: str,
     to_return = "Success"
     return to_return
 
-@router.get("/return_reconall_stats", tags=["return_all_stats"])
+@router.get("/return_reconall_stats/measures", tags=["return_all_stats"])
 # Validation is done inline in the input of the function
-async def return_reconall_stats(workflow_id: str,
+async def return_reconall_stats_measures(workflow_id: str,
                             step_id: str,
                             run_id: str,
                             file_name: str = None) -> dict:
@@ -477,14 +476,25 @@ async def return_reconall_stats(workflow_id: str,
     path_to_file = get_local_storage_path(workflow_id, run_id, step_id)
     path_to_file = os.path.join(path_to_file, "output", "ucl_test", "stats", file_name)
 
-    stats_dict = load_stats_measurements(path_to_file)
-    #if not stats_dict["table"].empty:
-    stats_dict["table"] = stats_dict["table"].to_dict('records')
+    stats_dict = load_stats_measurements_measures(path_to_file)
     return stats_dict
+
+@router.get("/return_reconall_stats/table", tags=["return_all_stats"])
+# Validation is done inline in the input of the function
+async def return_reconall_stats_table(workflow_id: str,
+                                             step_id: str,
+                                             run_id: str,
+                                             file_name: str = None) -> dict:
+        path_to_file = get_local_storage_path(workflow_id, run_id, step_id)
+        path_to_file = os.path.join(path_to_file, "output", "ucl_test", "stats", file_name)
+
+        stats_dict = load_stats_measurements_table(path_to_file)
+        stats_dict["table"] = stats_dict["table"].to_dict('records')
+        return stats_dict
 
 @router.get("/return_aseg_stats", tags=["return_aseg_stats"])
 async def return_aseg_stats(fs_dir: str = None, subject_id: str = None) -> str:
-    aseg = load_stats_measurements('example_data/aseg.stats')["table"]
+    aseg = load_stats_measurements_table('example_data/aseg.stats')["table"]
     data = dict(zip(aseg['StructName'], pd.to_numeric(aseg['Volume_mm3'], errors='coerce')))
     plot_aseg(data, cmap='Spectral',
                     background='k', edgecolor='w', bordercolor='gray',
