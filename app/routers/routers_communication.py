@@ -128,6 +128,8 @@ ExistingFunctions = [
     "general_stats_average",
     "general_stats_min",
     "general_stats_max",
+    'actigraphy_cosinor',
+    'actigraphy_metrics',
     # Dashboard
     "dashboard",
 ]
@@ -259,6 +261,8 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/actigraphy/general"
             case "actigraphy_cosinor":
                 url_to_redirect += "/Actigraphy_Cosinor"
+            case "actigraphy_metrics":
+                url_to_redirect += "/Actigraphy_Metrics"
             #  MRI
             case "mri_viewer":
                 url_to_redirect += "/mri"
