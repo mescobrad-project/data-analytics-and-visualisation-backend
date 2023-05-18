@@ -13,7 +13,7 @@ import paramiko
 from fastapi import APIRouter, Query
 from mne.time_frequency import psd_array_multitaper
 from scipy.signal import butter, lfilter, sosfilt, freqs, freqs_zpk, sosfreqz
-from statsmodels.graphics.tsaplots import acf, pacf
+from statsmodels.graphics.tsaplots import acf, pacf, plot_acf
 from scipy import signal
 from scipy.integrate import simps
 from pmdarima.arima import auto_arima
@@ -47,7 +47,7 @@ from yasa import spindles_detect
 from pyedflib import highlevel
 from app.pydantic_models import *
 
-router = APIRouter()
+router = APIRouter( )
 
 # region EEG Function pre-processing and functions
 # TODO Finalise the use of file dynamically
@@ -189,12 +189,15 @@ async def list_channels_slowwave(
 @router.get("/return_autocorrelation", tags=["return_autocorrelation"])
 # Validation is done inline in the input of the function
 async def return_autocorrelation(workflow_id: str, step_id: str, run_id: str,
-                                 input_name: str, input_adjusted: bool | None = False,
-                                 input_qstat: bool | None = False, input_fft: bool | None = False,
+                                 input_name: str,
+                                 input_adjusted: bool | None = False,
+                                 input_qstat: bool | None = False,
+                                 input_fft: bool | None = False,
                                  input_bartlett_confint: bool | None = False,
                                  input_missing: str | None = Query("none",
                                                                    regex="^(none)$|^(raise)$|^(conservative)$|^(drop)$"),
-                                 input_alpha: float | None = None, input_nlags: int | None = None,
+                                 input_alpha: float | None = None,
+                                 input_nlags: int | None = None,
                                  file_used: str | None = Query("original", regex="^(original)$|^(printed)$")
                                  ) -> dict:
     data = load_file_from_local_or_interim_edfbrowser_storage(file_used, workflow_id, run_id, step_id)
@@ -216,6 +219,12 @@ async def return_autocorrelation(workflow_id: str, step_id: str, run_id: str,
                 'pvalues': None
             }
 
+            fig, ax = plt.subplots(nrows=1, ncols=1, facecolor="#F0F0F0")
+
+            ax.legend(["ACF"], loc="upper right", fontsize="x-small", framealpha=1, edgecolor="black", shadow=None)
+            ax.grid(which="major", color="grey", linestyle="--", linewidth=0.5)
+            print(z[0])
+
             # Parsing the results of acf into a single object
             # Results will change depending on our input
             if input_qstat and input_alpha:
@@ -223,18 +232,40 @@ async def return_autocorrelation(workflow_id: str, step_id: str, run_id: str,
                 to_return['confint'] = z[1].tolist()
                 to_return['qstat'] = z[2].tolist()
                 to_return['pvalues'] = z[3].tolist()
+                plot_acf(z, adjusted=input_adjusted, alpha=input_alpha, lags=len(z[0].tolist())-1, ax=ax)
+                # ax.set_xticks(np.arange(1, len(z[0].tolist()), step=1))
             elif input_qstat:
                 to_return['values_autocorrelation'] = z[0].tolist()
                 to_return['qstat'] = z[1].tolist()
                 to_return['pvalues'] = z[2].tolist()
+                plot_acf(z, adjusted=input_adjusted, lags=len(z[0].tolist())-1, ax=ax)
+                # ax.set_xticks(np.arange(1, len(z[0].tolist()), step=1))
             elif input_alpha:
                 to_return['values_autocorrelation'] = z[0].tolist()
                 to_return['confint'] = z[1].tolist()
+                plot_acf(z, adjusted=input_adjusted, alpha=input_alpha, lags=len(z[0].tolist()) -1, ax=ax)
+                # ax.set_xticks(np.arange(1, len(z[0].tolist()), step=1))
             else:
                 to_return['values_autocorrelation'] = z.tolist()
+                # plot_acf(z, adjusted=input_adjusted, lags=len(z.tolist())-1, ax=ax)
+                # plot_acf(x=raw_data[i], adjusted=input_adjusted, qstat=input_qstat,
+                #     fft=input_fft,
+                #     bartlett_confint=input_bartlett_confint,
+                #     missing=input_missing, alpha=input_alpha,
+                #     nlags=input_nlags, ax=ax, use_vlines=True)
+                plot_acf(x=raw_data[i],
+                        adjusted=input_adjusted,
+                        # qstat=input_qstat,
+                        fft=input_fft,
+                        bartlett_confint=input_bartlett_confint,
+                        missing=input_missing, alpha=input_alpha,
+                        ax=ax,
+                        use_vlines=True)
+                # ax.set_xticks(np.arange(1, len(z.tolist()), step=1))
 
             print("RETURNING VALUES")
             print(to_return)
+            plt.show()
 
             # Prepare the data to be written to the config file
             parameter_data = {
@@ -2294,3 +2325,48 @@ async def return_envelopetrend(
             else:
                 return {'Channel not found'}
     return {'Channel not found'}
+
+
+@router.get("/back_average", tags=["back_average"])
+async def back_average(
+        workflow_id: str,
+        step_id: str,
+        run_id: str,
+        # pick_channel: list | None = ["F4-Ref"],
+        time_before_event: float | None = None,
+        time_after_event: float | None = None,
+        min_ptp_amplitude: float | None = None,
+        max_ptp_amplitude: float | None = None,
+        annotation_name: str | None = None,
+):
+    """This function applies a back average"""
+
+    # Load the file from local or interim EDFBrowser storage
+    data = load_file_from_local_or_interim_edfbrowser_storage("original", workflow_id, run_id, step_id)
+
+    # Extract events from annotations
+    events = mne.events_from_annotations(data, regexp=annotation_name)
+
+    # Apply epochs without any baseline correction
+    # This function uses only the channels that are marked as "data" in the montage
+    # epochs = mne.Epochs(raw = data, picks= "data" ,events = events[0], tmin = time_before_event, tmax = time_after_event, reject= {'eeg':max_ptp_amplitude}, flat= {'eeg' :min_ptp_amplitude}, baseline=None)
+    epochs = mne.Epochs(raw = data, picks="data",events = events[0],tmin = time_before_event, tmax = time_after_event, baseline=None)
+    print(epochs)
+    raw_data = epochs.get_data()
+    print(raw_data)
+
+    # epochs.plot(picks=["F4-Ref"], show=True)
+    # evoked = epochs.average()
+
+
+    # epochs.plot_image
+    evoked = epochs.average(picks="all", by_event_type=False)
+    plot = evoked.plot(show=True)
+    plot.savefig(get_local_storage_path(workflow_id, step_id, run_id) + "/output/" + 'back_average_plot.png')
+    # plot.savefig(NeurodesktopStorageLocation + '/back_average_plot.png')
+    print(evoked)
+
+    # mne.viz.plot_evoked(evoked, show=True)
+
+    return True
+
