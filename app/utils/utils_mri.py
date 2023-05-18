@@ -73,7 +73,7 @@ def plot_aseg(data, cmap='Spectral', background='k', edgecolor='w', ylabel='',
     fig = plt.gcf()
     fig.savefig(NeurodesktopStorageLocation + '/aseg.png')
 
-def load_stats_measurements_table(stats_path) -> dict:
+def load_stats_measurements_table(stats_path, index_start) -> dict:
     try:
         f = open(stats_path, "r")
     except Exception as e:
@@ -86,11 +86,19 @@ def load_stats_measurements_table(stats_path) -> dict:
             file_list = file_str.split("# ColHeaders")
             list_of_lists = [row.split() for row in file_list[-1].split('\n')]
             df = pd.DataFrame(list_of_lists[1:-1], columns=list_of_lists[0])
+
+            if "lh." in stats_path:
+                df["Hemisphere"] = "Left"
+            elif "rh." in stats_path:
+                df["Hemisphere"] = "Right"
+
             columns = [
                 {"field": name,
                  "headerName": name,
                  "flex": 2} for name in df.columns]
+            df.index += index_start
             df["id"] = df.index
+
         else:
             df = pd.DataFrame()
     except Exception as e:

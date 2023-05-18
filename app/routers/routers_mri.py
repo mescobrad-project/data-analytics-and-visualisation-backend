@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 import mpld3
 import numpy as np
 
+
 from app.utils.utils_general import validate_and_convert_peaks, validate_and_convert_power_spectral_density, \
     create_notebook_mne_plot, get_neurodesk_display_id, get_local_storage_path, get_single_file_from_local_temp_storage, \
     NeurodesktopStorageLocation, get_local_neurodesk_storage_path
@@ -475,7 +476,6 @@ async def return_reconall_stats_measures(workflow_id: str,
 
     path_to_file = get_local_storage_path(workflow_id, run_id, step_id)
     path_to_file = os.path.join(path_to_file, "output", "ucl_test", "stats", file_name)
-
     stats_dict = load_stats_measurements_measures(path_to_file)
     return stats_dict
 
@@ -485,12 +485,22 @@ async def return_reconall_stats_table(workflow_id: str,
                                              step_id: str,
                                              run_id: str,
                                              file_name: str = None) -> dict:
-        path_to_file = get_local_storage_path(workflow_id, run_id, step_id)
-        path_to_file = os.path.join(path_to_file, "output", "ucl_test", "stats", file_name)
 
-        stats_dict = load_stats_measurements_table(path_to_file)
-        stats_dict["table"] = stats_dict["table"].to_dict('records')
-        return stats_dict
+    path_to_folder = get_local_storage_path(workflow_id, run_id, step_id)
+    if "*" in file_name:
+        path_to_file = os.path.join(path_to_folder, "output", "ucl_test", "stats", "l" + file_name[1:])
+        stats_dict = load_stats_measurements_table(path_to_file, 0)
+        print(stats_dict["table"])
+        path_to_file = os.path.join(path_to_folder, "output", "ucl_test", "stats", "r" + file_name[1:])
+        right = load_stats_measurements_table(path_to_file, len(stats_dict["table"]))["table"]
+        stats_dict["table"] = pd.concat([stats_dict["table"], right])
+        print(stats_dict["table"])
+    else:
+        path_to_file = os.path.join(path_to_folder, "output", "ucl_test", "stats", file_name)
+        stats_dict = load_stats_measurements_table(path_to_file, 0)
+
+    stats_dict["table"] = stats_dict["table"].to_dict('records')
+    return stats_dict
 
 @router.get("/return_aseg_stats", tags=["return_aseg_stats"])
 async def return_aseg_stats(workflow_id: str,
