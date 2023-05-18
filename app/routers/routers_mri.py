@@ -493,11 +493,15 @@ async def return_reconall_stats_table(workflow_id: str,
         return stats_dict
 
 @router.get("/return_aseg_stats", tags=["return_aseg_stats"])
-async def return_aseg_stats(fs_dir: str = None, subject_id: str = None) -> str:
-    aseg = load_stats_measurements_table('example_data/aseg.stats')["table"]
-    data = dict(zip(aseg['StructName'], pd.to_numeric(aseg['Volume_mm3'], errors='coerce')))
-    plot_aseg(data, cmap='Spectral',
+async def return_aseg_stats(workflow_id: str,
+                                step_id: str,
+                                run_id: str) -> str :
+        path_to_file = get_local_storage_path(workflow_id, run_id, step_id)
+        path_to_file = os.path.join(path_to_file, "output", "ucl_test", "stats", "aseg.stats")
+        aseg = load_stats_measurements_table(path_to_file)["table"]
+        data = dict(zip(aseg['StructName'], pd.to_numeric(aseg['Volume_mm3'], errors='coerce')))
+        plot_aseg(data, cmap='Spectral',
                     background='k', edgecolor='w', bordercolor='gray',
                     ylabel='Volume (mm3)', title='Volume of Subcortical Regions')
 
-    return 'OK'
+        return 'OK'
