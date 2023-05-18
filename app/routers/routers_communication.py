@@ -128,6 +128,11 @@ ExistingFunctions = [
     "general_stats_average",
     "general_stats_min",
     "general_stats_max",
+    'actigraphy_cosinor',
+    'actigraphy_metrics',
+    "GeneralizedEstimatingEquations",
+    "ChooseFactors",
+    "GrangerAnalysis",
     # Dashboard
     "dashboard",
 ]
@@ -158,30 +163,32 @@ async def test_task_ping() -> dict:
     return {'test': "test"}
 
 # TODO
-@router.get("/test/task/complete", tags=["test_task_complete"])
-async def test_task_complete() -> dict:
-    # channels = data.ch_names
-    print(WFAddress)
-    headers = {"Content-Type": "application/json"}
-
-    saved_files = []
-    # saved files should be the same as those upload in a previous step or the call should happen here
-    # TODO
-    data = {
-        "datalake" : saved_files,
-        # "trino:": [        ],
-    }
-    url = WFAddress + "/expert_system_backend/run/" + TestRunId + "/step/" + TestStepId + "/task/script/complete"
-    print(url)
-    response = requests.put(url=url, data=data, headers=headers)
-    print("Test Response: Task Ping")
-    print(response)
-
-    return {'test': "test"}
+# @router.get("/test/task/complete", tags=["test_task_complete"])
+# async def test_task_complete(run_id: str,
+#                              step_id: str) -> dict:
+#     # channels = data.ch_names
+#     print(WFAddress)
+#     headers = {"Content-Type": "application/json"}
+#
+#     saved_files = []
+#     # saved files should be the same as those upload in a previous step or the call should happen here
+#     # TODO
+#     data = {
+#         "datalake" : saved_files,
+#         # "trino:": [        ],
+#     }
+#     url = WFAddress + "/run/" + run_id + "/step/" + step_id + "/task/script/complete"
+#     print(url)
+#     response = requests.put(url=url, data=data, headers=headers)
+#     print("Test Response: Task Ping")
+#     print(response)
+#
+#     return {'test': response}
 
 
 @router.get("/task/complete", tags=["test_task_complete"])
-async def task_complete() -> dict:
+async def task_complete(run_id: str,
+                             step_id: str) -> dict:
     # channels = data.ch_names
     print(WFAddress)
     headers = {"Content-Type": "application/json"}
@@ -193,13 +200,13 @@ async def task_complete() -> dict:
         "datalake": saved_files,
         # "trino:": [        ],
     }
-    url = WFAddress + "/expert_system_backend/run/" + TestRunId + "/step/" + TestStepId + "/task/script/complete"
+    url = WFAddress + "/run/" + run_id + "/step/" + step_id + "/task/script/complete"
     print(url)
     response = requests.patch(url=url, data=data, headers=headers)
     print("Test Response: Task Ping")
     print(response)
 
-    return {'test': "test"}
+    return {'test': response}
 
 
 @router.put("/function/navigation/", tags=["function_navigation"])
@@ -257,6 +264,10 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/actigraphy/general"
             case "actigraphy_page":
                 url_to_redirect += "/actigraphy_page"
+            case "actigraphy_cosinor":
+                url_to_redirect += "/Actigraphy_Cosinor"
+            case "actigraphy_metrics":
+                url_to_redirect += "/Actigraphy_Metrics"
             #  MRI
             case "mri_viewer":
                 url_to_redirect += "/mri"
@@ -405,6 +416,10 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect +="/General_Stats_Min"
             case "general_stats_max":
                 url_to_redirect +="/General_Stats_Max"
+            case "ChooseFactors":
+                url_to_redirect += "/ChooseFactors"
+            case "GrangerAnalysis":
+                url_to_redirect += "/GrangerAnalysis"
             # Dashboard
             case "dashboard":
                 url_to_redirect += "/dashboard"
