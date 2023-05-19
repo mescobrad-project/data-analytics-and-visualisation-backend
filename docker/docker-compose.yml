@@ -27,7 +27,7 @@ services:
       WFAddress: expertsystem_web_1
       NeurodesktopStorageLocation: /neurodesktop-storage
       NeurodesktopPort: 8080
-      FrontendAddress: http://localhost:3000
+      FrontendAddress: http://localhost:3005
     volumes:
       - 'C:\neurodesktop-storage:/neurodesktop-storage'
     ports:
