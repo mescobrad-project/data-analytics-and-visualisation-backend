@@ -95,7 +95,7 @@ def load_stats_measurements_table(stats_path, index_start) -> dict:
             columns = [
                 {"field": name,
                  "headerName": name,
-                 "flex": 2} for name in df.columns]
+                 "flex": (2 if name=="StructName" else 1)} for name in df.columns]
             df.index += index_start
             df["id"] = df.index
 
