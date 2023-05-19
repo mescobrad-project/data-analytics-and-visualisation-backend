@@ -393,6 +393,9 @@ async def actigraphymetrics(workflow_id: str,
 
         tbl_res=[]
 
+        pRA, pRA_weights = raw.pRA(threshold=threshold, start=None, period=period)
+        pAR, pAR_weights = raw.pAR(threshold=threshold, start=None, period=period)
+
         df = pd.DataFrame()
         df['pRA'] = raw.pRA(threshold=threshold, start=None, period=period)[0]
         df['pRA_weights'] = raw.pRA(threshold=threshold, start=None, period=period)[1]
@@ -428,6 +431,15 @@ async def actigraphymetrics(workflow_id: str,
                           "kAR": raw.kAR(threshold=threshold, start=None, period=period),
                           }
         tbl_res.append(temp_to_append)
+        layout = go.Layout(title="",xaxis=dict(title=""), showlegend=False)
+        layout.update(title="Rest->Activity transition probability", xaxis=dict(title="Time [min]"), showlegend=False);
+        output = go.Figure(data=go.Scatter(x=pRA.index, y=pRA, name='', mode='markers'), layout=layout)
+        pio.write_image(output, get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + 'pRA.svg')
+
+        layout.update(title="Activity->Rest transition probability", xaxis=dict(title="Time [min]"), showlegend=False);
+        output = go.Figure(data=go.Scatter(x=pAR.index, y=pAR, name='', mode='markers'), layout=layout)
+        pio.write_image(output, get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + 'pAR.svg')
+
         test_status = 'Unable to create info file.'
         with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
             file_data = json.load(f)
