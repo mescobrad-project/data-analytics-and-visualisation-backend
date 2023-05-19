@@ -3460,26 +3460,41 @@ async def linear_regression_statsmodels(workflow_id: str, step_id: str, run_id: 
                                         check_heteroscedasticity: bool | None = Query(default=True),
                                         regularization: bool | None = Query(default=False),
                                         independent_variables: list[str] | None = Query(default=None)):
-    data = load_file_csv_direct(workflow_id, run_id, step_id)
+    df = pd.DataFrame()
+    dfv = pd.DataFrame()
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
+    # Load Datasets
+    try:
+        test_status = 'Please provide all mandatory fields (dataset, dependent variable, one or more independent variables)'
+        dfv['variables'] = independent_variables
+        dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
+        selected_datasources = pd.unique(dfv['Datasource'])
+        test_status = 'Unable to retrieve datasets'
+        independent_variables = list(dfv['Variable'].values)
+        data = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
+        data.dropna(inplace=True)
 
-    print(data)
 
-    x = data[independent_variables]
-    y = data[dependent_variable]
 
-    df_dict = {}
-    for name in independent_variables:
-        df_dict[str(name)] = data[str(name)]
+        x = data[independent_variables]
+        y = data[dependent_variable]
 
-    df_dict[str(dependent_variable)] = data[dependent_variable]
-    df_features_label = pd.DataFrame.from_dict(df_dict)
+        df_dict = {}
+        for name in independent_variables:
+            df_dict[str(name)] = data[str(name)]
 
-    x = sm.add_constant(x)
+        df_dict[str(dependent_variable)] = data[dependent_variable]
+        df_features_label = pd.DataFrame.from_dict(df_dict)
 
-    if regularization:
-        model = sm.OLS(y,x).fit_regularized(method='elastic_net')
-    else:
-        #fig = plt.figure(1)
+        test_status = 'Unable to perform linear regression'
+
+        x = sm.add_constant(x)
+
+        # if regularization:
+        #     model = sm.OLS(y, x).fit_regularized(method='elastic_net')
+        # else:
+        # fig = plt.figure(1)
         model = sm.OLS(y, x).fit()
         fitted_value = model.fittedvalues
         df_fitted_value = pd.DataFrame(fitted_value, columns=['fitted_values'])
@@ -3488,14 +3503,14 @@ async def linear_regression_statsmodels(workflow_id: str, step_id: str, run_id: 
         # create instance of influence
         influence = model.get_influence()
 
-        #sm.graphics.influence_plot(model)
-        #plt.show()
+        # sm.graphics.influence_plot(model)
+        # plt.show()
 
         # obtain standardized residuals
         standardized_residuals = influence.resid_studentized_internal
         inf_sum = influence.summary_frame()
 
-        df_final_influence = pd.concat([df_features_label,inf_sum,df_fitted_value,df_resid_value], axis=1)
+        df_final_influence = pd.concat([df_features_label, inf_sum, df_fitted_value, df_resid_value], axis=1)
         inf_dict = {}
         for column in df_final_influence.columns:
             inf_dict[column] = list(df_final_influence[column])
@@ -3514,8 +3529,8 @@ async def linear_regression_statsmodels(workflow_id: str, step_id: str, run_id: 
         df_0 = pd.concat([df_0, df_new.rename(columns={2: 0, 3: 1})], ignore_index=True)
         df_0.set_index(0, inplace=True)
         df_0.index.name = None
-        df_0.rename(columns={1: 'Values'}, inplace = True)
-        df_0.drop(df_0.tail(2).index,inplace=True)
+        df_0.rename(columns={1: 'Values'}, inplace=True)
+        df_0.drop(df_0.tail(2).index, inplace=True)
         # print(list(df_0.values))
 
         results_as_html = df.tables[1].as_html()
@@ -3526,7 +3541,6 @@ async def linear_regression_statsmodels(workflow_id: str, step_id: str, run_id: 
         df_1.columns = new_header
         df_1.index.name = None
 
-
         results_as_html = df.tables[2].as_html()
         df_2 = pd.read_html(results_as_html)[0]
         df_new = df_2[[2, 3]]
@@ -3536,7 +3550,7 @@ async def linear_regression_statsmodels(workflow_id: str, step_id: str, run_id: 
         df_2.index.name = None
         df_2.rename(columns={1: 'Values'}, inplace=True)
 
-    if not regularization:
+    # if not regularization:
         white_test = het_white(model.resid, model.model.exog)
         # define labels to use for output of White's test
         labels = ['Test Statistic', 'Test Statistic p-value', 'F-Statistic', 'F-Test p-value']
@@ -3551,33 +3565,105 @@ async def linear_regression_statsmodels(workflow_id: str, step_id: str, run_id: 
         bresuch_test = pd.DataFrame(results_dict_bresuch.values(), index=results_dict_bresuch.keys())
         bresuch_test.rename(columns={0: 'Values'}, inplace=True)
 
-        z = het_goldfeldquandt(y,x)
+        z = het_goldfeldquandt(y, x)
         labels = ['F-statistic', 'p-value', "ordering used in the alternative"]
         results_goldfeldquandt = dict(zip(labels, z))
         goldfeld_test = pd.DataFrame(results_goldfeldquandt.values(), index=results_goldfeldquandt.keys())
         goldfeld_test.rename(columns={0: 'Values'}, inplace=True)
 
         print(inf_dict)
+        df_final_influence.to_csv(path_to_storage + '/output/influence_points.csv', index=False)
 
-        response = {'DataFrame with all available influence results':df_final_influence.to_html(),'first_table': df_0.to_json(orient='split'), 'second table': df_1.to_html(),
-                'third table': df_2.to_dict(), 'dataframe white test': white_test.to_json(orient='split'),
-                'dep': df_0.loc['Dep. Variable:'][0], 'model': df_0.loc['Model:'][0],
-                'method': df_0.loc['Method:'][0], 'date': df_0.loc['Date:'][0],
-                'time': df_0.loc['Time:'][0], 'no_obs': df_0.loc['No. Observations:'][0], 'resid': df_0.loc['Df Residuals:'][0],
-                'df_model': df_0.loc['Df Model:'][0], 'cov_type': df_0.loc['Covariance Type:'][0],
-                'r_squared': df_0.loc['R-squared:'][0], 'adj_r_squared': df_0.loc['Adj. R-squared:'][0],
-                'f_stat': df_0.loc['F-statistic:'][0], 'prob_f': df_0.loc['Prob (F-statistic):'][0],
-                'log_like': df_0.loc['Log-Likelihood:'][0], 'aic': df_0.loc['AIC:'][0], 'bic': df_0.loc['BIC:'][0],
-                'omnibus': df_2.loc['Omnibus:'][0], 'prob_omni': df_2.loc['Prob(Omnibus):'][0], 'skew': df_2.loc['Skew:'][0], 'kurtosis': df_2.loc['Kurtosis:'][0],
-                'durbin': df_2.loc['Durbin-Watson:'][0], 'jb': df_2.loc['Jarque-Bera (JB):'][0], 'prob_jb': df_2.loc['Prob(JB):'][0], 'cond': df_2.loc['Cond. No.'][0],
-                'test_stat': white_test.loc['Test Statistic'][0], 'test_stat_p': white_test.loc['Test Statistic p-value'][0], 'white_f_stat': white_test.loc['F-Statistic'][0],
-                'white_prob_f': white_test.loc['F-Test p-value'][0], 'influence_columns': list(df_final_influence.columns), 'influence_dict': inf_dict,
-                'bresuch_lagrange': bresuch_test.loc['Lagrange multiplier statistic'][0], 'bresuch_p_value': bresuch_test.loc['p-value'][0],
-                'bresuch_f_value': bresuch_test.loc['f-value'][0], 'bresuch_f_p_value': bresuch_test.loc['f p-value'][0],'Goldfeld-Quandt F-value':goldfeld_test.loc['F-statistic'][0],
-                    'Goldfeld-Quandt p-value': goldfeld_test.loc['p-value'][0], 'Goldfeld-Quandt ordering used in the alternative': goldfeld_test.loc['ordering used in the alternative'][0]}
-        return response
-    else:
-        return {'ll'}
+        response = {'DataFrame with all available influence results': df_final_influence.to_html(),
+                    'first_table': df_0.to_json(orient='split'), 'second table': df_1.to_html(),
+                    'third table': df_2.to_dict(), 'dataframe white test': white_test.to_json(orient='split'),
+                    'dep': df_0.loc['Dep. Variable:'][0], 'model': df_0.loc['Model:'][0],
+                    'method': df_0.loc['Method:'][0], 'date': df_0.loc['Date:'][0],
+                    'time': df_0.loc['Time:'][0], 'no_obs': df_0.loc['No. Observations:'][0],
+                    'resid': df_0.loc['Df Residuals:'][0],
+                    'df_model': df_0.loc['Df Model:'][0], 'cov_type': df_0.loc['Covariance Type:'][0],
+                    'r_squared': df_0.loc['R-squared:'][0], 'adj_r_squared': df_0.loc['Adj. R-squared:'][0],
+                    'f_stat': df_0.loc['F-statistic:'][0], 'prob_f': df_0.loc['Prob (F-statistic):'][0],
+                    'log_like': df_0.loc['Log-Likelihood:'][0], 'aic': df_0.loc['AIC:'][0],
+                    'bic': df_0.loc['BIC:'][0],
+                    'omnibus': df_2.loc['Omnibus:'][0], 'prob_omni': df_2.loc['Prob(Omnibus):'][0],
+                    'skew': df_2.loc['Skew:'][0], 'kurtosis': df_2.loc['Kurtosis:'][0],
+                    'durbin': df_2.loc['Durbin-Watson:'][0], 'jb': df_2.loc['Jarque-Bera (JB):'][0],
+                    'prob_jb': df_2.loc['Prob(JB):'][0], 'cond': df_2.loc['Cond. No.'][0],
+                    'test_stat': white_test.loc['Test Statistic'][0],
+                    'test_stat_p': white_test.loc['Test Statistic p-value'][0],
+                    'white_f_stat': white_test.loc['F-Statistic'][0],
+                    'white_prob_f': white_test.loc['F-Test p-value'][0],
+                    'influence_columns': list(df_final_influence.columns), 'influence_dict': inf_dict,
+                    'bresuch_lagrange': bresuch_test.loc['Lagrange multiplier statistic'][0],
+                    'bresuch_p_value': bresuch_test.loc['p-value'][0],
+                    'bresuch_f_value': bresuch_test.loc['f-value'][0],
+                    'bresuch_f_p_value': bresuch_test.loc['f p-value'][0],
+                    'Goldfeld-Quandt F-value': goldfeld_test.loc['F-statistic'][0],
+                    'Goldfeld-Quandt p-value': goldfeld_test.loc['p-value'][0],
+                    'Goldfeld-Quandt ordering used in the alternative':
+                        goldfeld_test.loc['ordering used in the alternative'][0]}
+
+        test_status = 'Unable to create info.json file'
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            # Load existing data into a dict.
+            file_data = json.load(f)
+            # Join new data
+            new_data = {
+                "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                "workflow_id": workflow_id,
+                "run_id": run_id,
+                "step_id": step_id,
+                "test_name": 'Linear Regression',
+                "test_params": {
+                    'dependent variable': dependent_variable,
+                    'independent variables': independent_variables
+                },
+                "test_results": {'coefs': df_1.to_dict(),
+                                 'white test': white_test.to_dict(),
+                                 'dep': df_0.loc['Dep. Variable:'][0], 'model': df_0.loc['Model:'][0],
+                                 'method': df_0.loc['Method:'][0], 'date': df_0.loc['Date:'][0],
+                                 'time': df_0.loc['Time:'][0], 'no_obs': df_0.loc['No. Observations:'][0],
+                                 'resid': df_0.loc['Df Residuals:'][0],
+                                 'df_model': df_0.loc['Df Model:'][0], 'cov_type': df_0.loc['Covariance Type:'][0],
+                                 'r_squared': df_0.loc['R-squared:'][0], 'adj_r_squared': df_0.loc['Adj. R-squared:'][0],
+                                 'f_stat': df_0.loc['F-statistic:'][0], 'prob_f': df_0.loc['Prob (F-statistic):'][0],
+                                 'log_like': df_0.loc['Log-Likelihood:'][0], 'aic': df_0.loc['AIC:'][0],
+                                 'bic': df_0.loc['BIC:'][0],
+                                 'omnibus': df_2.loc['Omnibus:'][0], 'prob_omni': df_2.loc['Prob(Omnibus):'][0],
+                                 'skew': df_2.loc['Skew:'][0], 'kurtosis': df_2.loc['Kurtosis:'][0],
+                                 'durbin': df_2.loc['Durbin-Watson:'][0], 'jb': df_2.loc['Jarque-Bera (JB):'][0],
+                                 'prob_jb': df_2.loc['Prob(JB):'][0], 'cond': df_2.loc['Cond. No.'][0],
+                                 'test_stat': white_test.loc['Test Statistic'][0],
+                                 'test_stat_p': white_test.loc['Test Statistic p-value'][0],
+                                 'white_f_stat': white_test.loc['F-Statistic'][0],
+                                 'white_prob_f': white_test.loc['F-Test p-value'][0],
+                                 'bresuch_lagrange': bresuch_test.loc['Lagrange multiplier statistic'][0],
+                                 'bresuch_p_value': bresuch_test.loc['p-value'][0],
+                                 'bresuch_f_value': bresuch_test.loc['f-value'][0],
+                                 'bresuch_f_p_value': bresuch_test.loc['f p-value'][0],
+                                 'Goldfeld-Quandt F-value': goldfeld_test.loc['F-statistic'][0],
+                                 'Goldfeld-Quandt p-value': goldfeld_test.loc['p-value'][0],
+                                 'Goldfeld-Quandt ordering used in the alternative':
+                                    goldfeld_test.loc['ordering used in the alternative'][0]}
+            }
+            file_data['results'] = new_data
+            file_data['Output_datasets'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id + '/analysis_output' + '/influence_points.csv'}]
+            # Set file's current position at offset.
+            f.seek(0)
+            # convert back to json.
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        return JSONResponse(content={'status':'Success', 'Result': response},
+                            status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status': test_status, 'Result': '[]'},
+                            status_code=200)
+
+
+
 
 @router.get("/transformation_methods")
 async def transformation_methods(dependent_variable: str,
