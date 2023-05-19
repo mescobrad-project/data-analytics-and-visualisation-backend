@@ -56,7 +56,7 @@ async def return_actigraphy_data():
     return 1
 
 
-@router.get("/return_actigraphy_general_data", tags=["actigraphy_general_data"])
+@router.get("/return_actigraphy_general_data", tags=["actigraphy_data"])
 async def return_actigraphy_general_data():
     with open('example_data/actigraphy_general_relevant_dataset.csv', newline="") as csvfile:
         if not os.path.isfile('example_data/actigraphy_relevant_dataset.csv'):
@@ -355,7 +355,7 @@ def return_rawObject():
 ww = return_rawObject()
 print(ww)
 
-@router.get("/actigraphy_metrics")
+@router.get("/actigraphy_metrics", tags=["actigraphy_analysis"])
 async def actigraphymetrics(workflow_id: str,
                             step_id: str,
                             run_id: str,
@@ -462,7 +462,7 @@ async def actigraphymetrics(workflow_id: str,
         return JSONResponse(content={'status': test_status, 'Result': {}},
                             status_code=200)
 
-@router.get("/cosinor_analysis_initial_values")
+@router.get("/cosinor_analysis_initial_values", tags=["actigraphy_analysis"])
 async def cosinoranalysisinitialvalues():
     test_status=''
     try:
@@ -475,7 +475,7 @@ async def cosinoranalysisinitialvalues():
         return JSONResponse(content={'status': test_status, "cos_params": []}, status_code=200)
 
 
-@router.get("/cosinor_analysis")
+@router.get("/cosinor_analysis", tags=["actigraphy_analysis"])
 async def cosinoranalysis(workflow_id: str,
                           step_id: str,
                           run_id: str,
