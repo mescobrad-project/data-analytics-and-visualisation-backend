@@ -279,7 +279,7 @@ async def return_autocorrelation(workflow_id: str, step_id: str, run_id: str,
             # plt.show()
             print("RETURNING VALUES")
             print(to_return)
-            plt.savefig(get_local_storage_path(workflow_id, step_id, run_id) + "/output/" + 'autocorrelation.png')
+            plt.savefig(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + 'autocorrelation.png')
 
             # plt.show()
 

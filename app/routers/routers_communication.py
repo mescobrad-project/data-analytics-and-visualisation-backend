@@ -188,13 +188,14 @@ async def test_task_ping() -> dict:
 async def task_complete(run_id: str,
                              step_id: str) -> dict:
     # channels = data.ch_names
+    print("RUN COMPLETE IS RUNNING")
     print(WFAddress)
     headers = {"Content-Type": "application/json"}
 
     saved_files = []
     data = {
         "data": {
-            "datalake": saved_files,
+            "datalake": [],
             "trino": []
         }
     }
