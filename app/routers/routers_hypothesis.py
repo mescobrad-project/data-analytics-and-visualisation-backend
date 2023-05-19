@@ -2133,7 +2133,7 @@ async def linear_mixed_effects_model(workflow_id: str,
                 "col2": row[2],
                 "col3": row[3],
             }
-        tbl1_res.append(temp_to_append)
+            tbl1_res.append(temp_to_append)
         df_1 = df.tables[1]
         tbl2_res = []
         for ind, row in df_1.iterrows():
