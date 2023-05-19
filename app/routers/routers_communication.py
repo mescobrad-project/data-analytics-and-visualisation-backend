@@ -128,6 +128,8 @@ ExistingFunctions = [
     "general_stats_average",
     "general_stats_min",
     "general_stats_max",
+    'actigraphy_cosinor',
+    'actigraphy_metrics',
     "GeneralizedEstimatingEquations",
     "ChooseFactors",
     "GrangerAnalysis",
@@ -192,12 +194,13 @@ async def task_complete(run_id: str,
     headers = {"Content-Type": "application/json"}
 
     saved_files = []
-    # saved files should be the same as those upload in a previous step or the call should happen here
-    # TODO
     data = {
-        "datalake": saved_files,
-        # "trino:": [        ],
+        "data": {
+            "datalake": saved_files,
+            "trino": []
+        }
     }
+
     url = WFAddress + "/run/" + run_id + "/step/" + step_id + "/task/script/complete"
     print(url)
     response = requests.patch(url=url, data=data, headers=headers)
@@ -260,8 +263,12 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/actigraphy"
             case "actigraphy_viewer_general":
                 url_to_redirect += "/actigraphy/general"
+            case "actigraphy_page":
+                url_to_redirect += "/actigraphy_page"
             case "actigraphy_cosinor":
                 url_to_redirect += "/Actigraphy_Cosinor"
+            case "actigraphy_metrics":
+                url_to_redirect += "/Actigraphy_Metrics"
             #  MRI
             case "mri_viewer":
                 url_to_redirect += "/mri"
