@@ -2133,7 +2133,7 @@ async def linear_mixed_effects_model(workflow_id: str,
                 "col2": row[2],
                 "col3": row[3],
             }
-            tbl1_res.append(temp_to_append)
+        tbl1_res.append(temp_to_append)
         df_1 = df.tables[1]
         tbl2_res = []
         for ind, row in df_1.iterrows():
@@ -4696,37 +4696,6 @@ async def compute_fast_ica(workflow_id: str,
     df_mixing = pd.DataFrame(transformer.mixing_)
 
     return {'transformed': df.to_json(orient='split'), 'components': df_components.to_json(orient='split'), 'mixing': df_mixing.to_json(orient='split')}
-
-@router.get("/multidimensional_scaling")
-async def compute_multidimensional_scaling(workflow_id: str,
-                                           step_id: str,
-                                           run_id: str,
-                                           n_components: int | None = Query(default=2),
-                                           max_iter: int | None = Query(default=300),
-                                           metric: bool | None = Query(default=True),
-                                           dissimilarity: str | None = Query("euclidean",
-                                                                             regex="^(euclidean)$|^(precomputed)$"),
-                                           independent_variables: list[str] | None = Query(default=None)):
-
-    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
-
-    for columns in dataset.columns:
-        if columns not in independent_variables:
-            dataset = dataset.drop(str(columns), axis=1)
-
-    X = np.array(dataset)
-
-    transformer = MDS(n_components=n_components, max_iter=max_iter, metric=metric, dissimilarity=dissimilarity)
-
-    X_transformed = transformer.fit_transform(X)
-
-    df = pd.DataFrame(X_transformed)
-
-    df_embedding = pd.DataFrame(transformer.embedding_)
-    df_dissimilarity = pd.DataFrame(transformer.dissimilarity_matrix_)
-
-    return {'transformed': df.to_json(orient='split'), 'position of the dataset in the embedding space':df_embedding.to_json(orient='split'),
-            'Pairwise dissimilarities between the points': df_dissimilarity.to_json(orient='split')}
 
 @router.get("/multidimensional_scaling")
 async def compute_multidimensional_scaling(workflow_id: str,
