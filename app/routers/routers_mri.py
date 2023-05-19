@@ -508,7 +508,7 @@ async def return_aseg_stats(workflow_id: str,
                                 run_id: str) -> str :
         path_to_file = get_local_storage_path(workflow_id, run_id, step_id)
         path_to_file = os.path.join(path_to_file, "output", "ucl_test", "stats", "aseg.stats")
-        aseg = load_stats_measurements_table(path_to_file)["table"]
+        aseg = load_stats_measurements_table(path_to_file, 0)["table"]
         data = dict(zip(aseg['StructName'], pd.to_numeric(aseg['Volume_mm3'], errors='coerce')))
         plot_aseg(data, cmap='Spectral',
                     background='k', edgecolor='w', bordercolor='gray',
