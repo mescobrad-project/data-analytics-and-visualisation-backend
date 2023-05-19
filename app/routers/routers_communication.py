@@ -194,12 +194,13 @@ async def task_complete(run_id: str,
     headers = {"Content-Type": "application/json"}
 
     saved_files = []
-    # saved files should be the same as those upload in a previous step or the call should happen here
-    # TODO
     data = {
-        "datalake": saved_files,
-        # "trino:": [        ],
+        "data": {
+            "datalake": saved_files,
+            "trino": []
+        }
     }
+
     url = WFAddress + "/run/" + run_id + "/step/" + step_id + "/task/script/complete"
     print(url)
     response = requests.patch(url=url, data=data, headers=headers)
