@@ -73,26 +73,48 @@ def plot_aseg(data, cmap='Spectral', background='k', edgecolor='w', ylabel='',
     fig = plt.gcf()
     fig.savefig(NeurodesktopStorageLocation + '/aseg.png')
 
-def load_stats_measurements(stats_path) -> dict:
+def load_stats_measurements_table(stats_path, index_start) -> dict:
     try:
         f = open(stats_path, "r")
     except Exception as e:
         print(e)
         print("File could not be opened")
-        return pd.DataFrame()
+        return {"table": pd.DataFrame(), "columns": []}
     try:
         file_str = f.read()
         if "# ColHeaders" in file_str:
             file_list = file_str.split("# ColHeaders")
             list_of_lists = [row.split() for row in file_list[-1].split('\n')]
             df = pd.DataFrame(list_of_lists[1:-1], columns=list_of_lists[0])
+
+            if "lh." in stats_path:
+                df["Hemisphere"] = "Left"
+            elif "rh." in stats_path:
+                df["Hemisphere"] = "Right"
+
+            columns = [
+                {"field": name,
+                 "headerName": name,
+                 "flex": (2 if name=="StructName" else 1)} for name in df.columns]
+            df.index += index_start
+            df["id"] = df.index
+
         else:
             df = pd.DataFrame()
-
     except Exception as e:
         print(e)
         print("File has wrong format")
-        return {"measurements": pd.DataFrame(), "table": df}
+        return {"table": pd.DataFrame(), "columns": []}
+    return {"table": df, "columns": columns}
+
+def load_stats_measurements_measures(stats_path) -> dict:
+    try:
+        f = open(stats_path, "r")
+        file_str = f.read()
+    except Exception as e:
+        print(e)
+        print("File could not be opened")
+        return {"measurements": pd.DataFrame()}
     try:
         measure_dict = {}
         lines = file_str.split('\n')
@@ -104,6 +126,5 @@ def load_stats_measurements(stats_path) -> dict:
                 measure_dict["Hemisphere"] = line.split()[-1]
     except Exception as e:
         print("File has wrong format in Measure")
-        print("Ignoring Measures...")
-    return {"measurements": measure_dict, "table": df}
-
+        return {"measurements": pd.DataFrame()}
+    return {"measurements": measure_dict}
