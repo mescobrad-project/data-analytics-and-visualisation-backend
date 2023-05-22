@@ -1,5 +1,6 @@
 import json
 import os
+import uuid
 from os import walk
 from os.path import isfile, join
 
@@ -192,7 +193,7 @@ async def task_complete(run_id: str,
     # channels = data.ch_names
     print("RUN COMPLETE IS RUNNING")
     print(WFAddress)
-    headers = {"Content-Type": "application/json"}
+    headers = {"Content-Type": "application/json", "Accept": "*/*"}
 
     saved_files = []
     data = {
@@ -202,7 +203,7 @@ async def task_complete(run_id: str,
         }
     }
 
-    url = WFAddress + "/run/" + run_id + "/step/" + step_id + "/task/script/complete"
+    url = WFAddress + "/run/" + uuid.UUID(run_id) + "/step/" + uuid.UUID(step_id) + "/task/script/complete"
     print(url)
     response = requests.patch(url=url, data=data, headers=headers)
     print("Test Response: Task Ping")
