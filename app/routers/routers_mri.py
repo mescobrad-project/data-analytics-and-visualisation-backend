@@ -2,6 +2,7 @@ import math
 import os
 import re
 import time
+import csv
 
 from fastapi import APIRouter, Query
 from mne.time_frequency import psd_array_multitaper
@@ -466,6 +467,31 @@ async def return_free_surfer(input_test_name: str, input_file: str,
     # If everything ok return Success
     to_return = "Success"
     return to_return
+
+@router.get("/return_samseg_result", tags=["return_samseg_stats"])
+async def return_samseg_stats(workflow_id: str,
+                            step_id: str,
+                            run_id: str) -> []:
+    path_to_file = get_local_storage_path(workflow_id, run_id, step_id)
+    path_to_file = os.path.join(path_to_file, "output", "samseg_output", "samseg.stats")
+
+    with open(path_to_file, newline="") as csvfile:
+        if not os.path.isfile(path_to_file):
+            return []
+        reader = csv.reader(csvfile, delimiter=',')
+        results_array = []
+        i = 0
+        for row in reader:
+            i += 1
+            temp_to_append = {
+                "id": i,
+                "measure": row[0].strip("# Measure "),
+                "value": row[1],
+                "unit": row[2]
+            }
+            results_array.append(temp_to_append)
+        return results_array
+
 
 @router.get("/return_reconall_stats/measures", tags=["return_all_stats"])
 # Validation is done inline in the input of the function
