@@ -192,3 +192,4 @@ def statisticsMax(column: str, selected_dataframe):
         print(e)
         print("Error : Failed to compute Max for column: "+column)
         return -1
+
