@@ -1887,81 +1887,130 @@ async def sgd_regressor(workflow_id: str,
                         penalty: str | None = Query("l2",
                                                  regex="^(l2)$|^(l1)$|^(elasticnet)$"),
                         independent_variables: list[str] | None = Query(default=None)):
+    dfv = pd.DataFrame()
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
+    # Load Datasets
+    try:
+        test_status = 'Please provide all mandatory fields (dataset, dependent variable, one or more independent variables)'
+        dfv['variables'] = independent_variables
+        dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
+        selected_datasources = pd.unique(dfv['Datasource'])
+        test_status = 'Unable to retrieve datasets'
+        independent_variables = list(dfv['Variable'].values)
+        dataset = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
+        df_label = dataset[dependent_variable]
 
-    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
-    df_label = dataset[dependent_variable]
-    for columns in dataset.columns:
-        if columns not in independent_variables:
-            dataset = dataset.drop(str(columns), axis=1)
+        for columns in dataset.columns:
+            if columns not in independent_variables:
+                dataset = dataset.drop(str(columns), axis=1)
+        data.dropna(inplace=True)
 
-    X = np.array(dataset)
-    Y = np.array(df_label.astype('float64'))
+        X = np.array(dataset)
+        Y = np.array(df_label.astype('float64'))
 
-    if loss == 'huber' or loss == 'epsilon_insensitive' or loss == 'squared_epsilon_insensitive':
-        if learning_rate == 'constant' or learning_rate == 'invscaling' or learning_rate == 'adaptive':
-            clf = SGDRegressor(alpha=alpha, max_iter=max_iter, epsilon=epsilon, eta0=eta0, penalty=penalty, l1_ratio=l1_ratio, learning_rate=learning_rate)
+        if loss == 'huber' or loss == 'epsilon_insensitive' or loss == 'squared_epsilon_insensitive':
+            if learning_rate == 'constant' or learning_rate == 'invscaling' or learning_rate == 'adaptive':
+                clf = SGDRegressor(alpha=alpha, max_iter=max_iter, epsilon=epsilon, eta0=eta0, penalty=penalty,
+                                   l1_ratio=l1_ratio, learning_rate=learning_rate)
+            else:
+                clf = SGDRegressor(alpha=alpha, max_iter=max_iter, epsilon=epsilon, penalty=penalty, l1_ratio=l1_ratio,
+                                   learning_rate=learning_rate)
         else:
-            clf = SGDRegressor(alpha=alpha, max_iter=max_iter, epsilon=epsilon, penalty=penalty, l1_ratio=l1_ratio, learning_rate=learning_rate)
-    else:
-        clf = SGDRegressor(alpha=alpha, max_iter=max_iter, eta0=eta0, penalty=penalty, l1_ratio=l1_ratio, learning_rate=learning_rate)
+            clf = SGDRegressor(alpha=alpha, max_iter=max_iter, eta0=eta0, penalty=penalty, l1_ratio=l1_ratio,
+                               learning_rate=learning_rate)
 
-    clf.fit(X, Y)
+        clf.fit(X, Y)
 
-    residuals = Y - clf.predict(X)
-    skew_res = skew(residuals)
-    kurt_res = kurtosis(residuals)
-    jarq_res = jarque_bera(residuals)
-    stat_jarq = jarq_res.statistic
-    p_jarq = jarq_res.pvalue
-    omn_res_stat, omn_res_p = normaltest(residuals)
-    durb_res = durbin_watson(residuals)
+        residuals = Y - clf.predict(X)
+        skew_res = skew(residuals)
+        kurt_res = kurtosis(residuals)
+        jarq_res = jarque_bera(residuals)
+        stat_jarq = jarq_res.statistic
+        p_jarq = jarq_res.pvalue
+        omn_res_stat, omn_res_p = normaltest(residuals)
+        durb_res = durbin_watson(residuals)
 
-    df_for_scatter = pd.DataFrame(data={'Actual Values': list(Y), 'Predicted Values': list(clf.predict(X)),
-                                        'Residuals': list(Y - clf.predict(X))})
-    values_dict = {}
-    for column in df_for_scatter.columns:
-        values_dict[column] = list(df_for_scatter[column])
+        df_for_scatter = pd.DataFrame(data={'Actual Values': list(Y), 'Predicted Values': list(clf.predict(X)),
+                                            'Residuals': list(Y - clf.predict(X))})
+        values_dict = {}
+        for column in df_for_scatter.columns:
+            values_dict[column] = list(df_for_scatter[column])
 
-    if np.shape(X)[1] == 1:
-        coeffs = clf.coef_
+        if np.shape(X)[1] == 1:
+            coeffs = clf.coef_
+
+        else:
+            coeffs = np.squeeze(clf.coef_)
+
         inter = clf.intercept_
         df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
         df_names = pd.DataFrame(dataset.columns, columns=['variables'])
         df = pd.concat([df_names, df_coeffs], axis=1)
-        return {'skew': skew_res,
-                'kurtosis': kurt_res,
-                'Jarque Bera statistic':stat_jarq,
-                'Jarque-Bera p-value': p_jarq,
-                'Omnibus test statistic': omn_res_stat,
-                'Omnibus test p-value': omn_res_p,
-                'Durbin Watson': durb_res,
-                'actual_values': list(Y),
-                'predicted values': list(clf.predict(X)),
-                'residuals': list(Y-clf.predict(X)),
-                'coefficient of determination (R^2)':clf.score(X,Y),
-                'coefficients': coeffs.tolist(), 'intercept': inter.tolist(), 'dataframe': df.to_html(),
-                'values_dict': values_dict, 'values_columns': list(df_for_scatter.columns),
-                'values_df': df_for_scatter.to_html()}
-    else:
-        coeffs = np.squeeze(clf.coef_)
-        inter = clf.intercept_
-        df_coeffs = pd.DataFrame(coeffs, columns=['coefficients'])
-        df_names = pd.DataFrame(dataset.columns, columns=['variables'])
-        df = pd.concat([df_names, df_coeffs], axis=1)
-        return {'skew': skew_res,
-                'kurtosis': kurt_res,
-                'Jarque Bera statistic':stat_jarq,
-                'Jarque-Bera p-value': p_jarq,
-                'Omnibus test statistic': omn_res_stat,
-                'Omnibus test p-value': omn_res_p,
-                'Durbin Watson': durb_res,
-                'actual_values': list(Y),
-                'predicted values': list(clf.predict(X)),
-                'residuals': list(Y-clf.predict(X)),
-                'coefficient of determination (R^2)':clf.score(X,Y),
-                'coefficients': coeffs.tolist(), 'intercept': inter.tolist(),
-                'dataframe': df.to_html(), 'values_dict': values_dict, 'values_columns': list(df_for_scatter.columns),
-                'values_df': df_for_scatter.to_html()}
+        response = {'skew': skew_res,
+                    'kurtosis': kurt_res,
+                    'Jarque Bera statistic': stat_jarq,
+                    'Jarque-Bera p-value': p_jarq,
+                    'Omnibus test statistic': omn_res_stat,
+                    'Omnibus test p-value': omn_res_p,
+                    'Durbin Watson': durb_res,
+                    'actual_values': list(Y),
+                    'predicted values': list(clf.predict(X)),
+                    'residuals': list(Y - clf.predict(X)),
+                    'coefficient of determination (R^2)': clf.score(X, Y),
+                    'coefficients': coeffs.tolist(), 'intercept': inter.tolist(), 'dataframe': df.to_html(),
+                    'values_dict': values_dict, 'values_columns': list(df_for_scatter.columns),
+                    'values_df': df_for_scatter.to_html()}
+
+        df_for_scatter.to_csv(path_to_storage + '/output/sgd_preds.csv', index=False)
+        test_status = 'Unable to create info.json file'
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            # Load existing data into a dict.
+            file_data = json.load(f)
+            # Join new data
+            new_data = {
+                "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                "workflow_id": workflow_id,
+                "run_id": run_id,
+                "step_id": step_id,
+                "test_name": 'SGD Regression',
+                "test_params": {
+                    'dependent variable': dependent_variable,
+                    'independent variables': independent_variables,
+                    'alpha': alpha,
+                    'max iterations': max_iter,
+                    'epsilon': epsilon,
+                    'eta0': eta0,
+                    'l1_ratio': l1_ratio,
+                    'loss': loss,
+                    'learning rate': learning_rate,
+                    'penalty': penalty
+                },
+                "test_results": {'skew': skew_res,
+                                 'kurtosis': kurt_res,
+                                 'Jarque Bera statistic': stat_jarq,
+                                 'Jarque-Bera p-value': p_jarq,
+                                 'Omnibus test statistic': omn_res_stat,
+                                 'Omnibus test p-value': omn_res_p,
+                                 'Durbin Watson': durb_res,
+                                 'coefficient of determination (R^2)': clf.score(X, Y),
+                                 'coefficients': coeffs.tolist(), 'intercept': inter.tolist(),
+                                 'dataframe': df.to_dict()}
+            }
+            file_data['results'] = new_data
+            file_data['Output_datasets'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id + '/analysis_output' + '/sgd_preds.csv'}]
+            # Set file's current position at offset.
+            f.seek(0)
+            # convert back to json.
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        return JSONResponse(content={'status': 'Success', 'Result': response},
+                            status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status': test_status, 'Result': '[]'},
+                            status_code=200)
 
 @router.get("/huber_regression")
 async def huber_regressor(workflow_id: str, step_id: str, run_id: str,
