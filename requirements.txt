@@ -34,7 +34,7 @@ pingouin==0.5.2
 pip-chill==1.0.1
 plotly==5.14.0
 pmdarima==1.8.5
-pyactigraphy==1.0
+pyactigraphy==1.2.1
 pydocstyle==6.2.3
 pyedflib==0.1.30
 pylint==2.16.2
@@ -68,3 +68,4 @@ whatthepatch==1.0.4
 yapf==0.32.0
 yasa==0.6.1
 zepid==0.9.1
+ggseg==0.1

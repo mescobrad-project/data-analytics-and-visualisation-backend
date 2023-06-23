@@ -4793,6 +4793,8 @@ async def compute_mean(workflow_id: str,
             # Get mean values
             test_status = 'Unable to compute the average values for the selected columns'
             for column in dataset.columns:
+                print(str(column))
+                print(dataset[str(column)].dtype)
                 res = statisticsMean(column, dataset)
                 if (res!= -1):
                     df[column] = [res]
@@ -4917,7 +4919,6 @@ async def compute_mean(workflow_id: str,
                 if (res!= -1):
                     df[column] = [res]
                 else: df[column] = ["N/A"]
-
         test_status = 'Unable to create info.json file'
         with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
             # Load existing data into a dict.
