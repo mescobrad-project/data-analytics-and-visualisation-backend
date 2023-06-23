@@ -421,6 +421,8 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/ChooseFactors"
             case "GrangerAnalysis":
                 url_to_redirect += "/GrangerAnalysis"
+            case "PoissonRegression":
+                url_to_redirect += "/PoissonRegression"
             # Dashboard
             case "dashboard":
                 url_to_redirect += "/dashboard"
