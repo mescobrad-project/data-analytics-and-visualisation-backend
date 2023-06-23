@@ -2485,7 +2485,7 @@ async def linear_mixed_effects_model(workflow_id: str,
                 "col2": row[2],
                 "col3": row[3],
             }
-        tbl1_res.append(temp_to_append)
+            tbl1_res.append(temp_to_append)
         df_1 = df.tables[1]
         tbl2_res = []
         for ind, row in df_1.iterrows():
@@ -4188,10 +4188,73 @@ async def skewness_kurtosis(dependent_variable: str):
 
 
 @router.get("/z_score")
-async def z_score(dependent_variable: str):
-    x = data[dependent_variable]
+async def z_score(workflow_id: str,
+                  step_id: str,
+                  run_id: str,
+                  ddof: int | None = Query(default=0),
+                  nan_policy: Optional[str] | None = Query("propagate",
+                                                           regex="^(propagate)$|^(raise)$|^(omit)$"),
+                  dependent_variables: list[str] | None = Query(default=None)):
+    df = pd.DataFrame()
+    dfv = pd.DataFrame()
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
+    # Load Datasets
+    try:
+        test_status = 'Dataset is not defined'
+        dfv['variables'] = dependent_variables
+        dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
+        selected_datasources = pd.unique(dfv['Datasource'])
+        print(selected_datasources)
+        test_status = 'Unable to retrieve datasets'
+        selected_columns = pd.unique(dfv['Variable'])
+        print(selected_columns)
+        for ds in selected_datasources:
+            dataset = load_data_from_csv(path_to_storage + "/" + ds)
+            # Keep requested Columns
+            for columns in dataset.columns:
+                if columns not in selected_columns:
+                    dataset = dataset.drop(str(columns), axis=1)
+            # Get min values
+            test_status = 'Unable to compute the z score values for the selected columns'
+            for column in dataset.columns:
+                try:
+                    df[column] = zscore(dataset[column], ddof=ddof, nan_policy=nan_policy)
+                except:
+                    df[column] = np.nan
 
-    z_score_res = zscore(x)
+        test_status = 'Unable to create info.json file'
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            # Load existing data into a dict.
+            file_data = json.load(f)
+            # Join new data
+            new_data = {
+                "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                "workflow_id": workflow_id,
+                "run_id": run_id,
+                "step_id": step_id,
+                "test_name": 'Z score',
+                "test_params": dependent_variables,
+                "test_results": df.to_dict()
+            }
+            file_data['results'] = new_data
+            file_data['Output_datasets'] = []
+            # Set file's current position at offset.
+            f.seek(0)
+            # convert back to json.
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        return JSONResponse(content={'status': 'Success', 'Dataframe': df.to_json(orient="records")},
+                            status_code=200)
+
+    except Exception as e:
+        df["Error"] = test_status
+        print(e)
+        return JSONResponse(content={'status': test_status, 'Dataframe': df.to_json(orient="records")},
+                            status_code=200)
+    # x = data[dependent_variable]
+    #
+    # z_score_res = zscore(x)
 
     return {'z_score': list(z_score_res)}
 
@@ -5162,6 +5225,8 @@ async def compute_mean(workflow_id: str,
             # Get mean values
             test_status = 'Unable to compute the average values for the selected columns'
             for column in dataset.columns:
+                print(str(column))
+                print(dataset[str(column)].dtype)
                 res = statisticsMean(column, dataset)
                 if (res!= -1):
                     df[column] = [res]
@@ -5286,7 +5351,6 @@ async def compute_mean(workflow_id: str,
                 if (res!= -1):
                     df[column] = [res]
                 else: df[column] = ["N/A"]
-
         test_status = 'Unable to create info.json file'
         with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
             # Load existing data into a dict.
