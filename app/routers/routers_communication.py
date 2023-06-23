@@ -13,7 +13,7 @@ from app.utils.utils_general import create_local_step
 router = APIRouter()
 
 WFAddress = os.environ.get('WFAddress') if os.environ.get(
-    'WFAddress') else "http://100.0.0.1:8000"
+    'WFAddress') else "https://esbk.platform.mes-cobrad.eu"
 
 TestRunId = os.environ.get('TestRunId') if os.environ.get(
     'TestRunId') else "fe2b0997-6974-4fee-9178-a3291ea1744c"
@@ -25,7 +25,7 @@ NeurodesktopStorageLocation = os.environ.get('NeurodesktopStorageLocation') if o
     'NeurodesktopStorageLocation') else "/neurodesktop-storage"
 
 FrontendAddress = os.environ.get('FrontendAddress') if os.environ.get(
-    'FrontendAddress') else "http://localhost:3000"
+    'FrontendAddress') else "http://localhost:3005"
 
 ExistingFunctions = [
     # EEG
@@ -128,6 +128,12 @@ ExistingFunctions = [
     "general_stats_average",
     "general_stats_min",
     "general_stats_max",
+    "general_stats_zscore",
+    'actigraphy_cosinor',
+    'actigraphy_metrics',
+    "GeneralizedEstimatingEquations",
+    "ChooseFactors",
+    "GrangerAnalysis",
     # Dashboard
     "dashboard",
 ]
@@ -158,22 +164,51 @@ async def test_task_ping() -> dict:
     return {'test': "test"}
 
 # TODO
-@router.get("/test/task/complete", tags=["test_task_complete"])
-async def test_task_complete() -> dict:
+# @router.get("/test/task/complete", tags=["test_task_complete"])
+# async def test_task_complete(run_id: str,
+#                              step_id: str) -> dict:
+#     # channels = data.ch_names
+#     print(WFAddress)
+#     headers = {"Content-Type": "application/json"}
+#
+#     saved_files = []
+#     # saved files should be the same as those upload in a previous step or the call should happen here
+#     # TODO
+#     data = {
+#         "datalake" : saved_files,
+#         # "trino:": [        ],
+#     }
+#     url = WFAddress + "/run/" + run_id + "/step/" + step_id + "/task/script/complete"
+#     print(url)
+#     response = requests.put(url=url, data=data, headers=headers)
+#     print("Test Response: Task Ping")
+#     print(response)
+#
+#     return {'test': response}
+
+
+@router.get("/task/complete", tags=["test_task_complete"])
+async def task_complete(run_id: str,
+                             step_id: str) -> dict:
     # channels = data.ch_names
     print(WFAddress)
     headers = {"Content-Type": "application/json"}
+
+    saved_files = []
     data = {
-        "action": "complete",
-        "metadata": {}
+        "data": {
+            "datalake": saved_files,
+            "trino": []
+        }
     }
-    url = WFAddress + "/run/" + TestRunId + "/step/" + TestStepId
+
+    url = WFAddress + "/run/" + run_id + "/step/" + step_id + "/task/script/complete"
     print(url)
-    response = requests.put(url=url, data=data, headers=headers)
+    response = requests.patch(url=url, data=data, headers=headers)
     print("Test Response: Task Ping")
     print(response)
 
-    return {'test': "test"}
+    return {'test': response}
 
 
 @router.put("/function/navigation/", tags=["function_navigation"])
@@ -229,6 +264,12 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/actigraphy"
             case "actigraphy_viewer_general":
                 url_to_redirect += "/actigraphy/general"
+            case "actigraphy_page":
+                url_to_redirect += "/actigraphy_page"
+            case "actigraphy_cosinor":
+                url_to_redirect += "/Actigraphy_Cosinor"
+            case "actigraphy_metrics":
+                url_to_redirect += "/Actigraphy_Metrics"
             #  MRI
             case "mri_viewer":
                 url_to_redirect += "/mri"
@@ -377,6 +418,12 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect +="/General_Stats_Min"
             case "general_stats_max":
                 url_to_redirect +="/General_Stats_Max"
+            case "general_stats_zscore":
+                url_to_redirect += "/General_Stats_Zscore"
+            case "ChooseFactors":
+                url_to_redirect += "/ChooseFactors"
+            case "GrangerAnalysis":
+                url_to_redirect += "/GrangerAnalysis"
             # Dashboard
             case "dashboard":
                 url_to_redirect += "/dashboard"
