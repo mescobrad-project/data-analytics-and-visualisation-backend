@@ -284,3 +284,4 @@ dist
 .ionide
 
 /anvizenv
+/example_data/NIA test.edf

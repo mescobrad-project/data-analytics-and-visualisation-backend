@@ -1,0 +1,28 @@
+version: '3.7'
+
+services:
+  neurodesktop:
+    privileged: true
+    container_name: neurodesktop
+    build:
+      context: "."
+      dockerfile: Dockerfile
+    volumes:
+      - neurodesk-volume:/MES-CoBraD Input
+      - '/home/ntua/neurodesktop-storage:/neurodesktop-storage'
+    ports:
+      - '8081:8080'
+    networks:
+      - mri-freesurfer-network
+    shm_size: 1gb
+
+
+networks:
+  mri-freesurfer-network:
+    name: mri-freesurfer-network
+    driver: bridge
+
+volumes:
+  neurodesk-volume:
+    driver: local
+    name: neurodesk-volume

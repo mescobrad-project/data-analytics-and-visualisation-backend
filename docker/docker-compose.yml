@@ -1,0 +1,52 @@
+version: '3.7'
+
+services:
+  neurodesktop:
+    privileged: true
+    container_name: neurodesktop
+    build:
+      context: "./docker_neurodesk"
+      dockerfile: Dockerfile
+    volumes:
+      - neurodesk-volume:/MES-CoBraD Input
+      - 'C:/neurodesktop-storage:/neurodesktop-storage'
+    ports:
+      - '8080:8080'
+    networks:
+      - mri-freesurfer-network
+    shm_size: 1gb
+
+  analytics-backend:
+    build:
+      context: ".."
+      dockerfile: ./docker/Dockerfile
+    hostname: analytics_backend
+    container_name: analytics_backend
+    restart: always
+    environment:
+      WFAddress: expertsystem_web_1
+      NeurodesktopStorageLocation: /neurodesktop-storage
+      NeurodesktopPort: 8080
+      FrontendAddress: http://localhost:3005
+    volumes:
+      - 'C:\neurodesktop-storage:/neurodesktop-storage'
+    ports:
+      - "8000:8000"
+    depends_on:
+      - neurodesktop
+    networks:
+      - mri-freesurfer-network
+      - analytics-network
+
+networks:
+  analytics-network:
+    name: analytics-network
+    driver: bridge
+  mri-freesurfer-network:
+    name: mri-freesurfer-network
+    driver: bridge
+
+volumes:
+  neurodesk-volume:
+    driver: local
+    name: neurodesk-volume
