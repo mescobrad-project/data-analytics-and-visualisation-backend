@@ -5261,7 +5261,7 @@ async def compute_mean(workflow_id: str,
                             status_code=200)
 
 @router.get("/compute_min")
-async def compute_mean(workflow_id: str,
+async def compute_min(workflow_id: str,
                                  step_id: str,
                                  run_id: str,
                                  variables: list[str] | None = Query(default=None)):
@@ -5321,7 +5321,7 @@ async def compute_mean(workflow_id: str,
                                 status_code=200)
 
 @router.get("/compute_max")
-async def compute_mean(workflow_id: str,
+async def compute_max(workflow_id: str,
                                  step_id: str,
                                  run_id: str,
                                  variables: list[str] | None = Query(default=None)):
