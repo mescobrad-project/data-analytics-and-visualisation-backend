@@ -69,8 +69,7 @@ def get_local_neurodesk_storage_path(workflow_id, run_id, step_id):
     return NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id + '/neurodesk_interim_storage'
 
 def load_data_from_csv(file_with_path):
-    """This functions returns data from an edf file with the use of the MNE library
-        This functions returns file with infer types enabled
+    """This function read csv file using pandas library and return data as pandas dataframe
     """
     data = pd.read_csv(file_with_path)
     return data
