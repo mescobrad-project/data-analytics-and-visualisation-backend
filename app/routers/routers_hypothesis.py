@@ -5369,7 +5369,7 @@ async def compute_min(workflow_id: str,
                                 status_code=200)
 
 @router.get("/compute_std")
-async def compute_mean(workflow_id: str,
+async def compute_std(workflow_id: str,
                        step_id: str,
                        run_id: str,
                        ddof: int | None = Query(default=0),
