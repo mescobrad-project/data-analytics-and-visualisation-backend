@@ -1,7 +1,10 @@
+import csv
 import os
 from datetime import datetime
 import json
 from os.path import isfile, join
+
+from matplotlib import image as mpimg
 from mne.stats import permutation_cluster_test
 from tensorpac import Pac
 import pingouin as pg
@@ -1355,17 +1358,18 @@ async def return_predictions(workflow_id: str, step_id: str, run_id: str,input_n
     return {'Channel not found'}
 
 @router.get("/sleep_stage_classification", tags=["sleep_stage_classification"])
-async def sleep_stage_classify(workflow_id: str, step_id: str, run_id: str,
-                               eeg_name: str,
-                               eog_name: str | None = Query(default=None),
-                               emg_name: str | None = Query(default=None),
+async def sleep_stage_classify(workflow_id: str,
+                               step_id: str,
+                               run_id: str,
+                               eeg_chanel_name: str,
+                               eog_channel_name: str | None = Query(default=None),
+                               emg_channel_name: str | None = Query(default=None),
                                file_used: str | None = Query("original", regex="^(original)$|^(printed)$")):
 
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
-
     data = load_file_from_local_or_interim_edfbrowser_storage(file_used, workflow_id, run_id, step_id)
 
-    sls = SleepStaging(data, eeg_name=eeg_name, eog_name=eog_name, emg_name=emg_name)
+    sls = SleepStaging(data, eeg_name=eeg_chanel_name, eog_name=eog_channel_name, emg_name=emg_channel_name)
 
     y_pred = sls.predict()
 
@@ -1375,11 +1379,13 @@ async def sleep_stage_classify(workflow_id: str, step_id: str, run_id: str,
 
     df_pred = pd.DataFrame({'Stage': y_pred, 'Confidence': confidence})
 
-    df.to_csv(path_to_storage + '/output/new_dataset_1.csv', index=False)
-    df_pred.to_csv(path_to_storage + '/output/new_dataset.csv', index=False)
+    df.to_csv(path_to_storage + '/output/sleep_stage.csv', index=False)
+    df_pred.to_csv(path_to_storage + '/output/sleep_stage_confidence.csv', index=False)
 
-    return {'Predicted probability for each sleep stage for each 30-sec epoch of data': df.to_json(orient='split'),
-            'dataframe with the predicted stages and confidence': df_pred.to_json(orient='split')}
+    df['id'] = df.index
+    df_pred['id'] = df_pred.index
+    return {'sleep_stage': df.to_json(orient='records'), # Predicted probability for each sleep stage for each 30-sec epoch of data
+            'sleep_stage_confidence': df_pred.to_json(orient='records')} # dataframe with the predicted stages and confidence
 
 # Spindles detection
 @router.get("/spindles_detection")
@@ -2387,6 +2393,8 @@ async def back_average(
         time_after_event: float | None = None,
         min_ptp_amplitude: float | None = None,
         max_ptp_amplitude: float | None = None,
+        volt_display_minimum: float | None = None,
+        volt_display_maximum: float | None = None,
         annotation_name: str | None = None,
 ):
     """This function applies a back average"""
@@ -2400,7 +2408,17 @@ async def back_average(
     # Apply epochs without any baseline correction
     # This function uses only the channels that are marked as "data" in the montage
     # epochs = mne.Epochs(raw = data, picks= "data" ,events = events[0], tmin = time_before_event, tmax = time_after_event, reject= {'eeg':max_ptp_amplitude}, flat= {'eeg' :min_ptp_amplitude}, baseline=None)
-    epochs = mne.Epochs(raw = data, picks=input_name,events = events[0],tmin = time_before_event, tmax = time_after_event, baseline=None)
+    # Get list of channel names in edf of files of type eeg and emg
+    # data = data.pick()
+    print("TEST")
+    raw_data = data.get_data()
+    print(raw_data[1])
+
+    # epochs = mne.Epochs(raw=data, picks=['emg', 'eeg'], events = events[0],tmin = time_before_event, tmax = time_after_event, baseline=None)
+    epochs = mne.Epochs(raw=data, picks=['eeg'], events = events[0],tmin = time_before_event, tmax = time_after_event,  reject= {'eeg':max_ptp_amplitude}, flat= {'eeg' :min_ptp_amplitude}, reject_tmin=time_before_event, reject_tmax=time_after_event, baseline=None)
+
+    # epochs = mne.Epochs(raw = data, picks="data",events = events[0],tmin = time_before_event, tmax = time_after_event, baseline=None)
+
     print(epochs)
     raw_data = epochs.get_data()
     print(raw_data)
@@ -2408,15 +2426,55 @@ async def back_average(
     # epochs.plot(picks=["F4-Ref"], show=True)
     # evoked = epochs.average()
 
+    # number_of_applicable_channels = len(epochs.ch_names)
+    plt.figure()
+    plt.rcParams["figure.figsize"] = (20, 200)
+    # fig, axs = plt.subplots(number_of_applicable_channels, sharex=True, sharey=True)
+    # plt.rcParams['figure.figsize'] = [80, 80]
+    created_plots = []
+    for channel in epochs.ch_names:
+        evoked = epochs.average(picks=[channel], by_event_type=False)
+        print(channel)
+        print("volt_display_minimum")
+        print(volt_display_minimum)
+        fig_evoked = evoked.plot(titles=channel, ylim=dict(eeg=[volt_display_minimum, volt_display_maximum]))
+        fig_evoked.savefig(get_local_storage_path(workflow_id, step_id, run_id) + "/output/" + 'temp_plot_'+channel+'.png')
+        created_plots.append(get_local_storage_path(workflow_id, step_id, run_id) + "/output/" + 'temp_plot_'+channel+'.png')
+
 
     # epochs.plot_image
-    evoked = epochs.average(picks=input_name, by_event_type=False)
+    evoked = epochs.average(picks="data", by_event_type=False)
     plot = evoked.plot(show=True)
     plot.savefig(get_local_storage_path(workflow_id, step_id, run_id) + "/output/" + 'back_average_plot.png')
+
+    # evoked = epochs.average(picks="F4-Ref", by_event_type=False)
+    # plot = evoked.plot(show=True)
+    # plot.savefig(get_local_storage_path(workflow_id, step_id, run_id) + "/output/" + 'back_average_plot_f4.png', bbox_inches='tight')
+
+    # for ax, channel in zip(axs,epochs.ch_names):
+    #     evoked = epochs.average(picks=channel, by_event_type=False)
+    #     evoked.plot(tit)
+    print("Reached HERE")
+    print(type(created_plots))
+    print(created_plots)
+
+    fig = plt.figure(figsize=(10,10))
+    fig, axs = plt.subplots(len(created_plots),1)
+
+    for ax, created_plot in zip(axs, created_plots):
+        img = mpimg.imread(created_plot)
+        # print("REACXHED HERE TOO")
+        # print(img)
+        ax.imshow(img)
+        ax.axis('off')  # to hide axis
+
+    plt.savefig(get_local_storage_path(workflow_id, step_id, run_id) + "/output/" + 'back_average_plot.png', bbox_inches='tight' )
+    plt.show()
     # plot.savefig(NeurodesktopStorageLocation + '/back_average_plot.png')
     print(evoked)
 
     # mne.viz.plot_evoked(evoked, show=True)
-
-    return True
+    to_return = {}
+    to_return["channels"] = epochs.ch_names
+    return to_return
 

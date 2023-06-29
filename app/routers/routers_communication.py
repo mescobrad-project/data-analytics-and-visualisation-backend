@@ -96,6 +96,7 @@ ExistingFunctions = [
     "RidgeRegression",
     "SGDRegression",
     "HuberRegression",
+    "sleep_stage_classification",
     "survivalanalysisriskratiosimple",
     "survivalanalysisriskratiodataset",
     "survivalanalysisriskdifferencesimple",
@@ -255,6 +256,8 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/spectogram_bandpower"
             case "slowwave_spindle":
                 url_to_redirect += "/slowwave_spindle"
+            case "sleep_stage_classification":
+                url_to_redirect += "/sleep_stage_classification"
             case "eeg_viewer":
                 url_to_redirect += "/eeg"
             case "eeg_viewer_old":
@@ -430,6 +433,8 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/ChooseFactors"
             case "GrangerAnalysis":
                 url_to_redirect += "/GrangerAnalysis"
+            case "PoissonRegression":
+                url_to_redirect += "/PoissonRegression"
             # Dashboard
             case "dashboard":
                 url_to_redirect += "/dashboard"
