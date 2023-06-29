@@ -2477,4 +2477,3 @@ async def back_average(
     to_return = {}
     to_return["channels"] = epochs.ch_names
     return to_return
-

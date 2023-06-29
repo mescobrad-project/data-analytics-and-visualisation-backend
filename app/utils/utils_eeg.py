@@ -3,6 +3,7 @@ import mne
 # TODO Maybe should change to handle all eeg file like fif and any other
 import pandas as pd
 
+# from app.routers.routers_eeg import list_channels_slowwave
 from app.utils.utils_general import get_local_neurodesk_storage_path, get_single_file_from_neurodesk_interim_storage, \
     get_local_storage_path, get_single_file_from_local_temp_storage, load_data_from_csv
 
@@ -59,5 +60,70 @@ def convert_yasa_sleep_stage_to_general(path_to_file):
     # print(new_data)
 
 
+def convert_generic_sleep_score_to_annotation(path_to_file, workflow_id, run_id, step_id):
+    # Load data from csv
+    data_sleep_score = load_data_from_csv(path_to_file)
 
-convert_yasa_sleep_stage_to_general("C:\\neurodesktop-storage\\runtime_config\\workflow_1\\run_1\\step_5\\output\\sleep_stage_confidence.csv")
+    # Convert dataframe to list
+    data_sleep_score = data_sleep_score["stage"].values.tolist()
+
+    #load edf file
+    edf_data = load_file_from_local_or_interim_edfbrowser_storage("original", workflow_id, run_id, step_id)
+
+    # Initialise mne annotations
+    annotations = mne.Annotations(onset=[], duration=[], description=[])
+
+    current_time = 0
+    print(data_sleep_score)
+    for sleep_score in  data_sleep_score:
+        if sleep_score == 0:
+            annotations.append(onset=current_time, duration=30, description="W")
+        elif sleep_score == 1:
+            annotations.append(onset=current_time, duration=30, description="N1")
+        elif sleep_score == 2:
+            annotations.append(onset=current_time, duration=30, description="N2")
+        elif sleep_score == 3:
+            annotations.append(onset=current_time, duration=30, description="N3")
+        elif sleep_score == 4:
+            annotations.append(onset=current_time, duration=30, description="R")
+        else:
+            print("Error: Sleep score not recognised")
+
+        current_time += 30
+    print(annotations)
+    edf_data.set_annotations(annotations)
+
+    # Get the channel types
+    channel_types = edf_data.get_channel_types()
+
+    # Get the physical maximum and minimum values for each channel type
+    lowest_minimum_value = 0.0
+    highest_maximum_value = 0.0
+    for ch_type in set(channel_types):
+        if ch_type=='stim':
+            continue
+        ch_indices = [i for i, ch in enumerate(channel_types) if ch == ch_type]
+        print(edf_data[ch_indices, :])
+        for inner_ch in edf_data[ch_indices, :]:
+            phys_min, phys_max = inner_ch.min(), inner_ch.max()
+            print("Channel type:", ch_type)
+            print("Physical minimum:", phys_min)
+            print("Physical maximum:", phys_max)
+            if phys_min < lowest_minimum_value:
+                lowest_minimum_value = phys_min
+            if phys_max > highest_maximum_value:
+                highest_maximum_value = phys_max
+
+
+    print("Lowest minimum value:", lowest_minimum_value)
+    print("Highest maximum value:", highest_maximum_value)
+    # print(edf_data.get_data_range())
+
+    mne.export.export_raw(raw= edf_data, fname=get_local_storage_path(workflow_id, run_id, step_id) + "/output/new_annot_edf.edf", physical_range=(lowest_minimum_value*1000000,highest_maximum_value*1000000), verbose=True, overwrite=True)
+    # edf_data.save(path_to_storage = get_local_neurodesk_storage_path(workflow_id, run_id, step_id) + "/output/annotations.fif", overwrite=True)
+    # print(new_data)
+# mne.datasets.sample.data_path()
+# convert_yasa_sleep_stage_to_general("C:\\neurodesktop-storage\\runtime_config\\workflow_1\\run_1\\step_5\\output\\sleep_stage_confidence.csv")
+# convert_generic_sleep_score_to_annotation("C:\\neurodesktop-storage\\runtime_config\\workflow_1\\run_1\\step_5\\output\\new_old.csv", "1", "1", "1")
+
+# list_channels_slowwave("1", "1", "1")
