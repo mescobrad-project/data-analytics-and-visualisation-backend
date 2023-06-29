@@ -130,6 +130,8 @@ ExistingFunctions = [
     "general_stats_min",
     "general_stats_max",
     "general_stats_zscore",
+    "general_stats_Cov",
+    "general_stats_Std",
     'actigraphy_cosinor',
     'actigraphy_metrics',
     "GeneralizedEstimatingEquations",
@@ -423,6 +425,10 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect +="/General_Stats_Max"
             case "general_stats_zscore":
                 url_to_redirect += "/General_Stats_Zscore"
+            case "general_stats_Std":
+                url_to_redirect += "/General_Stats_Std"
+            case "general_stats_Cov":
+                url_to_redirect += "/General_Stats_Cov"
             case "ChooseFactors":
                 url_to_redirect += "/ChooseFactors"
             case "GrangerAnalysis":

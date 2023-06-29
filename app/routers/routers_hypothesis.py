@@ -59,7 +59,7 @@ import os
 from os.path import isfile, join
 
 from app.utils.utils_hypothesis import create_plots, compute_skewness, outliers_removal, compute_kurtosis, \
-    statisticsMean, statisticsMin, statisticsMax
+    statisticsMean, statisticsMin, statisticsMax, statisticsStd, statisticsCov
 
 router = APIRouter()
 data = pd.read_csv('example_data/mescobrad_dataset.csv')
@@ -4419,15 +4419,63 @@ async def covariance(workflow_id: str,
                      ddof : int | None = Query(default=0),
                      independent_variables: list[str] | None = Query(default=None)):
 
-    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+    # dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+    df = pd.DataFrame()
+    dfv = pd.DataFrame()
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
+    # Load Datasets
+    try:
+        test_status = 'Dataset is not defined'
+        dfv['variables'] = independent_variables
+        dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
 
-    for columns in dataset.columns:
-        if columns not in independent_variables:
-            dataset = dataset.drop(str(columns), axis=1)
+        selected_datasources = pd.unique(dfv['Datasource'])
+        test_status = 'Unable to retrieve datasets'
+        dataset = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
+        # Keep requested Columns
+        selected_columns = pd.unique(dfv['Variable'])
+        for columns in dataset.columns:
+            if columns not in selected_columns:
+                dataset = dataset.drop(str(columns), axis=1)
+        test_status = 'Unable to compute the Covariance matrix for the selected columns'
+        res = statisticsCov(dataset, ddof)
+        if len(res) >= 1:
+            df = pd.DataFrame(res, columns=dataset.columns)
+        else:
+            df = ["N/A"]
+        test_status = 'Unable to create info.json file'
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            # Load existing data into a dict.
+            file_data = json.load(f)
+            # Join new data
+            new_data = {
+                    "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                    "workflow_id": workflow_id,
+                    "run_id": run_id,
+                    "step_id": step_id,
+                    "test_name": 'Covariance matrix',
+                    "test_params": independent_variables,
+                    "test_results":df.to_dict()
+            }
+            file_data['results'] = new_data
+            file_data['Output_datasets'] = []
+            # Set file's current position at offset.
+            f.seek(0)
+            # convert back to json.
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        return JSONResponse(content={'Dataframe': df.to_json(orient="records")},
+                                status_code=200)
+    except Exception as e:
+        df["Error"] = test_status
+        print(e)
+        return JSONResponse(content={'Dataframe': df.to_json(orient="records")},
+                                status_code=200)
 
-    r = cov(dataset, ddof=ddof)
-
-    return {'Covariance Matrix': r.tolist()}
+    # r = cov(dataset, ddof=ddof)
+    #
+    # return {'Covariance Matrix': r.tolist()}
 
 @router.get("/choose_number_of_factors")
 async def choose_number_of_factors(workflow_id: str,
@@ -5302,6 +5350,67 @@ async def compute_min(workflow_id: str,
                     "run_id": run_id,
                     "step_id": step_id,
                     "test_name": 'Min',
+                    "test_params": variables,
+                    "test_results":df.to_dict()
+            }
+            file_data['results'] = new_data
+            file_data['Output_datasets'] = []
+            # Set file's current position at offset.
+            f.seek(0)
+            # convert back to json.
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        return JSONResponse(content={'Dataframe': df.to_json(orient="records")},
+                                status_code=200)
+    except Exception as e:
+        df["Error"] = test_status
+        print(e)
+        return JSONResponse(content={'Dataframe': df.to_json(orient="records")},
+                                status_code=200)
+
+@router.get("/compute_std")
+async def compute_std(workflow_id: str,
+                       step_id: str,
+                       run_id: str,
+                       ddof: int | None = Query(default=0),
+                       variables: list[str] | None = Query(default=None)):
+    df = pd.DataFrame()
+    dfv = pd.DataFrame()
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
+    # Load Datasets
+    try:
+        test_status = 'Dataset is not defined'
+        dfv['variables'] = variables
+        dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
+
+        selected_datasources = pd.unique(dfv['Datasource'])
+        test_status = 'Unable to retrieve datasets'
+        for ds in selected_datasources:
+            dataset = load_data_from_csv(path_to_storage + "/" + ds)
+            # Keep requested Columns
+            selected_columns = pd.unique(dfv['Variable'])
+            for columns in dataset.columns:
+                if columns not in selected_columns:
+                    dataset = dataset.drop(str(columns), axis=1)
+            # Get min values
+            test_status = 'Unable to compute the Std for the selected columns'
+            for column in dataset.columns:
+                res = statisticsStd(column, dataset, ddof)
+                if (res!= -1):
+                    df[column] = [res]
+                else: df[column] = ["N/A"]
+        test_status = 'Unable to create info.json file'
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            # Load existing data into a dict.
+            file_data = json.load(f)
+            # Join new data
+            new_data = {
+                    "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                    "workflow_id": workflow_id,
+                    "run_id": run_id,
+                    "step_id": step_id,
+                    "test_name": 'Std',
                     "test_params": variables,
                     "test_results":df.to_dict()
             }
