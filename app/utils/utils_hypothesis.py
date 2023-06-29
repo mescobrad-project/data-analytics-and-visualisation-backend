@@ -207,6 +207,9 @@ def statisticsCov(selected_dataframe, ddof):
     try:
         # df2 = selected_dataframe.dropna(subset=[str(column)])
         result = cov(selected_dataframe, ddof=ddof)
+        # Just to check if the result is the same
+        # print(result)
+        # print(np.cov(selected_dataframe.transpose(), ddof=ddof))
         return result
     except Exception as e:
         print(e)
