@@ -128,3 +128,23 @@ def load_stats_measurements_measures(stats_path) -> dict:
         print("File has wrong format in Measure")
         return {"measurements": pd.DataFrame()}
     return {"measurements": measure_dict}
+"""
+def download_mri_dataset(workflow_id, run_id, step_id, bucket, file):
+    print("CREATING LOCAL STEP")
+    print(file)
+    path_to_save = NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id
+    os.makedirs(path_to_save, exist_ok=True)
+    os.makedirs(path_to_save + '/output', exist_ok=True)
+    os.makedirs(path_to_save + '/neurodesk_interim_storage', exist_ok=True)
+    # Download all files indicated
+    file_location_path = path_to_save + "/" + file_to_download["file"]
+        if "/" in file_location_path:
+            file_location_path = NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id + '/'+ file_location_path.split("/")[-1]
+
+        print("file_location_path")
+        get_saved_dataset_for_Hypothesis(bucket_name=file_to_download["bucket"], object_name=file_to_download["file"], file_location=file_location_path)
+    # Info file might be unneeded
+    with open( path_to_save + '/output/info.json', 'w', encoding='utf-8') as f:
+        json.dump({"selected_datasets":files_to_download, "results":{}}, f)
+        pass
+"""

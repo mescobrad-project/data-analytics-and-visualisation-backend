@@ -13,13 +13,19 @@ import mne
 import matplotlib.pyplot as plt
 import mpld3
 import numpy as np
-
+from fastapi.responses import JSONResponse
+from os.path import isfile, join
+import shutil
+import tempfile
+from app.utils.utils_general import create_local_step
 
 from app.utils.utils_general import validate_and_convert_peaks, validate_and_convert_power_spectral_density, \
     create_notebook_mne_plot, get_neurodesk_display_id, get_local_storage_path, get_single_file_from_local_temp_storage, \
     NeurodesktopStorageLocation, get_local_neurodesk_storage_path
 
 from app.utils.utils_mri import load_stats_measurements_table, load_stats_measurements_measures, plot_aseg
+
+from app.utils.utils_datalake import upload_object
 
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -30,7 +36,20 @@ from yasa import spindles_detect
 
 import paramiko
 
+from pydantic import BaseModel
+
+
 router = APIRouter()
+
+class FunctionOutputItem(BaseModel):
+    """
+    Known metadata information
+    "files" : [["run_id: "string" , "step_id": "string"], "output":"string"]
+     """
+    workflow_id:str
+    run_id: str
+    step_id: str
+    # file: str
 
 
 @router.get("/list/mri/slices", tags=["list_mri_slices"])
@@ -541,3 +560,37 @@ async def return_aseg_stats(workflow_id: str,
                     ylabel='Volume (mm3)', title='Volume of Subcortical Regions')
 
         return 'OK'
+
+@router.put("/reconall_files_to_datalake")
+async def reconall_files_to_datalake(workflow_id: str,
+                                step_id: str,
+                                run_id: str) -> str :
+    try:
+        path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+        tmpdir = tempfile.mkdtemp()
+        output_filename = os.path.join(tmpdir, 'ucl_test')
+        print(output_filename)
+        print(shutil.make_archive(output_filename, 'zip', root_dir=path_to_storage, base_dir='output/ucl_test'))
+        upload_object(bucket_name="saved", object_name='expertsystem/workflow/'+ workflow_id+'/'+ run_id+'/'+
+                                                          step_id+'/output/ucl_test.zip', file=output_filename + '.zip')
+
+        return JSONResponse(content='zip file has been successfully uploaded to the DataLake', status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content='Error in saving zip file to the DataLake',status_code=501)
+
+@router.get("/reconall_files_to_local")
+async def reconall_files_to_local(workflow_id: str,
+                                step_id: str,
+                                run_id: str) -> str :
+    try:
+        path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+        if not os.path.exists(path_to_storage + "/output/ucl_test"):
+            create_local_step(workflow_id=workflow_id, step_id=step_id, run_id=run_id, files_to_download=[{'bucket' : 'saved', 'file' :
+                'expertsystem/workflow/'+ workflow_id+'/'+ run_id+'/'+ step_id+'/output/ucl_test.zip'}])
+            shutil.unpack_archive(path_to_storage + "/ucl_test.zip", path_to_storage)
+            os.remove(path_to_storage + "/ucl_test.zip")
+        return{'ok'}
+    except Exception as e:
+        print(e)
+        return{'error'}
