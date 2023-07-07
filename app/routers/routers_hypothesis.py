@@ -60,6 +60,8 @@ from os.path import isfile, join
 
 from app.utils.utils_hypothesis import create_plots, compute_skewness, outliers_removal, compute_kurtosis, \
     statisticsMean, statisticsMin, statisticsMax, statisticsStd, statisticsCov
+from semopy.examples import multivariate_regression, political_democracy
+from semopy import Model, estimate_means, ModelMeans, semplot, calc_stats, gather_statistics, Optimizer
 
 router = APIRouter()
 data = pd.read_csv('example_data/mescobrad_dataset.csv')
@@ -5585,3 +5587,87 @@ async def compute_tsne(workflow_id: str,
 
     return {'transformed': df.to_json(orient='split'), 'embeddings_vector':df_embedding.to_json(orient='split'),
             'Kullback-Leibler divergence after optimization': transformer.kl_divergence_}
+
+
+@router.get("/SEM_Optimization")
+async def Structural_Equation_Models_Optimization(
+        workflow_id: str,
+        step_id: str,
+        run_id: str,
+        file:str,
+        model: str):
+    # desc = multivariate_regression.get_model()
+    # print(desc)
+    #
+    # desc = political_democracy.get_model()
+    # print(desc)
+
+    dfv = pd.DataFrame()
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
+    try:
+        if file is None:
+            test_status = 'Dataset is not defined'
+            raise Exception
+        test_status = 'Unable to load the Dataset'
+        # We expect only one here
+        data = load_data_from_csv(path_to_storage + "/" + file)
+        print('model')
+        print(model)
+        print((data.columns))
+        test_status = 'Unable to load Model'
+        m = Model(model)
+        # print(data.head())
+        test_status = 'Preparing to fit the model to the data'
+        r = m.fit(data)
+        print('fitted--------')
+        print(r)
+        ins = m.inspect()
+        print('inspect--------')
+        print(type(ins))
+        print(ins)
+        # Internet
+        opt = Optimizer(m)
+        objective_function_value = opt.optimize()
+        print('objective_function_value')
+        print(objective_function_value)
+        stats = gather_statistics(opt)
+        print('stats--------')
+        print(type(stats))
+        print(stats)
+
+        means = estimate_means(m)
+        print('means--------')
+        print(type(means))
+        print(means)
+        m = ModelMeans(model)
+        m.fit(data)
+        m.inspect()
+        print('m.inspect()--------')
+        print(type(m.inspect()))
+        print(m.inspect())
+        factors = m.predict_factors(data)
+        print('factors--------')
+        print(type(factors))
+        print(factors.head())
+        calc_stats(m)
+        print('calc_stats--------')
+        print(type(calc_stats(m)))
+        print(calc_stats(m))
+        robust = m.inspect(se_robust=True)
+        print('robust--------')
+        print(type(robust))
+        print(robust)
+
+        g = semplot(m, filename='t.pdf')
+        # g
+        print('g--------')
+        print(type(g))
+        print(g)
+
+        return JSONResponse(content={'status': 'Success','fit_results':str(r), 'graph':str(g)},
+                            status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status': test_status+"\n"+e.__str__(),'fit_results':'', 'graph':""},
+                            status_code=200)
