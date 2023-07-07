@@ -137,6 +137,7 @@ ExistingFunctions = [
     "GeneralizedEstimatingEquations",
     "ChooseFactors",
     "GrangerAnalysis",
+    "structural_equation_models_optimization",
     # Dashboard
     "dashboard",
 ]
@@ -435,6 +436,8 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/GrangerAnalysis"
             case "PoissonRegression":
                 url_to_redirect += "/PoissonRegression"
+            case "structural_equation_models_optimization":
+                url_to_redirect += "/Structural_Equation_Models_Optimization"
             # Dashboard
             case "dashboard":
                 url_to_redirect += "/dashboard"
