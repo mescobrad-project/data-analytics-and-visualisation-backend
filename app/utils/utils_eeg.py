@@ -56,7 +56,8 @@ def convert_yasa_sleep_stage_to_general(path_to_file):
     new_csv = {"stage" : data_to_add.tolist() }
     print(new_csv)
     df = pd.DataFrame(new_csv)
-    new_data = df.to_csv("C:\\neurodesktop-storage\\runtime_config\\workflow_1\\run_1\\step_5\\output\\new_old.csv", index=False)
+    return  df
+    # new_data = df.to_csv("C:\\neurodesktop-storage\\runtime_config\\workflow_1\\run_1\\step_5\\output\\new_old.csv", index=False)
     # print(new_data)
 
 
@@ -91,35 +92,42 @@ def convert_generic_sleep_score_to_annotation(path_to_file, workflow_id, run_id,
 
         current_time += 30
     print(annotations)
-    edf_data.set_annotations(annotations)
 
-    # Get the channel types
-    channel_types = edf_data.get_channel_types()
+    # Save annoataions to file
+    annotations.save(get_local_storage_path(workflow_id, run_id, step_id) + "/output/auto_hypno_annotations.txt", overwrite=True )
+    annotations.save(get_local_storage_path(workflow_id, run_id, step_id) + "/output/auto_hypno_annotations.txt", overwrite=True )
 
-    # Get the physical maximum and minimum values for each channel type
-    lowest_minimum_value = 0.0
-    highest_maximum_value = 0.0
-    for ch_type in set(channel_types):
-        if ch_type=='stim':
-            continue
-        ch_indices = [i for i, ch in enumerate(channel_types) if ch == ch_type]
-        print(edf_data[ch_indices, :])
-        for inner_ch in edf_data[ch_indices, :]:
-            phys_min, phys_max = inner_ch.min(), inner_ch.max()
-            print("Channel type:", ch_type)
-            print("Physical minimum:", phys_min)
-            print("Physical maximum:", phys_max)
-            if phys_min < lowest_minimum_value:
-                lowest_minimum_value = phys_min
-            if phys_max > highest_maximum_value:
-                highest_maximum_value = phys_max
+    # edf_data.set_annotations(annotations)
+    #
+    # # Get the channel types
+    # channel_types = edf_data.get_channel_types()
+    #
+    # # Get the physical maximum and minimum values for each channel type
+    # lowest_minimum_value = 0.0
+    # highest_maximum_value = 0.0
+    # for ch_type in set(channel_types):
+    #     if ch_type=='stim':
+    #         continue
+    #     ch_indices = [i for i, ch in enumerate(channel_types) if ch == ch_type]
+    #     print(edf_data[ch_indices, :])
+    #     for inner_ch in edf_data[ch_indices, :]:
+    #         phys_min, phys_max = inner_ch.min(), inner_ch.max()
+    #         print("Channel type:", ch_type)
+    #         print("Physical minimum:", phys_min)
+    #         print("Physical maximum:", phys_max)
+    #         if phys_min < lowest_minimum_value:
+    #             lowest_minimum_value = phys_min
+    #         if phys_max > highest_maximum_value:
+    #             highest_maximum_value = phys_max
+    #
+    #
+    # print("Lowest minimum value:", lowest_minimum_value)
+    # print("Highest maximum value:", highest_maximum_value)
+    # # print(edf_data.get_data_range())
+    #
+    # mne.export.export_raw(raw= edf_data, fname=get_local_storage_path(workflow_id, run_id, step_id) + "/output/new_annot_edf.edf", physical_range=(lowest_minimum_value*1000000,highest_maximum_value*1000000), verbose=True, overwrite=True)
 
 
-    print("Lowest minimum value:", lowest_minimum_value)
-    print("Highest maximum value:", highest_maximum_value)
-    # print(edf_data.get_data_range())
-
-    mne.export.export_raw(raw= edf_data, fname=get_local_storage_path(workflow_id, run_id, step_id) + "/output/new_annot_edf.edf", physical_range=(lowest_minimum_value*1000000,highest_maximum_value*1000000), verbose=True, overwrite=True)
     # edf_data.save(path_to_storage = get_local_neurodesk_storage_path(workflow_id, run_id, step_id) + "/output/annotations.fif", overwrite=True)
     # print(new_data)
 # mne.datasets.sample.data_path()

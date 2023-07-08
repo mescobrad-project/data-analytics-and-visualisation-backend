@@ -34,7 +34,7 @@ from yasa import sleep_statistics
 import logging
 
 from app.utils.utils_eeg import load_data_from_edf, load_file_from_local_or_interim_edfbrowser_storage, \
-    load_data_from_edf_fif
+    load_data_from_edf_fif, convert_yasa_sleep_stage_to_general
 from app.utils.utils_general import validate_and_convert_peaks, validate_and_convert_power_spectral_density, \
     create_notebook_mne_plot, get_neurodesk_display_id, get_annotations_from_csv, create_notebook_mne_modular, \
     get_single_file_from_local_temp_storage, get_local_storage_path, get_local_neurodesk_storage_path, \
@@ -1382,6 +1382,13 @@ async def sleep_stage_classify(workflow_id: str,
     df.to_csv(path_to_storage + '/output/sleep_stage.csv', index=False)
     df_pred.to_csv(path_to_storage + '/output/sleep_stage_confidence.csv', index=False)
 
+    # Convert to format of general sleep stage and save new file to interim storage and output
+    converted_df = convert_yasa_sleep_stage_to_general(path_to_storage + '/output/sleep_stage_confidence.csv')
+    converted_df.to_csv(path_to_storage + '/neurodesk_interim_storage/new_hypnogram.csv', index=False)
+    converted_df.to_csv(path_to_storage + '/output/new_hypnogram.csv', index=False)
+
+
+    # Convert and send to frontend
     df['id'] = df.index
     df_pred['id'] = df_pred.index
     return {'sleep_stage': df.to_json(orient='records'), # Predicted probability for each sleep stage for each 30-sec epoch of data
