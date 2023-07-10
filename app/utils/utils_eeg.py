@@ -1,3 +1,5 @@
+import os
+
 import mne
 
 # TODO Maybe should change to handle all eeg file like fif and any other
@@ -44,6 +46,7 @@ def load_file_from_local_or_interim_edfbrowser_storage(file_used, workflow_id, r
     return data
 
 def convert_yasa_sleep_stage_to_general(path_to_file):
+    """This function converts the sleep stage from the yasa automatic sleep staging to the general sleep staging format"""
     data = load_data_from_csv(path_to_file)
     data_to_add = data["Stage"]
     print(data_to_add)
@@ -61,15 +64,28 @@ def convert_yasa_sleep_stage_to_general(path_to_file):
     # print(new_data)
 
 
-def convert_generic_sleep_score_to_annotation(path_to_file, workflow_id, run_id, step_id):
+def transfer_hypnogram_to_interim_storage(workflow_id, run_id, step_id):
+    """This function transfers the hypnogram from the local storage to the interim storage, called only when manual
+    sleep stageing is called """
+    path = get_local_storage_path(workflow_id, run_id, step_id)
+    files_to_transfer = os.listdir(path)
+    # Filtering only the files.
+    files_to_transfer = [f for f in files_to_transfer if os.path.isfile(path + '/' + f)]
+
+    for file in files_to_transfer:
+        os.rename(path + "/" + file, get_local_neurodesk_storage_path(workflow_id, run_id, step_id) + "/" + file)
+
+
+def convert_generic_sleep_score_to_annotation(name_of_file, workflow_id, run_id, step_id):
+    """This function converts the generic sleep score to annotations for the EDFBrowser"""
     # Load data from csv
-    data_sleep_score = load_data_from_csv(path_to_file)
+    data_sleep_score = load_data_from_csv(get_local_storage_path(workflow_id, run_id, step_id) + "/" + name_of_file)
 
     # Convert dataframe to list
     data_sleep_score = data_sleep_score["stage"].values.tolist()
 
     #load edf file
-    edf_data = load_file_from_local_or_interim_edfbrowser_storage("original", workflow_id, run_id, step_id)
+    # edf_data = load_file_from_local_or_interim_edfbrowser_storage("original", workflow_id, run_id, step_id)
 
     # Initialise mne annotations
     annotations = mne.Annotations(onset=[], duration=[], description=[])
@@ -95,7 +111,7 @@ def convert_generic_sleep_score_to_annotation(path_to_file, workflow_id, run_id,
 
     # Save annoataions to file
     annotations.save(get_local_storage_path(workflow_id, run_id, step_id) + "/output/auto_hypno_annotations.txt", overwrite=True )
-    annotations.save(get_local_storage_path(workflow_id, run_id, step_id) + "/output/auto_hypno_annotations.txt", overwrite=True )
+    annotations.save(get_local_storage_path(workflow_id, run_id, step_id) + "/neurodesk_interim_storage/auto_hypno_annotations.txt", overwrite=True )
 
     # edf_data.set_annotations(annotations)
     #

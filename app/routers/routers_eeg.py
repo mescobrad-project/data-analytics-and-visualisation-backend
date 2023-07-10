@@ -1,5 +1,6 @@
 import csv
 import os
+import shutil
 from datetime import datetime
 import json
 from os.path import isfile, join
@@ -1466,6 +1467,35 @@ async def detect_spindles(
                     to_return["detected spindles"] = list_all
                 return to_return
     return {'Channel not found'}
+
+
+@router.get("/return_available_hypnograms", tags=["return_available_hypnograms"])
+async def return_available_hypnograms(workflow_id: str,
+                          step_id: str,
+                          run_id: str,):
+    """This functions shows all hypnograms created from automatic and stored in interim storage in
+    an auto sleep scoring function when redirected to manual sleep sccoring"""
+    path = get_local_neurodesk_storage_path(workflow_id, run_id, step_id)
+    list_of_files = os.listdir(path)
+    return { "available_hypnograms": list_of_files}
+
+
+@router.get("/initialise_hypnograms", tags=["initialise_hypnograms"])
+async def initialise_hypnograms(workflow_id: str,
+                          step_id: str,
+                          run_id: str,):
+    """This functions transfers all hypnogram to interim storage in a new manul sleep scoring function
+     run or autoscoring funciton"""
+    path = get_local_storage_path(workflow_id, run_id, step_id)
+    list_of_files = os.listdir(path)
+    list_of_copied_files = []
+    for file in list_of_files:
+        if file.endswith(".csv"):
+            shutil.copyfile(path + "/" + file, get_local_neurodesk_storage_path(workflow_id, run_id, step_id) + "/" + file)
+            list_of_copied_files.append(file)
+
+    return { "available_hypnograms": list_of_copied_files}
+
 
 # Slow Waves detection
 @router.get("/slow_waves_detection")
