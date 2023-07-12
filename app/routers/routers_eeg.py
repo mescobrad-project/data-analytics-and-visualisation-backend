@@ -1,5 +1,6 @@
 import csv
 import os
+import shutil
 from datetime import datetime
 import json
 from os.path import isfile, join
@@ -34,12 +35,12 @@ from yasa import sleep_statistics
 import logging
 
 from app.utils.utils_eeg import load_data_from_edf, load_file_from_local_or_interim_edfbrowser_storage, \
-    load_data_from_edf_fif
+    load_data_from_edf_fif, convert_yasa_sleep_stage_to_general, convert_generic_sleep_score_to_annotation
 from app.utils.utils_general import validate_and_convert_peaks, validate_and_convert_power_spectral_density, \
     create_notebook_mne_plot, get_neurodesk_display_id, get_annotations_from_csv, create_notebook_mne_modular, \
     get_single_file_from_local_temp_storage, get_local_storage_path, get_local_neurodesk_storage_path, \
     get_single_file_from_neurodesk_interim_storage, write_function_data_to_config_file, \
-    get_files_for_slowwaves_spindle
+    get_files_for_slowwaves_spindle, get_single_edf_file_from_local_temp_storage
 
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -1382,6 +1383,15 @@ async def sleep_stage_classify(workflow_id: str,
     df.to_csv(path_to_storage + '/output/sleep_stage.csv', index=False)
     df_pred.to_csv(path_to_storage + '/output/sleep_stage_confidence.csv', index=False)
 
+    # Convert to format of general sleep stage and save new file to interim storage and output
+    converted_df = convert_yasa_sleep_stage_to_general(path_to_storage + '/output/sleep_stage_confidence.csv')
+    # converted_df.to_csv(path_to_storage + '/neurodesk_interim_storage/new_hypnogram.csv', index=False)
+    converted_df.to_csv(path_to_storage + '/output/new_hypnogram.csv', index=False)
+
+    # Convert to annotation format incase user wants to use in manual scoring
+    convert_generic_sleep_score_to_annotation("output/new_hypnogram.csv", workflow_id, run_id,  step_id)
+
+    # Convert and send to frontend
     df['id'] = df.index
     df_pred['id'] = df_pred.index
     return {'sleep_stage': df.to_json(orient='records'), # Predicted probability for each sleep stage for each 30-sec epoch of data
@@ -1459,6 +1469,35 @@ async def detect_spindles(
                     to_return["detected spindles"] = list_all
                 return to_return
     return {'Channel not found'}
+
+
+@router.get("/return_available_hypnograms", tags=["return_available_hypnograms"])
+async def return_available_hypnograms(workflow_id: str,
+                          step_id: str,
+                          run_id: str,):
+    """This functions shows all hypnograms created from automatic and stored in interim storage in
+    an auto sleep scoring function when redirected to manual sleep sccoring"""
+    path = get_local_neurodesk_storage_path(workflow_id, run_id, step_id)
+    list_of_files = os.listdir(path)
+    return { "available_hypnograms": list_of_files}
+
+
+@router.get("/initialise_hypnograms", tags=["initialise_hypnograms"])
+async def initialise_hypnograms(workflow_id: str,
+                          step_id: str,
+                          run_id: str,):
+    """This functions transfers all hypnogram to interim storage in a new manul sleep scoring function
+     run or autoscoring funciton"""
+    path = get_local_storage_path(workflow_id, run_id, step_id)
+    list_of_files = os.listdir(path)
+    list_of_copied_files = []
+    for file in list_of_files:
+        if file.endswith(".txt") or file.endswith(".csv"):
+            shutil.copyfile(path + "/" + file, get_local_neurodesk_storage_path(workflow_id, run_id, step_id) + "/" + file)
+            list_of_copied_files.append(file)
+
+    return { "available_hypnograms": list_of_copied_files}
+
 
 # Slow Waves detection
 @router.get("/slow_waves_detection")
@@ -2065,7 +2104,8 @@ async def mne_open_eeg(workflow_id: str,
 
     # Get file name to open with EDFBrowser
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
-    name_of_file = get_single_file_from_local_temp_storage(workflow_id, run_id, step_id)
+    # name_of_file = get_single_file_from_local_temp_storage(workflow_id, run_id, step_id)
+    name_of_file = get_single_edf_file_from_local_temp_storage(workflow_id, run_id, step_id)
     file_full_path = path_to_storage + "/" + name_of_file
 
     # Give permissions in working folder
@@ -2477,4 +2517,3 @@ async def back_average(
     to_return = {}
     to_return["channels"] = epochs.ch_names
     return to_return
-
