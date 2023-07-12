@@ -7,7 +7,7 @@ from scipy.stats import probplot, skew, kurtosis
 import scipy.stats as st
 import numpy as np
 import statistics
-
+from factor_analyzer.utils import cov
 
 def create_plots(plot_type: str, column: str, second_column: str, selected_dataframe, path_to_storage:str, filename:str):
     if plot_type == 'BoxPlot':
@@ -192,3 +192,26 @@ def statisticsMax(column: str, selected_dataframe):
         print(e)
         print("Error : Failed to compute Max for column: "+column)
         return -1
+
+def statisticsStd(column: str, selected_dataframe, ddof):
+    try:
+        # df2 = selected_dataframe.dropna(subset=[str(column)])
+        result = np.std(selected_dataframe[str(column)], ddof=ddof)
+        return result
+    except Exception as e:
+        print(e)
+        print("Error : Failed to compute Std for column: "+column)
+        return -1
+
+def statisticsCov(selected_dataframe, ddof):
+    try:
+        # df2 = selected_dataframe.dropna(subset=[str(column)])
+        result = cov(selected_dataframe, ddof=ddof)
+        # Just to check if the result is the same
+        # print(result)
+        # print(np.cov(selected_dataframe.transpose(), ddof=ddof))
+        return result
+    except Exception as e:
+        print(e)
+        print("Error : Failed to compute Covariance Matrix")
+        return ()
