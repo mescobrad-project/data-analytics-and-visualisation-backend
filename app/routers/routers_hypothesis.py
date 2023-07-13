@@ -60,8 +60,7 @@ from os.path import isfile, join
 
 from app.utils.utils_hypothesis import create_plots, compute_skewness, outliers_removal, compute_kurtosis, \
     statisticsMean, statisticsMin, statisticsMax, statisticsStd, statisticsCov
-from semopy.examples import multivariate_regression, political_democracy
-from semopy import Model, estimate_means, ModelMeans, semplot, calc_stats, gather_statistics, Optimizer
+from semopy import Model, estimate_means, ModelMeans, semplot, calc_stats, gather_statistics, Optimizer, efa
 
 router = APIRouter()
 data = pd.read_csv('example_data/mescobrad_dataset.csv')
@@ -1186,57 +1185,57 @@ async def LDA(workflow_id: str,
     # return {'coefficients': df_coefs.to_json(orient='split'), 'intercept': df_intercept.to_json(orient='split')}
 
 # TODO: Should we Delete this????
-@router.get("/principal_component_analysis")
-async def principal_component_analysis(workflow_id: str,
-                                       step_id: str,
-                                       run_id: str,
-                                       n_components_1: int | None = Query(default=None),
-                                       n_components_2: float | None = Query(default=None, gt=0, lt=1),
-                                       independent_variables: list[str] | None = Query(default=None)):
-    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
-    for columns in dataset.columns:
-        if columns not in independent_variables:
-            dataset = dataset.drop(str(columns), axis=1)
-
-    X = np.array(dataset)
-    list_1 = []
-    list_1.append(int(np.shape(X)[0]))
-    list_1.append(int(np.shape(X)[1]))
-    dim = min(list_1)
-
-    if n_components_2 == None:
-        if n_components_1 > dim:
-            return {'Error: n_components must be between 0 and min(n_samples, n_features)=': dim}
-        pca = PCA(n_components=n_components_1)
-        pca_t = pca.fit_transform(X)
-        principal_Df = pd.DataFrame(data=pca_t, columns=["principalcomponent1", "principalcomponent2"])
-        # principal_Df = pd.DataFrame(data=pca_t,
-        #                             columns=['principal component 1', 'principal component 2'])
-        print(principal_Df)
-        print(dataset)
-        pca.fit(X)
-    else:
-        pca = PCA(n_components=n_components_2)
-        pca.fit(X)
-
-    # principal_Df = pd.DataFrame(data=pca, columns=['principal component 1', 'principal component 2'])
-
-    return {
-        'columns': dataset.columns.tolist(),
-        'n_features_': pca.n_features_,
-            'n_features_in_': pca.n_features_in_,
-            'n_samples_': pca.n_samples_,
-            'random_state': pca.random_state,
-            'iterated_power': pca.iterated_power,
-            'mean_': pca.mean_.tolist(),
-            'explained_variance_': pca.explained_variance_.tolist(),
-            'noise_variance_': pca.noise_variance_,
-            'pve': pca.explained_variance_ratio_.tolist(),
-            'singular_values': pca.singular_values_.tolist(),
-            'principal_axes': pca.components_[0].tolist()}
-    # return {'Percentage of variance explained by each of the selected components': pca.explained_variance_ratio_.tolist(),
-    #             'The singular values corresponding to each of the selected components. ': pca.singular_values_.tolist(),
-    #             'Principal axes in feature space, representing the directions of maximum variance in the data.' : pca.components_.tolist()}
+# @router.get("/principal_component_analysis")
+# async def principal_component_analysis(workflow_id: str,
+#                                        step_id: str,
+#                                        run_id: str,
+#                                        n_components_1: int | None = Query(default=None),
+#                                        n_components_2: float | None = Query(default=None, gt=0, lt=1),
+#                                        independent_variables: list[str] | None = Query(default=None)):
+#     dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+#     for columns in dataset.columns:
+#         if columns not in independent_variables:
+#             dataset = dataset.drop(str(columns), axis=1)
+#
+#     X = np.array(dataset)
+#     list_1 = []
+#     list_1.append(int(np.shape(X)[0]))
+#     list_1.append(int(np.shape(X)[1]))
+#     dim = min(list_1)
+#
+#     if n_components_2 == None:
+#         if n_components_1 > dim:
+#             return {'Error: n_components must be between 0 and min(n_samples, n_features)=': dim}
+#         pca = PCA(n_components=n_components_1)
+#         pca_t = pca.fit_transform(X)
+#         principal_Df = pd.DataFrame(data=pca_t, columns=["principalcomponent1", "principalcomponent2"])
+#         # principal_Df = pd.DataFrame(data=pca_t,
+#         #                             columns=['principal component 1', 'principal component 2'])
+#         print(principal_Df)
+#         print(dataset)
+#         pca.fit(X)
+#     else:
+#         pca = PCA(n_components=n_components_2)
+#         pca.fit(X)
+#
+#     # principal_Df = pd.DataFrame(data=pca, columns=['principal component 1', 'principal component 2'])
+#
+#     return {
+#         'columns': dataset.columns.tolist(),
+#         'n_features_': pca.n_features_,
+#             'n_features_in_': pca.n_features_in_,
+#             'n_samples_': pca.n_samples_,
+#             'random_state': pca.random_state,
+#             'iterated_power': pca.iterated_power,
+#             'mean_': pca.mean_.tolist(),
+#             'explained_variance_': pca.explained_variance_.tolist(),
+#             'noise_variance_': pca.noise_variance_,
+#             'pve': pca.explained_variance_ratio_.tolist(),
+#             'singular_values': pca.singular_values_.tolist(),
+#             'principal_axes': pca.components_[0].tolist()}
+#     # return {'Percentage of variance explained by each of the selected components': pca.explained_variance_ratio_.tolist(),
+#     #             'The singular values corresponding to each of the selected components. ': pca.singular_values_.tolist(),
+#     #             'Principal axes in feature space, representing the directions of maximum variance in the data.' : pca.components_.tolist()}
 
 @router.get("/kmeans_clustering")
 async def kmeans_clustering(workflow_id: str,
@@ -3768,16 +3767,16 @@ async def correlations_pingouin(workflow_id: str,
         return JSONResponse(content={'status':test_status, 'DataFrame': []}, status_code=200)
         # return JSONResponse(content={'status':test_status, 'DataFrame': [],'Table_rcorr':dfe.to_json(orient='records')}, status_code=200)
 
-
-@router.get("/linear_regressor_pinguin")
-async def linear_regression_pinguin(dependent_variable: str,
-                                    alpha: float | None=Query(default=0.05),
-                                    relimp: bool | None=Query(default=False),
-                                    independent_variables: list[str] | None = Query(default=None)):
-
-    lm = pingouin.linear_regression(data[independent_variables], data[dependent_variable], as_dataframe=True, alpha=alpha, relimp=relimp)
-
-    return {'residuals': lm.residuals_.tolist(), 'degrees of freedom of the model': lm.df_model_, 'degrees of freedom of the residuals': lm.df_resid_ , 'dataframe': lm.to_json(orient='split')}
+# TODO:We use statsModel
+# @router.get("/linear_regressor_pinguin")
+# async def linear_regression_pinguin(dependent_variable: str,
+#                                     alpha: float | None=Query(default=0.05),
+#                                     relimp: bool | None=Query(default=False),
+#                                     independent_variables: list[str] | None = Query(default=None)):
+#
+#     lm = pingouin.linear_regression(data[independent_variables], data[dependent_variable], as_dataframe=True, alpha=alpha, relimp=relimp)
+#
+#     return {'residuals': lm.residuals_.tolist(), 'degrees of freedom of the model': lm.df_model_, 'degrees of freedom of the residuals': lm.df_resid_ , 'dataframe': lm.to_json(orient='split')}
 
 @router.get("/logistic_regressor_pinguin")
 async def logistic_regression_pinguin(workflow_id: str, step_id: str, run_id: str,
@@ -4161,32 +4160,33 @@ async def linear_regression_statsmodels(workflow_id: str, step_id: str, run_id: 
 
 
 
+# TODO These are included above
+# @router.get("/transformation_methods")
+# async def transformation_methods(dependent_variable: str,
+#                                  method: str | None = Query("log",
+#                                                             regex="^(log)$|^(squared)$|^(root)$")):
+#
+#
+#     x = data[dependent_variable]
+#
+#     if method == 'log':
+#         x = np.log(x)
+#     elif method == 'squared':
+#         x = np.sqrt(x)
+#     else:
+#         x = np.cbrt(x)
+#
+#     return {'transformed array': x}
 
-@router.get("/transformation_methods")
-async def transformation_methods(dependent_variable: str,
-                                 method: str | None = Query("log",
-                                                            regex="^(log)$|^(squared)$|^(root)$")):
-
-
-    x = data[dependent_variable]
-
-    if method == 'log':
-        x = np.log(x)
-    elif method == 'squared':
-        x = np.sqrt(x)
-    else:
-        x = np.cbrt(x)
-
-    return {'transformed array': x}
-
-@router.get("/skewness_kurtosis")
-async def skewness_kurtosis(dependent_variable: str):
-    x = data[dependent_variable]
-
-    skewness_res = skew(x)
-    kurtosis_res = kurtosis(x)
-
-    return {'skew': skewness_res, 'kurtosis': kurtosis_res}
+# TODO:In utils_hypothesis
+# @router.get("/skewness_kurtosis")
+# async def skewness_kurtosis(dependent_variable: str):
+#     x = data[dependent_variable]
+#
+#     skewness_res = skew(x)
+#     kurtosis_res = kurtosis(x)
+#
+#     return {'skew': skewness_res, 'kurtosis': kurtosis_res}
 
 
 @router.get("/z_score")
@@ -4380,21 +4380,21 @@ async def logistic_regression_statsmodels(workflow_id: str, step_id: str, run_id
         print(e)
         return JSONResponse(content={'status': test_status, 'Result': '[]'},
                             status_code=200)
-
-@router.get("/jarqueberatest")
-async def jarqueberatest(dependent_variable: str):
-
-    x = data[dependent_variable]
-
-    jarque_bera_test = jarque_bera(x)
-
-    statistic = jarque_bera_test.statistic
-    pvalue = jarque_bera_test.pvalue
-
-    if pvalue > 0.05:
-        return {'statistic': statistic, 'pvalue': pvalue, 'Since this p-value is not less than .05, we fail to reject the null hypothesis. We don’t have sufficient evidence to say that this data has skewness and kurtosis that is significantly different from a normal distribution.':''}
-    else:
-        return {'statistic': statistic, 'pvalue': pvalue,'Since this p-value is less than .05, we reject the null hypothesis. Thus, we have sufficient evidence to say that this data has skewness and kurtosis that is significantly different from a normal distribution.':''}
+# TODO:above
+# @router.get("/jarqueberatest")
+# async def jarqueberatest(dependent_variable: str):
+#
+#     x = data[dependent_variable]
+#
+#     jarque_bera_test = jarque_bera(x)
+#
+#     statistic = jarque_bera_test.statistic
+#     pvalue = jarque_bera_test.pvalue
+#
+#     if pvalue > 0.05:
+#         return {'statistic': statistic, 'pvalue': pvalue, 'Since this p-value is not less than .05, we fail to reject the null hypothesis. We don’t have sufficient evidence to say that this data has skewness and kurtosis that is significantly different from a normal distribution.':''}
+#     else:
+#         return {'statistic': statistic, 'pvalue': pvalue,'Since this p-value is less than .05, we reject the null hypothesis. Thus, we have sufficient evidence to say that this data has skewness and kurtosis that is significantly different from a normal distribution.':''}
 
 
 @router.get("/correlation_matrix")
@@ -5595,14 +5595,10 @@ async def Structural_Equation_Models_Optimization(
         step_id: str,
         run_id: str,
         file:str,
-        model: str):
-    # desc = multivariate_regression.get_model()
-    # print(desc)
-    #
-    # desc = political_democracy.get_model()
-    # print(desc)
+        model: str,
+        obj_func:str):
 
-    dfv = pd.DataFrame()
+
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
     test_status = ''
     try:
@@ -5612,62 +5608,58 @@ async def Structural_Equation_Models_Optimization(
         test_status = 'Unable to load the Dataset'
         # We expect only one here
         data = load_data_from_csv(path_to_storage + "/" + file)
-        print('model')
-        print(model)
-        print((data.columns))
+        print(data.columns)
+        df = data.drop('Unnamed: 0',axis='columns')
+        dfv = pd.DataFrame([df[col].tolist() for col in df.columns],index=df.columns).T
+        print(dfv)
+        cfa_test = efa.explore_cfa_model(dfv)
+        pine_test = efa.explore_pine_model(dfv)
+        print(type(cfa_test))
+        print(cfa_test)
+        print(pine_test)
+
         test_status = 'Unable to load Model'
         m = Model(model)
-        # print(data.head())
         test_status = 'Preparing to fit the model to the data'
-        r = m.fit(data)
-        print('fitted--------')
-        print(r)
-        ins = m.inspect()
-        print('inspect--------')
-        print(type(ins))
-        print(ins)
-        # Internet
-        opt = Optimizer(m)
-        objective_function_value = opt.optimize()
-        print('objective_function_value')
-        print(objective_function_value)
-        stats = gather_statistics(opt)
-        print('stats--------')
-        print(type(stats))
-        print(stats)
-
+        r = m.fit(data, obj=obj_func)
+        test_status = 'Unable to calculate inspect parameters estimate'
+        ins = m.inspect(std_est=True)
+        ins.columns = ins.columns.str.replace('.', '_', regex=True)
+        test_status = 'Unable to calculate estimate means'
         means = estimate_means(m)
-        print('means--------')
-        print(type(means))
-        print(means)
-        m = ModelMeans(model)
-        m.fit(data)
-        m.inspect()
-        print('m.inspect()--------')
-        print(type(m.inspect()))
-        print(m.inspect())
+        cstats = calc_stats(m)
+        test_status = 'Unable to calculate factors'
         factors = m.predict_factors(data)
-        print('factors--------')
-        print(type(factors))
-        print(factors.head())
-        calc_stats(m)
-        print('calc_stats--------')
-        print(type(calc_stats(m)))
-        print(calc_stats(m))
         robust = m.inspect(se_robust=True)
-        print('robust--------')
-        print(type(robust))
-        print(robust)
+        robust.columns = robust.columns.str.replace('.', '_', regex=True)
+        test_status = 'Unable to plot the graph'
+        g = semplot(m, filename='t.pdf',plot_covs=True)
 
-        g = semplot(m, filename='t.pdf')
-        # g
-        print('g--------')
-        print(type(g))
-        print(g)
+        # # TODO: Another implementation of means - We don't use it for now
+        # m = ModelMeans(model)
+        # m.fit(data)
+        # inspect_ModelMeans = m.inspect()
+        # inspect_ModelMeans.columns = inspect_ModelMeans.columns.str.replace('.', '_', regex=True)
 
-        return JSONResponse(content={'status': 'Success','fit_results':str(r), 'graph':str(g)},
+        # # TODO: FCA
+        # # Internet
+        # opt = Optimizer(m)
+        # objective_function_value = opt.optimize()
+        # print('objective_function_value')
+        # print(objective_function_value)
+        # stats = gather_statistics(opt)
+        # print('stats--------')
+        # print(type(stats))
+        # print(stats)
+
+
+        return JSONResponse(content={'status': 'Success','fit_results':str(r), 'inspect_means':ins.to_json(orient='records'),'estimate_means':means.to_json(orient='records'),
+                                     'factors':factors.to_json(orient='records'),'calc_stats':cstats.to_json(orient='records'),
+                                     'robust':robust.to_json(orient='records'),'graph':str(g)},
                             status_code=200)
     except Exception as e:
         print(e)
-        return JSONResponse(content={'status': test_status+"\n"+e.__str__(),'fit_results':'', 'graph':""},
+        return JSONResponse(content={'status': test_status+"\n"+e.__str__(),'fit_results':'','inspect_means':'[]','estimate_means':'[]',
+                                     'factors':'[]','calc_stats':'[]',
+                                     'robust':'[]', 'graph':""},
                             status_code=200)

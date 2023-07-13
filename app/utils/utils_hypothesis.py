@@ -171,7 +171,7 @@ def statisticsMin(column: str, selected_dataframe):
     try:
         df2 = selected_dataframe.dropna(subset=[str(column)])
         if pd.to_numeric(df2[str(column)], errors='coerce').notnull().all():
-            result = max(df2[str(column)])
+            result = min(df2[str(column)])
         else:
             raise Exception
         return result
