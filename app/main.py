@@ -198,8 +198,6 @@ NeurodesktopStorageLocation = os.environ.get('NeurodesktopStorageLocation') if o
 app.mount("/static", StaticFiles(directory=NeurodesktopStorageLocation), name="static")
 
 # endregion
-
-
 # region Routes of the application
 @app.on_event("startup")
 def initiate_functions():
