@@ -156,16 +156,16 @@ class FunctionNavigationItem(BaseModel):
 
 
 # TODO
-@router.get("/test/task/ping", tags=["test_task_ping"])
-async def test_task_ping() -> dict:
-    # channels = data.ch_names
-    print(WFAddress)
-    url = WFAddress + "/run/" + TestRunId + "/step/" + TestStepId + "/ping"
-    print(url)
-    response = requests.get(url)
-    print("Test Response: Task Ping")
-    print(response)
-    return {'test': "test"}
+# @router.get("/test/task/ping", tags=["test_task_ping"])
+# async def test_task_ping() -> dict:
+#     # channels = data.ch_names
+#     print(WFAddress)
+#     url = WFAddress + "/run/" + TestRunId + "/step/" + TestStepId + "/ping"
+#     print(url)
+#     response = requests.get(url)
+#     print("Test Response: Task Ping")
+#     print(response)
+#     return {'test': "test"}
 
 # TODO
 # @router.get("/test/task/complete", tags=["test_task_complete"])
