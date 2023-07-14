@@ -2298,16 +2298,16 @@ async def mne_create_notebook(file_name: str,
     # create_notebook_mne_plot("hello", "again")
 
 # TODO
-@router.get("/test/montage", tags=["test_montage"])
-async def test_montage() -> dict:
-    raw_data = data.get_data()
-    info = data.info
-    print('\nBUILT-IN MONTAGE FILES')
-    print('======================')
-    print(info)
-    print(raw_data)
-    ten_twenty_montage = mne.channels.make_standard_montage('example_data/trial_av')
-    print(ten_twenty_montage)
+# @router.get("/test/montage", tags=["test_montage"])
+# async def test_montage() -> dict:
+#     raw_data = data.get_data()
+#     info = data.info
+#     print('\nBUILT-IN MONTAGE FILES')
+#     print('======================')
+#     print(info)
+#     print(raw_data)
+#     ten_twenty_montage = mne.channels.make_standard_montage('example_data/trial_av')
+#     print(ten_twenty_montage)
 
     # create_notebook_mne_plot("hello", "again")
 
@@ -2319,19 +2319,19 @@ async def get_montages() -> dict:
     return files_to_return
 
 
-@router.get("/test/notebook", tags=["test_notebook"])
-# Validation is done inline in the input of the function
-async def test_notebook(input_test_name: str, input_slices: str,
-                        ) -> dict:
-    create_notebook_mne_plot("hello", "again")
+# @router.get("/test/notebook", tags=["test_notebook"])
+# # Validation is done inline in the input of the function
+# async def test_notebook(input_test_name: str, input_slices: str,
+#                         ) -> dict:
+#     create_notebook_mne_plot("hello", "again")
 
 
-@router.get("/test/mne", tags=["test_notebook"])
-# Validation is done inline in the input of the function
-async def test_mne() -> dict:
-    mne.export.export_raw(NeurodesktopStorageLocation + "/export_data_fixed.edf", data, physical_range=(-4999.84, 4999.84), overwrite=True)
-    mne.export.export_raw(NeurodesktopStorageLocation + "/export_data_not.edf", data, overwrite=True)
-
+# @router.get("/test/mne", tags=["test_notebook"])
+# # Validation is done inline in the input of the function
+# async def test_mne() -> dict:
+#     mne.export.export_raw(NeurodesktopStorageLocation + "/export_data_fixed.edf", data, physical_range=(-4999.84, 4999.84), overwrite=True)
+#     mne.export.export_raw(NeurodesktopStorageLocation + "/export_data_not.edf", data, overwrite=True)
+#
 
 @router.get("/envelope_trend", tags=["envelope_trend"])
 # Validation is done inline in the input of the function
