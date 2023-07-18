@@ -96,6 +96,7 @@ ExistingFunctions = [
     "RidgeRegression",
     "SGDRegression",
     "HuberRegression",
+    "sleep_stage_classification",
     "survivalanalysisriskratiosimple",
     "survivalanalysisriskratiodataset",
     "survivalanalysisriskdifferencesimple",
@@ -128,6 +129,15 @@ ExistingFunctions = [
     "general_stats_average",
     "general_stats_min",
     "general_stats_max",
+    "general_stats_zscore",
+    "general_stats_Cov",
+    "general_stats_Std",
+    'actigraphy_cosinor',
+    'actigraphy_metrics',
+    "GeneralizedEstimatingEquations",
+    "ChooseFactors",
+    "GrangerAnalysis",
+    "structural_equation_models_optimization",
     # Dashboard
     "dashboard",
 ]
@@ -189,12 +199,13 @@ async def task_complete(run_id: str,
     headers = {"Content-Type": "application/json"}
 
     saved_files = []
-    # saved files should be the same as those upload in a previous step or the call should happen here
-    # TODO
     data = {
-        "datalake": saved_files,
-        # "trino:": [        ],
+        "data": {
+            "datalake": saved_files,
+            "trino": []
+        }
     }
+
     url = WFAddress + "/run/" + run_id + "/step/" + step_id + "/task/script/complete"
     print(url)
     response = requests.patch(url=url, data=data, headers=headers)
@@ -246,6 +257,10 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/spectogram_bandpower"
             case "slowwave_spindle":
                 url_to_redirect += "/slowwave_spindle"
+            case "sleep_stage_classification":
+                url_to_redirect += "/sleep_stage_classification"
+            case "manual_sleep_stage_classification":
+                url_to_redirect += "/manual_sleep_stage_classification"
             case "eeg_viewer":
                 url_to_redirect += "/eeg"
             case "eeg_viewer_old":
@@ -257,6 +272,12 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/actigraphy"
             case "actigraphy_viewer_general":
                 url_to_redirect += "/actigraphy/general"
+            case "actigraphy_page":
+                url_to_redirect += "/actigraphy_page"
+            case "actigraphy_cosinor":
+                url_to_redirect += "/Actigraphy_Cosinor"
+            case "actigraphy_metrics":
+                url_to_redirect += "/Actigraphy_Metrics"
             #  MRI
             case "mri_viewer":
                 url_to_redirect += "/mri"
@@ -405,6 +426,20 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect +="/General_Stats_Min"
             case "general_stats_max":
                 url_to_redirect +="/General_Stats_Max"
+            case "general_stats_zscore":
+                url_to_redirect += "/General_Stats_Zscore"
+            case "general_stats_Std":
+                url_to_redirect += "/General_Stats_Std"
+            case "general_stats_Cov":
+                url_to_redirect += "/General_Stats_Cov"
+            case "ChooseFactors":
+                url_to_redirect += "/ChooseFactors"
+            case "GrangerAnalysis":
+                url_to_redirect += "/GrangerAnalysis"
+            case "PoissonRegression":
+                url_to_redirect += "/PoissonRegression"
+            case "structural_equation_models_optimization":
+                url_to_redirect += "/Structural_Equation_Models_Optimization"
             # Dashboard
             case "dashboard":
                 url_to_redirect += "/dashboard"

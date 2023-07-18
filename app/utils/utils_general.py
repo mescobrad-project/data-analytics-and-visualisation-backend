@@ -24,6 +24,10 @@ def get_single_file_from_local_temp_storage(workflow_id, run_id, step_id):
     files_to_return = [f for f in os.listdir(NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id) if isfile(join(NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id, f))]
     return files_to_return[0]
 
+def get_single_edf_file_from_local_temp_storage(workflow_id, run_id, step_id):
+    """Function to lazily retrieve name of file from local storage when there is a single file"""
+    files_to_return = [f for f in os.listdir(NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id) if isfile(join(NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id, f)) and (f.endswith(".edf"))]
+    return files_to_return[0]
 
 def get_single_file_from_neurodesk_interim_storage(workflow_id, run_id, step_id):
     """Function to lazily retrieve name and path of file from local storage when there is a single file"""
@@ -69,8 +73,7 @@ def get_local_neurodesk_storage_path(workflow_id, run_id, step_id):
     return NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id + '/neurodesk_interim_storage'
 
 def load_data_from_csv(file_with_path):
-    """This functions returns data from an edf file with the use of the MNE library
-        This functions returns file with infer types enabled
+    """This function read csv file using pandas library and return data as pandas dataframe
     """
     data = pd.read_csv(file_with_path)
     return data

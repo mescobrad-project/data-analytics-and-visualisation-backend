@@ -209,6 +209,7 @@ def initiate_functions():
     os.makedirs(NeurodesktopStorageLocation + "/mne", exist_ok=True)
     os.makedirs(NeurodesktopStorageLocation + "/runtime_config", exist_ok=True)
     os.makedirs(NeurodesktopStorageLocation + "/montages", exist_ok=True)
+    os.makedirs(NeurodesktopStorageLocation + "/tutorials", exist_ok=True)
 
     # Create example files
     with open('annotation_test.csv', 'w') as fp:
@@ -219,6 +220,7 @@ def initiate_functions():
     shutil.copy("neurodesk_startup_scripts/get_display.sh", NeurodesktopStorageLocation + "/config/get_display.sh")
     shutil.copy("neurodesk_startup_scripts/template_jupyter_notebooks/EDFTEST.ipynb", NeurodesktopStorageLocation + "/EDFTEST.ipynb")
     shutil.copytree("neurodesk_startup_scripts/default_montages", NeurodesktopStorageLocation + "/montages", dirs_exist_ok=True)
+    shutil.copytree("neurodesk_startup_scripts/tutorials", NeurodesktopStorageLocation + "/tutorials", dirs_exist_ok=True)
 
     # CONERT WINDOWS ENDINGS TO UBUNTU / MIGHT NEED TO BE REMOVED AFTER VOLUME IS TRANSFERED TO NORMAL VOLUME AND NOT
     # BINDED
