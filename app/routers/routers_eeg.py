@@ -17,7 +17,7 @@ import paramiko
 from fastapi import APIRouter, Query
 from mne.time_frequency import psd_array_multitaper
 from scipy.signal import butter, lfilter, sosfilt, freqs, freqs_zpk, sosfreqz
-from statsmodels.graphics.tsaplots import acf, pacf, plot_acf
+from statsmodels.graphics.tsaplots import acf, pacf, plot_acf, plot_pacf
 from scipy import signal
 from scipy.integrate import simps
 from pmdarima.arima import auto_arima
@@ -312,11 +312,14 @@ async def return_autocorrelation(workflow_id: str, step_id: str, run_id: str,
 
 @router.get("/return_partial_autocorrelation", tags=["return_partial_autocorrelation"])
 # Validation is done inline in the input of the function
-async def return_partial_autocorrelation(workflow_id: str, step_id: str, run_id: str,
+async def return_partial_autocorrelation(workflow_id: str,
+                                         step_id: str,
+                                         run_id: str,
                                          input_name: str,
                                          input_method: str | None = Query("none",
                                                                           regex="^(none)$|^(yw)$|^(ywadjusted)$|^(ywm)$|^(ywmle)$|^(ols)$|^(ols-inefficient)$|^(ols-adjusted)$|^(ld)$|^(ldadjusted)$|^(ldb)$|^(ldbiased)$|^(burg)$"),
-                                         input_alpha: float | None = None, input_nlags: int | None = None,
+                                         input_alpha: float | None = None,
+                                         input_nlags: int | None = None,
                                          file_used: str | None = Query("original", regex="^(original)$|^(printed)$")
                                          ) -> dict:
     data = load_file_from_local_or_interim_edfbrowser_storage(file_used, workflow_id, run_id, step_id)
@@ -336,12 +339,29 @@ async def return_partial_autocorrelation(workflow_id: str, step_id: str, run_id:
                 'confint': None
             }
 
+
+            fig, ax = plt.subplots(nrows=1, ncols=1, facecolor="#F0F0F0")
+
+            ax.legend(["PACF"], loc="upper right", fontsize="x-small", framealpha=1, edgecolor="black", shadow=None)
+            ax.grid(which="major", color="grey", linestyle="--", linewidth=0.5)
+
             # Parsing the results of acf into a single object
             # Results will change depending on our input
             if input_alpha:
                 to_return['values_partial_autocorrelation'] = z[0].tolist()
                 to_return['confint'] = z[1].tolist()
+                plot_pacf(x=raw_data[i],
+                        method=input_method,
+                         alpha=input_alpha,
+                         lags=input_nlags,
+                         ax=ax,
+                         use_vlines=True)
             else:
+                plot_pacf(x=raw_data[i],
+                          method=input_method,
+                          lags=input_nlags,
+                          ax=ax,
+                          use_vlines=True)
                 to_return['values_partial_autocorrelation'] = z.tolist()
 
             print("RETURNING VALUES")
@@ -358,6 +378,8 @@ async def return_partial_autocorrelation(workflow_id: str, step_id: str, run_id:
                 'data_values_partial_autocorrelation': to_return['values_partial_autocorrelation'],
                 'data_confint': to_return['confint'],
             }
+
+            plt.savefig(get_local_storage_path(workflow_id, step_id, run_id) + "/output/" + 'partial_autocorrelation.png')
 
             write_function_data_to_config_file(parameter_data, result_data, workflow_id, run_id, step_id)
             return to_return
