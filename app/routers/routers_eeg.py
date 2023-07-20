@@ -360,6 +360,7 @@ async def return_partial_autocorrelation(workflow_id: str,
                 plot_pacf(x=raw_data[i],
                           method=input_method,
                           lags=input_nlags,
+                          alpha=input_alpha,
                           ax=ax,
                           use_vlines=True)
                 to_return['values_partial_autocorrelation'] = z.tolist()
