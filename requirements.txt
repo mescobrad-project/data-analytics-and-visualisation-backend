@@ -23,6 +23,7 @@ jupyter==1.0.0
 kaleido==0.2.1
 keyring==23.13.1
 lifelines==0.27.3
+lightgbm==3.3.5
 minio==7.1.12
 mne-qt-browser==0.4.0
 mpld3==0.5.7
@@ -34,7 +35,7 @@ pingouin==0.5.2
 pip-chill==1.0.1
 plotly==5.14.0
 pmdarima==1.8.5
-pyactigraphy==1.0
+pyactigraphy==1.2.1
 pydocstyle==6.2.3
 pyedflib==0.1.30
 pylint==2.16.2
