@@ -52,11 +52,24 @@ Pycharm IDE
             uvicorn main:app --reload
         ```
 
-## Running the tests (WIP)
-### Integration Testing
+## Testing
+### Integration Testing 
+Current branch: 'feat/unit_test' and 'dev'
+Testing running the following commands:
+Run pytest to run all testing files:
+(Might result to errors depending on final implementation of tests. Highly recommend to run files on their own)
 ```
-Current branch: 'feat/communication'
-Run tests from postman
+pytest
+```
+
+To disable all warning run
+```
+pytest  --disable-warnings
+```
+
+To run a specific testing file 
+```
+pytest app/test_eeg.py --disable-warnings
 ```
 
 ### Break down into end to end tests (WIP)

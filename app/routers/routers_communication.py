@@ -157,16 +157,16 @@ class FunctionNavigationItem(BaseModel):
 
 
 # TODO
-@router.get("/test/task/ping", tags=["test_task_ping"])
-async def test_task_ping() -> dict:
-    # channels = data.ch_names
-    print(WFAddress)
-    url = WFAddress + "/run/" + TestRunId + "/step/" + TestStepId + "/ping"
-    print(url)
-    response = requests.get(url)
-    print("Test Response: Task Ping")
-    print(response)
-    return {'test': "test"}
+# @router.get("/test/task/ping", tags=["test_task_ping"])
+# async def test_task_ping() -> dict:
+#     # channels = data.ch_names
+#     print(WFAddress)
+#     url = WFAddress + "/run/" + TestRunId + "/step/" + TestStepId + "/ping"
+#     print(url)
+#     response = requests.get(url)
+#     print("Test Response: Task Ping")
+#     print(response)
+#     return {'test': "test"}
 
 # TODO
 # @router.get("/test/task/complete", tags=["test_task_complete"])
@@ -260,6 +260,8 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/slowwave_spindle"
             case "sleep_stage_classification":
                 url_to_redirect += "/sleep_stage_classification"
+            case "manual_sleep_stage_classification":
+                url_to_redirect += "/manual_sleep_stage_classification"
             case "eeg_viewer":
                 url_to_redirect += "/eeg"
             case "eeg_viewer_old":

@@ -1,7 +1,9 @@
 import csv
 import os
+import shutil
 from datetime import datetime
 import json
+from functools import reduce
 from os.path import isfile, join
 
 from matplotlib import image as mpimg
@@ -34,12 +36,12 @@ from yasa import sleep_statistics
 import logging
 
 from app.utils.utils_eeg import load_data_from_edf, load_file_from_local_or_interim_edfbrowser_storage, \
-    load_data_from_edf_fif
+    load_data_from_edf_fif, convert_yasa_sleep_stage_to_general, convert_generic_sleep_score_to_annotation
 from app.utils.utils_general import validate_and_convert_peaks, validate_and_convert_power_spectral_density, \
     create_notebook_mne_plot, get_neurodesk_display_id, get_annotations_from_csv, create_notebook_mne_modular, \
     get_single_file_from_local_temp_storage, get_local_storage_path, get_local_neurodesk_storage_path, \
     get_single_file_from_neurodesk_interim_storage, write_function_data_to_config_file, \
-    get_files_for_slowwaves_spindle
+    get_files_for_slowwaves_spindle, get_single_edf_file_from_local_temp_storage
 
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -1382,6 +1384,15 @@ async def sleep_stage_classify(workflow_id: str,
     df.to_csv(path_to_storage + '/output/sleep_stage.csv', index=False)
     df_pred.to_csv(path_to_storage + '/output/sleep_stage_confidence.csv', index=False)
 
+    # Convert to format of general sleep stage and save new file to interim storage and output
+    converted_df = convert_yasa_sleep_stage_to_general(path_to_storage + '/output/sleep_stage_confidence.csv')
+    # converted_df.to_csv(path_to_storage + '/neurodesk_interim_storage/new_hypnogram.csv', index=False)
+    converted_df.to_csv(path_to_storage + '/output/new_hypnogram.csv', index=False)
+
+    # Convert to annotation format incase user wants to use in manual scoring
+    convert_generic_sleep_score_to_annotation("output/new_hypnogram.csv", workflow_id, run_id,  step_id)
+
+    # Convert and send to frontend
     df['id'] = df.index
     df_pred['id'] = df_pred.index
     return {'sleep_stage': df.to_json(orient='records'), # Predicted probability for each sleep stage for each 30-sec epoch of data
@@ -1459,6 +1470,35 @@ async def detect_spindles(
                     to_return["detected spindles"] = list_all
                 return to_return
     return {'Channel not found'}
+
+
+@router.get("/return_available_hypnograms", tags=["return_available_hypnograms"])
+async def return_available_hypnograms(workflow_id: str,
+                          step_id: str,
+                          run_id: str,):
+    """This functions shows all hypnograms created from automatic and stored in interim storage in
+    an auto sleep scoring function when redirected to manual sleep sccoring"""
+    path = get_local_neurodesk_storage_path(workflow_id, run_id, step_id)
+    list_of_files = os.listdir(path)
+    return { "available_hypnograms": list_of_files}
+
+
+@router.get("/initialise_hypnograms", tags=["initialise_hypnograms"])
+async def initialise_hypnograms(workflow_id: str,
+                          step_id: str,
+                          run_id: str,):
+    """This functions transfers all hypnogram to interim storage in a new manul sleep scoring function
+     run or autoscoring funciton"""
+    path = get_local_storage_path(workflow_id, run_id, step_id)
+    list_of_files = os.listdir(path)
+    list_of_copied_files = []
+    for file in list_of_files:
+        if file.endswith(".txt") or file.endswith(".csv"):
+            shutil.copyfile(path + "/" + file, get_local_neurodesk_storage_path(workflow_id, run_id, step_id) + "/" + file)
+            list_of_copied_files.append(file)
+
+    return { "available_hypnograms": list_of_copied_files}
+
 
 # Slow Waves detection
 @router.get("/slow_waves_detection")
@@ -2065,7 +2105,8 @@ async def mne_open_eeg(workflow_id: str,
 
     # Get file name to open with EDFBrowser
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
-    name_of_file = get_single_file_from_local_temp_storage(workflow_id, run_id, step_id)
+    # name_of_file = get_single_file_from_local_temp_storage(workflow_id, run_id, step_id)
+    name_of_file = get_single_edf_file_from_local_temp_storage(workflow_id, run_id, step_id)
     file_full_path = path_to_storage + "/" + name_of_file
 
     # Give permissions in working folder
@@ -2258,16 +2299,16 @@ async def mne_create_notebook(file_name: str,
     # create_notebook_mne_plot("hello", "again")
 
 # TODO
-@router.get("/test/montage", tags=["test_montage"])
-async def test_montage() -> dict:
-    raw_data = data.get_data()
-    info = data.info
-    print('\nBUILT-IN MONTAGE FILES')
-    print('======================')
-    print(info)
-    print(raw_data)
-    ten_twenty_montage = mne.channels.make_standard_montage('example_data/trial_av')
-    print(ten_twenty_montage)
+# @router.get("/test/montage", tags=["test_montage"])
+# async def test_montage() -> dict:
+#     raw_data = data.get_data()
+#     info = data.info
+#     print('\nBUILT-IN MONTAGE FILES')
+#     print('======================')
+#     print(info)
+#     print(raw_data)
+#     ten_twenty_montage = mne.channels.make_standard_montage('example_data/trial_av')
+#     print(ten_twenty_montage)
 
     # create_notebook_mne_plot("hello", "again")
 
@@ -2279,19 +2320,19 @@ async def get_montages() -> dict:
     return files_to_return
 
 
-@router.get("/test/notebook", tags=["test_notebook"])
-# Validation is done inline in the input of the function
-async def test_notebook(input_test_name: str, input_slices: str,
-                        ) -> dict:
-    create_notebook_mne_plot("hello", "again")
+# @router.get("/test/notebook", tags=["test_notebook"])
+# # Validation is done inline in the input of the function
+# async def test_notebook(input_test_name: str, input_slices: str,
+#                         ) -> dict:
+#     create_notebook_mne_plot("hello", "again")
 
 
-@router.get("/test/mne", tags=["test_notebook"])
-# Validation is done inline in the input of the function
-async def test_mne() -> dict:
-    mne.export.export_raw(NeurodesktopStorageLocation + "/export_data_fixed.edf", data, physical_range=(-4999.84, 4999.84), overwrite=True)
-    mne.export.export_raw(NeurodesktopStorageLocation + "/export_data_not.edf", data, overwrite=True)
-
+# @router.get("/test/mne", tags=["test_notebook"])
+# # Validation is done inline in the input of the function
+# async def test_mne() -> dict:
+#     mne.export.export_raw(NeurodesktopStorageLocation + "/export_data_fixed.edf", data, physical_range=(-4999.84, 4999.84), overwrite=True)
+#     mne.export.export_raw(NeurodesktopStorageLocation + "/export_data_not.edf", data, overwrite=True)
+#
 
 @router.get("/envelope_trend", tags=["envelope_trend"])
 # Validation is done inline in the input of the function
@@ -2477,4 +2518,1517 @@ async def back_average(
     to_return = {}
     to_return["channels"] = epochs.ch_names
     return to_return
+
+    return True
+
+@router.get("/sleep_analysis_luiz")
+async def sleepanalysislouiz(workflow_id: str,
+                             step_id: str,
+                             run_id: str):
+
+    df_first_hypnos = []
+    df_second_hypnos = []
+    df_first_fif_files = []
+    df_second_fif_files = []
+    for entries in os.listdir('UU_Sleep'):
+        if entries.endswith(".csv"):
+            if entries.startswith("Subject A") or entries.startswith("Subject B"):
+                df_first_hypnos.append(entries)
+            else:
+                df_second_hypnos.append(entries)
+        elif entries.endswith(".fif"):
+            if entries.startswith("Subject A") or entries.startswith("Subject B"):
+                df_first_fif_files.append(entries)
+            else:
+                df_second_fif_files.append(entries)
+
+    print(df_first_fif_files)
+    print(df_first_hypnos)
+    print(df_second_hypnos)
+    print(df_second_fif_files)
+    first_group_fif_files = []
+    for entries in df_first_fif_files:
+        path = 'UU_Sleep/' + entries
+        data = mne.io.read_raw_fif(path)
+        info = data.info
+        raw_data = data.get_data()
+        channels = data.ch_names
+
+        list_signals = []
+        for i in range(len(channels)):
+            list_signals.append(raw_data[i])
+
+        #first_group_fif_files.append(np.array(list_signals).T.tolist())
+        df_signals = pd.DataFrame(np.array(list_signals).T.tolist(), columns=channels)
+        first_group_fif_files.append(df_signals)
+        #print(df_signals)
+
+
+    second_group_fif_files = []
+    for entries in df_second_fif_files:
+        path = 'UU_Sleep/' + entries
+        data = mne.io.read_raw_fif(path)
+        raw_data = data.get_data()
+        channels = data.ch_names
+
+        list_signals = []
+        for i in range(len(channels)):
+            list_signals.append(raw_data[i])
+
+        # first_group_fif_files.append(np.array(list_signals).T.tolist())
+        df_signals = pd.DataFrame(np.array(list_signals).T.tolist(), columns=channels)
+        second_group_fif_files.append(df_signals)
+        # print(df_signals)
+
+    info = mne.create_info(ch_names=channels, sfreq=info['sfreq'])
+    array_list_first = []
+    for i in range(len(first_group_fif_files)):
+        array_list_first.append(first_group_fif_files[i].to_numpy())
+
+    array_list_second = []
+    for i in range(len(second_group_fif_files)):
+        array_list_second.append(second_group_fif_files[i].to_numpy())
+
+    first_mneraw_list = []
+    second_mneraw_list = []
+    for i in range(len(array_list_first)):
+        temp_MNEraw = mne.io.RawArray(np.array(array_list_first[i]).T, info)
+        first_mneraw_list.append(temp_MNEraw)
+
+    for i in range(len(array_list_second)):
+        temp_MNEraw = mne.io.RawArray(np.array(array_list_second[i]).T, info)
+        second_mneraw_list.append(temp_MNEraw)
+
+    ######## hypnogram
+
+
+    #print(yasa.sleep_statistics(np.squeeze(df.to_numpy()), sf_hyp=1/30))
+    #yasa.plot_hypnogram(np.squeeze(df.to_numpy()))
+
+    list_first_hypnos = []
+    list_second_hypnos = []
+    for i in range(len(df_first_hypnos)):
+        path = 'UU_Sleep/' + str(df_first_hypnos[i])
+        df = pd.read_csv(path)
+        list_first_hypnos.append(np.squeeze(df.to_numpy()))
+
+    for i in range(len(df_second_hypnos)):
+        path = 'UU_Sleep/' + str(df_second_hypnos[i])
+        df = pd.read_csv(path)
+        list_second_hypnos.append(np.squeeze(df.to_numpy()))
+
+    sleep_stats_first = []
+    sleep_stats_second = []
+    for i in range(len(df_first_hypnos)):
+        path = 'UU_Sleep/' + str(df_first_hypnos[i])
+        df = pd.read_csv(path)
+        sleep_stats_first.append(yasa.sleep_statistics(np.squeeze(df.to_numpy()), sf_hyp=1/30))
+
+    for i in range(len(df_second_hypnos)):
+        path = 'UU_Sleep/' + str(df_second_hypnos[i])
+        df = pd.read_csv(path)
+        sleep_stats_second.append(yasa.sleep_statistics(np.squeeze(df.to_numpy()), sf_hyp=1/30))
+
+    df_first_sleep_statistics = pd.DataFrame(sleep_stats_first)
+    df_second_sleep_statistics = pd.DataFrame(sleep_stats_second)
+
+    #sleep transition matrix
+
+    counts_first = []
+    probs_first = []
+    for i in range(len(df_first_hypnos)):
+        path = 'UU_Sleep/' + str(df_first_hypnos[i])
+        df = pd.read_csv(path)
+        counts, probs = yasa.transition_matrix(np.squeeze(df.to_numpy()))
+        counts_first.append(counts)
+        probs_first.append(probs.round(3))
+
+    counts_second = []
+    probs_second = []
+    for i in range(len(df_second_hypnos)):
+        path = 'UU_Sleep/' + str(df_second_hypnos[i])
+        df = pd.read_csv(path)
+        counts, probs = yasa.transition_matrix(np.squeeze(df.to_numpy()))
+        counts_second.append(counts)
+        probs_second.append(probs.round(3))
+
+    #Concatenate lists
+    Sleepmatrix_counts_list = counts_first + counts_second
+    Sleepmatrix_probs_list = probs_first + probs_second
+
+    #Worthless transitions
+    worthless_transitions = []
+    worthless_first_transitions = []
+    worthless_second_transitions = []
+
+    for i in range(len(Sleepmatrix_counts_list)):
+        temp = Sleepmatrix_counts_list[i] == 0
+        temp.iloc[:,0:] = temp.iloc[:,0:].replace({True:1, False:0})
+        worthless_transitions.append(temp)
+
+    print(reduce(lambda x, y: x.add(y, fill_value=0), worthless_transitions))
+
+    for i in range(len(counts_first)):
+        temp = counts_first[i] == 0
+        temp.iloc[:,0:] = temp.iloc[:,0:].replace({True:1, False:0})
+        worthless_first_transitions.append(temp)
+
+    print(reduce(lambda x, y: x.add(y, fill_value=0), worthless_first_transitions))
+
+    for i in range(len(counts_second)):
+        temp = counts_second[i] == 0
+        temp.iloc[:,0:] = temp.iloc[:,0:].replace({True:1, False:0})
+        worthless_second_transitions.append(temp)
+
+    print(reduce(lambda x, y: x.add(y, fill_value=0), worthless_second_transitions))
+
+    #probs
+    WAKE_trans = []
+    N1_trans = []
+    N2_trans = []
+    N3_trans = []
+    REM_trans = []
+
+    for i in range(len(probs_first)):
+        temp = probs_first[i][0:1]
+        temp2 = probs_first[i][1:2]
+        temp3 = probs_first[i][2:3]
+        temp4 = probs_first[i][3:4]
+        temp5 = probs_first[i][4:5]
+        WAKE_trans.append(temp)
+        N1_trans.append(temp2)
+        N2_trans.append(temp3)
+        N3_trans.append(temp4)
+        REM_trans.append(temp5)
+
+    df_WAKE_trans = pd.concat(WAKE_trans)
+    df_N1_trans = pd.concat(N1_trans)
+    df_N2_trans = pd.concat(N2_trans)
+    df_N3_trans = pd.concat(N3_trans)
+    df_REM_trans = pd.concat(REM_trans)
+
+    first_probs_Sleep_Matrix = pd.concat([df_WAKE_trans, df_N1_trans, df_N2_trans, df_N3_trans, df_REM_trans])
+    print(first_probs_Sleep_Matrix)
+
+    WAKE_trans = []
+    N1_trans = []
+    N2_trans = []
+    N3_trans = []
+    REM_trans = []
+
+    for i in range(len(probs_second)):
+        temp = probs_second[i][0:1]
+        temp2 = probs_second[i][1:2]
+        temp3 = probs_second[i][2:3]
+        temp4 = probs_second[i][3:4]
+        temp5 = probs_second[i][4:5]
+        WAKE_trans.append(temp)
+        N1_trans.append(temp2)
+        N2_trans.append(temp3)
+        N3_trans.append(temp4)
+        REM_trans.append(temp5)
+
+    df_WAKE_trans = pd.concat(WAKE_trans)
+    df_N1_trans = pd.concat(N1_trans)
+    df_N2_trans = pd.concat(N2_trans)
+    df_N3_trans = pd.concat(N3_trans)
+    df_REM_trans = pd.concat(REM_trans)
+
+    second_probs_Sleep_Matrix = pd.concat([df_WAKE_trans, df_N1_trans, df_N2_trans, df_N3_trans, df_REM_trans])
+    print(second_probs_Sleep_Matrix)
+
+    # Sleep fragmentation from probs
+
+    sleep_stability_list = []
+    for i in range(len(Sleepmatrix_probs_list)):
+        stability_temp = np.diag(Sleepmatrix_probs_list[i].loc[2:, 2:]).mean().round(3)
+        sleep_stability_list.append(stability_temp)
+
+    df_sleep_stability_all = pd.DataFrame(sleep_stability_list)
+    print(df_sleep_stability_all)
+
+    sleep_stability_list_first = []
+    for i in range(len(probs_first)):
+        stability_temp = np.diag(probs_first[i].loc[2:, 2:]).mean().round(3)
+        sleep_stability_list_first.append(stability_temp)
+
+    df_sleep_stability_first = pd.DataFrame(sleep_stability_list_first)
+    print(df_sleep_stability_first)
+
+    sleep_stability_list_second = []
+    for i in range(len(probs_second)):
+        stability_temp = np.diag(probs_second[i].loc[2:, 2:]).mean().round(3)
+        sleep_stability_list_second.append(stability_temp)
+
+    df_sleep_stability_second = pd.DataFrame(sleep_stability_list_second)
+    print(df_sleep_stability_second)
+
+    #average
+    z = 0
+    for s in probs_first:
+        z = z + s
+    first_average_probs = z / len(probs_first)
+    print(first_average_probs)
+
+    grid_kws = {"height_ratios": (.9, .05), "hspace": .1}
+    f, (ax, cbar_ax) = plt.subplots(2, gridspec_kw=grid_kws, figsize=(5, 5))
+    sns.heatmap(first_average_probs, ax=ax, square=False, vmin=0, vmax=1, cbar=True, cbar_ax=cbar_ax,
+                cmap='YlGnBu', annot=True, fmt='.3f', cbar_kws={"orientation": "horizontal", "fraction":0.1,
+                                                                "label":"Transition Probability"})
+
+    ax.set_xlabel("To sleep stage")
+    ax.xaxis.tick_top()
+    ax.set_ylabel("From sleep stage")
+    ax.xaxis.set_label_position('top')
+    plt.rcParams["figure.dpi"] = 150
+    plt.show()
+
+    #Spectrograms and Bandpowers
+    first_hypnos = []
+    second_hypnos = []
+    for i in range(len(df_first_hypnos)):
+        path = 'UU_Sleep/' + str(df_first_hypnos[i])
+        df = pd.read_csv(path)
+        first_hypnos.append(yasa.hypno_upsample_to_data(np.squeeze(df.to_numpy()), sf_hypno=1/30, data=first_mneraw_list[i]))
+
+    for i in range(len(df_second_hypnos)):
+        path = 'UU_Sleep/' + str(df_second_hypnos[i])
+        df = pd.read_csv(path)
+        second_hypnos.append(yasa.hypno_upsample_to_data(np.squeeze(df.to_numpy()), sf_hypno=1 / 30, data=second_mneraw_list[i]))
+
+    #example
+    data = first_mneraw_list[1].get_data()
+    chan = first_mneraw_list[1].ch_names
+    sf = first_mneraw_list[1].info['sfreq']
+    fig = yasa.plot_spectrogram(data[chan.index("F4_A1_fil")], sf, first_hypnos[1])
+    plt.show()
+
+    #bandpower
+    bandpower_first = []
+    bandpower_second = []
+    for i in range(len(df_first_hypnos)):
+        bandpower_first.append(yasa.bandpower(first_mneraw_list[i], hypno=first_hypnos[i], include=(2,3,4)))
+
+    df_bandpower_first = pd.concat(bandpower_first)
+    print(df_bandpower_first)
+
+    for i in range(len(df_second_hypnos)):
+        bandpower_second.append(yasa.bandpower(second_mneraw_list[i], hypno=second_hypnos[i], include=(2,3,4)))
+
+    df_bandpower_second = pd.concat(bandpower_second)
+    print(df_bandpower_second)
+
+
+
+@router.get("/sleep_analysis_sensitivity_luiz")
+async def sleepanalysislouizsensitivity(workflow_id: str,
+                                        step_id: str,
+                                        run_id: str):
+
+    df_first_hypnos = []
+    df_second_hypnos = []
+    df_first_fif_files = []
+    df_second_fif_files = []
+    for entries in os.listdir('UU_Sleep'):
+        if entries.endswith(".csv"):
+            if entries.startswith("Subject A") or entries.startswith("Subject B"):
+                df_first_hypnos.append(entries)
+            else:
+                df_second_hypnos.append(entries)
+        elif entries.endswith(".fif"):
+            if entries.startswith("Subject A") or entries.startswith("Subject B"):
+                df_first_fif_files.append(entries)
+            else:
+                df_second_fif_files.append(entries)
+
+    print(df_first_fif_files)
+    print(df_first_hypnos)
+    print(df_second_hypnos)
+    print(df_second_fif_files)
+    duration_first = []
+    first_group_fif_files = []
+    for entries in df_first_fif_files:
+        path = 'UU_Sleep/' + entries
+        data = mne.io.read_raw_fif(path)
+        info = data.info
+        raw_data = data.get_data()
+        channels = data.ch_names
+        duration_first.append(raw_data.shape[1]/info['sfreq'])
+
+        list_signals = []
+        for i in range(len(channels)):
+            list_signals.append(raw_data[i])
+
+        #first_group_fif_files.append(np.array(list_signals).T.tolist())
+        df_signals = pd.DataFrame(np.array(list_signals).T.tolist(), columns=channels)
+        first_group_fif_files.append(df_signals)
+        #print(df_signals)
+
+
+    duration_second = []
+    second_group_fif_files = []
+    for entries in df_second_fif_files:
+        path = 'UU_Sleep/' + entries
+        data = mne.io.read_raw_fif(path)
+        raw_data = data.get_data()
+        channels = data.ch_names
+        info = data.info
+        duration_second.append(raw_data.shape[1] / info['sfreq'])
+
+        list_signals = []
+        for i in range(len(channels)):
+            list_signals.append(raw_data[i])
+
+        # first_group_fif_files.append(np.array(list_signals).T.tolist())
+        df_signals = pd.DataFrame(np.array(list_signals).T.tolist(), columns=channels)
+        second_group_fif_files.append(df_signals)
+        # print(df_signals)
+
+    info = mne.create_info(ch_names=channels, sfreq=info['sfreq'])
+    array_list_first = []
+    for i in range(len(first_group_fif_files)):
+        array_list_first.append(first_group_fif_files[i].to_numpy())
+
+    array_list_second = []
+    for i in range(len(second_group_fif_files)):
+        array_list_second.append(second_group_fif_files[i].to_numpy())
+
+    first_mneraw_list = []
+    second_mneraw_list = []
+    for i in range(len(array_list_first)):
+        temp_MNEraw = mne.io.RawArray(np.array(array_list_first[i]).T, info)
+        first_mneraw_list.append(temp_MNEraw)
+
+    for i in range(len(array_list_second)):
+        temp_MNEraw = mne.io.RawArray(np.array(array_list_second[i]).T, info)
+        second_mneraw_list.append(temp_MNEraw)
+
+    ######## hypnogram
+    mne_raw_list = first_mneraw_list + second_mneraw_list
+    firsthalf_mneraw_list = first_mneraw_list + second_mneraw_list
+    secondhalf_mneraw_list = first_mneraw_list + second_mneraw_list
+
+
+    #print(yasa.sleep_statistics(np.squeeze(df.to_numpy()), sf_hyp=1/30))
+    #yasa.plot_hypnogram(np.squeeze(df.to_numpy()))
+
+    list_first_hypnos = []
+    list_second_hypnos = []
+    for i in range(len(df_first_hypnos)):
+        path = 'UU_Sleep/' + str(df_first_hypnos[i])
+        df = pd.read_csv(path)
+        list_first_hypnos.append(np.squeeze(df.to_numpy()))
+
+    for i in range(len(df_second_hypnos)):
+        path = 'UU_Sleep/' + str(df_second_hypnos[i])
+        df = pd.read_csv(path)
+        list_second_hypnos.append(np.squeeze(df.to_numpy()))
+
+    hypno_list = list_first_hypnos + list_second_hypnos
+
+    ##########################################################################
+    ##########################################################################
+    ##########################################################################
+    ### Sensitivity Analysis 02 - trim all files to 06h window
+
+    Hypno_sensitivity02_list_first = []
+    sens02mnerawlist_first = []
+    for i in range(len(list_first_hypnos)):
+        temp = list_first_hypnos[i][:720]
+        Hypno_sensitivity02_list_first.append(temp)
+        sens02mnerawlist_first.append(first_mneraw_list[i])
+        if duration_first[i] > 21600:
+            sens02mnerawlist_first[i].crop(tmin=0, tmax=21600)
+
+    Hypno_sensitivity02_list_second = []
+    sens02mnerawlist_second = []
+    for i in range(len(list_second_hypnos)):
+        temp = list_second_hypnos[i][:720]
+        Hypno_sensitivity02_list_second.append(temp)
+        sens02mnerawlist_second.append(second_mneraw_list[i])
+        if duration_second[i] > 21600:
+            sens02mnerawlist_second[i].crop(tmin=0, tmax=21600)
+
+    ##### Sensitivity Analysis 03
+
+    hypno_first_half_list = []
+    hypno_second_half_list = []
+    sens03mnerawlist_first = []
+    sens03mnerawlist_second = []
+    for i in range(len(mne_raw_list)):
+        x = hypno_list[i].size/2
+        temp_first = hypno_list[i][:int(x)]
+        temp_second = hypno_list[i][int(x):]
+        hypno_first_half_list.append(temp_first)
+        hypno_second_half_list.append(temp_second)
+        sens03mnerawlist_first.append(firsthalf_mneraw_list[i].copy().crop(tmin=0, tmax=int(x*30)))
+        sens03mnerawlist_second.append(secondhalf_mneraw_list[i].copy().crop(tmin=int(x*30)))
+
+    ### Sensitivity Analysis 02 - hypnograms
+
+    hypnosensitivity02list_all = Hypno_sensitivity02_list_first + Hypno_sensitivity02_list_second
+    sensitivity02_sleepstatistics = []
+    for i in range(len(hypnosensitivity02list_all)):
+        sensitivity02_sleepstatistics.append(yasa.sleep_statistics(hypnosensitivity02list_all[i], sf_hyp=1/30))
+
+    df_sens02sleep_statistics = pd.DataFrame(sensitivity02_sleepstatistics)
+    print('Sensitivity 02 - Sleep Statistics')
+    print(df_sens02sleep_statistics)
+
+    # Sensitivity Analysis 03 - Hypnograms
+
+    sleepstats_firsthalf_list = []
+    sleepstats_secondhalf_list = []
+    for i in range(len(hypno_first_half_list)):
+        temp_df1 = yasa.sleep_statistics(hypno_first_half_list[i], sf_hyp=1/30)
+        temp_df2 = yasa.sleep_statistics(hypno_second_half_list[i], sf_hyp=1/30)
+
+        sleepstats_firsthalf_list.append(temp_df1)
+        sleepstats_secondhalf_list.append(temp_df2)
+
+    df_sens03sleep_statisticsfirsthalf = pd.DataFrame(sleepstats_firsthalf_list)
+    print('Sensitivity 03 - Sleep Statistics - first half list')
+    print(df_sens03sleep_statisticsfirsthalf)
+
+    df_sens03sleep_statisticssecondhalf = pd.DataFrame(sleepstats_secondhalf_list)
+    print('Sensitivity 03 - Sleep Statistics - second half list')
+    print(df_sens03sleep_statisticssecondhalf)
+
+    ######################################################################################
+    sleep_stats_first = []
+    sleep_stats_second = []
+    for i in range(len(df_first_hypnos)):
+        path = 'UU_Sleep/' + str(df_first_hypnos[i])
+        df = pd.read_csv(path)
+        sleep_stats_first.append(yasa.sleep_statistics(np.squeeze(df.to_numpy()), sf_hyp=1/30))
+
+    for i in range(len(df_second_hypnos)):
+        path = 'UU_Sleep/' + str(df_second_hypnos[i])
+        df = pd.read_csv(path)
+        sleep_stats_second.append(yasa.sleep_statistics(np.squeeze(df.to_numpy()), sf_hyp=1/30))
+
+    df_first_sleep_statistics = pd.DataFrame(sleep_stats_first)
+    df_second_sleep_statistics = pd.DataFrame(sleep_stats_second)
+
+    ########################################################################
+    #sleep transition matrix
+
+    ## Sensitivity Analysis 02
+
+    sensitivity02_counts_list = []
+    sensitivity02_probs_list = []
+    for i in range(len(hypnosensitivity02list_all)):
+        counts, probs = yasa.transition_matrix(hypnosensitivity02list_all[i])
+        sensitivity02_counts_list.append(counts)
+        sensitivity02_probs_list.append(probs.round(3))
+
+    # Sensitivity Analysis 03
+
+    sensitivity03_counts_list_firsthalf = []
+    sensitivity03_probs_list_firsthalf = []
+
+    sensitivity03_counts_list_secondhalf = []
+    sensitivity03_probs_list_secondhalf = []
+    for i in range(len(hypno_first_half_list)):
+        counts, probs = yasa.transition_matrix(hypno_first_half_list[i])
+        sensitivity03_counts_list_firsthalf.append(counts)
+        sensitivity03_probs_list_firsthalf.append(probs.round(3))
+
+        counts, probs = yasa.transition_matrix(hypno_second_half_list[i])
+        sensitivity03_counts_list_secondhalf.append(counts)
+        sensitivity03_probs_list_secondhalf.append(probs.round(3))
+
+    ################################################
+
+    counts_first = []
+    probs_first = []
+    for i in range(len(df_first_hypnos)):
+        path = 'UU_Sleep/' + str(df_first_hypnos[i])
+        df = pd.read_csv(path)
+        counts, probs = yasa.transition_matrix(np.squeeze(df.to_numpy()))
+        counts_first.append(counts)
+        probs_first.append(probs.round(3))
+
+    counts_second = []
+    probs_second = []
+    for i in range(len(df_second_hypnos)):
+        path = 'UU_Sleep/' + str(df_second_hypnos[i])
+        df = pd.read_csv(path)
+        counts, probs = yasa.transition_matrix(np.squeeze(df.to_numpy()))
+        counts_second.append(counts)
+        probs_second.append(probs.round(3))
+
+    #Concatenate lists
+    Sleepmatrix_counts_list = counts_first + counts_second
+    Sleepmatrix_probs_list = probs_first + probs_second
+
+    #Worthless transitions
+    worthless_transitions = []
+    worthless_first_transitions = []
+    worthless_second_transitions = []
+    worthless_firsthalf_transitions = []
+    worthless_secondhalf_transitions = []
+    worthless_sens02_transitions = []
+
+    for i in range(len(Sleepmatrix_counts_list)):
+        temp = Sleepmatrix_counts_list[i] == 0
+        temp.iloc[:,0:] = temp.iloc[:,0:].replace({True:1, False:0})
+        worthless_transitions.append(temp)
+
+        temp = sensitivity02_counts_list[i] == 0
+        temp.iloc[:, 0:] = temp.iloc[:, 0:].replace({True: 1, False: 0})
+        worthless_sens02_transitions.append(temp)
+
+        temp = sensitivity03_counts_list_firsthalf[i] == 0
+        temp.iloc[:, 0:] = temp.iloc[:, 0:].replace({True: 1, False: 0})
+        worthless_firsthalf_transitions.append(temp)
+
+        temp = sensitivity03_counts_list_secondhalf[i] == 0
+        temp.iloc[:, 0:] = temp.iloc[:, 0:].replace({True: 1, False: 0})
+        worthless_secondhalf_transitions.append(temp)
+
+    print(reduce(lambda x, y: x.add(y, fill_value=0), worthless_transitions))
+
+    print('Sensitivity 02')
+    print(reduce(lambda x, y: x.add(y, fill_value=0), worthless_sens02_transitions))
+
+    print("Sensitivity 03 - first half")
+    print(reduce(lambda x, y: x.add(y, fill_value=0), worthless_firsthalf_transitions))
+
+    print("Sensitivity 03 - second half")
+    print(reduce(lambda x, y: x.add(y, fill_value=0), worthless_secondhalf_transitions))
+
+    for i in range(len(counts_first)):
+        temp = counts_first[i] == 0
+        temp.iloc[:,0:] = temp.iloc[:,0:].replace({True:1, False:0})
+        worthless_first_transitions.append(temp)
+
+    print(reduce(lambda x, y: x.add(y, fill_value=0), worthless_first_transitions))
+
+    for i in range(len(counts_second)):
+        temp = counts_second[i] == 0
+        temp.iloc[:,0:] = temp.iloc[:,0:].replace({True:1, False:0})
+        worthless_second_transitions.append(temp)
+
+    print(reduce(lambda x, y: x.add(y, fill_value=0), worthless_second_transitions))
+
+    #probs
+    WAKE_trans = []
+    N1_trans = []
+    N2_trans = []
+    N3_trans = []
+    REM_trans = []
+
+    for i in range(len(probs_first)):
+        temp = probs_first[i][0:1]
+        temp2 = probs_first[i][1:2]
+        temp3 = probs_first[i][2:3]
+        temp4 = probs_first[i][3:4]
+        temp5 = probs_first[i][4:5]
+        WAKE_trans.append(temp)
+        N1_trans.append(temp2)
+        N2_trans.append(temp3)
+        N3_trans.append(temp4)
+        REM_trans.append(temp5)
+
+    df_WAKE_trans = pd.concat(WAKE_trans)
+    df_N1_trans = pd.concat(N1_trans)
+    df_N2_trans = pd.concat(N2_trans)
+    df_N3_trans = pd.concat(N3_trans)
+    df_REM_trans = pd.concat(REM_trans)
+
+    first_probs_Sleep_Matrix = pd.concat([df_WAKE_trans, df_N1_trans, df_N2_trans, df_N3_trans, df_REM_trans])
+    print(first_probs_Sleep_Matrix)
+
+    WAKE_trans = []
+    N1_trans = []
+    N2_trans = []
+    N3_trans = []
+    REM_trans = []
+
+    for i in range(len(probs_second)):
+        temp = probs_second[i][0:1]
+        temp2 = probs_second[i][1:2]
+        temp3 = probs_second[i][2:3]
+        temp4 = probs_second[i][3:4]
+        temp5 = probs_second[i][4:5]
+        WAKE_trans.append(temp)
+        N1_trans.append(temp2)
+        N2_trans.append(temp3)
+        N3_trans.append(temp4)
+        REM_trans.append(temp5)
+
+    df_WAKE_trans = pd.concat(WAKE_trans)
+    df_N1_trans = pd.concat(N1_trans)
+    df_N2_trans = pd.concat(N2_trans)
+    df_N3_trans = pd.concat(N3_trans)
+    df_REM_trans = pd.concat(REM_trans)
+
+    second_probs_Sleep_Matrix = pd.concat([df_WAKE_trans, df_N1_trans, df_N2_trans, df_N3_trans, df_REM_trans])
+    print(second_probs_Sleep_Matrix)
+
+    # Sensitivity Analysis 02
+
+    WAKE_trans = []
+    N1_trans = []
+    N2_trans = []
+    N3_trans = []
+    REM_trans = []
+
+    for i in range(len(sensitivity02_probs_list)):
+        temp = sensitivity02_probs_list[i][0:1]
+        temp2 = sensitivity02_probs_list[i][1:2]
+        temp3 = sensitivity02_probs_list[i][2:3]
+        temp4 = sensitivity02_probs_list[i][3:4]
+        temp5 = sensitivity02_probs_list[i][4:5]
+        WAKE_trans.append(temp)
+        N1_trans.append(temp2)
+        N2_trans.append(temp3)
+        N3_trans.append(temp4)
+        REM_trans.append(temp5)
+
+    df_WAKE_trans = pd.concat(WAKE_trans)
+    df_N1_trans = pd.concat(N1_trans)
+    df_N2_trans = pd.concat(N2_trans)
+    df_N3_trans = pd.concat(N3_trans)
+    df_REM_trans = pd.concat(REM_trans)
+
+    sensitivity02_probs_Sleep_Matrix = pd.concat([df_WAKE_trans, df_N1_trans, df_N2_trans, df_N3_trans, df_REM_trans])
+    print(sensitivity02_probs_Sleep_Matrix)
+
+    # Sensitivity Analysis 03 - first half
+
+    WAKE_trans = []
+    N1_trans = []
+    N2_trans = []
+    N3_trans = []
+    REM_trans = []
+
+    for i in range(len(sensitivity03_probs_list_firsthalf)):
+        temp = sensitivity03_probs_list_firsthalf[i][0:1]
+        temp2 = sensitivity03_probs_list_firsthalf[i][1:2]
+        temp3 = sensitivity03_probs_list_firsthalf[i][2:3]
+        temp4 = sensitivity03_probs_list_firsthalf[i][3:4]
+        temp5 = sensitivity03_probs_list_firsthalf[i][4:5]
+        WAKE_trans.append(temp)
+        N1_trans.append(temp2)
+        N2_trans.append(temp3)
+        N3_trans.append(temp4)
+        REM_trans.append(temp5)
+
+    df_WAKE_trans = pd.concat(WAKE_trans)
+    df_N1_trans = pd.concat(N1_trans)
+    df_N2_trans = pd.concat(N2_trans)
+    df_N3_trans = pd.concat(N3_trans)
+    df_REM_trans = pd.concat(REM_trans)
+
+    sensitivity03_first_half_probs_Sleep_Matrix = pd.concat([df_WAKE_trans, df_N1_trans, df_N2_trans, df_N3_trans, df_REM_trans])
+    print(sensitivity03_first_half_probs_Sleep_Matrix)
+
+    # Sensitivity Analysis 03 - second half
+
+    WAKE_trans = []
+    N1_trans = []
+    N2_trans = []
+    N3_trans = []
+    REM_trans = []
+
+    for i in range(len(sensitivity03_probs_list_secondhalf)):
+        temp = sensitivity03_probs_list_secondhalf[i][0:1]
+        temp2 = sensitivity03_probs_list_secondhalf[i][1:2]
+        temp3 = sensitivity03_probs_list_secondhalf[i][2:3]
+        temp4 = sensitivity03_probs_list_secondhalf[i][3:4]
+        temp5 = sensitivity03_probs_list_secondhalf[i][4:5]
+        WAKE_trans.append(temp)
+        N1_trans.append(temp2)
+        N2_trans.append(temp3)
+        N3_trans.append(temp4)
+        REM_trans.append(temp5)
+
+    df_WAKE_trans = pd.concat(WAKE_trans)
+    df_N1_trans = pd.concat(N1_trans)
+    df_N2_trans = pd.concat(N2_trans)
+    df_N3_trans = pd.concat(N3_trans)
+    df_REM_trans = pd.concat(REM_trans)
+
+    sensitivity03_second_half_probs_Sleep_Matrix = pd.concat([df_WAKE_trans, df_N1_trans, df_N2_trans, df_N3_trans, df_REM_trans])
+    print(sensitivity03_second_half_probs_Sleep_Matrix)
+
+    # Sleep fragmentation from probs
+
+    sleep_stability_list = []
+    for i in range(len(Sleepmatrix_probs_list)):
+        stability_temp = np.diag(Sleepmatrix_probs_list[i].loc[2:, 2:]).mean().round(3)
+        sleep_stability_list.append(stability_temp)
+
+    df_sleep_stability_all = pd.DataFrame(sleep_stability_list)
+    print(df_sleep_stability_all)
+
+    sleep_stability_list_first = []
+    for i in range(len(probs_first)):
+        stability_temp = np.diag(probs_first[i].loc[2:, 2:]).mean().round(3)
+        sleep_stability_list_first.append(stability_temp)
+
+    df_sleep_stability_first = pd.DataFrame(sleep_stability_list_first)
+    print(df_sleep_stability_first)
+
+    sleep_stability_list_second = []
+    for i in range(len(probs_second)):
+        stability_temp = np.diag(probs_second[i].loc[2:, 2:]).mean().round(3)
+        sleep_stability_list_second.append(stability_temp)
+
+    df_sleep_stability_second = pd.DataFrame(sleep_stability_list_second)
+    print(df_sleep_stability_second)
+
+    # Sensitivity 02
+
+    sleep_stability_list_sens02 = []
+    for i in range(len(sensitivity02_probs_list)):
+        stability_temp = np.diag(sensitivity02_probs_list[i].loc[2:, 2:]).mean().round(3)
+        sleep_stability_list_sens02.append(stability_temp)
+
+    df_sleep_stability_sens02 = pd.DataFrame(sleep_stability_list_sens02)
+    print('Sensitivity 02')
+    print(df_sleep_stability_sens02)
+
+    # Sensitivity 03 - first half
+
+    sleep_stability_list_sens03_firsthalf = []
+    for i in range(len(sensitivity03_probs_list_firsthalf)):
+        stability_temp = np.diag(sensitivity03_probs_list_firsthalf[i].loc[2:, 2:]).mean().round(3)
+        sleep_stability_list_sens03_firsthalf.append(stability_temp)
+
+    df_sleep_stability_all_sens03_firsthalf = pd.DataFrame(sleep_stability_list_sens03_firsthalf)
+    print(df_sleep_stability_all_sens03_firsthalf)
+
+    # Sensitivity 03 - second half
+
+    sleep_stability_list_sens03_secondhalf = []
+    for i in range(len(sensitivity03_probs_list_secondhalf)):
+        stability_temp = np.diag(sensitivity03_probs_list_secondhalf[i].loc[2:, 2:]).mean().round(3)
+        sleep_stability_list_sens03_secondhalf.append(stability_temp)
+
+    df_sleep_stability_all_sens03_secondhalf = pd.DataFrame(sleep_stability_list_sens03_secondhalf)
+    print(df_sleep_stability_all_sens03_secondhalf)
+
+    #average
+    z = 0
+    for s in probs_first:
+        z = z + s
+    first_average_probs = z / len(probs_first)
+    print(first_average_probs)
+
+    grid_kws = {"height_ratios": (.9, .05), "hspace": .1}
+    f, (ax, cbar_ax) = plt.subplots(2, gridspec_kw=grid_kws, figsize=(5, 5))
+    sns.heatmap(first_average_probs, ax=ax, square=False, vmin=0, vmax=1, cbar=True, cbar_ax=cbar_ax,
+                cmap='YlGnBu', annot=True, fmt='.3f', cbar_kws={"orientation": "horizontal", "fraction":0.1,
+                                                                "label":"Transition Probability"})
+
+    ax.set_xlabel("To sleep stage")
+    ax.xaxis.tick_top()
+    ax.set_ylabel("From sleep stage")
+    ax.xaxis.set_label_position('top')
+    plt.rcParams["figure.dpi"] = 150
+    plt.show()
+
+    #Spectrograms and Bandpowers
+    first_hypnos = []
+    second_hypnos = []
+    for i in range(len(df_first_hypnos)):
+        path = 'UU_Sleep/' + str(df_first_hypnos[i])
+        df = pd.read_csv(path)
+        first_hypnos.append(yasa.hypno_upsample_to_data(np.squeeze(df.to_numpy()), sf_hypno=1/30, data=first_mneraw_list[i]))
+
+    for i in range(len(df_second_hypnos)):
+        path = 'UU_Sleep/' + str(df_second_hypnos[i])
+        df = pd.read_csv(path)
+        second_hypnos.append(yasa.hypno_upsample_to_data(np.squeeze(df.to_numpy()), sf_hypno=1 / 30, data=second_mneraw_list[i]))
+
+    #sensitivity_analysis_3
+
+    hypnolist = []
+    firsthalf_hypnolist = []
+    secondhalf_hypnolist = []
+    for i in range(len(hypno_first_half_list)):
+        HYPNOup_temp = yasa.hypno_upsample_to_data(hypno_list[i], sf_hypno=1/30, data=mne_raw_list[i])
+        HYPNOup_temp4 = yasa.hypno_upsample_to_data(hypno_first_half_list[i], sf_hypno=1/30, data=sens03mnerawlist_first[i])
+        HYPNOup_temp5 = yasa.hypno_upsample_to_data(hypno_second_half_list[i], sf_hypno=1/30, data=sens03mnerawlist_second[i])
+
+        hypnolist.append(HYPNOup_temp)
+        firsthalf_hypnolist.append(HYPNOup_temp4)
+        secondhalf_hypnolist.append(HYPNOup_temp5)
+
+
+    #example
+    data = first_mneraw_list[1].get_data()
+    chan = first_mneraw_list[1].ch_names
+    sf = first_mneraw_list[1].info['sfreq']
+    fig = yasa.plot_spectrogram(data[chan.index("F4_A1_fil")], sf, first_hypnos[1])
+    plt.show()
+
+    #bandpower
+    bandpower_stages_list = []
+    bandpower_second = []
+
+    for i in range(len(mne_raw_list)):
+        bandpower_stages_list.append(yasa.bandpower(mne_raw_list[i], hypno=hypnolist[i], include=(2,3,4)))
+
+    df_bandpower_first = pd.concat(bandpower_stages_list)
+    print(df_bandpower_first)
+
+    #Sensitivity Analysis 03
+    firsthalf_bandpowerlist = []
+    secondhalf_bandpowerlist = []
+    for i in range(len(firsthalf_hypnolist)):
+        firsthalf_bandpowerlist.append(yasa.bandpower(sens03mnerawlist_first[i], hypno=firsthalf_hypnolist[i], include=(2,3,4)))
+        secondhalf_bandpowerlist.append(yasa.bandpower(sens03mnerawlist_second[i], hypno=secondhalf_hypnolist[i], include=(2,3,4)))
+
+    df_bandpower_first = pd.concat(firsthalf_bandpowerlist)
+    print("Sensitivity Analysis 03 - First Half")
+    print(df_bandpower_first)
+
+    df_bandpower_first = pd.concat(secondhalf_bandpowerlist)
+    print("Sensitivity Analysis 03 - Second Half")
+    print(df_bandpower_first)
+
+
+
+@router.get("/sleep_analysis_sensitivity_luizaddsubject")
+async def sleepanalysislouizsensitivityaddsubject(workflow_id: str,
+                                                  step_id: str,
+                                                  run_id: str):
+
+    df_first_hypnos = []
+    df_second_hypnos = []
+    df_first_fif_files = []
+    df_second_fif_files = []
+    for entries in os.listdir('UU_Sleep'):
+        if entries.endswith(".csv"):
+            if entries.startswith("Subject A") or entries.startswith("Subject B"):
+                df_first_hypnos.append(entries)
+            else:
+                df_second_hypnos.append(entries)
+        elif entries.endswith(".fif"):
+            if entries.startswith("Subject A") or entries.startswith("Subject B"):
+                df_first_fif_files.append(entries)
+            else:
+                df_second_fif_files.append(entries)
+
+    print(df_first_fif_files)
+    print(df_first_hypnos)
+    print(df_second_hypnos)
+    print(df_second_fif_files)
+    fif_files = df_first_fif_files + df_second_fif_files
+    fif_files_subjects = []
+    for i in range(len(fif_files)):
+        fif_files_subjects.append(fif_files[i].split(".")[0])
+
+    duration_first = []
+    first_group_fif_files = []
+    for entries in df_first_fif_files:
+        path = 'UU_Sleep/' + entries
+        data = mne.io.read_raw_fif(path)
+        info = data.info
+        raw_data = data.get_data()
+        channels = data.ch_names
+        duration_first.append(raw_data.shape[1]/info['sfreq'])
+
+        list_signals = []
+        for i in range(len(channels)):
+            list_signals.append(raw_data[i])
+
+        #first_group_fif_files.append(np.array(list_signals).T.tolist())
+        df_signals = pd.DataFrame(np.array(list_signals).T.tolist(), columns=channels)
+        first_group_fif_files.append(df_signals)
+        #print(df_signals)
+
+
+    duration_second = []
+    second_group_fif_files = []
+    for entries in df_second_fif_files:
+        path = 'UU_Sleep/' + entries
+        data = mne.io.read_raw_fif(path)
+        raw_data = data.get_data()
+        channels = data.ch_names
+        info = data.info
+        duration_second.append(raw_data.shape[1] / info['sfreq'])
+
+        list_signals = []
+        for i in range(len(channels)):
+            list_signals.append(raw_data[i])
+
+        # first_group_fif_files.append(np.array(list_signals).T.tolist())
+        df_signals = pd.DataFrame(np.array(list_signals).T.tolist(), columns=channels)
+        second_group_fif_files.append(df_signals)
+        # print(df_signals)
+
+    info = mne.create_info(ch_names=channels, sfreq=info['sfreq'])
+    array_list_first = []
+    for i in range(len(first_group_fif_files)):
+        array_list_first.append(first_group_fif_files[i].to_numpy())
+
+    array_list_second = []
+    for i in range(len(second_group_fif_files)):
+        array_list_second.append(second_group_fif_files[i].to_numpy())
+
+    first_mneraw_list = []
+    second_mneraw_list = []
+    for i in range(len(array_list_first)):
+        temp_MNEraw = mne.io.RawArray(np.array(array_list_first[i]).T, info)
+        first_mneraw_list.append(temp_MNEraw)
+
+    for i in range(len(array_list_second)):
+        temp_MNEraw = mne.io.RawArray(np.array(array_list_second[i]).T, info)
+        second_mneraw_list.append(temp_MNEraw)
+
+    ######## hypnogram
+    mne_raw_list = first_mneraw_list + second_mneraw_list
+    firsthalf_mneraw_list = first_mneraw_list + second_mneraw_list
+    secondhalf_mneraw_list = first_mneraw_list + second_mneraw_list
+
+
+    #print(yasa.sleep_statistics(np.squeeze(df.to_numpy()), sf_hyp=1/30))
+    #yasa.plot_hypnogram(np.squeeze(df.to_numpy()))
+
+    list_first_hypnos = []
+    list_second_hypnos = []
+    for i in range(len(df_first_hypnos)):
+        path = 'UU_Sleep/' + str(df_first_hypnos[i])
+        df = pd.read_csv(path)
+        list_first_hypnos.append(np.squeeze(df.to_numpy()))
+
+    for i in range(len(df_second_hypnos)):
+        path = 'UU_Sleep/' + str(df_second_hypnos[i])
+        df = pd.read_csv(path)
+        list_second_hypnos.append(np.squeeze(df.to_numpy()))
+
+    hypno_list = list_first_hypnos + list_second_hypnos
+
+    ##########################################################################
+    ##########################################################################
+    ##########################################################################
+    ### Sensitivity Analysis 02 - trim all files to 06h window
+
+    Hypno_sensitivity02_list_first = []
+    sens02mnerawlist_first = []
+    for i in range(len(list_first_hypnos)):
+        temp = list_first_hypnos[i][:720]
+        Hypno_sensitivity02_list_first.append(temp)
+        sens02mnerawlist_first.append(first_mneraw_list[i])
+        if duration_first[i] > 21600:
+            sens02mnerawlist_first[i].crop(tmin=0, tmax=21600)
+
+    Hypno_sensitivity02_list_second = []
+    sens02mnerawlist_second = []
+    for i in range(len(list_second_hypnos)):
+        temp = list_second_hypnos[i][:720]
+        Hypno_sensitivity02_list_second.append(temp)
+        sens02mnerawlist_second.append(second_mneraw_list[i])
+        if duration_second[i] > 21600:
+            sens02mnerawlist_second[i].crop(tmin=0, tmax=21600)
+
+    sens_02_mnerawlist_all = sens02mnerawlist_first + sens02mnerawlist_second
+    hypnosensitivity02_all = Hypno_sensitivity02_list_first + Hypno_sensitivity02_list_second
+
+    ##### Sensitivity Analysis 03
+
+    hypno_first_half_list = []
+    hypno_second_half_list = []
+    sens03mnerawlist_first = []
+    sens03mnerawlist_second = []
+    for i in range(len(mne_raw_list)):
+        x = hypno_list[i].size/2
+        temp_first = hypno_list[i][:int(x)]
+        temp_second = hypno_list[i][int(x):]
+        hypno_first_half_list.append(temp_first)
+        hypno_second_half_list.append(temp_second)
+        sens03mnerawlist_first.append(firsthalf_mneraw_list[i].copy().crop(tmin=0, tmax=int(x*30)))
+        sens03mnerawlist_second.append(secondhalf_mneraw_list[i].copy().crop(tmin=int(x*30)))
+
+    ### Sensitivity Analysis 02 - hypnograms
+
+    hypnosensitivity02list_all = Hypno_sensitivity02_list_first + Hypno_sensitivity02_list_second
+    sensitivity02_sleepstatistics = []
+    for i in range(len(hypnosensitivity02list_all)):
+        sensitivity02_sleepstatistics.append(yasa.sleep_statistics(hypnosensitivity02list_all[i], sf_hyp=1/30))
+
+    df_sens02sleep_statistics = pd.DataFrame(sensitivity02_sleepstatistics)
+    df_fif_files_subjects = pd.DataFrame(fif_files_subjects, columns=['subjects'])
+    df_sens02sleep_statistics = pd.concat([df_fif_files_subjects, df_sens02sleep_statistics], axis=1)
+    print('Sensitivity 02 - Sleep Statistics')
+    print(df_sens02sleep_statistics)
+
+    # Sensitivity Analysis 03 - Hypnograms
+
+    sleepstats_firsthalf_list = []
+    sleepstats_secondhalf_list = []
+    for i in range(len(hypno_first_half_list)):
+        temp_df1 = yasa.sleep_statistics(hypno_first_half_list[i], sf_hyp=1/30)
+        temp_df2 = yasa.sleep_statistics(hypno_second_half_list[i], sf_hyp=1/30)
+
+        sleepstats_firsthalf_list.append(temp_df1)
+        sleepstats_secondhalf_list.append(temp_df2)
+
+    df_sens03sleep_statisticsfirsthalf = pd.DataFrame(sleepstats_firsthalf_list)
+    df_sens03sleep_statisticsfirsthalf = pd.concat([df_fif_files_subjects, df_sens03sleep_statisticsfirsthalf], axis=1)
+    print('Sensitivity 03 - Sleep Statistics - first half list')
+    print(df_sens03sleep_statisticsfirsthalf)
+
+    df_sens03sleep_statisticssecondhalf = pd.DataFrame(sleepstats_secondhalf_list)
+    df_sens03sleep_statisticssecondhalf = pd.concat([df_fif_files_subjects, df_sens03sleep_statisticssecondhalf], axis=1)
+    print('Sensitivity 03 - Sleep Statistics - second half list')
+    print(df_sens03sleep_statisticssecondhalf)
+
+    ######################################################################################
+    sleep_stats_first = []
+    sleep_stats_second = []
+    for i in range(len(df_first_hypnos)):
+        path = 'UU_Sleep/' + str(df_first_hypnos[i])
+        df = pd.read_csv(path)
+        sleep_stats_first.append(yasa.sleep_statistics(np.squeeze(df.to_numpy()), sf_hyp=1/30))
+
+    for i in range(len(df_second_hypnos)):
+        path = 'UU_Sleep/' + str(df_second_hypnos[i])
+        df = pd.read_csv(path)
+        sleep_stats_second.append(yasa.sleep_statistics(np.squeeze(df.to_numpy()), sf_hyp=1/30))
+
+    df_first_sleep_statistics = pd.DataFrame(sleep_stats_first)
+    df_second_sleep_statistics = pd.DataFrame(sleep_stats_second)
+
+    first_fif_files_subjects = []
+    for i in range(len(df_first_fif_files)):
+        first_fif_files_subjects.append(df_first_fif_files[i].split(".")[0])
+
+    df_first_fif_files_dataframe = pd.DataFrame(first_fif_files_subjects, columns = ['subjects'])
+
+    second_fif_files_subjects = []
+    for i in range(len(df_second_fif_files)):
+        second_fif_files_subjects.append(df_second_fif_files[i].split(".")[0])
+
+    df_second_fif_files_dataframe = pd.DataFrame(second_fif_files_subjects, columns=['subjects'])
+
+    df_first_sleep_statistics = pd.concat([df_first_fif_files_dataframe, df_first_sleep_statistics], axis = 1)
+    print('First folder - Sleep Statistics')
+    print(df_first_sleep_statistics)
+
+    df_second_sleep_statistics = pd.concat([df_second_fif_files_dataframe, df_second_sleep_statistics], axis = 1)
+    print('Second folder - Sleep Statistics')
+    print(df_second_sleep_statistics)
+
+    ########################################################################
+    #sleep transition matrix
+
+    ## Sensitivity Analysis 02
+
+    sensitivity02_counts_list = []
+    sensitivity02_probs_list = []
+    for i in range(len(hypnosensitivity02list_all)):
+        counts, probs = yasa.transition_matrix(hypnosensitivity02list_all[i])
+        sensitivity02_counts_list.append(counts)
+        sensitivity02_probs_list.append(probs.round(3))
+
+    # Sensitivity Analysis 03
+
+    sensitivity03_counts_list_firsthalf = []
+    sensitivity03_probs_list_firsthalf = []
+
+    sensitivity03_counts_list_secondhalf = []
+    sensitivity03_probs_list_secondhalf = []
+    for i in range(len(hypno_first_half_list)):
+        counts, probs = yasa.transition_matrix(hypno_first_half_list[i])
+        sensitivity03_counts_list_firsthalf.append(counts)
+        sensitivity03_probs_list_firsthalf.append(probs.round(3))
+
+        counts, probs = yasa.transition_matrix(hypno_second_half_list[i])
+        sensitivity03_counts_list_secondhalf.append(counts)
+        sensitivity03_probs_list_secondhalf.append(probs.round(3))
+
+    ################################################
+
+    counts_first = []
+    probs_first = []
+    for i in range(len(df_first_hypnos)):
+        path = 'UU_Sleep/' + str(df_first_hypnos[i])
+        df = pd.read_csv(path)
+        counts, probs = yasa.transition_matrix(np.squeeze(df.to_numpy()))
+        counts_first.append(counts)
+        probs_first.append(probs.round(3))
+
+    counts_second = []
+    probs_second = []
+    for i in range(len(df_second_hypnos)):
+        path = 'UU_Sleep/' + str(df_second_hypnos[i])
+        df = pd.read_csv(path)
+        counts, probs = yasa.transition_matrix(np.squeeze(df.to_numpy()))
+        counts_second.append(counts)
+        probs_second.append(probs.round(3))
+
+    #Concatenate lists
+    Sleepmatrix_counts_list = counts_first + counts_second
+    Sleepmatrix_probs_list = probs_first + probs_second
+
+    #Worthless transitions
+    worthless_transitions = []
+    worthless_first_transitions = []
+    worthless_second_transitions = []
+    worthless_firsthalf_transitions = []
+    worthless_secondhalf_transitions = []
+    worthless_sens02_transitions = []
+
+    for i in range(len(Sleepmatrix_counts_list)):
+        temp = Sleepmatrix_counts_list[i] == 0
+        temp.iloc[:,0:] = temp.iloc[:,0:].replace({True:1, False:0})
+        worthless_transitions.append(temp)
+
+        temp = sensitivity02_counts_list[i] == 0
+        temp.iloc[:, 0:] = temp.iloc[:, 0:].replace({True: 1, False: 0})
+        worthless_sens02_transitions.append(temp)
+
+        temp = sensitivity03_counts_list_firsthalf[i] == 0
+        temp.iloc[:, 0:] = temp.iloc[:, 0:].replace({True: 1, False: 0})
+        worthless_firsthalf_transitions.append(temp)
+
+        temp = sensitivity03_counts_list_secondhalf[i] == 0
+        temp.iloc[:, 0:] = temp.iloc[:, 0:].replace({True: 1, False: 0})
+        worthless_secondhalf_transitions.append(temp)
+
+    print(reduce(lambda x, y: x.add(y, fill_value=0), worthless_transitions))
+
+    print('Sensitivity 02')
+    print(reduce(lambda x, y: x.add(y, fill_value=0), worthless_sens02_transitions))
+
+    print("Sensitivity 03 - first half")
+    print(reduce(lambda x, y: x.add(y, fill_value=0), worthless_firsthalf_transitions))
+
+    print("Sensitivity 03 - second half")
+    print(reduce(lambda x, y: x.add(y, fill_value=0), worthless_secondhalf_transitions))
+
+    for i in range(len(counts_first)):
+        temp = counts_first[i] == 0
+        temp.iloc[:,0:] = temp.iloc[:,0:].replace({True:1, False:0})
+        worthless_first_transitions.append(temp)
+
+    print(reduce(lambda x, y: x.add(y, fill_value=0), worthless_first_transitions))
+
+    for i in range(len(counts_second)):
+        temp = counts_second[i] == 0
+        temp.iloc[:,0:] = temp.iloc[:,0:].replace({True:1, False:0})
+        worthless_second_transitions.append(temp)
+
+    print(reduce(lambda x, y: x.add(y, fill_value=0), worthless_second_transitions))
+
+    #probs
+    WAKE_trans = []
+    N1_trans = []
+    N2_trans = []
+    N3_trans = []
+    REM_trans = []
+
+    for i in range(len(probs_first)):
+        temp = probs_first[i][0:1]
+        temp2 = probs_first[i][1:2]
+        temp3 = probs_first[i][2:3]
+        temp4 = probs_first[i][3:4]
+        temp5 = probs_first[i][4:5]
+        WAKE_trans.append(temp)
+        N1_trans.append(temp2)
+        N2_trans.append(temp3)
+        N3_trans.append(temp4)
+        REM_trans.append(temp5)
+
+    df_WAKE_trans = pd.concat(WAKE_trans, keys=df_first_fif_files)
+    df_N1_trans = pd.concat(N1_trans, keys=df_first_fif_files)
+    df_N2_trans = pd.concat(N2_trans, keys=df_first_fif_files)
+    df_N3_trans = pd.concat(N3_trans, keys=df_first_fif_files)
+    df_REM_trans = pd.concat(REM_trans, keys=df_first_fif_files)
+
+    first_probs_Sleep_Matrix = pd.concat([df_WAKE_trans, df_N1_trans, df_N2_trans, df_N3_trans, df_REM_trans])
+    print("first folder")
+    print(first_probs_Sleep_Matrix)
+
+    WAKE_trans = []
+    N1_trans = []
+    N2_trans = []
+    N3_trans = []
+    REM_trans = []
+
+    for i in range(len(probs_second)):
+        temp = probs_second[i][0:1]
+        temp2 = probs_second[i][1:2]
+        temp3 = probs_second[i][2:3]
+        temp4 = probs_second[i][3:4]
+        temp5 = probs_second[i][4:5]
+        WAKE_trans.append(temp)
+        N1_trans.append(temp2)
+        N2_trans.append(temp3)
+        N3_trans.append(temp4)
+        REM_trans.append(temp5)
+
+    df_WAKE_trans = pd.concat(WAKE_trans, keys=df_second_fif_files)
+    df_N1_trans = pd.concat(N1_trans, keys=df_second_fif_files)
+    df_N2_trans = pd.concat(N2_trans, keys=df_second_fif_files)
+    df_N3_trans = pd.concat(N3_trans, keys=df_second_fif_files)
+    df_REM_trans = pd.concat(REM_trans, keys=df_second_fif_files)
+
+    second_probs_Sleep_Matrix = pd.concat([df_WAKE_trans, df_N1_trans, df_N2_trans, df_N3_trans, df_REM_trans])
+    print("second folder")
+    print(second_probs_Sleep_Matrix)
+
+    # Sensitivity Analysis 02
+
+    WAKE_trans = []
+    N1_trans = []
+    N2_trans = []
+    N3_trans = []
+    REM_trans = []
+
+    for i in range(len(sensitivity02_probs_list)):
+        temp = sensitivity02_probs_list[i][0:1]
+        temp2 = sensitivity02_probs_list[i][1:2]
+        temp3 = sensitivity02_probs_list[i][2:3]
+        temp4 = sensitivity02_probs_list[i][3:4]
+        temp5 = sensitivity02_probs_list[i][4:5]
+        WAKE_trans.append(temp)
+        N1_trans.append(temp2)
+        N2_trans.append(temp3)
+        N3_trans.append(temp4)
+        REM_trans.append(temp5)
+
+    df_WAKE_trans = pd.concat(WAKE_trans, keys=fif_files_subjects)
+    df_N1_trans = pd.concat(N1_trans, keys=fif_files_subjects)
+    df_N2_trans = pd.concat(N2_trans, keys=fif_files_subjects)
+    df_N3_trans = pd.concat(N3_trans, keys=fif_files_subjects)
+    df_REM_trans = pd.concat(REM_trans, keys=fif_files_subjects)
+
+    sensitivity02_probs_Sleep_Matrix = pd.concat([df_WAKE_trans, df_N1_trans, df_N2_trans, df_N3_trans, df_REM_trans])
+    print("Sensitivity 02")
+    print(sensitivity02_probs_Sleep_Matrix)
+
+    # Sensitivity Analysis 03 - first half
+
+    WAKE_trans = []
+    N1_trans = []
+    N2_trans = []
+    N3_trans = []
+    REM_trans = []
+
+    for i in range(len(sensitivity03_probs_list_firsthalf)):
+        temp = sensitivity03_probs_list_firsthalf[i][0:1]
+        temp2 = sensitivity03_probs_list_firsthalf[i][1:2]
+        temp3 = sensitivity03_probs_list_firsthalf[i][2:3]
+        temp4 = sensitivity03_probs_list_firsthalf[i][3:4]
+        temp5 = sensitivity03_probs_list_firsthalf[i][4:5]
+        WAKE_trans.append(temp)
+        N1_trans.append(temp2)
+        N2_trans.append(temp3)
+        N3_trans.append(temp4)
+        REM_trans.append(temp5)
+
+    df_WAKE_trans = pd.concat(WAKE_trans, keys=fif_files_subjects)
+    df_N1_trans = pd.concat(N1_trans, keys=fif_files_subjects)
+    df_N2_trans = pd.concat(N2_trans, keys=fif_files_subjects)
+    df_N3_trans = pd.concat(N3_trans, keys=fif_files_subjects)
+    df_REM_trans = pd.concat(REM_trans, keys=fif_files_subjects)
+
+    sensitivity03_first_half_probs_Sleep_Matrix = pd.concat([df_WAKE_trans, df_N1_trans, df_N2_trans, df_N3_trans, df_REM_trans])
+    print("Sesnitivity Analysis - First half")
+    print(sensitivity03_first_half_probs_Sleep_Matrix)
+
+    # Sensitivity Analysis 03 - second half
+
+    WAKE_trans = []
+    N1_trans = []
+    N2_trans = []
+    N3_trans = []
+    REM_trans = []
+
+    for i in range(len(sensitivity03_probs_list_secondhalf)):
+        temp = sensitivity03_probs_list_secondhalf[i][0:1]
+        temp2 = sensitivity03_probs_list_secondhalf[i][1:2]
+        temp3 = sensitivity03_probs_list_secondhalf[i][2:3]
+        temp4 = sensitivity03_probs_list_secondhalf[i][3:4]
+        temp5 = sensitivity03_probs_list_secondhalf[i][4:5]
+        WAKE_trans.append(temp)
+        N1_trans.append(temp2)
+        N2_trans.append(temp3)
+        N3_trans.append(temp4)
+        REM_trans.append(temp5)
+
+    df_WAKE_trans = pd.concat(WAKE_trans, keys=fif_files_subjects)
+    df_N1_trans = pd.concat(N1_trans, keys=fif_files_subjects)
+    df_N2_trans = pd.concat(N2_trans, keys=fif_files_subjects)
+    df_N3_trans = pd.concat(N3_trans, keys=fif_files_subjects)
+    df_REM_trans = pd.concat(REM_trans, keys=fif_files_subjects)
+
+    sensitivity03_second_half_probs_Sleep_Matrix = pd.concat([df_WAKE_trans, df_N1_trans, df_N2_trans, df_N3_trans, df_REM_trans])
+    print("Sensitivity Analysis 03 - Second Half")
+    print(sensitivity03_second_half_probs_Sleep_Matrix)
+
+    # Sleep fragmentation from probs
+
+    sleep_stability_list = []
+    for i in range(len(Sleepmatrix_probs_list)):
+        stability_temp = np.diag(Sleepmatrix_probs_list[i].loc[2:, 2:]).mean().round(3)
+        sleep_stability_list.append(stability_temp)
+
+    df_sleep_stability_all = pd.DataFrame(sleep_stability_list)
+    df_sleep_stability_all = pd.concat([df_fif_files_subjects, df_sleep_stability_all], axis=1)
+    print('Both folders')
+    print(df_sleep_stability_all)
+
+    sleep_stability_list_first = []
+    for i in range(len(probs_first)):
+        stability_temp = np.diag(probs_first[i].loc[2:, 2:]).mean().round(3)
+        sleep_stability_list_first.append(stability_temp)
+
+    df_sleep_stability_first = pd.DataFrame(sleep_stability_list_first)
+    df_sleep_stability_first = pd.concat([df_first_fif_files_dataframe, df_sleep_stability_first], axis=1)
+    print("First Folder")
+    print(df_sleep_stability_first)
+
+    sleep_stability_list_second = []
+    for i in range(len(probs_second)):
+        stability_temp = np.diag(probs_second[i].loc[2:, 2:]).mean().round(3)
+        sleep_stability_list_second.append(stability_temp)
+
+    df_sleep_stability_second = pd.DataFrame(sleep_stability_list_second)
+    df_sleep_stability_second = pd.concat([df_second_fif_files_dataframe, df_sleep_stability_second], axis=1)
+    print("Second Folder")
+    print(df_sleep_stability_second)
+
+    # Sensitivity 02
+
+    sleep_stability_list_sens02 = []
+    for i in range(len(sensitivity02_probs_list)):
+        stability_temp = np.diag(sensitivity02_probs_list[i].loc[2:, 2:]).mean().round(3)
+        sleep_stability_list_sens02.append(stability_temp)
+
+    df_sleep_stability_sens02 = pd.DataFrame(sleep_stability_list_sens02)
+    df_sleep_stability_sens02 = pd.concat([df_fif_files_subjects, df_sleep_stability_sens02], axis=1)
+    print('Sensitivity 02')
+    print(df_sleep_stability_sens02)
+
+    # Sensitivity 03 - first half
+
+    sleep_stability_list_sens03_firsthalf = []
+    for i in range(len(sensitivity03_probs_list_firsthalf)):
+        stability_temp = np.diag(sensitivity03_probs_list_firsthalf[i].loc[2:, 2:]).mean().round(3)
+        sleep_stability_list_sens03_firsthalf.append(stability_temp)
+
+    df_sleep_stability_all_sens03_firsthalf = pd.DataFrame(sleep_stability_list_sens03_firsthalf)
+    df_sleep_stability_all_sens03_firsthalf = pd.concat([df_fif_files_subjects, df_sleep_stability_all_sens03_firsthalf], axis=1)
+    print("Sensitivity 03 - first half")
+    print(df_sleep_stability_all_sens03_firsthalf)
+
+    # Sensitivity 03 - second half
+
+    sleep_stability_list_sens03_secondhalf = []
+    for i in range(len(sensitivity03_probs_list_secondhalf)):
+        stability_temp = np.diag(sensitivity03_probs_list_secondhalf[i].loc[2:, 2:]).mean().round(3)
+        sleep_stability_list_sens03_secondhalf.append(stability_temp)
+
+    df_sleep_stability_all_sens03_secondhalf = pd.DataFrame(sleep_stability_list_sens03_secondhalf)
+    df_sleep_stability_all_sens03_secondhalf = pd.concat([df_fif_files_subjects, df_sleep_stability_all_sens03_secondhalf], axis=1)
+    print("Sensitivity 03 - second half")
+    print(df_sleep_stability_all_sens03_secondhalf)
+
+    #average
+    z = 0
+    for s in probs_first:
+        z = z + s
+    first_average_probs = z / len(probs_first)
+    print(first_average_probs)
+
+    grid_kws = {"height_ratios": (.9, .05), "hspace": .1}
+    f, (ax, cbar_ax) = plt.subplots(2, gridspec_kw=grid_kws, figsize=(5, 5))
+    sns.heatmap(first_average_probs, ax=ax, square=False, vmin=0, vmax=1, cbar=True, cbar_ax=cbar_ax,
+                cmap='YlGnBu', annot=True, fmt='.3f', cbar_kws={"orientation": "horizontal", "fraction":0.1,
+                                                                "label":"Transition Probability"})
+
+    ax.set_xlabel("To sleep stage")
+    ax.xaxis.tick_top()
+    ax.set_ylabel("From sleep stage")
+    ax.xaxis.set_label_position('top')
+    plt.rcParams["figure.dpi"] = 150
+    plt.show()
+
+    #Spectrograms and Bandpowers
+    first_hypnos = []
+    second_hypnos = []
+    for i in range(len(df_first_hypnos)):
+        path = 'UU_Sleep/' + str(df_first_hypnos[i])
+        df = pd.read_csv(path)
+        first_hypnos.append(yasa.hypno_upsample_to_data(np.squeeze(df.to_numpy()), sf_hypno=1/30, data=first_mneraw_list[i]))
+
+    for i in range(len(df_second_hypnos)):
+        path = 'UU_Sleep/' + str(df_second_hypnos[i])
+        df = pd.read_csv(path)
+        second_hypnos.append(yasa.hypno_upsample_to_data(np.squeeze(df.to_numpy()), sf_hypno=1 / 30, data=second_mneraw_list[i]))
+
+
+
+    # Sensitivity_Analysis_02
+    hypnoyp_temp_02 = []
+    for i in range(len(hypnosensitivity02list_all)):
+        hypnoyp_temp_02.append(yasa.hypno_upsample_to_data(hypnosensitivity02list_all[i], sf_hypno=1/30, data=sens_02_mnerawlist_all[i]))
+
+    #sensitivity_analysis_3
+
+    hypnolist = []
+    firsthalf_hypnolist = []
+    secondhalf_hypnolist = []
+    for i in range(len(hypno_first_half_list)):
+        HYPNOup_temp = yasa.hypno_upsample_to_data(hypno_list[i], sf_hypno=1/30, data=mne_raw_list[i])
+        HYPNOup_temp4 = yasa.hypno_upsample_to_data(hypno_first_half_list[i], sf_hypno=1/30, data=sens03mnerawlist_first[i])
+        HYPNOup_temp5 = yasa.hypno_upsample_to_data(hypno_second_half_list[i], sf_hypno=1/30, data=sens03mnerawlist_second[i])
+
+        hypnolist.append(HYPNOup_temp)
+        firsthalf_hypnolist.append(HYPNOup_temp4)
+        secondhalf_hypnolist.append(HYPNOup_temp5)
+
+
+    #example
+    data = first_mneraw_list[1].get_data()
+    chan = first_mneraw_list[1].ch_names
+    sf = first_mneraw_list[1].info['sfreq']
+    fig = yasa.plot_spectrogram(data[chan.index("F4_A1_fil")], sf, first_hypnos[1])
+    plt.show()
+
+    #bandpower
+    bandpower_stages_list = []
+    bandpower_second = []
+
+    for i in range(len(mne_raw_list)):
+        bandpower_stages_list.append(yasa.bandpower(mne_raw_list[i], hypno=hypnolist[i], include=(2,3,4)))
+
+    df_bandpower_first = pd.concat(bandpower_stages_list, keys=fif_files_subjects)
+    print(df_bandpower_first)
+
+
+    #Sensitivity Analysis 02
+    sens02_bandpower_all = []
+    for i in range(len(hypnosensitivity02list_all)):
+        sens02_bandpower_all.append(yasa.bandpower(sens_02_mnerawlist_all[i], hypno=hypnoyp_temp_02[i], include=(2,3,4)))
+
+    df_bandpower_first = pd.concat(sens02_bandpower_all, keys=fif_files_subjects)
+    print("Sensitivity Analysis 02")
+    print(df_bandpower_first)
+
+    #Sensitivity Analysis 03
+    firsthalf_bandpowerlist = []
+    secondhalf_bandpowerlist = []
+    for i in range(len(firsthalf_hypnolist)):
+        firsthalf_bandpowerlist.append(yasa.bandpower(sens03mnerawlist_first[i], hypno=firsthalf_hypnolist[i], include=(2,3,4)))
+        secondhalf_bandpowerlist.append(yasa.bandpower(sens03mnerawlist_second[i], hypno=secondhalf_hypnolist[i], include=(2,3,4)))
+
+    df_bandpower_first = pd.concat(firsthalf_bandpowerlist, keys=fif_files_subjects)
+    print("Sensitivity Analysis 03 - First Half")
+    print(df_bandpower_first)
+
+    df_bandpower_first = pd.concat(secondhalf_bandpowerlist, keys=fif_files_subjects)
+    print("Sensitivity Analysis 03 - Second Half")
+    print(df_bandpower_first)
+
+
+
 

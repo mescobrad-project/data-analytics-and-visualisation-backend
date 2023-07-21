@@ -198,8 +198,6 @@ NeurodesktopStorageLocation = os.environ.get('NeurodesktopStorageLocation') if o
 app.mount("/static", StaticFiles(directory=NeurodesktopStorageLocation), name="static")
 
 # endregion
-
-
 # region Routes of the application
 @app.on_event("startup")
 def initiate_functions():
@@ -209,6 +207,7 @@ def initiate_functions():
     os.makedirs(NeurodesktopStorageLocation + "/mne", exist_ok=True)
     os.makedirs(NeurodesktopStorageLocation + "/runtime_config", exist_ok=True)
     os.makedirs(NeurodesktopStorageLocation + "/montages", exist_ok=True)
+    os.makedirs(NeurodesktopStorageLocation + "/tutorials", exist_ok=True)
 
     # Create example files
     with open('annotation_test.csv', 'w') as fp:
@@ -219,6 +218,7 @@ def initiate_functions():
     shutil.copy("neurodesk_startup_scripts/get_display.sh", NeurodesktopStorageLocation + "/config/get_display.sh")
     shutil.copy("neurodesk_startup_scripts/template_jupyter_notebooks/EDFTEST.ipynb", NeurodesktopStorageLocation + "/EDFTEST.ipynb")
     shutil.copytree("neurodesk_startup_scripts/default_montages", NeurodesktopStorageLocation + "/montages", dirs_exist_ok=True)
+    shutil.copytree("neurodesk_startup_scripts/tutorials", NeurodesktopStorageLocation + "/tutorials", dirs_exist_ok=True)
 
     # CONERT WINDOWS ENDINGS TO UBUNTU / MIGHT NEED TO BE REMOVED AFTER VOLUME IS TRANSFERED TO NORMAL VOLUME AND NOT
     # BINDED
@@ -261,45 +261,45 @@ async def root():
     return {"message": "Hello World"}
 
 
-@app.get("/test/chart", tags=["root"])
-async def root():
-    return FileResponse('index.html')
-
-
-@app.get("/test/read/users", tags=["root"])
-async def test_read_users():
-    # Test read user in local storage
-
-    read_all_neurodesk_users()
-    return "Success"
-
-@app.get("/test/write/user", tags=["root"])
-async def test_write_user(name, password):
-    # Test write user in local storage
-
-    save_neurodesk_user(name, password)
-    return "Success"
-
-@app.get("/test/display/neurodesk", tags=["root"])
-async def test_display_neurodesk():
-    get_neurodesk_display_id()
-    return "Success"
-
-@app.get("/test/annotations/", tags=["root"])
-async def test_annotations():
-    get_annotations_from_csv()
-    return "Success"
-
-@app.get("/test/add/user", tags=["root"])
-async def test_add_user(name, password):
-    # Must add user both at ubuntu and at file of guacamole
-    # 1 - Adding  at apache guacamole - needs sudo privileges
-    # file etc/guacamole/user
-    # 2 - Adding user at ubuntu
-    # Done with ssh
-
-    create_neurodesk_user(name, password)
-    return "Success"
+# @app.get("/test/chart", tags=["root"])
+# async def root():
+#     return FileResponse('index.html')
+#
+#
+# @app.get("/test/read/users", tags=["root"])
+# async def test_read_users():
+#     # Test read user in local storage
+#
+#     read_all_neurodesk_users()
+#     return "Success"
+#
+# @app.get("/test/write/user", tags=["root"])
+# async def test_write_user(name, password):
+#     # Test write user in local storage
+#
+#     save_neurodesk_user(name, password)
+#     return "Success"
+#
+# @app.get("/test/display/neurodesk", tags=["root"])
+# async def test_display_neurodesk():
+#     get_neurodesk_display_id()
+#     return "Success"
+#
+# @app.get("/test/annotations/", tags=["root"])
+# async def test_annotations():
+#     get_annotations_from_csv()
+#     return "Success"
+#
+# @app.get("/test/add/user", tags=["root"])
+# async def test_add_user(name, password):
+#     # Must add user both at ubuntu and at file of guacamole
+#     # 1 - Adding  at apache guacamole - needs sudo privileges
+#     # file etc/guacamole/user
+#     # 2 - Adding user at ubuntu
+#     # Done with ssh
+#
+#     create_neurodesk_user(name, password)
+#     return "Success"
 
 
 # @app.get("/info", tags=["root"])
