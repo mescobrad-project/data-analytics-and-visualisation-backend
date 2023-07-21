@@ -3,7 +3,7 @@ import mpld3
 import pandas as pd
 import pingouin
 from lifelines.fitters.npmle import min_max
-from scipy.stats import probplot, skew, kurtosis
+from scipy.stats import probplot, skew, kurtosis, sem, t
 import scipy.stats as st
 import numpy as np
 import statistics
@@ -121,7 +121,13 @@ def create_plots(plot_type: str, column: str, second_column: str, selected_dataf
 
 def compute_skewness(column: str, selected_dataframe):
     try:
-        result = skew(selected_dataframe[str(column)], axis=0, bias=True)
+        # We use bias=False to comply with their calculation
+        # result = skew(selected_dataframe[str(column)], axis=0, bias=True)
+        result = skew(selected_dataframe[str(column)], axis=0, bias=False)
+        # print('stats.skew(bias=false)')
+        # print(skew(selected_dataframe[str(column)], axis=0, bias=False))
+        # print('df.skew()')
+        # print(selected_dataframe[str(column)].skew())
         return result
     except Exception as e:
         print(e)
@@ -131,7 +137,13 @@ def compute_skewness(column: str, selected_dataframe):
 
 def compute_kurtosis(column: str, selected_dataframe):
     try:
-        result = kurtosis(selected_dataframe[str(column)], axis=0, bias=True)
+        # We use bias=False to comply with their calculation
+        # result = kurtosis(selected_dataframe[str(column)], axis=0, bias=True)
+        result = kurtosis(selected_dataframe[str(column)], axis=0, bias=False)
+        # print('stats.kurtosis(bias=false)')
+        # print(kurtosis(selected_dataframe[str(column)], axis=0, bias=False))
+        # print('df.kurtosis()')
+        # print(selected_dataframe[str(column)].kurtosis())
         return result
     except Exception as e:
         print(e)
@@ -171,7 +183,7 @@ def statisticsMin(column: str, selected_dataframe):
     try:
         df2 = selected_dataframe.dropna(subset=[str(column)])
         if pd.to_numeric(df2[str(column)], errors='coerce').notnull().all():
-            result = max(df2[str(column)])
+            result = min(df2[str(column)])
         else:
             raise Exception
         return result
@@ -197,6 +209,9 @@ def statisticsStd(column: str, selected_dataframe, ddof):
     try:
         # df2 = selected_dataframe.dropna(subset=[str(column)])
         result = np.std(selected_dataframe[str(column)], ddof=ddof)
+        # The result is the same with ddof=1
+        # print('df.std()')
+        # print(selected_dataframe[str(column)].std())
         return result
     except Exception as e:
         print(e)
@@ -215,3 +230,32 @@ def statisticsCov(selected_dataframe, ddof):
         print(e)
         print("Error : Failed to compute Covariance Matrix")
         return ()
+
+def statisticsVar(column: str, selected_dataframe, ddof = 1):
+    '''ddof=1 for Sample variance end 0 for population variance'''
+    try:
+        result = selected_dataframe[str(column)].var(ddof=ddof)
+        return result
+    except Exception as e:
+        print(e)
+        print("Error : Failed to compute Variance for column: "+column)
+        return -1
+
+def statisticsStandardError(column: str, selected_dataframe, ddof = 1):
+    try:
+        result = sem(selected_dataframe[column])
+        return result
+    except Exception as e:
+        print(e)
+        print("Error : Failed to compute Variance for column: "+column)
+        return -1
+
+def statisticsConfidenceLevel(column: str, selected_dataframe, alpha = 0.95):
+    try:
+        l,m = t.interval(alpha=alpha, df=len(selected_dataframe[column]) - 1, loc=np.mean(selected_dataframe[column]),
+                       scale=sem(selected_dataframe[column]))
+        return (m-l)/2
+    except Exception as e:
+        print(e)
+        print("Error : Failed to compute Variance for column: "+column)
+        return -1
