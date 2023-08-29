@@ -58,7 +58,7 @@ router = APIRouter( )
 
 # region EEG Function pre-processing and functions
 # TODO Finalise the use of file dynamically
-data = mne.io.read_raw_edf("example_data/trial_av.edf", infer_types=True)
+# data = mne.io.read_raw_edf("example_data/trial_av.edf", infer_types=True)
 NeurodesktopStorageLocation = os.environ.get('NeurodesktopStorageLocation') if os.environ.get(
     'NeurodesktopStorageLocation') else "/neurodesktop-storage"
 
