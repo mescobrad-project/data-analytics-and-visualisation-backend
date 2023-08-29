@@ -61,6 +61,7 @@ sqlalchemy==1.4.46
 tables==3.8.0
 textdistance==4.5.0
 three-merge==0.1.1
+trino==0.326.0
 tzdata==2023.3
 uri-template==1.2.0
 uvicorn==0.17.5
@@ -74,3 +75,4 @@ whatthepatch==1.0.4
 yapf==0.32.0
 yasa==0.6.1
 zepid==0.9.1
+

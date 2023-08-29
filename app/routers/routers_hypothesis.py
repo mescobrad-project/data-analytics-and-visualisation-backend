@@ -65,8 +65,8 @@ from app.utils.utils_hypothesis import create_plots, compute_skewness, outliers_
 from semopy import Model, estimate_means, ModelMeans, semplot, calc_stats, gather_statistics, Optimizer, efa
 
 router = APIRouter()
-data = pd.read_csv('example_data/mescobrad_dataset.csv')
-data = data.drop(["Unnamed: 0"], axis=1)
+# data = pd.read_csv('example_data/mescobrad_dataset.csv')
+# data = data.drop(["Unnamed: 0"], axis=1)
 # data = pd.read_csv('example_data/sample_questionnaire.csv')
 
 def normality_test_content_results(column: str, selected_dataframe,path_to_storage:str):
