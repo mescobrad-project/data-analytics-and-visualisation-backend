@@ -2,7 +2,8 @@ import math
 import os
 import re
 import time
-
+import csv
+import traceback
 from fastapi import APIRouter, Query
 from mne.time_frequency import psd_array_multitaper
 from scipy.signal import butter, lfilter, sosfilt, freqs, freqs_zpk, sosfreqz
@@ -12,13 +13,20 @@ import mne
 import matplotlib.pyplot as plt
 import mpld3
 import numpy as np
-
+from fastapi.responses import JSONResponse
+from os.path import isfile, join
+import shutil
+import tempfile
+from app.utils.utils_general import create_local_step
+from sqlalchemy.sql import text
 
 from app.utils.utils_general import validate_and_convert_peaks, validate_and_convert_power_spectral_density, \
     create_notebook_mne_plot, get_neurodesk_display_id, get_local_storage_path, get_single_file_from_local_temp_storage, \
     NeurodesktopStorageLocation, get_local_neurodesk_storage_path
 
 from app.utils.utils_mri import load_stats_measurements_table, load_stats_measurements_measures, plot_aseg
+
+from app.utils.utils_datalake import upload_object
 
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -29,7 +37,23 @@ from yasa import spindles_detect
 
 import paramiko
 
+from pydantic import BaseModel
+
+from trino.auth import BasicAuthentication
+from sqlalchemy import create_engine
+
+
 router = APIRouter()
+
+class FunctionOutputItem(BaseModel):
+    """
+    Known metadata information
+    "files" : [["run_id: "string" , "step_id": "string"], "output":"string"]
+     """
+    workflow_id:str
+    run_id: str
+    step_id: str
+    # file: str
 
 
 @router.get("/list/mri/slices", tags=["list_mri_slices"])
@@ -467,6 +491,31 @@ async def return_free_surfer(input_test_name: str, input_file: str,
     to_return = "Success"
     return to_return
 
+@router.get("/return_samseg_result", tags=["return_samseg_stats"])
+async def return_samseg_stats(workflow_id: str,
+                            step_id: str,
+                            run_id: str) -> []:
+    path_to_file = get_local_storage_path(workflow_id, run_id, step_id)
+    path_to_file = os.path.join(path_to_file, "output", "samseg_output", "samseg.stats")
+
+    with open(path_to_file, newline="") as csvfile:
+        if not os.path.isfile(path_to_file):
+            return []
+        reader = csv.reader(csvfile, delimiter=',')
+        results_array = []
+        i = 0
+        for row in reader:
+            i += 1
+            temp_to_append = {
+                "id": i,
+                "measure": row[0].strip("# Measure "),
+                "value": row[1],
+                "unit": row[2]
+            }
+            results_array.append(temp_to_append)
+        return results_array
+
+
 @router.get("/return_reconall_stats/measures", tags=["return_all_stats"])
 # Validation is done inline in the input of the function
 async def return_reconall_stats_measures(workflow_id: str,
@@ -515,3 +564,128 @@ async def return_aseg_stats(workflow_id: str,
                     ylabel='Volume (mm3)', title='Volume of Subcortical Regions')
 
         return 'OK'
+
+@router.put("/reconall_files_to_datalake")
+async def reconall_files_to_datalake(workflow_id: str,
+                                step_id: str,
+                                run_id: str) -> str :
+    try:
+        path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+        tmpdir = tempfile.mkdtemp()
+        output_filename = os.path.join(tmpdir, 'ucl_test')
+        print(output_filename)
+        print(shutil.make_archive(output_filename, 'zip', root_dir=path_to_storage, base_dir='output/ucl_test'))
+        upload_object(bucket_name="saved", object_name='expertsystem/workflow/'+ workflow_id+'/'+ run_id+'/'+
+                                                          step_id+'/output/ucl_test.zip', file=output_filename + '.zip')
+
+        return JSONResponse(content='zip file has been successfully uploaded to the DataLake', status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content='Error in saving zip file to the DataLake',status_code=501)
+
+@router.put("/reconall_stats_to_trino")
+#All recon-all stats to trino both tabular and measurements
+async def reconall_stats_to_trino(workflow_id: str,
+                                step_id: str,
+                                run_id: str,
+                                patient_id: str) -> str:
+    try:
+        #patient id psakse an ginetai apo nifti
+        #connect to trino
+        TRINO__USR = "mescobrad-dwh-user"
+        TRINO__PSW = "dwhouse"
+
+        engine = create_engine(
+            f"trino://{TRINO__USR}@trino.mescobrad.digital-enabler.eng.it:443/postgresql",
+            connect_args={
+                "auth": BasicAuthentication(TRINO__USR, TRINO__PSW),
+                "http_scheme": "https",
+            }
+        )
+
+        conn = engine.connect()
+
+        # Check if patient is already on trino
+        id_list = conn.execute("\
+                       SELECT DISTINCT patient_id FROM postgresql.public.reconall_mri_tabular_stats")
+
+        for id in id_list:
+            if id[0] == patient_id:
+                return JSONResponse(content="This patient's stats are already on trino", status_code=200)
+
+        path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+        path_to_stats = os.path.join(path_to_storage, "output", "ucl_test", "stats")
+        first = True
+
+        #for all files with tabular data
+        for filename in os.listdir(path_to_stats):
+            path_to_file = os.path.join(path_to_stats, filename)
+            if os.path.isfile(path_to_file):
+                stats_dict = load_stats_measurements_table(path_to_file, 0)
+                if not stats_dict["columns"]: continue
+
+                #change to trino format
+                stats_dict["table"] = stats_dict["table"].drop(columns={"Hemisphere", "id"}, errors="ignore")
+                df = pd.melt(stats_dict["table"], id_vars=['StructName'], var_name='variable_name', value_name='variable_value')
+                df["source"] = filename
+                df["patient_id"] = patient_id
+                df = df.rename(columns={"StructName": "rowid"})
+
+                #concatenate to res
+                if first:
+                    res = df
+                    first = False
+                else:
+                    res = pd.concat([res, df], ignore_index=True)
+
+        #append to trino table
+        res.to_sql(name='reconall_mri_tabular_stats', schema='public', con=conn, if_exists='append',
+                 index=False, method='multi')
+
+        #for all files with measurement data
+        first = True
+        for filename in os.listdir(path_to_stats):
+            path_to_file = os.path.join(path_to_stats, filename)
+            if os.path.isfile(path_to_file):
+                stats_dict = load_stats_measurements_measures(path_to_file)
+                if not stats_dict["measurements"]: continue
+
+                stats_dict["dataframe"] = stats_dict["dataframe"].drop(columns={"Hemisphere"}, errors="ignore")
+
+                #change to trino format
+                stats_dict["dataframe"]["patient_id"] = patient_id
+                df = pd.melt(stats_dict["dataframe"], id_vars=['patient_id'], var_name='variable_name', value_name='variable_value')
+                df["source"] = filename
+                #df = df.rename(columns={"StructName": "rowid"}) rowid or patient id ?
+
+                #concatenate to res
+                if first:
+                    res = df
+                    first = False
+                else:
+                    res = pd.concat([res, df], ignore_index=True)
+        #append to trino table
+        res.to_sql(name='reconall_mri_measurement_stats', schema='public', con=conn, if_exists='append',
+                  index=False, method='multi')
+
+        return JSONResponse(content='Stats have been successfully uploaded to Trino', status_code=200)
+    except Exception as e:
+        print(e)
+        traceback.print_exc()
+        return JSONResponse(content='Error in uploading stats to Trino',status_code=501)
+
+@router.get("/reconall_files_to_local")
+async def reconall_files_to_local(workflow_id: str,
+                                step_id: str,
+                                run_id: str) -> str :
+    try:
+        path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+        if not os.path.exists(path_to_storage + "/output/ucl_test"):
+            create_local_step(workflow_id=workflow_id, step_id=step_id, run_id=run_id, files_to_download=[{'bucket' : 'saved', 'file' :
+                'expertsystem/workflow/'+ workflow_id+'/'+ run_id+'/'+ step_id+'/output/ucl_test.zip'}])
+            shutil.unpack_archive(path_to_storage + "/ucl_test.zip", path_to_storage)
+            os.remove(path_to_storage + "/ucl_test.zip")
+        return{'ok'}
+    except Exception as e:
+        print(e)
+        return{'error'}

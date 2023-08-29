@@ -85,8 +85,7 @@ def load_stats_measurements_table(stats_path, index_start) -> dict:
         if "# ColHeaders" in file_str:
             file_list = file_str.split("# ColHeaders")
             list_of_lists = [row.split() for row in file_list[-1].split('\n')]
-            df = pd.DataFrame(list_of_lists[1:-1], columns=list_of_lists[0])
-
+            df = pd.DataFrame(list_of_lists[1:-1], columns=list_of_lists[0], dtype=float)
             if "lh." in stats_path:
                 df["Hemisphere"] = "Left"
             elif "rh." in stats_path:
@@ -101,10 +100,12 @@ def load_stats_measurements_table(stats_path, index_start) -> dict:
 
         else:
             df = pd.DataFrame()
+            columns = []
     except Exception as e:
         print(e)
         print("File has wrong format")
         return {"table": pd.DataFrame(), "columns": []}
+    print(df.dtypes)
     return {"table": df, "columns": columns}
 
 def load_stats_measurements_measures(stats_path) -> dict:
@@ -114,17 +115,42 @@ def load_stats_measurements_measures(stats_path) -> dict:
     except Exception as e:
         print(e)
         print("File could not be opened")
-        return {"measurements": pd.DataFrame()}
+        return {"measurements": {}, "dataframe": {}}
     try:
         measure_dict = {}
+        measure_dataframe = {}
         lines = file_str.split('\n')
         for line in lines:
             if "# Measure" in line:
                 measure = list(map(lambda elem : elem.strip(), line.split(",")))
                 measure_dict[measure[-3]] = measure[-2] + ("" if measure[-1] == "unitless" else " " + measure[-1])
+                measure_dataframe[measure[-3]] = [float(measure[-2])]
             elif "# hemi" in line:
                 measure_dict["Hemisphere"] = line.split()[-1]
+                measure_dataframe["Hemisphere"] = [line.split()[-1]]
     except Exception as e:
         print("File has wrong format in Measure")
-        return {"measurements": pd.DataFrame()}
-    return {"measurements": measure_dict}
+        return {"measurements": {}, "dataframe": {}}
+    measure_dataframe = pd.DataFrame.from_dict(measure_dataframe, dtype=float)
+    return {"measurements": measure_dict, "dataframe": measure_dataframe}
+
+"""
+def download_mri_dataset(workflow_id, run_id, step_id, bucket, file):
+    print("CREATING LOCAL STEP")
+    print(file)
+    path_to_save = NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id
+    os.makedirs(path_to_save, exist_ok=True)
+    os.makedirs(path_to_save + '/output', exist_ok=True)
+    os.makedirs(path_to_save + '/neurodesk_interim_storage', exist_ok=True)
+    # Download all files indicated
+    file_location_path = path_to_save + "/" + file_to_download["file"]
+        if "/" in file_location_path:
+            file_location_path = NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id + '/'+ file_location_path.split("/")[-1]
+
+        print("file_location_path")
+        get_saved_dataset_for_Hypothesis(bucket_name=file_to_download["bucket"], object_name=file_to_download["file"], file_location=file_location_path)
+    # Info file might be unneeded
+    with open( path_to_save + '/output/info.json', 'w', encoding='utf-8') as f:
+        json.dump({"selected_datasets":files_to_download, "results":{}}, f)
+        pass
+"""
