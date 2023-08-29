@@ -1,6 +1,8 @@
 from fastapi.testclient import TestClient
 import shutil
 from .main import app
+from trino.auth import BasicAuthentication
+from sqlalchemy import create_engine
 
 client = TestClient(app)
 
@@ -73,3 +75,45 @@ def test_reconall_files_to_local():
                                   "step_id": "1"})
     assert response.status_code == 200
     assert response.json()[0] == 'ok'
+
+def test_reconall_stats_to_trino():
+    # connect to trino
+    TRINO__USR = "mescobrad-dwh-user"
+    TRINO__PSW = "dwhouse"
+
+    engine = create_engine(
+        f"trino://{TRINO__USR}@trino.mescobrad.digital-enabler.eng.it:443/postgresql",
+        connect_args={
+            "auth": BasicAuthentication(TRINO__USR, TRINO__PSW),
+            "http_scheme": "https",
+        }
+    )
+
+    conn = engine.connect()
+
+    # delete test in case we run this before
+    conn.execute("\
+                    DELETE FROM postgresql.public.reconall_mri_tabular_stats \
+                    WHERE patient_id = 'test'")
+
+    conn.execute("\
+                    DELETE FROM postgresql.public.reconall_mri_measurement_stats \
+                    WHERE patient_id = 'test'")
+
+
+    response = client.put("/reconall_stats_to_trino",
+                          params={"workflow_id": "2",
+                                  "run_id": "2",
+                                  "step_id": "1",
+                                  "patient_id": "test"})
+    assert response.status_code == 200
+    assert response.content.decode('utf-8') == '"Stats have been successfully uploaded to Trino"'
+
+    # clean up tables
+    conn.execute("\
+                    DELETE FROM postgresql.public.reconall_mri_tabular_stats \
+                    WHERE patient_id = 'test'")
+
+    conn.execute("\
+                    DELETE FROM postgresql.public.reconall_mri_measurement_stats \
+                    WHERE patient_id = 'test'")
