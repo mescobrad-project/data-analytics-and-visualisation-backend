@@ -1,5 +1,5 @@
 from fastapi.testclient import TestClient
-
+import shutil
 from .main import app
 
 client = TestClient(app)
@@ -60,8 +60,16 @@ def test_reconall_files_to_datalake():
     assert response.content.decode('utf-8') == '"zip file has been successfully uploaded to the DataLake"'
 
 
-
-
-
-
-
+def test_reconall_files_to_local():
+    path = 'C:\\neurodesktop-storage\\runtime_config\\workflow_2\\run_2\\step_1'
+    try:
+        shutil.rmtree(path)
+        print("Directory removed successfully")
+    except OSError as o:
+        print(f"Error, {o.strerror}: {path}")
+    response = client.get("/reconall_files_to_local",
+                          params={"workflow_id": "2",
+                                  "run_id": "2",
+                                  "step_id": "1"})
+    assert response.status_code == 200
+    assert response.json()[0] == 'ok'
