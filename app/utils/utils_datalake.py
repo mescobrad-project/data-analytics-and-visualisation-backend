@@ -91,6 +91,14 @@ def get_saved_dataset_for_Hypothesis(bucket_name: str, object_name: str, file_lo
         print(exc)
         print("error")
 
+def get_saved_mri_files(bucket_name: str, object_name: str, file_location: str):
+    try:
+        fget_object(bucket_name, object_name, file_location)
+        print("file has been downloaded")
+    except Exception as exc:
+        print(exc)
+        print("error")
+
 # fget_object('saved', f"{'folder01'}/test-object", 'gd_test_data/Downloaded_object.json')
 
 # fget_object('demo', "expertsystem/workflow/3fa85f64-5717-4562-b3fc-2c963f66afa6/3fa85f64-5717-4562-b3fc-2c963f66afa6/3fa85f64-5717-4562-b3fc-2c963f66afa6/mescobrad_dataset.csv", 'gd_test_data/Downloaded_object.json')

@@ -65,8 +65,8 @@ from app.utils.utils_hypothesis import create_plots, compute_skewness, outliers_
 from semopy import Model, estimate_means, ModelMeans, semplot, calc_stats, gather_statistics, Optimizer, efa
 
 router = APIRouter()
-data = pd.read_csv('example_data/mescobrad_dataset.csv')
-data = data.drop(["Unnamed: 0"], axis=1)
+# data = pd.read_csv('example_data/mescobrad_dataset.csv')
+# data = data.drop(["Unnamed: 0"], axis=1)
 # data = pd.read_csv('example_data/sample_questionnaire.csv')
 
 def normality_test_content_results(column: str, selected_dataframe,path_to_storage:str):
@@ -166,10 +166,20 @@ async def dataset_content(workflow_id: str, step_id: str, run_id: str, file_name
         name_of_files = get_all_files_from_local_temp_storage(workflow_id, run_id, step_id)
         if file_name in name_of_files:
             data = load_data_from_csv(path_to_storage + "/" + file_name)
+            df = pd.DataFrame(data.describe())
+            df.insert(0,'Index',df.index)
+            # df['Index']=df.index
+            # Add data.info()
+            df1 = pd.DataFrame()
+            df1['Non Null Count'] = data.notna().sum()
+            df1['Dtype'] = data.dtypes
+            dfinfo =df1.T
+            dfinfo['Index']=dfinfo.index
+            df = pd.concat([df, dfinfo], ignore_index=True)
         else:
             print("Error : Failed to find the file")
             return {'dataFrame': {}}
-        return {'dataFrame': data.to_json(orient='records')}
+        return {'dataFrame': df.to_json(orient='records', default_handler=str)}
     except Exception as e:
         print(e)
         return JSONResponse(content='Error : Failed to retrieve column names', status_code=501)
@@ -3969,17 +3979,17 @@ async def linear_regression_statsmodels(workflow_id: str, step_id: str, run_id: 
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
     test_status = ''
     # Load Datasets
+    print(dependent_variable)
+    print(independent_variables)
     try:
         test_status = 'Please provide all mandatory fields (dataset, dependent variable, one or more independent variables)'
         dfv['variables'] = independent_variables
         dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
         selected_datasources = pd.unique(dfv['Datasource'])
         test_status = 'Unable to retrieve datasets'
-        independent_variables = list(dfv['Variable'].values)
+        independent_variables = dfv['Variable'].tolist()
         data = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
-        data.dropna(inplace=True)
-
-
+        # data.dropna(inplace=True)
 
         x = data[independent_variables]
         y = data[dependent_variable]
@@ -3990,9 +4000,7 @@ async def linear_regression_statsmodels(workflow_id: str, step_id: str, run_id: 
 
         df_dict[str(dependent_variable)] = data[dependent_variable]
         df_features_label = pd.DataFrame.from_dict(df_dict)
-
         test_status = 'Unable to perform linear regression'
-
         x = sm.add_constant(x)
 
         # if regularization:
@@ -4000,20 +4008,19 @@ async def linear_regression_statsmodels(workflow_id: str, step_id: str, run_id: 
         # else:
         # fig = plt.figure(1)
         model = sm.OLS(y, x).fit()
+
         fitted_value = model.fittedvalues
         df_fitted_value = pd.DataFrame(fitted_value, columns=['fitted_values'])
         resid_value = model.resid
         df_resid_value = pd.DataFrame(resid_value, columns=['residuals'])
         # create instance of influence
         influence = model.get_influence()
-
         # sm.graphics.influence_plot(model)
         # plt.show()
 
         # obtain standardized residuals
         standardized_residuals = influence.resid_studentized_internal
         inf_sum = influence.summary_frame()
-
         df_final_influence = pd.concat([df_features_label, inf_sum, df_fitted_value, df_resid_value], axis=1)
         inf_dict = {}
         for column in df_final_influence.columns:
@@ -4025,7 +4032,6 @@ async def linear_regression_statsmodels(workflow_id: str, step_id: str, run_id: 
         (dffits, p) = influence.dffits
 
         df = model.summary()
-
         results_as_html = df.tables[0].as_html()
         df_0 = pd.read_html(results_as_html)[0]
         df_new = df_0[[2, 3]]
@@ -4075,7 +4081,7 @@ async def linear_regression_statsmodels(workflow_id: str, step_id: str, run_id: 
         goldfeld_test = pd.DataFrame(results_goldfeldquandt.values(), index=results_goldfeldquandt.keys())
         goldfeld_test.rename(columns={0: 'Values'}, inplace=True)
 
-        print(inf_dict)
+        # print(inf_dict)
         df_final_influence.to_csv(path_to_storage + '/output/influence_points.csv', index=False)
 
         response = {'DataFrame with all available influence results': df_final_influence.to_html(),
