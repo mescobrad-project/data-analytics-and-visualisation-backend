@@ -77,7 +77,8 @@ def normality_test_content_results(column: str, selected_dataframe,path_to_stora
             # Creating QQ-plot
             html_str = create_plots(plot_type='QQPlot', column=column, second_column='', selected_dataframe=selected_dataframe, path_to_storage=path_to_storage, filename='QQPlot')
             # Creating Probability-plot
-            html_str_P = create_plots(plot_type='PPlot', column=column, second_column='', selected_dataframe=selected_dataframe, path_to_storage=path_to_storage, filename='PPlot')
+            html_str_P = ''
+            # html_str_P = create_plots(plot_type='PPlot', column=column, second_column='', selected_dataframe=selected_dataframe, path_to_storage=path_to_storage, filename='PPlot')
             #Creating histogram
             html_str_H = create_plots(plot_type='HistogramPlot', column=column, second_column='', selected_dataframe=selected_dataframe, path_to_storage=path_to_storage, filename='HistogramPlot')
             skewtosend = compute_skewness(column, selected_dataframe)
@@ -259,7 +260,7 @@ async def normal_tests(workflow_id: str, step_id: str, run_id: str,
                                                    regex="^(Shapiro-Wilk)$|^(Kolmogorov-Smirnov)$|^(Anderson-Darling)$|^(D’Agostino’s K\^2)$|^(Jarque-Bera)$")) -> dict:
 
     dfv = pd.DataFrame()
-    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    # path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
     test_status = ''
     # Load Datasets
