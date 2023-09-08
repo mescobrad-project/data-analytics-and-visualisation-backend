@@ -58,11 +58,14 @@ import seaborn as sns
 from datetime import datetime
 import os
 from os.path import isfile, join
+import math
 
 from app.utils.utils_hypothesis import create_plots, compute_skewness, outliers_removal, compute_kurtosis, \
     statisticsMean, statisticsMin, statisticsMax, statisticsStd, statisticsCov, statisticsVar, statisticsStandardError, \
     statisticsConfidenceLevel
 from semopy import Model, estimate_means, ModelMeans, semplot, calc_stats, gather_statistics, Optimizer, efa
+import plotly.express as px
+
 
 router = APIRouter()
 # data = pd.read_csv('example_data/mescobrad_dataset.csv')
@@ -88,17 +91,19 @@ def normality_test_content_results(column: str, selected_dataframe,path_to_stora
             standard_error = statisticsStandardError(column, selected_dataframe)
             # Used Statistics lib for cross-checking
             # standard_deviation = statistics.stdev(data[str(column)])
-            median_value = float(np.percentile(selected_dataframe[str(column)], 50))
+            median_value = float(np.percentile(selected_dataframe[str(column)], 50)) if not math.isnan(float(np.percentile(selected_dataframe[str(column)], 50))) else ''
             # Used a different way to calculate Median
             # TODO: we must investigate why it returns a different value
             # med2 = np.median(data[str(column)])
-            mean_value = np.mean(selected_dataframe[str(column)])
+            mean_value = np.mean(selected_dataframe[str(column)]) if not np.isinf(np.mean(selected_dataframe[str(column)])) else ''
             num_rows = selected_dataframe[str(column)].shape
             top5 = sorted(selected_dataframe[str(column)].tolist(), reverse=True)[:5]
             last5 = sorted(selected_dataframe[str(column)].tolist(), reverse=True)[-5:]
+
             confidence_level = statisticsConfidenceLevel(column, selected_dataframe,0.95)
             return {'plot_column': column, 'qqplot': html_str, 'histogramplot': html_str_H, 'boxplot': html_str_B, 'probplot': html_str_P, 'skew': skewtosend, 'kurtosis': kurtosistosend, 'standard_deviation': st_dev,'standard_error':standard_error, "median": median_value, "mean": mean_value, "sample_N": num_rows, "top_5": top5, "last_5": last5, 'sample_variance':sample_variance,'confidence_level':confidence_level}
         else:
+            print('The type of:' + column +' is:'+ str(selected_dataframe[column].dtypes))
             raise Exception
     except Exception as e:
         print('normality_test_content_results  ' +e.__str__())
@@ -107,18 +112,22 @@ def normality_test_content_results(column: str, selected_dataframe,path_to_stora
 def transformation_extra_content_results(column_In: str, column_Out:str, selected_dataframe,path_to_storage:str):
     try:
         if (selected_dataframe[column_In].dtypes == 'float64' or selected_dataframe[column_In].dtypes == 'int64'):
-            fig = plt.figure()
-            plt.plot(selected_dataframe[str(column_In)], selected_dataframe[str(column_In)],
-                     color='blue', marker="*")
-            plt.plot(selected_dataframe[str(column_Out)], selected_dataframe[str(column_In)],
-                     color='red', marker="o")
-            plt.title("Transformed data Comparison")
-            plt.xlabel("out_array")
-            plt.ylabel("in_array")
-            plt.savefig(path_to_storage + "/output/ComparisonPlot.svg", format="svg")
-            plt.show()
-            html_str_Transf = mpld3.fig_to_html(fig)
-            return html_str_Transf
+            # fig = plt.figure()
+            # plt.plot(selected_dataframe[str(column_In)], selected_dataframe[str(column_In)],
+            #          color='blue', marker="*")
+            # plt.plot(selected_dataframe[str(column_Out)], selected_dataframe[str(column_In)],
+            #          color='red', marker="o")
+            fig = px.scatter(selected_dataframe, x=str(column_In), y=str(column_Out), labels={'x':"Original Values", 'y':"Transformed Values"})
+            fig.write_image(path_to_storage + "/output/ComparisonPlot.svg")
+            html_str = fig.to_json(pretty=True)
+
+            # plt.title("Transformed data Comparison")
+            # plt.xlabel("Original Values")
+            # plt.ylabel("Transformed Values")
+            # plt.savefig(path_to_storage + "/output/ComparisonPlot.svg", format="svg")
+            # plt.show()
+            # html_str_Transf = mpld3.fig_to_html(fig)
+            return html_str
         else:
             raise Exception
     except Exception as e:
@@ -274,6 +283,8 @@ async def normal_tests(workflow_id: str, step_id: str, run_id: str,
 
         data = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
         column = dfv['Variable'][0]
+        # Remove Nans for the calculations
+        data = data.dropna(subset=[str(column)])
 
         results_to_send = normality_test_content_results(column, data, path_to_storage)
         # region AmCharts_CODE_REGION
@@ -320,6 +331,7 @@ async def normal_tests(workflow_id: str, step_id: str, run_id: str,
                 'standard_error':results_to_send['standard_error'],
                 'median': results_to_send['median'],
                 'mean': results_to_send['mean'],
+                'confidence_level': results_to_send['confidence_level'],
                 'sample_N': results_to_send['sample_N'],
                 'top_5': results_to_send['top_5'],
                 'last_5': results_to_send['last_5']
@@ -448,7 +460,12 @@ async def transform_data(workflow_id: str,
             cbrt_array = np.cbrt(data[str(column)])
             data[newColumnName] = cbrt_array
 
+        # Remove inf
+        data[newColumnName] = data[newColumnName].replace([np.inf, -np.inf], np.nan)
         data.to_csv(path_to_storage + '/output/new_dataset.csv', index=False)
+        # Remove Nans for the calculations
+        data = data.dropna(subset=[str(newColumnName)])
+
         results_to_send = normality_test_content_results(newColumnName, data, path_to_storage)
         if results_to_send == -1:
             results_to_send = {'plot_column': "", 'qqplot': "", 'histogramplot': "", 'boxplot': "", 'probplot': "",
@@ -459,7 +476,6 @@ async def transform_data(workflow_id: str,
         if results_to_send_extra== -1:
             results_to_send['transf_plot']=''
             raise Exception
-
         results_to_send['transf_plot'] = results_to_send_extra
         # Prepare content for info.json
         new_data = {
@@ -479,6 +495,9 @@ async def transform_data(workflow_id: str,
                 'standard_deviation': results_to_send['standard_deviation'],
                 'median': results_to_send['median'],
                 'mean': results_to_send['mean'],
+                'standard_error': results_to_send['standard_error'],
+                'sample_variance': results_to_send['sample_variance'],
+                'confidence_level': results_to_send['confidence_level'],
                 'sample_N': results_to_send['sample_N'],
                 'top_5': results_to_send['top_5'],
                 'last_5': results_to_send['last_5']
@@ -503,7 +522,9 @@ async def transform_data(workflow_id: str,
             f.seek(0)
             json.dump(file_data, f, indent=4)
             f.truncate()
-        return JSONResponse(content={'status': 'Success','transformed array': data[newColumnName].to_json(orient='records'), 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}, status_code=200)
+
+        return JSONResponse(content={'status': 'Success','transformed array': data[newColumnName].to_json(orient='records'), 'data': {}, 'results': results_to_send}, status_code=200)
+        # return JSONResponse(content={'status': 'Success','transformed array': data[newColumnName].to_json(orient='records'), 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}, status_code=200)
     except Exception as e:
         print(e)
         return JSONResponse(content={'status':test_status +'\n'+ e.__str__(),'transformed array': {}, 'data': {}, 'results': {}}, status_code=200)
