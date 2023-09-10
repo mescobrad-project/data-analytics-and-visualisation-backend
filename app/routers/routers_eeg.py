@@ -2522,8 +2522,8 @@ async def back_average(
 
     return True
 
-@router.get("/sleep_analysis_luiz")
-async def sleepanalysislouiz(workflow_id: str,
+@router.get("/group_sleep_analysis")
+async def group_sleep_analysis(workflow_id: str,
                              step_id: str,
                              run_id: str):
 
@@ -2821,8 +2821,8 @@ async def sleepanalysislouiz(workflow_id: str,
 
 
 
-@router.get("/sleep_analysis_sensitivity_luiz")
-async def sleepanalysislouizsensitivity(workflow_id: str,
+@router.get("/group_sleep_sensitivity_analysis")
+async def group_sleep_sensitivity_analysis(workflow_id: str,
                                         step_id: str,
                                         run_id: str):
 
@@ -3394,8 +3394,8 @@ async def sleepanalysislouizsensitivity(workflow_id: str,
 
 
 
-@router.get("/sleep_analysis_sensitivity_luizaddsubject")
-async def sleepanalysislouizsensitivityaddsubject(workflow_id: str,
+@router.get("/group_sleep_sensitivity_analysis_add_subject")
+async def group_sleep_sensitivity_analysis_add_subject(workflow_id: str,
                                                   step_id: str,
                                                   run_id: str):
 
@@ -4032,9 +4032,8 @@ async def sleepanalysislouizsensitivityaddsubject(workflow_id: str,
 
 
 
-
-@router.get("/sleep_analysis_sensitivity_luizaddsubject__final")
-async def sleepanalysislouizsensitivityaddsubjectfinal(workflow_id: str,
+@router.get("/group_sleep_sensitivity_analysis_add_subject_final")
+async def group_sleep_sensitivity_analysis_add_subject_final(workflow_id: str,
                                                        step_id: str,
                                                        run_id: str):
 
@@ -4699,8 +4698,8 @@ async def sleepanalysislouizsensitivityaddsubjectfinal(workflow_id: str,
             "Sensitivity Analysis 03 - Second Half": df_bandpower_first.to_json(orient='records')}
 
 
-@router.get("/common_channels_across_subjects")
-async def commonchannelsacrosssubjects(workflow_id: str,
+@router.get("/group_common_channels_across_subjects")
+async def group_common_channels_across_subjects(workflow_id: str,
                                        step_id: str,
                                        run_id: str):
 
@@ -4725,8 +4724,8 @@ async def commonchannelsacrosssubjects(workflow_id: str,
 
     return {"Unique Channels": list(np.unique(np.array(x)))}
 
-@router.get("/sleep_analysis_sensitivity_luizaddsubject__final_addchannels")
-async def sleepanalysislouizsensitivityaddsubjectfinaladdchannels(workflow_id: str,
+@router.get("/group_sleep_analysis_sensitivity_add_subject_add_channels_final")
+async def group_sleep_analysis_sensitivity_add_subject_add_channels_final(workflow_id: str,
                                                                   step_id: str,
                                                                   run_id: str,
                                                                   sampling_frequency: int,
