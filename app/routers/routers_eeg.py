@@ -37,7 +37,8 @@ from yasa import sleep_statistics
 import logging
 
 from app.utils.utils_eeg import load_data_from_edf, load_file_from_local_or_interim_edfbrowser_storage, \
-    load_data_from_edf_fif, convert_yasa_sleep_stage_to_general, convert_generic_sleep_score_to_annotation
+    load_data_from_edf_fif, convert_yasa_sleep_stage_to_general, convert_generic_sleep_score_to_annotation, \
+    return_number_and_names_groups
 from app.utils.utils_general import validate_and_convert_peaks, validate_and_convert_power_spectral_density, \
     create_notebook_mne_plot, get_neurodesk_display_id, get_annotations_from_csv, create_notebook_mne_modular, \
     get_single_file_from_local_temp_storage, get_local_storage_path, get_local_neurodesk_storage_path, \
@@ -2527,10 +2528,16 @@ async def group_sleep_analysis(workflow_id: str,
                              step_id: str,
                              run_id: str):
 
+    list_df_hypno_groups = []
+    list_df_fif_groups = []
+
     df_first_hypnos = []
     df_second_hypnos = []
     df_first_fif_files = []
     df_second_fif_files = []
+
+    groups_number, groups_names = return_number_and_names_groups(workflow_id, step_id, run_id)
+
     for entries in os.listdir('UU_Sleep'):
         if entries.endswith(".csv"):
             if entries.startswith("Subject A") or entries.startswith("Subject B"):
@@ -2662,7 +2669,7 @@ async def group_sleep_analysis(workflow_id: str,
     worthless_first_transitions = []
     worthless_second_transitions = []
 
-    for i in range(len(Sleepmatrix_counts_list)):
+    for i in range(len(6)):
         temp = Sleepmatrix_counts_list[i] == 0
         temp.iloc[:,0:] = temp.iloc[:,0:].replace({True:1, False:0})
         worthless_transitions.append(temp)
@@ -4594,6 +4601,7 @@ async def group_sleep_sensitivity_analysis_add_subject_final(workflow_id: str,
     ax.xaxis.set_label_position('top')
     plt.rcParams["figure.dpi"] = 150
     plt.show()
+    # Dont need this plot probably
 
     #Spectrograms and Bandpowers
     first_hypnos = []
@@ -4724,6 +4732,11 @@ async def group_common_channels_across_subjects(workflow_id: str,
 
     return {"Unique Channels": list(np.unique(np.array(x)))}
 
+# We make this one
+# Ask louiz how many groups we need more than two,
+# Before analysis select sampling frequence and channel
+# We make an analysis in same channel in each file
+# Run coomon channels across subjects and make user select one of these channels (we can inform user about channeels that arent the same)
 @router.get("/group_sleep_analysis_sensitivity_add_subject_add_channels_final")
 async def group_sleep_analysis_sensitivity_add_subject_add_channels_final(workflow_id: str,
                                                                   step_id: str,
@@ -5288,6 +5301,26 @@ async def group_sleep_analysis_sensitivity_add_subject_add_channels_final(workfl
     sns.heatmap(first_average_probs, ax=ax, square=False, vmin=0, vmax=1, cbar=True, cbar_ax=cbar_ax,
                 cmap='YlGnBu', annot=True, fmt='.3f', cbar_kws={"orientation": "horizontal", "fraction":0.1,
                                                                 "label":"Transition Probability"})
+
+    ax.set_xlabel("To sleep stage")
+    ax.xaxis.tick_top()
+    ax.set_ylabel("From sleep stage")
+    ax.xaxis.set_label_position('top')
+    plt.rcParams["figure.dpi"] = 150
+    plt.show()
+
+    #TODO Calculate average and plot for all groups
+    z = 0
+    for s in probs_first:
+        z = z + s
+    first_average_probs = z / len(probs_first)
+    print(first_average_probs)
+
+    grid_kws = {"height_ratios": (.9, .05), "hspace": .1}
+    f, (ax, cbar_ax) = plt.subplots(2, gridspec_kw=grid_kws, figsize=(5, 5))
+    sns.heatmap(first_average_probs, ax=ax, square=False, vmin=0, vmax=1, cbar=True, cbar_ax=cbar_ax,
+                cmap='YlGnBu', annot=True, fmt='.3f', cbar_kws={"orientation": "horizontal", "fraction": 0.1,
+                                                                "label": "Transition Probability"})
 
     ax.set_xlabel("To sleep stage")
     ax.xaxis.tick_top()

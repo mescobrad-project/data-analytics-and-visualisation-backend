@@ -268,14 +268,14 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/eeg/old"
             case "envelop_trend_analysis":
                 url_to_redirect += "/envelope_trend"
-            case "group_sleep_analysis":
-                url_to_redirect += "/group_sleep_analysis"
-            case "group_sleep_sensitivity_analysis":
-                url_to_redirect += "/group_sleep_sensitivity_analysis"
-            case "group_sleep_sensitivity_analysis_add_subject":
-                url_to_redirect += "/group_sleep_sensitivity_analysis_add_subject"
-            case "group_sleep_sensitivity_analysis_add_subject_final":
-                url_to_redirect += "/group_sleep_sensitivity_analysis_add_subject_final"
+            # case "group_sleep_analysis":
+            #     url_to_redirect += "/group_sleep_analysis"
+            # case "group_sleep_sensitivity_analysis":
+            #     url_to_redirect += "/group_sleep_sensitivity_analysis"
+            # case "group_sleep_sensitivity_analysis_add_subject":
+            #     url_to_redirect += "/group_sleep_sensitivity_analysis_add_subject"
+            # case "group_sleep_sensitivity_analysis_add_subject_final":
+            #     url_to_redirect += "/group_sleep_sensitivity_analysis_add_subject_final"
             case "group_common_channels_across_subjects":
                 url_to_redirect += "/group_common_channels_across_subjects"
             case "group_sleep_analysis_sensitivity_add_subject_add_channels_final":
