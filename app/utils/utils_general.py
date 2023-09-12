@@ -101,8 +101,18 @@ def create_local_step(workflow_id, run_id, step_id, files_to_download):
         # print(path_to_save + "/" +file_to_download[1])
 
         file_location_path = path_to_save + "/" +file_to_download["file"]
+
+        # We check if file is in a group and add a folder for the group if it is
+        if file_to_download["group_name"] != "":
+            file_location_path = path_to_save + "/" + file_to_download["group_name"] + "/" + file_to_download["file"]
+
+        # Because of issues with the paths in windows and ubuntu we check if the path contains a / and if it does rewrite
+        # the path to be in the correct format taking into acount the existence of a group
         if "/" in file_location_path:
-            file_location_path = NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id + '/'+ file_location_path.split("/")[-1]
+            if file_to_download["group_name"] != "":
+                file_location_path = NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id + '/'+ file_to_download["group_name"] + "/" + file_location_path.split("/")[-1]
+            else:
+                file_location_path = NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id + '/'+ file_location_path.split("/")[-1]
 
         print("file_location_path")
         get_saved_dataset_for_Hypothesis(bucket_name=file_to_download["bucket"], object_name=file_to_download["file"], file_location=file_location_path)

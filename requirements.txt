@@ -29,6 +29,7 @@ lightgbm==3.3.5
 minio==7.1.12
 mne-qt-browser==0.4.0
 mpld3==0.5.7
+numpy==1.22.4
 numpydoc==1.5.0
 paramiko==2.11.0
 pexpect==4.8.0

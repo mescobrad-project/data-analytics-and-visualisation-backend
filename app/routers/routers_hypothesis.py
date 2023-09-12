@@ -1025,7 +1025,7 @@ async def p_value_correction(workflow_id: str,
         else:
             z = multipletests(pvals=data[p_value], alpha=alpha, method= method)
 
-        df['p_values'] = data[p_value]
+        df['values'] = data[p_value]
         df['rejected'] = [str(x) for x in z[0]]
         df['corrected_p_values'] = z[1]
         df.to_csv(path_to_storage + '/output/new_dataset.csv', index=False)
@@ -1794,7 +1794,9 @@ async def ridge(workflow_id: str,
         for columns in dataset.columns:
             if columns not in independent_variables:
                 dataset = dataset.drop(str(columns), axis=1)
-        data.dropna(inplace=True)
+
+        ## probably that instead of data?
+        dataset.dropna(inplace=True)
 
         X = np.array(dataset)
         Y = np.array(df_label.astype('float64'))
@@ -2094,7 +2096,7 @@ async def sgd_regressor(workflow_id: str,
         for columns in dataset.columns:
             if columns not in independent_variables:
                 dataset = dataset.drop(str(columns), axis=1)
-        data.dropna(inplace=True)
+        dataset.dropna(inplace=True)
 
         X = np.array(dataset)
         Y = np.array(df_label.astype('float64'))
