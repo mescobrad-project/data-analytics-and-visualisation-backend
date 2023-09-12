@@ -6,6 +6,7 @@ from fastparquet import write as wr, ParquetFile
 
 import glob, pandas
 import pandas as pd
+import pandas as pandas
 from freesurfer_stats import CorticalParcellationStats
 from fastapi import APIRouter, Query
 from pip._internal.utils.misc import tabulate
@@ -26,6 +27,7 @@ def load_structural_measurements(stats_path) -> pandas.DataFrame:
     stats.structural_measurements['source_basename'] = os.path.basename(stats_path)
     stats.structural_measurements['hemisphere'] = stats.hemisphere
     return stats.structural_measurements
+
 
 @router.get("/list/datalakeendpoints", tags=["list_datalakeendpoints"])
 async def list_datalakeendpoints() -> dict:

@@ -66,3 +66,4 @@ whatthepatch==1.0.4
 yapf==0.32.0
 yasa==0.6.1
 zepid==0.9.1
+ggseg==0.1

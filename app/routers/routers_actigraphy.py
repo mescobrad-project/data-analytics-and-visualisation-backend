@@ -1,7 +1,7 @@
 import csv
 import inspect
 from time import strftime
-
+import json
 import numpy as np
 from fastapi import Query, APIRouter
 import pyActigraphy
@@ -20,7 +20,7 @@ from pyActigraphy.analysis import SSA
 # The DFA methods are part of the Fractal module:
 from pyActigraphy.analysis import Fractal
 import shutil
-
+from datetime import datetime
 import pandas
 import plotly.graph_objs as go
 import plotly.io as pio
@@ -29,6 +29,9 @@ from app.utils.utils_general import get_local_storage_path, get_single_file_from
     load_file_csv_direct
 
 # import plotly.graph_objs as go
+from starlette.responses import JSONResponse
+
+from app.utils.utils_general import get_local_storage_path
 
 router = APIRouter()
 
@@ -814,128 +817,306 @@ async def return_add_mask_period(workflow_id: str,
 async def actigraphymetrics(workflow_id: str,
                             step_id: str,
                             run_id: str,
-                            i: int,
+                            number_of_offsets: int,
+                            number_of_periods: int,
+                            file: str,
                             binarize: bool | None = Query(default=True),
+                            period_offset: str | None = Query(default="Day",
+                                                              regex="^(Day)$|^(Week)$|^(Month)$"),
                             threshold: int | None = Query(default=4),
-                            metric: str | None = Query(default='IS', enum=['IS','ISm','IV','IVm', 'L5','M10','RA','L5p','ADAT','ADATp','M10p','RAp','kRA','kAR']),
-                            prefix_offset: str | None = Query(default="Hour",
-                                                              regex="^(Hour)$|^(Minute)$|^(Day)$")):
+                            # metric: str | None = Query(default='IS', enum=['IS','ISm','IV','IVm', 'L5','M10','RA','L5p','ADAT','ADATp','M10p','RAp','kRA','kAR']),
+                            freq_offset: str | None = Query(default="Hour",
+                                                              regex="^(Hour)$|^(Minute)$|^(Second)$")):
+    test_status = ''
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    try:
+        test_status = 'Unable to retrieve actigraphy file.'
+        # raw = pyActigraphy.io.read_raw_rpx('example_data/actigraph/0345-024_18_07_2022_13_00_00_New_Analysis.csv')
+        raw = pyActigraphy.io.read_raw_rpx(path_to_storage + "/" + file)
+        test_status = 'Unable to compute metrics.'
 
-    raw = pyActigraphy.io.read_raw_rpx('example_data/actigraph/0345-024_18_07_2022_13_00_00_New_Analysis.csv')
-    if metric == 'IS':
-        if prefix_offset == 'Hour':
-            freq = f"{i}{pd.offsets.Hour._prefix}"
+        if freq_offset == 'Hour':
+            freq = f"{number_of_offsets}{pd.offsets.Hour._prefix}"
+        elif freq_offset == 'Minute':
+            freq = f"{number_of_offsets}{pd.offsets.Minute._prefix}"
         else:
-            freq = f"{i}{pd.offsets.Minute._prefix}"
-        xx = raw.IS(binarize=binarize, threshold=threshold, freq=freq)
+            freq = f"{number_of_offsets}{pd.offsets.Second._prefix}"
 
-        return {'IS': xx}
-    elif metric == 'ISm':
-        xx = raw.ISm(binarize=binarize, threshold=threshold)
-        return {'ISm': xx}
-    elif metric == 'IV':
-        if prefix_offset == 'Hour':
-            freq = f"{i}{pd.offsets.Hour._prefix}"
+        if period_offset == 'Day':
+            period = f"{number_of_periods}{pd.offsets.Day._prefix}"
+        elif period_offset == 'Week':
+            period = f"{number_of_periods}{pd.offsets.Week._prefix}"
         else:
-            freq = f"{i}{pd.offsets.Minute._prefix}"
-        xx = raw.IV(binarize=binarize, threshold=threshold, freq=freq)
+            period = f"{number_of_periods}{pd.offsets.MonthBegin._prefix}"
 
-        return {'IV': xx}
-    elif metric == 'IVm':
-        xx = raw.IVm(binarize=binarize, threshold=threshold)
-        return {'IVm': xx}
-    elif metric == 'L5':
-        xx = raw.L5(binarize=binarize, threshold=threshold)
-        return {'L5': xx}
-    elif metric == 'M10':
-        xx = raw.M10(binarize=binarize, threshold=threshold)
-        return {'M10': xx}
-    elif metric == 'RA':
-        xx = raw.RA(binarize=binarize, threshold=threshold)
-        return {'RA': xx}
-    elif metric == 'L5p':
-        if prefix_offset == 'Hour':
-            freq = f"{i}{pd.offsets.Hour._prefix}"
-        elif prefix_offset == 'Minute':
-            freq = f"{i}{pd.offsets.Minute._prefix}"
-        else:
-            freq = f"{i}{pd.offsets.Day._prefix}"
-        xx = raw.L5p(binarize=binarize, threshold=threshold, period=freq)
-        return {'L5p': xx}
-    elif metric == 'ADAT':
-        xx = raw.ADAT(binarize=binarize, threshold=threshold)
-        return {'ADAT': xx}
-    elif metric == 'ADATp':
-        if prefix_offset == 'Hour':
-            freq = f"{i}{pd.offsets.Hour._prefix}"
-        elif prefix_offset == 'Minute':
-            freq = f"{i}{pd.offsets.Minute._prefix}"
-        else:
-            freq = f"{i}{pd.offsets.Day._prefix}"
-        xx = raw.ADATp(binarize=binarize, threshold=threshold,period=freq)
-        return {'ADATp': xx}
-    elif metric == 'M10p':
-        if prefix_offset == 'Hour':
-            freq = f"{i}{pd.offsets.Hour._prefix}"
-        elif prefix_offset == 'Minute':
-            freq = f"{i}{pd.offsets.Minute._prefix}"
-        else:
-            freq = f"{i}{pd.offsets.Day._prefix}"
-        xx = raw.M10p(binarize=binarize, threshold=threshold,period=freq)
-        return {'M10p': xx}
-    elif metric == 'RAp':
-        if prefix_offset == 'Hour':
-            freq = f"{i}{pd.offsets.Hour._prefix}"
-        elif prefix_offset == 'Minute':
-            freq = f"{i}{pd.offsets.Minute._prefix}"
-        else:
-            freq = f"{i}{pd.offsets.Day._prefix}"
-        xx = raw.RAp(binarize=binarize, threshold=threshold,period=freq)
-        return {'RAp': xx}
-    elif metric == 'kRA':
-        xx = raw.kRA()
-        return {'kRA': xx}
-    elif metric == 'kAR':
-        xx = raw.kAR()
-        return {'kAR': xx}
+        print("Name"+ raw.name)
+        print("Start_time"+ (raw.start_time).__str__())
+        print("Duration"+ (raw.duration()).__str__())
+        print("Serial"+ raw.uuid)
+        print("frequency"+ (raw.frequency).__str__())
+        print('IS')
+        print(raw.IS(binarize=binarize, threshold=threshold, freq=freq))
+        print(raw.ISm(binarize=binarize, threshold=threshold))
+        print(raw.ISp(binarize=binarize, threshold=threshold, period=period))
+        print('IV')
+        print(raw.IV(binarize=binarize, threshold=threshold, freq=freq))
+        print(raw.IVm(binarize=binarize, threshold=threshold))
+        print(raw.IVp(binarize=binarize, threshold=threshold, period=period))
+        print('L5')
+        print(raw.L5(binarize=binarize, threshold=threshold))
+        print(raw.L5p(binarize=binarize, threshold=threshold, period=period))
+        print('M10')
+        print(raw.M10(binarize=binarize, threshold=threshold))
+        print(raw.M10p(binarize=binarize, threshold=threshold,period=period))
+        print('RA')
+        print(raw.RA(binarize=binarize, threshold=threshold))
+        print(raw.RAp(binarize=binarize, threshold=threshold,period=period))
+        print(raw.pRA(threshold=threshold, start=None, period=period))
+        print('pAR')
+        print(raw.pAR(threshold=threshold, start=None, period=period))
+        print('ADAT')
+        print(raw.ADAT(binarize=binarize, threshold=threshold))
+        print(raw.ADATp(binarize=binarize, threshold=threshold,period=period))
+        print('k')
+        print(raw.kRA(threshold=threshold, start=None, period=period))
+        print(raw.kAR(threshold=threshold, start=None, period=period))
+        tbl_res=[]
+        pRA, pRA_weights = raw.pRA(threshold=threshold, start=None, period=period)
+        temp_to_append = {'id': 1,
+                          "Name": raw.name,
+                          "Start_time": (raw.start_time).__str__(),
+                          "Duration": (raw.duration()).__str__(),
+                          "Serial": raw.uuid,
+                          "frequency": (raw.frequency).__str__(),
+                          "IS": raw.IS(binarize=binarize, threshold=threshold, freq=freq),
+                          "ISm": raw.ISm(binarize=binarize, threshold=threshold),
+                          'ISp':list(raw.ISp(binarize=binarize, threshold=threshold, period=period)),
+                          "IV": raw.IV(binarize=binarize, threshold=threshold, freq=freq),
+                          "IVm": raw.IVm(binarize=binarize, threshold=threshold),
+                          'IVp': raw.IVp(binarize=binarize, threshold=threshold, period=period),
+                          "L5": raw.L5(binarize=binarize, threshold=threshold),
+                          "L5p": raw.L5p(binarize=binarize, threshold=threshold, period=period),
+                          "M10": raw.M10(binarize=binarize, threshold=threshold),
+                          "M10p": raw.M10p(binarize=binarize, threshold=threshold,period=period),
+                          "RA": raw.RA(binarize=binarize, threshold=threshold),
+                          "RAp": raw.RAp(binarize=binarize, threshold=threshold,period=period),
+                          'pRA': pRA.to_list(),
+                          'pAR': raw.pAR(threshold=threshold, start=None, period=period)[0].to_list(),
+                          "ADAT": raw.ADAT(binarize=binarize, threshold=threshold),
+                          "ADATp": raw.ADATp(binarize=binarize, threshold=threshold,period=period),
+                          "kRA": raw.kRA(threshold=threshold, start=None, period=period),
+                          "kAR": raw.kAR(threshold=threshold, start=None, period=period)
+                          }
+        tbl_res.append(temp_to_append)
+
+        return JSONResponse(content={'status': 'Success', 'Result': tbl_res},
+                            status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status': test_status, 'Result': {}},
+                            status_code=200)
 
 @router.get("/cosinor_analysis_initial_values")
-async def cosinoranalysisinitialvalues(workflow_id: str,
-                                       step_id: str,
-                                       run_id: str):
+async def cosinoranalysisinitialvalues():
+    test_status=''
+    try:
+        data = CosinorParameters.get_values(Cosinor())
+        test_status = 'Unable to load Cosinor initial values.'
+        return JSONResponse(content={'status':'Success',"cos_params": data},
+                            status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status': test_status, "cos_params": []}, status_code=200)
 
-    cosinor = Cosinor()
-
-    return {'Initial Values': cosinor.fit_initial_params.valuesdict()}
 
 @router.get("/cosinor_analysis")
 async def cosinoranalysis(workflow_id: str,
                           step_id: str,
                           run_id: str,
-                          Period: int | None = Query(default=None),
-                          set_new_values: bool | None = Query(default=False),
-                          change_period: bool | None = Query(default=False)):
+                          cosinor_parameters: str,
+                          file:str):
+    test_status = ''
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    try:
+        test_status = 'Unable to retrieve actigraphy file.'
+        # TODO : file or files?
+        # raw = pyActigraphy.io.read_raw_rpx('example_data/actigraph/0345-024_18_07_2022_13_00_00_New_Analysis.csv')
+        raw = pyActigraphy.io.read_raw_rpx(path_to_storage + "/" + file)
+        test_status = 'Unable to set cosinor values.'
+        json_response = json.loads(cosinor_parameters)
+        cosinor_obj = Cosinor()
+        # set cosinor_obj values
+        for elements in json_response:
+            cosinor_obj = CosinorParameters.set_values_by_name(cosinor_obj,
+                                           json_response[elements]['Name'],
+                                           json_response[elements]['Value'],
+                                           json_response[elements]['Vary'],
+                                           json_response[elements]['Min'],
+                                           json_response[elements]['Max'] if (json_response[elements]['Max'] != 'inf') else np.inf,
+                                           json_response[elements]['Stderr'],
+                                           json_response[elements]['Expr'],
+                                           json_response[elements]['Brute_step'])
 
-    raw = pyActigraphy.io.read_raw_rpx('example_data/actigraph/0345-024_18_07_2022_13_00_00_New_Analysis.csv')
+        # cosinor_obj.fit_initial_params.pretty_print()
+        test_status = 'Unable to load Cosinor initial values.'
+        data = CosinorParameters.get_values(cosinor_obj)
+        test_status = 'Unable to execute Cosinor fit.'
+        results = cosinor_obj.fit(raw, verbose=True)
+        test_status = 'Unable to plot Cosinor fit.'
+        fig = go.Figure(go.Scatter(x=raw.data.index.astype(str), y=raw.data))
+        fig.write_image(path_to_storage + "/output/cosinor.svg", format="svg")
+        test_status = 'Unable to create info file.'
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            file_data = json.load(f)
+            file_data['results'] |= {
+                "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                "workflow_id": workflow_id,
+                "run_id": run_id,
+                "step_id": step_id,
+                "test_name": 'Kaplan Meier Fitter',
+                "test_params": {
+                    'file': file,
+                    'cosinor_parameters': data
+                },
+                "test_results": {
 
-    cosinor = Cosinor()
+                },
+                "Output_datasets": [],
+                'Saved_plots': [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                             step_id + '/analysis_output/cosinor.svg'}
+                                    ]
+            }
+            f.seek(0)
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        return JSONResponse(content={'status': 'Success', 'Result': results.params.valuesdict(),
+                'Akaike information criterium': results.aic,
+                'Reduced Chi^2': results.redchi, "report": fit_report(results)},
+                            status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status': test_status, 'Result': {},
+                'Akaike information criterium': {},
+                'Reduced Chi^2': {}, "report": {}},
+                            status_code=200)
 
-    if set_new_values == False:
-        results = cosinor.fit(raw, verbose=True)
-        return {'Result':results.params.valuesdict(), 'Akaike information criterium': results.aic, 'Reduced Chi^2': results.redchi, "report":fit_report(results)}
-    else:
-        if change_period == True:
-            cosinor.fit_initial_params['Period'].value = Period
-        results = cosinor.fit(raw, verbose=True)
-        # TODO: create plot
-        return {'Result': results.params.valuesdict(), 'Akaike information criterium': results.aic,
-                'Reduced Chi^2': results.redchi, "report": fit_report(results)}
 
+class CosinorParameters(Cosinor):
+    # def setinitialvalues(self):
+    #
+    #     self._Period_value = self.fit_initial_params['Period'].value
+    #     self._Period_vary = self.fit_initial_params['Period'].vary
+    #     self._Period_min = self.fit_initial_params['Period'].min
+    #     self._Period_max = self.fit_initial_params['Period'].max
+    #     self._Period_expr = self.fit_initial_params['Period'].expr
+    #     self._Period_brute_step = self.fit_initial_params['Period'].brute_step
+    #     self._Period_stderr = self.fit_initial_params['Period'].stderr
+    #     self._Amplitude_value = self.fit_initial_params['Amplitude'].value
+    #     self._Amplitude_vary = self.fit_initial_params['Amplitude'].vary
+    #     self._Amplitude_min = self.fit_initial_params['Amplitude'].min
+    #     self._Amplitude_max = self.fit_initial_params['Amplitude'].max
+    #     self._Amplitude_expr = self.fit_initial_params['Amplitude'].expr
+    #     self._Amplitude_brute_step = self.fit_initial_params['Amplitude'].brute_step
+    #     self._Amplitude_stderr = self.fit_initial_params['Amplitude'].stderr
+    #     self._Acrophase_value = self.fit_initial_params['Acrophase'].value
+    #     self._Acrophase_vary = self.fit_initial_params['Acrophase'].vary
+    #     self._Acrophase_min = self.fit_initial_params['Acrophase'].min
+    #     self._Acrophase_max = self.fit_initial_params['Acrophase'].max
+    #     self._Acrophase_expr = self.fit_initial_params['Acrophase'].expr
+    #     self._Acrophase_brute_step = self.fit_initial_params['Acrophase'].brute_step
+    #     self._Acrophase_stderr = self.fit_initial_params['Acrophase'].stderr
+    #     self._Mesor_value = self.fit_initial_params['Mesor'].value
+    #     self._Mesor_vary = self.fit_initial_params['Mesor'].vary
+    #     self._Mesor_min = self.fit_initial_params['Mesor'].min
+    #     self._Mesor_max = self.fit_initial_params['Mesor'].max
+    #     self._Mesor_expr = self.fit_initial_params['Mesor'].expr
+    #     self._Mesor_brute_step = self.fit_initial_params['Mesor'].brute_step
+    #     self._Mesor_stderr = self.fit_initial_params['Mesor'].stderr
+    #     return self
+    # getter method
+    def get_values(self):
+        return [
+            {
+                'id': 1,
+                'Name':'Period',
+                'Value': self.fit_initial_params['Period'].value,
+                'Vary': self.fit_initial_params['Period'].vary,
+                'Min': self.fit_initial_params['Period'].min,
+                'Max': self.fit_initial_params['Period'].max if not np.isinf(self.fit_initial_params['Period'].max) else 'inf',
+                'Stderr':self.fit_initial_params['Period'].stderr,
+                'Expr': self.fit_initial_params['Period'].expr,
+                'Brute_step':self.fit_initial_params['Period'].brute_step
+            },
+            {
+                'id': 2,
+                'Name': 'Amplitude',
+                'Value': self.fit_initial_params['Amplitude'].value,
+                'Vary': self.fit_initial_params['Amplitude'].vary,
+                'Min': self.fit_initial_params['Amplitude'].min,
+                'Max': self.fit_initial_params['Amplitude'].max if not np.isinf(self.fit_initial_params['Amplitude'].max) else 'inf',
+                'Stderr':self.fit_initial_params['Amplitude'].stderr,
+                'Expr': self.fit_initial_params['Amplitude'].expr,
+                'Brute_step': self.fit_initial_params['Amplitude'].brute_step
+            },
+            {
+                'id': 3,
+                'Name': 'Acrophase',
+                'Value': self.fit_initial_params['Acrophase'].value,
+                'Vary': self.fit_initial_params['Acrophase'].vary,
+                'Min': self.fit_initial_params['Acrophase'].min,
+                'Max': self.fit_initial_params['Acrophase'].max if not np.isinf(self.fit_initial_params['Acrophase'].max) else 'inf',
+                'Stderr':self.fit_initial_params['Acrophase'].stderr,
+                'Expr': self.fit_initial_params['Acrophase'].expr,
+                'Brute_step': self.fit_initial_params['Acrophase'].brute_step
+            },
+            {
+                'id': 4,
+                'Name': 'Mesor',
+                'Value': self.fit_initial_params['Mesor'].value,
+                'Vary': self.fit_initial_params['Mesor'].vary,
+                'Min': self.fit_initial_params['Mesor'].min,
+                'Max': self.fit_initial_params['Mesor'].max if not np.isinf(self.fit_initial_params['Mesor'].max) else 'inf',
+                'Stderr':self.fit_initial_params['Mesor'].stderr,
+                'Expr': self.fit_initial_params['Mesor'].expr,
+                'Brute_step': self.fit_initial_params['Mesor'].brute_step
+            }
+        ]
 
+    # setter methods
+    # def set_Mesor_max(self, x):
+    #     self._Mesor_max = x
 
-
-
-
-
-
-
+    def set_values_by_name(self,name:str, value:float, vary:bool, min:float, max:float, stderr:float, expr:str, brute_step:float):
+        if name == 'Amplitude':
+            self.fit_initial_params['Amplitude'].value = value
+            self.fit_initial_params['Amplitude'].vary = vary
+            self.fit_initial_params['Amplitude'].min = min
+            self.fit_initial_params['Amplitude'].max = max
+            self.fit_initial_params['Amplitude'].stderr = stderr
+            self.fit_initial_params['Amplitude'].expr = expr
+            self.fit_initial_params['Amplitude'].brute_step = brute_step
+        elif name == 'Acrophase':
+            self.fit_initial_params['Acrophase'].value = value
+            self.fit_initial_params['Acrophase'].vary = vary
+            self.fit_initial_params['Acrophase'].min = min
+            self.fit_initial_params['Acrophase'].max = max
+            self.fit_initial_params['Acrophase'].stderr = stderr
+            self.fit_initial_params['Acrophase'].expr = expr
+            self.fit_initial_params['Acrophase'].brute_step = brute_step
+        elif name == 'Period':
+            self.fit_initial_params['Period'].value = value
+            self.fit_initial_params['Period'].vary = vary
+            self.fit_initial_params['Period'].min = min
+            self.fit_initial_params['Period'].max = max
+            self.fit_initial_params['Period'].stderr = stderr
+            self.fit_initial_params['Period'].expr = expr
+            self.fit_initial_params['Period'].brute_step = brute_step
+        elif name == 'Mesor':
+            self.fit_initial_params['Mesor'].value = value
+            self.fit_initial_params['Mesor'].vary = vary
+            self.fit_initial_params['Mesor'].min = min
+            self.fit_initial_params['Mesor'].max = max
+            self.fit_initial_params['Mesor'].stderr = stderr
+            self.fit_initial_params['Mesor'].expr = expr
+            self.fit_initial_params['Mesor'].brute_step = brute_step
+        return self

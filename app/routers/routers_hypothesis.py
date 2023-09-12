@@ -2,7 +2,10 @@ import numpy as np
 import pandas as pd
 import json
 from sklearn.cross_decomposition import CCA
+from sklearn.manifold import MDS, TSNE
+from sklearn.decomposition import FastICA
 from sklearn.preprocessing import LabelEncoder
+from sphinx.addnodes import index
 from statsmodels.tsa.stattools import grangercausalitytests
 from factor_analyzer.factor_analyzer import calculate_bartlett_sphericity
 from factor_analyzer.factor_analyzer import calculate_kmo
@@ -2130,7 +2133,7 @@ async def linear_mixed_effects_model(workflow_id: str,
                 "col2": row[2],
                 "col3": row[3],
             }
-            tbl1_res.append(temp_to_append)
+        tbl1_res.append(temp_to_append)
         df_1 = df.tables[1]
         tbl2_res = []
         for ind, row in df_1.iterrows():
@@ -2338,7 +2341,7 @@ async def time_varying_covariates(
         dataset_long[column_1+'*'+column_2] = dataset_long[column_1]*dataset_long[column_2]
 
     cph = CoxTimeVaryingFitter(alpha=alpha, penalizer=penalizer, l1_ratio=l1_ratio)
-
+    print(cph)
     cph.fit(dataset_long, event_col=event_col, id_col='id', weights_col=weights_col,start_col='start', stop_col='stop',strata=strata)
 
     df = cph.summary
@@ -2687,14 +2690,19 @@ async def mc_nemar(workflow_id: str,
         # I used LabelEncoder() to convert str to int, but I made it a comment
         # because the user does not have the tranformed
         # dataset to know what 0 and 1 means
+        df_tranf = pd.DataFrame()
         row_var = data[variable_row]
-        # if row_var.dtypes != 'int64':
-        #     le = LabelEncoder()
-        #     row_var = le.fit_transform(data[variable_row])
+        if row_var.dtypes != 'int64':
+            le = LabelEncoder()
+            row_var = le.fit_transform(data[variable_row])
+            df_tranf['index'] = [0, 1]
+            df_tranf[variable_row] = [str(x) for x in le.classes_]
         column_var = data[variable_column]
-        # if column_var.dtypes != 'int64':
-        #     le = LabelEncoder()
-        #     column_var = le.fit_transform(data[variable_column])
+        if column_var.dtypes != 'int64':
+            le = LabelEncoder()
+            column_var = le.fit_transform(data[variable_column])
+            df_tranf['index'] = [0, 1]
+            df_tranf[variable_column] = [str(x) for x in le.classes_]
 
         df = pd.crosstab(index=row_var,columns=column_var)
         df1 = pd.crosstab(index=row_var,columns=column_var, margins=True, margins_name= "Total")
@@ -2729,12 +2737,12 @@ async def mc_nemar(workflow_id: str,
             f.truncate()
         return JSONResponse(content={'status': 'Success', 'statistic': result.statistic,
                                      "p_value": result.pvalue,
-                                     "crosstab":df1.to_json(orient='split')},
+                                     "crosstab":df1.to_json(orient='split'), 'col_transormed':df_tranf.to_json(orient="records")},
                             status_code=200)
     except Exception as e:
         print(e)
         return JSONResponse(content={'status': test_status, 'statistic': '', "p_value": '',
-                                     "crosstab": "{\"columns\":[0,1,\"Total\"],\"index\":[0,1,\"Total\"],\"data\":[[0,0,0],[0,0,0],[0,0,0]]}"},
+                                     "crosstab": "{\"columns\":[0,1,\"Total\"],\"index\":[0,1,\"Total\"],\"data\":[[0,0,0],[0,0,0],[0,0,0]]}", 'col_transormed':'[]'},
                             status_code=200)
     # return {'statistic': result.statistic, "p_value": result.pvalue, "crosstab":df1.to_json(orient='split')}
 
@@ -2795,7 +2803,6 @@ async def risk_ratio_1(
         outcome = outcome.split("--")[1]
         if time is not None: time = time.split("--")[1]
         else: time = None
-        print([exposure, outcome, time])
         test_status = 'Unable to retrieve datasets'
         # We expect only one here
         dataset = load_data_from_csv(path_to_storage + "/" + selected_datasource)
@@ -3455,6 +3462,8 @@ async def linear_regression_statsmodels(workflow_id: str, step_id: str, run_id: 
                                         independent_variables: list[str] | None = Query(default=None)):
     data = load_file_csv_direct(workflow_id, run_id, step_id)
 
+    print(data)
+
     x = data[independent_variables]
     y = data[dependent_variable]
 
@@ -3547,6 +3556,8 @@ async def linear_regression_statsmodels(workflow_id: str, step_id: str, run_id: 
         results_goldfeldquandt = dict(zip(labels, z))
         goldfeld_test = pd.DataFrame(results_goldfeldquandt.values(), index=results_goldfeldquandt.keys())
         goldfeld_test.rename(columns={0: 'Values'}, inplace=True)
+
+        print(inf_dict)
 
         response = {'DataFrame with all available influence results':df_final_influence.to_html(),'first_table': df_0.to_json(orient='split'), 'second table': df_1.to_html(),
                 'third table': df_2.to_dict(), 'dataframe white test': white_test.to_json(orient='split'),
@@ -3738,8 +3749,9 @@ async def choose_number_of_factors(workflow_id: str,
     fa.fit(dataset)
 
     original_eigen_values, common_factor_eigen_values = fa.get_eigenvalues()
+    print(type(original_eigen_values))
 
-    to_return = {}
+
 
     fig = plt.figure(1)
 
@@ -3749,13 +3761,15 @@ async def choose_number_of_factors(workflow_id: str,
     plt.xlabel('Factors')
     plt.ylabel('Eigenvalue')
     plt.grid()
+    plt.savefig(get_local_storage_path(workflow_id, run_id, step_id) + '/output/factor_eigen_values.png')
     plt.show()
 
-    html_str = mpld3.fig_to_html(fig)
-    to_return["figure_1"] = html_str
+    # html_str = mpld3.fig_to_html(fig)
+    df_orig_eigen_values = pd.DataFrame({'Factors': ['Factor' + str(i) for i in range(len(independent_variables))],
+                                          'Original Eigen Values': original_eigen_values})
+    to_return = {'df_orig_eigen_values': df_orig_eigen_values.to_json(orient='records')}
 
-    return {'Original Eigenvalues': original_eigen_values.tolist(),
-            'Figure': to_return}
+    return to_return
 
 
 @router.get("/calculate_factor_analysis")
@@ -4021,50 +4035,142 @@ async def analysis_mediation(workflow_id: str,
                              run_id: str,
                              dependent_1: str,
                              exposure: str,
-                             mediator: str,
-                             independent_1: list[str] | None = Query(default=None),
-                             independent_2: list[str] | None = Query(default=None)):
+                             mediator: list[str] | None = Query(default=None),
+                             independent: list[str] | None = Query(default=None)):
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
+    dfm = pd.DataFrame()
+    dfi = pd.DataFrame()
+    print(workflow_id, step_id, run_id, dependent_1, exposure, mediator, independent)
+    # Load Datasets
+    try:
+        test_status = 'Dataset is not defined'
+        selected_datasource = dependent_1.split("--")[0]
+        dependent_1 = dependent_1.split("--")[1]
+        exposure = exposure.split("--")[1]
+        dfm['variables'] = mediator
+        dfm[['Datasource', 'Variable']] = dfm["variables"].apply(lambda x: pd.Series(str(x).split("--")))
+        mediator = dfm['Variable'].tolist()
+        if independent != ['']:
+            dfi['variables'] = independent
+            dfi[['Datasource', 'Variable']] = dfi["variables"].apply(lambda x: pd.Series(str(x).split("--")))
+            independent = dfi['Variable'].tolist()
+        if (dependent_1 == exposure) or (dependent_1 in mediator) or (exposure in mediator):
+            test_status = 'Select different columns for outcome, predictor and mediator variables'
+            raise Exception
+        elif (dependent_1 in independent) or (exposure in independent):
+            test_status = 'Select different columns for outcome, predictor and covar variables'
+            raise Exception
+        for med in mediator:
+            if med in independent:
+                test_status = 'Mediator columns cannot be in covar variables'
+                raise Exception
+        test_status = 'Unable to retrieve datasets'
+        data = load_data_from_csv(path_to_storage + "/" + selected_datasource)
 
-    print(workflow_id, step_id, run_id,dependent_1,exposure,mediator,independent_1,independent_2)
-    # data = pd.read_csv('example_data/mescobrad_dataset.csv')
-    data = load_file_csv_direct(workflow_id, run_id, step_id)
-    z = dependent_1 + "~"
-    for i in range(len(independent_1)):
-        z = z + "+" + independent_1[i]
+        # We want X to affect Y. If there is no relationship between X and Y, there is nothing to mediate.
+        # model.0 <- lm(Y ~ X, myData)
 
-    print("print first - "+z)
-    if mediator not in z:
-        z = z + "+" + mediator
-    print("print second - "+z)
 
-    if exposure not in z:
-        z = z + "+" + exposure
-    outcome_model = sm.GLM.from_formula(z, data)
-    print("print third - "+z)
-    print(outcome_model)
-    z = mediator + "~"
-    for i in range(len(independent_2)):
-        z = z + "+" + independent_2[i]
-    print("print fourth - "+z)
+        # We use penguin
+        # if mediator != ['']:
+        #     print("no med")
+        #     dfm['variables'] = mediator
+        #     dfm[['Datasource', 'Variable']] = dfm["variables"].apply(lambda x: pd.Series(str(x).split("--")))
+        #     mediator = dfm['Variable'].tolist()
+        #     z_m = ''
+        #     for i in range(len(mediator)):
+        #         z_m = z_m + "+" + mediator[i] if z_m != '' else mediator[i]
+        # if independent != ['']:
+        #     print("no ind")
+        #     dfi['variables'] = independent
+        #     dfi[['Datasource', 'Variable']] = dfi["variables"].apply(lambda x: pd.Series(str(x).split("--")))
+        #     independent = dfi['Variable'].tolist()
+        #     z = ''
+        #     for i in range(len(independent)):
+        #         z = z + "+" + independent[i] if z != '' else independent[i]
+        # output_str = dependent_1 + "~" + exposure + "+" + z if z!='' else dependent_1 + "~" + exposure
+        #         print("output_str = " + output_str)
+        #         model0 = sm.GLM.from_formula(output_str, data)
+        # m1 = model0.fit()
+        # df = m1.summary()
+        # We want X to affect M. If X and M have no relationship, M is just a third variable that may or may not
+        # be associated with Y. A mediation makes sense only if X affects M.
+        # model.M <- lm(M ~ X, myData)
 
-    if exposure not in z:
-        z = z + "+" + exposure
-    print("print fifth - "+z)
+        # mediator_str = z_m + "~" + exposure
+        # print("mediator_str = "+mediator_str)
+        # mediator_model = sm.OLS.from_formula(mediator[i]+ "~" + exposure, data)
+        # res = mediator_model.fit()
 
-    mediator_model = sm.OLS.from_formula(z, data)
-    med = Mediation(outcome_model, mediator_model, exposure, mediator).fit()
-    df = med.summary()
-    df['index']= df.index
+        # We want M to affect Y, but X to no longer affect Y (or X to still affect Y but in a smaller
+        # magnitude). If a mediation effect exists, the effect of X on Y will disappear
+        # (or at least weaken) when M is included in the regression. The effect of X on Y goes through M.
+        # model.Y <- lm(Y ~ X + M, myData)
+        # outcome_str = dependent_1 + "~" + exposure + "+" + z_m + "+" + z
+        # print("outcome_str = "+outcome_str)
+        # outcome_model = sm.GLM.from_formula(outcome_str, data)
+        # res = outcome_model.fit()
+        # print(res.summary())
+        # Call analysis with the models
+        # results <- mediate(model.M, model.Y, treat='X', mediator='M',
+        #                    boot=TRUE, sims=500)
+        # it accepts only one Mediator
+        # med = Mediation(outcome_model, mediator_model, exposure, mediator).fit()
+        # df = med.summary()
 
-    df1, dist = mediation_analysis(data=data, x=exposure, m=mediator, y=dependent_1,
-                             covar=independent_1, seed=42,return_dist=True)\
-        # .round(3)
-    df1.columns = df1.columns.str.replace('.', ',', regex=True)
-
-    print(dist)
-    print(df)
-    print(df1)
-    return {'Result': df.to_json(orient='records'), 'Result2':df1.to_json(orient='records')}
+        test_status = 'Unable to compute Mediation Analysis.'
+        # df1, dist = mediation_analysis(data=data, x=exposure, m=mediator, y=dependent_1,
+        #                          covar=independent, seed=42,return_dist=True)
+            # .round(3)
+        # df1.columns = df1.columns.str.replace('.', ',', regex=True)
+        if independent != ['']:
+            df, dist = mediation_analysis(data=data, x=exposure, m=mediator, y=dependent_1,
+                                           covar=independent, seed=42, return_dist=True)
+        else:
+            df, dist = mediation_analysis(data=data, x=exposure, m=mediator, y=dependent_1,
+                                           seed=42, return_dist=True)
+        df.columns = df.columns.str.replace('.', ',', regex=True)
+        # fig = plt.figure()
+        # ax = fig.add_subplot()
+        # ax1 = fig.add_subplot()
+        # ax = sns.kdeplot(dist[0])
+        # ax1 =sns.kdeplot(dist[1])
+        # plt.show()
+        # sns.kdeplot(df["flipper_length_mm"])
+        # print(dist)
+        # print(df)
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            # Load existing data into a dict.
+            file_data = json.load(f)
+            # Join new data
+            new_data = {
+                    "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                    "workflow_id": workflow_id,
+                    "run_id": run_id,
+                    "step_id": step_id,
+                    "test_name": "Mediation analysis",
+                    "test_params": {
+                        'outcome variable': dependent_1,
+                        'predictor variable': exposure,
+                        'mediator variable': mediator,
+                        'independent variable': independent
+                    },
+                    "test_results": df.to_dict()
+            }
+            file_data['results'] = new_data
+            file_data['Output_datasets'] = []
+            # Set file's current position at offset.
+            f.seek(0)
+            # convert back to json.
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        return JSONResponse(content={'status':'Success', 'Result': df.to_json(orient='records')},
+                            status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status': test_status, 'Result': '[]'},
+                            status_code=200)
 
 @router.get("/canonical_correlation_analysis")
 async def canonical_correlation(workflow_id: str,
@@ -4229,17 +4335,35 @@ async def canonical_correlation(workflow_id: str,
 async def compute_granger_analysis(workflow_id: str,
                                    step_id: str,
                                    run_id: str,
-                                   num_lags: int,
                                    predictor_variable: str,
                                    response_variable: str,
-                                   all_lags_up_to : bool | None = Query(default=False)):
+                                   num_lags: list[int] | None = Query(default=None)):
+                                   # all_lags_up_to : bool | None = Query(default=False)):
 
     dataset = load_file_csv_direct(workflow_id, run_id, step_id)
 
-    if all_lags_up_to==False:
-        print(grangercausalitytests(dataset[[response_variable, predictor_variable]], maxlag=[num_lags]))
+    # if all_lags_up_to==False:
+    #     print(grangercausalitytests(dataset[[response_variable, predictor_variable]], maxlag=[num_lags]))
+    # else:
+    if len(num_lags) == 1:
+        granger_result = grangercausalitytests(dataset[[response_variable, predictor_variable]], maxlag=num_lags[0])
     else:
-        print(grangercausalitytests(dataset[[response_variable, predictor_variable]], maxlag=num_lags))
+        granger_result = grangercausalitytests(dataset[[response_variable, predictor_variable]], maxlag=num_lags)
+    # Union[int, List[int]]
+
+    # print(type(granger_result))
+    # print(granger_result)
+    # # df_granger = pd.DataFrame(data=granger_result)
+    # print(granger_result.keys())
+    lag_numbers = list(granger_result.keys())
+    to_return = {'lags': [], 'num_lags': lag_numbers}
+    for lag in lag_numbers:
+        to_return['lags'].append(granger_result[lag][0])
+    print(to_return)
+    print(type(to_return['lags'][0]['ssr_ftest']))
+    # return to_return
+
+
 
 @router.get("/calculate_one_way_welch_anova")
 async def compute_one_way_welch_anova(workflow_id: str,
@@ -4309,22 +4433,40 @@ async def compute_mixed_anova_pinguin(workflow_id: str,
                                                                        regex="^(True)$|^(auto)$"),
                                         effsize: str | None = Query("np2",
                                                                     regex="^(np2)$|^(n2)$|^(ng2)$")):
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
+    # Load Datasets
+    try:
+        test_status = 'Dataset is not defined'
+        selected_datasource = dependent_variable.split("--")[0]
+        dependent_variable = dependent_variable.split("--")[1]
+        subject = subject.split("--")[1]
+        within = within.split("--")[1]
+        between = between.split("--")[1]
+        test_status = 'Unable to retrieve datasets'
+        # We expect only one here
+        dataset = load_data_from_csv(path_to_storage + "/" + selected_datasource)
+        test_status = 'Unable to compute mixed Anova test for the selected columns.'
 
-    # dataset = load_file_csv_direct(workflow_id, run_id, step_id)
-    dataset = pingouin.read_dataset('mixed_anova')
-    print(dataset)
-    print(dataset.dtypes)
-    check_for_nan = dataset['Group'].isnull().values.any()
-    print(check_for_nan)
-    # if correction_1==True:
-    df = pingouin.mixed_anova(data=dataset, dv=dependent_variable, subject=subject, within=within, between=between,
-                              effsize=effsize, correction=correction)
+        # dataset = pingouin.read_dataset('mixed_anova')
+        # print(dataset)
+        # print(dataset.dtypes)
+        # TODO in SPSS they check repeated measures before this
+        # TODO check between factor for nans
+        # TODO check if within and between factors are categorical
+        # check_for_nan = dataset['Group'].isnull().values.any()
+        # print(check_for_nan)
+        # if correction_1==True:
+        df = pingouin.mixed_anova(data=dataset, dv=dependent_variable, subject=subject, within=within, between=between,
+                                  effsize=effsize, correction=correction)
 
-    return {'Dataframe': df.to_json(orient="records")}
-    # else:
-    #     df = pingouin.mixed_anova(data=dataset, dv=dependent_variable, subject=subject, within=within, between=between,
-    #                               effsize=effsize, correction=correction_2)
-    #     print(df)
+        return JSONResponse(content={'status': 'Success', 'Dataframe': df.to_json(orient="records")},
+                            status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status': test_status, 'table': '[]', 'col_transormed': '[]'},
+                            status_code=200)
+
 
 @router.get("/calculate_anova_pinguin")
 #SS-type should be a valid integer, currently accepting as string in order to use the inlande field validation of strings
@@ -4352,39 +4494,29 @@ async def compute_mean(workflow_id: str,
     df = pd.DataFrame()
     dfv = pd.DataFrame()
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
     # Load Datasets
     try:
+        test_status = 'Dataset is not defined'
         dfv['variables'] = variables
         dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
-    except Exception as e:
-        df["Error"] = ["Dataset is not defined"]
-        return {'Dataframe': df.to_json(orient="records")}
-    selected_datasources = pd.unique(dfv['Datasource'])
-    for ds in selected_datasources:
-        try:
+        selected_datasources = pd.unique(dfv['Datasource'])
+        test_status = 'Unable to retrieve datasets'
+        for ds in selected_datasources:
             dataset = load_data_from_csv(path_to_storage + "/" + ds)
-        except Exception as e:
-            df["Error"] = ["Unable to retrieve datasets"]
-            print(e)
-            return {'Dataframe': df.to_json(orient="records")}
-        # Keep requested Columns
-        selected_columns = pd.unique(dfv['Variable'])
-        for columns in dataset.columns:
-            if columns not in selected_columns:
-                dataset = dataset.drop(str(columns), axis=1)
-        # Get mean values
-        try:
+            # Keep requested Columns
+            selected_columns = pd.unique(dfv['Variable'])
+            for columns in dataset.columns:
+                if columns not in selected_columns:
+                    dataset = dataset.drop(str(columns), axis=1)
+            # Get mean values
+            test_status = 'Unable to compute the average values for the selected columns'
             for column in dataset.columns:
                 res = statisticsMean(column, dataset)
                 if (res!= -1):
                     df[column] = [res]
                 else: df[column] = ["N/A"]
-        except Exception as e:
-            df["Error"] = ["Unable to compute the average values for the selected columns"]
-            print(e)
-            return {'Dataframe': df.to_json(orient="records")}
-    print(df)
-    try:
+        test_status = 'Unable to create info.json file'
         with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
             # Load existing data into a dict.
             file_data = json.load(f)
@@ -4405,10 +4537,13 @@ async def compute_mean(workflow_id: str,
             # convert back to json.
             json.dump(file_data, f, indent=4)
             f.truncate()
+        return JSONResponse(content={'Dataframe': df.to_json(orient="records")},
+                            status_code=200)
     except Exception as e:
-        df["Error"] = ["Creating info.json file"]
+        df["Error"] = test_status
         print(e)
-    return {'Dataframe': df.to_json(orient="records")}
+        return JSONResponse(content={'Dataframe': df.to_json(orient="records")},
+                            status_code=200)
 
 @router.get("/compute_min")
 async def compute_mean(workflow_id: str,
@@ -4418,39 +4553,30 @@ async def compute_mean(workflow_id: str,
     df = pd.DataFrame()
     dfv = pd.DataFrame()
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
     # Load Datasets
     try:
+        test_status = 'Dataset is not defined'
         dfv['variables'] = variables
         dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
-    except Exception as e:
-        df["Error"] = ["Dataset is not defined"]
-        return {'Dataframe': df.to_json(orient="records")}
-    selected_datasources = pd.unique(dfv['Datasource'])
-    for ds in selected_datasources:
-        try:
+
+        selected_datasources = pd.unique(dfv['Datasource'])
+        test_status = 'Unable to retrieve datasets'
+        for ds in selected_datasources:
             dataset = load_data_from_csv(path_to_storage + "/" + ds)
-        except Exception as e:
-            df["Error"] = ["Unable to retrieve datasets"]
-            print(e)
-            return {'Dataframe': df.to_json(orient="records")}
-        # Keep requested Columns
-        selected_columns = pd.unique(dfv['Variable'])
-        for columns in dataset.columns:
-            if columns not in selected_columns:
-                dataset = dataset.drop(str(columns), axis=1)
-        # Get min values
-        try:
+            # Keep requested Columns
+            selected_columns = pd.unique(dfv['Variable'])
+            for columns in dataset.columns:
+                if columns not in selected_columns:
+                    dataset = dataset.drop(str(columns), axis=1)
+            # Get min values
+            test_status = 'Unable to compute the min values for the selected columns'
             for column in dataset.columns:
                 res = statisticsMin(column, dataset)
                 if (res!= -1):
                     df[column] = [res]
                 else: df[column] = ["N/A"]
-        except Exception as e:
-            df["Error"] = ["Unable to compute the min values for the selected columns"]
-            print(e)
-            return {'Dataframe': df.to_json(orient="records")}
-    print(df)
-    try:
+        test_status = 'Unable to create info.json file'
         with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
             # Load existing data into a dict.
             file_data = json.load(f)
@@ -4471,10 +4597,13 @@ async def compute_mean(workflow_id: str,
             # convert back to json.
             json.dump(file_data, f, indent=4)
             f.truncate()
+        return JSONResponse(content={'Dataframe': df.to_json(orient="records")},
+                                status_code=200)
     except Exception as e:
-        df["Error"] = ["Creating info.json file"]
+        df["Error"] = test_status
         print(e)
-    return {'Dataframe': df.to_json(orient="records")}
+        return JSONResponse(content={'Dataframe': df.to_json(orient="records")},
+                                status_code=200)
 
 @router.get("/compute_max")
 async def compute_mean(workflow_id: str,
@@ -4484,39 +4613,31 @@ async def compute_mean(workflow_id: str,
     df = pd.DataFrame()
     dfv = pd.DataFrame()
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
     # Load Datasets
     try:
+        test_status = 'Dataset is not defined'
         dfv['variables'] = variables
         dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
-    except Exception as e:
-        df["Error"] = ["Dataset is not defined"]
-        return {'Dataframe': df.to_json(orient="records")}
-    selected_datasources = pd.unique(dfv['Datasource'])
-    for ds in selected_datasources:
-        try:
+
+        selected_datasources = pd.unique(dfv['Datasource'])
+        test_status = 'Unable to retrieve datasets'
+        for ds in selected_datasources:
             dataset = load_data_from_csv(path_to_storage + "/" + ds)
-        except Exception as e:
-            df["Error"] = ["Unable to retrieve datasets"]
-            print(e)
-            return {'Dataframe': df.to_json(orient="records")}
-        # Keep requested Columns
-        selected_columns = pd.unique(dfv['Variable'])
-        for columns in dataset.columns:
-            if columns not in selected_columns:
-                dataset = dataset.drop(str(columns), axis=1)
-        # Get max values
-        try:
+            # Keep requested Columns
+            selected_columns = pd.unique(dfv['Variable'])
+            for columns in dataset.columns:
+                if columns not in selected_columns:
+                    dataset = dataset.drop(str(columns), axis=1)
+            # Get max values
+            test_status = 'Unable to compute the max values for the selected columns'
             for column in dataset.columns:
                 res = statisticsMax(column, dataset)
                 if (res!= -1):
                     df[column] = [res]
                 else: df[column] = ["N/A"]
-        except Exception as e:
-            df["Error"] = ["Unable to compute the max values for the selected columns"]
-            print(e)
-            return {'Dataframe': df.to_json(orient="records")}
-    print(df)
-    try:
+
+        test_status = 'Unable to create info.json file'
         with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
             # Load existing data into a dict.
             file_data = json.load(f)
@@ -4537,8 +4658,107 @@ async def compute_mean(workflow_id: str,
             # convert back to json.
             json.dump(file_data, f, indent=4)
             f.truncate()
+        return JSONResponse(content={'Dataframe': df.to_json(orient="records")},
+                            status_code=200)
     except Exception as e:
-        df["Error"] = ["Creating info.json file"]
+        df["Error"] = test_status
         print(e)
+        return JSONResponse(content={'Dataframe': df.to_json(orient="records")},
+                            status_code=200)
 
-    return {'Dataframe': df.to_json(orient="records")}
+
+@router.get("/fastica")
+async def compute_fast_ica(workflow_id: str,
+                           step_id: str,
+                           run_id: str,
+                           n_components: int,
+                           max_iter: int | None = Query(default=200),
+                           algorithm: str | None = Query("parallel",
+                                                         regex="^(parallel)$|^(deflation)$"),
+                           fun: str | None = Query("logcosh",
+                                                   regex="^(logcosh)$|^(exp)$|^(cube)$"),
+                           independent_variables: list[str] | None = Query(default=None)):
+
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+
+    for columns in dataset.columns:
+        if columns not in independent_variables:
+            dataset = dataset.drop(str(columns), axis=1)
+
+    X = np.array(dataset)
+
+    transformer = FastICA(n_components=n_components, max_iter=max_iter, algorithm=algorithm, fun=fun)
+
+    X_transformed = transformer.fit_transform(X)
+
+    df = pd.DataFrame(X_transformed)
+    df_components = pd.DataFrame(transformer.components_)
+    df_mixing = pd.DataFrame(transformer.mixing_)
+
+    return {'transformed': df.to_json(orient='split'), 'components': df_components.to_json(orient='split'), 'mixing': df_mixing.to_json(orient='split')}
+
+@router.get("/multidimensional_scaling")
+async def compute_multidimensional_scaling(workflow_id: str,
+                                           step_id: str,
+                                           run_id: str,
+                                           n_components: int | None = Query(default=2),
+                                           max_iter: int | None = Query(default=300),
+                                           metric: bool | None = Query(default=True),
+                                           dissimilarity: str | None = Query("euclidean",
+                                                                             regex="^(euclidean)$|^(precomputed)$"),
+                                           independent_variables: list[str] | None = Query(default=None)):
+
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+
+    for columns in dataset.columns:
+        if columns not in independent_variables:
+            dataset = dataset.drop(str(columns), axis=1)
+
+    X = np.array(dataset)
+
+    transformer = MDS(n_components=n_components, max_iter=max_iter, metric=metric, dissimilarity=dissimilarity)
+
+    X_transformed = transformer.fit_transform(X)
+
+    df = pd.DataFrame(X_transformed)
+
+    df_embedding = pd.DataFrame(transformer.embedding_)
+    df_dissimilarity = pd.DataFrame(transformer.dissimilarity_matrix_)
+
+    return {'transformed': df.to_json(orient='split'),
+            'position of the dataset in the embedding space': df_embedding.to_json(orient='split'),
+            'Pairwise dissimilarities between the points': df_dissimilarity.to_json(orient='split')}
+
+@router.get("/tsne")
+async def compute_tsne(workflow_id: str,
+                       step_id: str,
+                       run_id: str,
+                       n_components: int | None = Query(default=2),
+                       n_iter: int | None = Query(default=1000),
+                       perplexity: float | None = Query(default=30.0),
+                       early_exaggeration: float | None = Query(default=12.0),
+                       init: str | None = Query("pca",
+                                                regex="^(pca)$|^(random)$"),
+                       method: str | None = Query("barnes_hut",
+                                                  regex="^(barnes_hut)$|^(exact)$"),
+                       independent_variables: list[str] | None = Query(default=None)):
+
+    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+
+    for columns in dataset.columns:
+        if columns not in independent_variables:
+            dataset = dataset.drop(str(columns), axis=1)
+
+    X = np.array(dataset)
+
+    transformer = TSNE(n_components=n_components, n_iter=n_iter, perplexity=perplexity, early_exaggeration=early_exaggeration, init=init, method=method)
+
+    X_transformed = transformer.fit_transform(X)
+
+    df = pd.DataFrame(X_transformed)
+
+    df_embedding = pd.DataFrame(transformer.embedding_)
+
+
+    return {'transformed': df.to_json(orient='split'), 'embeddings_vector':df_embedding.to_json(orient='split'),
+            'Kullback-Leibler divergence after optimization': transformer.kl_divergence_}
