@@ -1375,7 +1375,7 @@ async def elastic_net(workflow_id: str,
         for columns in dataset.columns:
             if columns not in independent_variables:
                 dataset = dataset.drop(str(columns), axis=1)
-        data.dropna(inplace=True)
+        dataset.dropna(inplace=True)
 
         X = np.array(dataset)
         Y = np.array(df_label.astype('float64'))
@@ -2062,7 +2062,7 @@ async def huber_regressor(workflow_id: str,
         for columns in dataset.columns:
             if columns not in independent_variables:
                 dataset = dataset.drop(str(columns), axis=1)
-        data.dropna(inplace=True)
+        dataset.dropna(inplace=True)
 
         X = np.array(dataset)
         Y = np.array(df_label.astype('float64'))
@@ -2193,7 +2193,7 @@ async def linear_svr_regressor(workflow_id: str,
         for columns in dataset.columns:
             if columns not in independent_variables:
                 dataset = dataset.drop(str(columns), axis=1)
-        data.dropna(inplace=True)
+        dataset.dropna(inplace=True)
 
         X = np.array(dataset)
         Y = np.array(df_label.astype('float64'))
