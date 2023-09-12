@@ -33,15 +33,25 @@ NeurodesktopStorageLocation = os.environ.get('NeurodesktopStorageLocation') if o
 # # Open the GUI :
 # Sleep(data=dfile, hypno=hfile, config_file=cfile).show()
 
-download_file('sleep_edf.zip', unzip=True, astype='example_data')
-target_path = path_to_visbrain_data(folder='example_data')
 
-dfile = os.path.join(target_path, 'excerpt2.edf')
-hfile = os.path.join(target_path, 'Hypnogram_excerpt2.txt')
-cfile = os.path.join(target_path, 'excerpt2_config.txt')
 
-# Open the GUI :
-Sleep(data=dfile, hypno=hfile, config_file=cfile).show()
+
+#
+# download_file('sleep_edf.zip', unzip=True, astype='example_data')
+# target_path = path_to_visbrain_data(folder='example_data')
+#
+# dfile = os.path.join(target_path, 'excerpt2.edf')
+# hfile = os.path.join(target_path, 'Hypnogram_excerpt2.txt')
+# cfile = os.path.join(target_path, 'excerpt2_config.txt')
+#
+# # Open the GUI :
+# Sleep(data=dfile, hypno=hfile, config_file=cfile).show()
+
+
+
+
+
+
 
 
 # download_file("sleep_brainvision.zip", unzip=True, astype='example_data')

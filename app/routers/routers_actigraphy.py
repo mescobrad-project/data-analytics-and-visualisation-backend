@@ -796,7 +796,6 @@ async def return_add_mask_period(workflow_id: str,
     )
     # Create inactivity mask
     raw.add_mask_period(start=mask_period_start, stop=mask_period_end)
-
     fig = make_subplots(rows=2, cols=1,
                         vertical_spacing = 0.15,
                         subplot_titles = ("Actigraphy Activity", "Inactivity Masking")
@@ -813,7 +812,9 @@ async def return_add_mask_period(workflow_id: str,
     # raw.mask_inactivity = False
     graphJSON = plotly.io.to_json(fig, pretty=True)
     return {"visualisation_add_mask_period": graphJSON}
-@router.get("/actigraphy_metrics")
+
+  
+@router.get("/actigraphy_metrics", tags=["actigraphy_analysis"])
 async def actigraphymetrics(workflow_id: str,
                             step_id: str,
                             run_id: str,
@@ -849,39 +850,20 @@ async def actigraphymetrics(workflow_id: str,
         else:
             period = f"{number_of_periods}{pd.offsets.MonthBegin._prefix}"
 
-        print("Name"+ raw.name)
-        print("Start_time"+ (raw.start_time).__str__())
-        print("Duration"+ (raw.duration()).__str__())
-        print("Serial"+ raw.uuid)
-        print("frequency"+ (raw.frequency).__str__())
-        print('IS')
-        print(raw.IS(binarize=binarize, threshold=threshold, freq=freq))
-        print(raw.ISm(binarize=binarize, threshold=threshold))
-        print(raw.ISp(binarize=binarize, threshold=threshold, period=period))
-        print('IV')
-        print(raw.IV(binarize=binarize, threshold=threshold, freq=freq))
-        print(raw.IVm(binarize=binarize, threshold=threshold))
-        print(raw.IVp(binarize=binarize, threshold=threshold, period=period))
-        print('L5')
-        print(raw.L5(binarize=binarize, threshold=threshold))
-        print(raw.L5p(binarize=binarize, threshold=threshold, period=period))
-        print('M10')
-        print(raw.M10(binarize=binarize, threshold=threshold))
-        print(raw.M10p(binarize=binarize, threshold=threshold,period=period))
-        print('RA')
-        print(raw.RA(binarize=binarize, threshold=threshold))
-        print(raw.RAp(binarize=binarize, threshold=threshold,period=period))
-        print(raw.pRA(threshold=threshold, start=None, period=period))
-        print('pAR')
-        print(raw.pAR(threshold=threshold, start=None, period=period))
-        print('ADAT')
-        print(raw.ADAT(binarize=binarize, threshold=threshold))
-        print(raw.ADATp(binarize=binarize, threshold=threshold,period=period))
-        print('k')
-        print(raw.kRA(threshold=threshold, start=None, period=period))
-        print(raw.kAR(threshold=threshold, start=None, period=period))
         tbl_res=[]
+
         pRA, pRA_weights = raw.pRA(threshold=threshold, start=None, period=period)
+        pAR, pAR_weights = raw.pAR(threshold=threshold, start=None, period=period)
+
+        df = pd.DataFrame()
+        df['pRA'] = raw.pRA(threshold=threshold, start=None, period=period)[0]
+        df['pRA_weights'] = raw.pRA(threshold=threshold, start=None, period=period)[1]
+        df['t']=df.index
+        df1 = pd.DataFrame()
+        df1['pAR'] = raw.pAR(threshold=threshold, start=None, period=period)[0]
+        df1['pAR_weights'] = raw.pAR(threshold=threshold, start=None, period=period)[1]
+        df1['t'] = df1.index
+
         temp_to_append = {'id': 1,
                           "Name": raw.name,
                           "Start_time": (raw.start_time).__str__(),
@@ -890,7 +872,7 @@ async def actigraphymetrics(workflow_id: str,
                           "frequency": (raw.frequency).__str__(),
                           "IS": raw.IS(binarize=binarize, threshold=threshold, freq=freq),
                           "ISm": raw.ISm(binarize=binarize, threshold=threshold),
-                          'ISp':list(raw.ISp(binarize=binarize, threshold=threshold, period=period)),
+                          'ISp':raw.ISp(binarize=binarize, threshold=threshold, period=period),
                           "IV": raw.IV(binarize=binarize, threshold=threshold, freq=freq),
                           "IVm": raw.IVm(binarize=binarize, threshold=threshold),
                           'IVp': raw.IVp(binarize=binarize, threshold=threshold, period=period),
@@ -900,15 +882,50 @@ async def actigraphymetrics(workflow_id: str,
                           "M10p": raw.M10p(binarize=binarize, threshold=threshold,period=period),
                           "RA": raw.RA(binarize=binarize, threshold=threshold),
                           "RAp": raw.RAp(binarize=binarize, threshold=threshold,period=period),
-                          'pRA': pRA.to_list(),
-                          'pAR': raw.pAR(threshold=threshold, start=None, period=period)[0].to_list(),
+                          'pRA': df.to_json(orient='records'),
+                          'pAR': df1.to_json(orient='records'),
                           "ADAT": raw.ADAT(binarize=binarize, threshold=threshold),
                           "ADATp": raw.ADATp(binarize=binarize, threshold=threshold,period=period),
                           "kRA": raw.kRA(threshold=threshold, start=None, period=period),
-                          "kAR": raw.kAR(threshold=threshold, start=None, period=period)
+                          "kAR": raw.kAR(threshold=threshold, start=None, period=period),
                           }
         tbl_res.append(temp_to_append)
+        layout = go.Layout(title="",xaxis=dict(title=""), showlegend=False)
+        layout.update(title="Rest->Activity transition probability", xaxis=dict(title="Time [min]"), showlegend=False);
+        output = go.Figure(data=go.Scatter(x=pRA.index, y=pRA, name='', mode='markers'), layout=layout)
+        pio.write_image(output, get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + 'pRA.svg')
 
+        layout.update(title="Activity->Rest transition probability", xaxis=dict(title="Time [min]"), showlegend=False);
+        output = go.Figure(data=go.Scatter(x=pAR.index, y=pAR, name='', mode='markers'), layout=layout)
+        pio.write_image(output, get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + 'pAR.svg')
+
+        test_status = 'Unable to create info file.'
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            file_data = json.load(f)
+            file_data['results'] |= {
+                "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                "workflow_id": workflow_id,
+                "run_id": run_id,
+                "step_id": step_id,
+                "test_name": 'Actigraphy Metrics',
+                "test_params": {
+                    'file': file,
+                    'freq_offset': freq_offset,
+                    'number_of_offsets': number_of_offsets,
+                    'period_offset': period_offset,
+                    'number_of_periods':number_of_periods,
+                    'binarize': binarize,
+                    'threshold': threshold
+                },
+                "test_results": {
+                    'metrics':tbl_res
+                },
+                "Output_datasets":[],
+                'Saved_plots': []
+            }
+            f.seek(0)
+            json.dump(file_data, f, indent=4)
+            f.truncate()
         return JSONResponse(content={'status': 'Success', 'Result': tbl_res},
                             status_code=200)
     except Exception as e:
@@ -916,7 +933,7 @@ async def actigraphymetrics(workflow_id: str,
         return JSONResponse(content={'status': test_status, 'Result': {}},
                             status_code=200)
 
-@router.get("/cosinor_analysis_initial_values")
+@router.get("/cosinor_analysis_initial_values", tags=["actigraphy_analysis"])
 async def cosinoranalysisinitialvalues():
     test_status=''
     try:
@@ -929,7 +946,7 @@ async def cosinoranalysisinitialvalues():
         return JSONResponse(content={'status': test_status, "cos_params": []}, status_code=200)
 
 
-@router.get("/cosinor_analysis")
+@router.get("/cosinor_analysis", tags=["actigraphy_analysis"])
 async def cosinoranalysis(workflow_id: str,
                           step_id: str,
                           run_id: str,
