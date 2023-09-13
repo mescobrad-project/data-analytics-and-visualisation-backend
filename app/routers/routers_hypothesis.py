@@ -49,6 +49,8 @@ from statsmodels.discrete.conditional_models import ConditionalLogit
 from zepid.base import RiskRatio, RiskDifference, OddsRatio, IncidenceRateRatio, IncidenceRateDifference, NNT
 from zepid import load_sample_data
 from zepid.calc import risk_ci, incidence_rate_ci, risk_ratio, risk_difference, number_needed_to_treat, odds_ratio, incidence_rate_ratio, incidence_rate_difference
+
+from app.routers.routers_communication import task_complete
 # from app.pydantic_models import ModelMultipleComparisons
 from app.utils.utils_datalake import fget_object, get_saved_dataset_for_Hypothesis, upload_object
 from app.utils.utils_general import get_local_storage_path, get_single_file_from_local_temp_storage, load_data_from_csv, \
