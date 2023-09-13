@@ -103,7 +103,7 @@ def create_local_step(workflow_id, run_id, step_id, files_to_download):
         file_location_path = path_to_save + "/" +file_to_download["file"]
 
         # We check if file is in a group and add a folder for the group if it is
-        if file_to_download.has_key("group_name"):
+        if "group_name" in file_to_download :
             if file_to_download["group_name"] != "":
                 file_location_path = path_to_save + "/" + file_to_download["group_name"] + "/" + file_to_download["file"]
         else:
@@ -112,7 +112,7 @@ def create_local_step(workflow_id, run_id, step_id, files_to_download):
         # Because of issues with the paths in windows and ubuntu we check if the path contains a / and if it does rewrite
         # the path to be in the correct format taking into acount the existence of a group
         if "/" in file_location_path:
-            if file_to_download.has_key("group_name"):
+            if "group_name" in file_to_download:
                 if file_to_download["group_name"] != "":
                     file_location_path = NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id + '/group_'+ file_to_download["group_name"] + "/" + file_location_path.split("/")[-1]
                 else:
