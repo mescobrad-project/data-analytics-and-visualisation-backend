@@ -198,8 +198,6 @@ NeurodesktopStorageLocation = os.environ.get('NeurodesktopStorageLocation') if o
 app.mount("/static", StaticFiles(directory=NeurodesktopStorageLocation), name="static")
 
 # endregion
-
-
 # region Routes of the application
 @app.on_event("startup")
 def initiate_functions():
@@ -263,45 +261,45 @@ async def root():
     return {"message": "Hello World"}
 
 
-@app.get("/test/chart", tags=["root"])
-async def root():
-    return FileResponse('index.html')
-
-
-@app.get("/test/read/users", tags=["root"])
-async def test_read_users():
-    # Test read user in local storage
-
-    read_all_neurodesk_users()
-    return "Success"
-
-@app.get("/test/write/user", tags=["root"])
-async def test_write_user(name, password):
-    # Test write user in local storage
-
-    save_neurodesk_user(name, password)
-    return "Success"
-
-@app.get("/test/display/neurodesk", tags=["root"])
-async def test_display_neurodesk():
-    get_neurodesk_display_id()
-    return "Success"
-
-@app.get("/test/annotations/", tags=["root"])
-async def test_annotations():
-    get_annotations_from_csv()
-    return "Success"
-
-@app.get("/test/add/user", tags=["root"])
-async def test_add_user(name, password):
-    # Must add user both at ubuntu and at file of guacamole
-    # 1 - Adding  at apache guacamole - needs sudo privileges
-    # file etc/guacamole/user
-    # 2 - Adding user at ubuntu
-    # Done with ssh
-
-    create_neurodesk_user(name, password)
-    return "Success"
+# @app.get("/test/chart", tags=["root"])
+# async def root():
+#     return FileResponse('index.html')
+#
+#
+# @app.get("/test/read/users", tags=["root"])
+# async def test_read_users():
+#     # Test read user in local storage
+#
+#     read_all_neurodesk_users()
+#     return "Success"
+#
+# @app.get("/test/write/user", tags=["root"])
+# async def test_write_user(name, password):
+#     # Test write user in local storage
+#
+#     save_neurodesk_user(name, password)
+#     return "Success"
+#
+# @app.get("/test/display/neurodesk", tags=["root"])
+# async def test_display_neurodesk():
+#     get_neurodesk_display_id()
+#     return "Success"
+#
+# @app.get("/test/annotations/", tags=["root"])
+# async def test_annotations():
+#     get_annotations_from_csv()
+#     return "Success"
+#
+# @app.get("/test/add/user", tags=["root"])
+# async def test_add_user(name, password):
+#     # Must add user both at ubuntu and at file of guacamole
+#     # 1 - Adding  at apache guacamole - needs sudo privileges
+#     # file etc/guacamole/user
+#     # 2 - Adding user at ubuntu
+#     # Done with ssh
+#
+#     create_neurodesk_user(name, password)
+#     return "Success"
 
 
 # @app.get("/info", tags=["root"])

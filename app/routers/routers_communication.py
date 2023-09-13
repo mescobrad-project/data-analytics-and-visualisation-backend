@@ -139,6 +139,7 @@ ExistingFunctions = [
     "ChooseFactors",
     "GrangerAnalysis",
     "structural_equation_models_optimization",
+    'exploratory_factor_analysis_extract_latent_structure',
     # Dashboard
     "dashboard",
 ]
@@ -157,16 +158,16 @@ class FunctionNavigationItem(BaseModel):
 
 
 # TODO
-@router.get("/test/task/ping", tags=["test_task_ping"])
-async def test_task_ping() -> dict:
-    # channels = data.ch_names
-    print(WFAddress)
-    url = WFAddress + "/run/" + TestRunId + "/step/" + TestStepId + "/ping"
-    print(url)
-    response = requests.get(url)
-    print("Test Response: Task Ping")
-    print(response)
-    return {'test': "test"}
+# @router.get("/test/task/ping", tags=["test_task_ping"])
+# async def test_task_ping() -> dict:
+#     # channels = data.ch_names
+#     print(WFAddress)
+#     url = WFAddress + "/run/" + TestRunId + "/step/" + TestStepId + "/ping"
+#     print(url)
+#     response = requests.get(url)
+#     print("Test Response: Task Ping")
+#     print(response)
+#     return {'test': "test"}
 
 # TODO
 # @router.get("/test/task/complete", tags=["test_task_complete"])
@@ -269,6 +270,18 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/eeg/old"
             case "envelop_trend_analysis":
                 url_to_redirect += "/envelope_trend"
+            # case "group_sleep_analysis":
+            #     url_to_redirect += "/group_sleep_analysis"
+            # case "group_sleep_sensitivity_analysis":
+            #     url_to_redirect += "/group_sleep_sensitivity_analysis"
+            # case "group_sleep_sensitivity_analysis_add_subject":
+            #     url_to_redirect += "/group_sleep_sensitivity_analysis_add_subject"
+            # case "group_sleep_sensitivity_analysis_add_subject_final":
+            #     url_to_redirect += "/group_sleep_sensitivity_analysis_add_subject_final"
+            case "group_common_channels_across_subjects":
+                url_to_redirect += "/group_common_channels_across_subjects"
+            case "group_sleep_analysis_sensitivity_add_subject_add_channels_final":
+                url_to_redirect += "/group_sleep_analysis_sensitivity_add_subject_add_channels_final"
             # Actigraphy
             case "actigraphy_viewer":
                 url_to_redirect += "/actigraphy"
@@ -276,6 +289,10 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/actigraphy/general"
             case "actigraphy_page":
                 url_to_redirect += "/actigraphy_page"
+            case "actigraphy_masking":
+                url_to_redirect += "/actigraphy_masking"
+            case "actigraphy_analysis":
+                url_to_redirect += "/actigraphy_analysis"
             case "actigraphy_cosinor":
                 url_to_redirect += "/Actigraphy_Cosinor"
             case "actigraphy_metrics":
@@ -442,6 +459,8 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/PoissonRegression"
             case "structural_equation_models_optimization":
                 url_to_redirect += "/Structural_Equation_Models_Optimization"
+            case "exploratory_factor_analysis_extract_latent_structure":
+                url_to_redirect += "/Exploratory_Factor_Analysis_extract_latent_structure"
             # Dashboard
             case "dashboard":
                 url_to_redirect += "/dashboard"

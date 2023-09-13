@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 import json
-
+import random
 import sklearn.preprocessing
 from sklearn.cross_decomposition import CCA
 from sklearn.manifold import MDS, TSNE
@@ -14,9 +14,10 @@ from factor_analyzer.factor_analyzer import calculate_kmo
 from factor_analyzer.utils import corr, cov
 from factor_analyzer.confirmatory_factor_analyzer import ModelSpecification, ConfirmatoryFactorAnalyzer
 from factor_analyzer import FactorAnalyzer
-from scipy.stats import jarque_bera, fisher_exact, ranksums, chisquare, kruskal, alexandergovern, kendalltau, f_oneway, shapiro, \
+from scipy.stats import jarque_bera, fisher_exact, ranksums, chisquare, kruskal, alexandergovern, kendalltau, f_oneway, \
+    shapiro, \
     kstest, anderson, normaltest, boxcox, yeojohnson, bartlett, levene, fligner, obrientransform, pearsonr, spearmanr, \
-    pointbiserialr, ttest_ind, mannwhitneyu, wilcoxon, ttest_rel, skew, kurtosis, probplot, zscore
+    pointbiserialr, ttest_ind, mannwhitneyu, wilcoxon, ttest_rel, skew, kurtosis, probplot, zscore, t
 from typing import Optional, Union, List
 from statsmodels.stats.multitest import multipletests
 from statsmodels.stats.mediation import Mediation
@@ -59,15 +60,20 @@ import seaborn as sns
 from datetime import datetime
 import os
 from os.path import isfile, join
+import math
+from sklearn.preprocessing import StandardScaler
 
 from app.utils.utils_hypothesis import create_plots, compute_skewness, outliers_removal, compute_kurtosis, \
-    statisticsMean, statisticsMin, statisticsMax, statisticsStd, statisticsCov
-from semopy.examples import multivariate_regression, political_democracy
-from semopy import Model, estimate_means, ModelMeans, semplot, calc_stats, gather_statistics, Optimizer
+    statisticsMean, statisticsMin, statisticsMax, statisticsStd, statisticsCov, statisticsVar, statisticsStandardError, \
+    statisticsConfidenceLevel
+from semopy import Model, estimate_means, ModelMeans, semplot, calc_stats, gather_statistics, Optimizer, efa
+import plotly.express as px
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
 router = APIRouter()
-data = pd.read_csv('example_data/mescobrad_dataset.csv')
-data = data.drop(["Unnamed: 0"], axis=1)
+# data = pd.read_csv('example_data/mescobrad_dataset.csv')
+# data = data.drop(["Unnamed: 0"], axis=1)
 # data = pd.read_csv('example_data/sample_questionnaire.csv')
 
 def normality_test_content_results(column: str, selected_dataframe,path_to_storage:str):
@@ -78,44 +84,54 @@ def normality_test_content_results(column: str, selected_dataframe,path_to_stora
             # Creating QQ-plot
             html_str = create_plots(plot_type='QQPlot', column=column, second_column='', selected_dataframe=selected_dataframe, path_to_storage=path_to_storage, filename='QQPlot')
             # Creating Probability-plot
-            html_str_P = create_plots(plot_type='PPlot', column=column, second_column='', selected_dataframe=selected_dataframe, path_to_storage=path_to_storage, filename='PPlot')
+            html_str_P = ''
+            # html_str_P = create_plots(plot_type='PPlot', column=column, second_column='', selected_dataframe=selected_dataframe, path_to_storage=path_to_storage, filename='PPlot')
             #Creating histogram
             html_str_H = create_plots(plot_type='HistogramPlot', column=column, second_column='', selected_dataframe=selected_dataframe, path_to_storage=path_to_storage, filename='HistogramPlot')
             skewtosend = compute_skewness(column, selected_dataframe)
             kurtosistosend = compute_kurtosis(column, selected_dataframe)
-            st_dev = np.std(selected_dataframe[str(column)])
+            st_dev = statisticsStd(column, selected_dataframe,1)
+            sample_variance = statisticsVar(column, selected_dataframe)
+            standard_error = statisticsStandardError(column, selected_dataframe)
             # Used Statistics lib for cross-checking
             # standard_deviation = statistics.stdev(data[str(column)])
-            median_value = float(np.percentile(selected_dataframe[str(column)], 50))
+            median_value = float(np.percentile(selected_dataframe[str(column)], 50)) if not math.isnan(float(np.percentile(selected_dataframe[str(column)], 50))) else ''
             # Used a different way to calculate Median
             # TODO: we must investigate why it returns a different value
             # med2 = np.median(data[str(column)])
-            mean_value = np.mean(selected_dataframe[str(column)])
+            mean_value = np.mean(selected_dataframe[str(column)]) if not np.isinf(np.mean(selected_dataframe[str(column)])) else ''
             num_rows = selected_dataframe[str(column)].shape
             top5 = sorted(selected_dataframe[str(column)].tolist(), reverse=True)[:5]
             last5 = sorted(selected_dataframe[str(column)].tolist(), reverse=True)[-5:]
-            return {'plot_column': column, 'qqplot': html_str, 'histogramplot': html_str_H, 'boxplot': html_str_B, 'probplot': html_str_P, 'skew': skewtosend, 'kurtosis': kurtosistosend, 'standard_deviation': st_dev, "median": median_value, "mean": mean_value, "sample_N": num_rows, "top_5": top5, "last_5": last5}
+
+            confidence_level = statisticsConfidenceLevel(column, selected_dataframe,0.95)
+            return {'plot_column': column, 'qqplot': html_str, 'histogramplot': html_str_H, 'boxplot': html_str_B, 'probplot': html_str_P, 'skew': skewtosend, 'kurtosis': kurtosistosend, 'standard_deviation': st_dev,'standard_error':standard_error, "median": median_value, "mean": mean_value, "sample_N": num_rows, "top_5": top5, "last_5": last5, 'sample_variance':sample_variance,'confidence_level':confidence_level}
         else:
+            print('The type of:' + column +' is:'+ str(selected_dataframe[column].dtypes))
             raise Exception
     except Exception as e:
-        print('normality_test_content_results  ' +e)
+        print('normality_test_content_results  ' +e.__str__())
         return -1
 
 def transformation_extra_content_results(column_In: str, column_Out:str, selected_dataframe,path_to_storage:str):
     try:
         if (selected_dataframe[column_In].dtypes == 'float64' or selected_dataframe[column_In].dtypes == 'int64'):
-            fig = plt.figure()
-            plt.plot(selected_dataframe[str(column_In)], selected_dataframe[str(column_In)],
-                     color='blue', marker="*")
-            plt.plot(selected_dataframe[str(column_Out)], selected_dataframe[str(column_In)],
-                     color='red', marker="o")
-            plt.title("Transformed data Comparison")
-            plt.xlabel("out_array")
-            plt.ylabel("in_array")
-            plt.savefig(path_to_storage + "/output/ComparisonPlot.svg", format="svg")
-            plt.show()
-            html_str_Transf = mpld3.fig_to_html(fig)
-            return html_str_Transf
+            # fig = plt.figure()
+            # plt.plot(selected_dataframe[str(column_In)], selected_dataframe[str(column_In)],
+            #          color='blue', marker="*")
+            # plt.plot(selected_dataframe[str(column_Out)], selected_dataframe[str(column_In)],
+            #          color='red', marker="o")
+            fig = px.scatter(selected_dataframe, x=str(column_In), y=str(column_Out), labels={'x':"Original Values", 'y':"Transformed Values"})
+            fig.write_image(path_to_storage + "/output/ComparisonPlot.svg")
+            html_str = fig.to_json(pretty=True)
+
+            # plt.title("Transformed data Comparison")
+            # plt.xlabel("Original Values")
+            # plt.ylabel("Transformed Values")
+            # plt.savefig(path_to_storage + "/output/ComparisonPlot.svg", format="svg")
+            # plt.show()
+            # html_str_Transf = mpld3.fig_to_html(fig)
+            return html_str
         else:
             raise Exception
     except Exception as e:
@@ -164,10 +180,20 @@ async def dataset_content(workflow_id: str, step_id: str, run_id: str, file_name
         name_of_files = get_all_files_from_local_temp_storage(workflow_id, run_id, step_id)
         if file_name in name_of_files:
             data = load_data_from_csv(path_to_storage + "/" + file_name)
+            df = pd.DataFrame(data.describe())
+            df.insert(0,'Index',df.index)
+            # df['Index']=df.index
+            # Add data.info()
+            df1 = pd.DataFrame()
+            df1['Non Null Count'] = data.notna().sum()
+            df1['Dtype'] = data.dtypes
+            dfinfo =df1.T
+            dfinfo['Index']=dfinfo.index
+            df = pd.concat([df, dfinfo], ignore_index=True)
         else:
             print("Error : Failed to find the file")
             return {'dataFrame': {}}
-        return {'dataFrame': data.to_json(orient='records')}
+        return {'dataFrame': df.to_json(orient='records', default_handler=str)}
     except Exception as e:
         print(e)
         return JSONResponse(content='Error : Failed to retrieve column names', status_code=501)
@@ -177,9 +203,10 @@ async def dataset_content(workflow_id: str, step_id: str, run_id: str, file_name
 async def name_columns(workflow_id: str, step_id: str, run_id: str, file_name:str|None=None):
     try:
         if file_name is None:
-            path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
-            name_of_file = get_single_file_from_local_temp_storage(workflow_id, run_id, step_id)
-            data = load_data_from_csv(path_to_storage + "/" + name_of_file)
+            # path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+            # name_of_file = get_single_file_from_local_temp_storage(workflow_id, run_id, step_id)
+            # data = load_data_from_csv(path_to_storage + "/" + name_of_file)
+            return {'columns': []}
         else:
             path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
             name_of_files = get_all_files_from_local_temp_storage(workflow_id, run_id, step_id)
@@ -246,7 +273,7 @@ async def normal_tests(workflow_id: str, step_id: str, run_id: str,
                                                    regex="^(Shapiro-Wilk)$|^(Kolmogorov-Smirnov)$|^(Anderson-Darling)$|^(D’Agostino’s K\^2)$|^(Jarque-Bera)$")) -> dict:
 
     dfv = pd.DataFrame()
-    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    # path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
     test_status = ''
     # Load Datasets
@@ -260,6 +287,8 @@ async def normal_tests(workflow_id: str, step_id: str, run_id: str,
 
         data = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
         column = dfv['Variable'][0]
+        # Remove Nans for the calculations
+        data = data.dropna(subset=[str(column)])
 
         results_to_send = normality_test_content_results(column, data, path_to_storage)
         # region AmCharts_CODE_REGION
@@ -284,8 +313,8 @@ async def normal_tests(workflow_id: str, step_id: str, run_id: str,
 
         if results_to_send == -1:
             results_to_send = {'plot_column': "", 'qqplot': "", 'histogramplot': "", 'boxplot': "", 'probplot': "",
-             'skew': 0, 'kurtosis': 0, 'standard_deviation': 0, "median": 0,
-             "mean": 0, "sample_N": 0, "top_5": [], "last_5": []}
+             'skew': 0, 'kurtosis': 0, 'standard_deviation': 0, 'standard_error':0, "median": 0,
+             "mean": 0, "sample_N": 0, "top_5": [], "last_5": [],'sample_variance':0, 'confidence_level':0}
             raise Exception
         new_data = {
             "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
@@ -302,8 +331,11 @@ async def normal_tests(workflow_id: str, step_id: str, run_id: str,
                 'skew': results_to_send['skew'],
                 'kurtosis': results_to_send['kurtosis'],
                 'standard_deviation': results_to_send['standard_deviation'],
+                'sample_variance':results_to_send['sample_variance'],
+                'standard_error':results_to_send['standard_error'],
                 'median': results_to_send['median'],
                 'mean': results_to_send['mean'],
+                'confidence_level': results_to_send['confidence_level'],
                 'sample_N': results_to_send['sample_N'],
                 'top_5': results_to_send['top_5'],
                 'last_5': results_to_send['last_5']
@@ -397,7 +429,7 @@ async def transform_data(workflow_id: str,
         data = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
         column = dfv['Variable'][0]
         test_status = 'Unable to compute ' + name_transform + \
-                      ' for the selected columns. NaNs or nonnumeric values are selected.'
+                      ' for the selected columns.'
 
         newColumnName = "Transf_" + column
         if name_transform == 'Box-Cox':
@@ -432,7 +464,12 @@ async def transform_data(workflow_id: str,
             cbrt_array = np.cbrt(data[str(column)])
             data[newColumnName] = cbrt_array
 
+        # Remove inf
+        data[newColumnName] = data[newColumnName].replace([np.inf, -np.inf], np.nan)
         data.to_csv(path_to_storage + '/output/new_dataset.csv', index=False)
+        # Remove Nans for the calculations
+        data = data.dropna(subset=[str(newColumnName)])
+
         results_to_send = normality_test_content_results(newColumnName, data, path_to_storage)
         if results_to_send == -1:
             results_to_send = {'plot_column': "", 'qqplot': "", 'histogramplot': "", 'boxplot': "", 'probplot': "",
@@ -443,7 +480,6 @@ async def transform_data(workflow_id: str,
         if results_to_send_extra== -1:
             results_to_send['transf_plot']=''
             raise Exception
-
         results_to_send['transf_plot'] = results_to_send_extra
         # Prepare content for info.json
         new_data = {
@@ -463,6 +499,9 @@ async def transform_data(workflow_id: str,
                 'standard_deviation': results_to_send['standard_deviation'],
                 'median': results_to_send['median'],
                 'mean': results_to_send['mean'],
+                'standard_error': results_to_send['standard_error'],
+                'sample_variance': results_to_send['sample_variance'],
+                'confidence_level': results_to_send['confidence_level'],
                 'sample_N': results_to_send['sample_N'],
                 'top_5': results_to_send['top_5'],
                 'last_5': results_to_send['last_5']
@@ -487,10 +526,12 @@ async def transform_data(workflow_id: str,
             f.seek(0)
             json.dump(file_data, f, indent=4)
             f.truncate()
-        return JSONResponse(content={'status': 'Success','transformed array': data[newColumnName].to_json(orient='records'), 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}, status_code=200)
+
+        return JSONResponse(content={'status': 'Success','transformed array': data[newColumnName].to_json(orient='records'), 'data': {}, 'results': results_to_send}, status_code=200)
+        # return JSONResponse(content={'status': 'Success','transformed array': data[newColumnName].to_json(orient='records'), 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}, status_code=200)
     except Exception as e:
         print(e)
-        return JSONResponse(content={'status':test_status,'transformed array': {}, 'data': {}, 'results': {}}, status_code=200)
+        return JSONResponse(content={'status':test_status +'\n'+ e.__str__(),'transformed array': {}, 'data': {}, 'results': {}}, status_code=200)
 
 
 # @router.get("/compute_pearson_correlation", tags=['hypothesis_testing'])
@@ -986,7 +1027,7 @@ async def p_value_correction(workflow_id: str,
         else:
             z = multipletests(pvals=data[p_value], alpha=alpha, method= method)
 
-        df['p_values'] = data[p_value]
+        df['values'] = data[p_value]
         df['rejected'] = [str(x) for x in z[0]]
         df['corrected_p_values'] = z[1]
         df.to_csv(path_to_storage + '/output/new_dataset.csv', index=False)
@@ -1187,55 +1228,199 @@ async def LDA(workflow_id: str,
 
     # return {'coefficients': df_coefs.to_json(orient='split'), 'intercept': df_intercept.to_json(orient='split')}
 
-# TODO: Should we Delete this????
+
 @router.get("/principal_component_analysis")
 async def principal_component_analysis(workflow_id: str,
                                        step_id: str,
                                        run_id: str,
+                                       categorical_variable: str,
                                        n_components_1: int | None = Query(default=None),
-                                       n_components_2: float | None = Query(default=None, gt=0, lt=1),
+                                       svd_solver: str | None = Query("auto", regex="^(auto)$|^(full)$"),
                                        independent_variables: list[str] | None = Query(default=None)):
-    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
-    for columns in dataset.columns:
-        if columns not in independent_variables:
-            dataset = dataset.drop(str(columns), axis=1)
+    dfv = pd.DataFrame()
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
+    try:
+        test_status = 'Dataset is not defined'
+        dfv['variables'] = independent_variables
+        dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
+        independent_variables = dfv["Variable"].tolist()
+        categorical_variable = categorical_variable.split("--")[1]
+        selected_datasources = pd.unique(dfv['Datasource'])
+        test_status = 'Unable to retrieve datasets'
+        # We expect only one here
+        dataset = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
+        categorical_variable_df = dataset[categorical_variable]
 
-    X = np.array(dataset)
-    list_1 = []
-    list_1.append(int(np.shape(X)[0]))
-    list_1.append(int(np.shape(X)[1]))
-    dim = min(list_1)
+        for columns in dataset.columns:
+            if columns not in np.append(independent_variables, categorical_variable):
+                dataset = dataset.drop(str(columns), axis=1)
 
-    if n_components_2 == None:
-        if n_components_1 > dim:
-            return {'Error: n_components must be between 0 and min(n_samples, n_features)=': dim}
-        pca = PCA(n_components=n_components_1)
-        pca_t = pca.fit_transform(X)
-        principal_Df = pd.DataFrame(data=pca_t, columns=["principalcomponent1", "principalcomponent2"])
-        # principal_Df = pd.DataFrame(data=pca_t,
-        #                             columns=['principal component 1', 'principal component 2'])
-        print(principal_Df)
-        print(dataset)
-        pca.fit(X)
-    else:
-        pca = PCA(n_components=n_components_2)
-        pca.fit(X)
+        X = dataset.loc[:, independent_variables].values
+        if n_components_1 > min(int(np.shape(X)[0]), int(np.shape(X)[1])):
+            test_status = 'components must be <= min(n_samples, n_features)'
+            raise Exception
+        X_norm = StandardScaler().fit_transform(X)  # normalizing the features
+        # print(X_norm.shape)
+        print(np.mean(X_norm))
+        print(np.std(X_norm))
+        feat_cols = ['feature' + str(i) for i in range(X_norm.shape[1])]
+        normalised_dataset = pd.DataFrame(X_norm, columns=feat_cols)
+        # print(normalised_dataset.tail())
+
+        pca_result = PCA(n_components=n_components_1, svd_solver=svd_solver)
+        principalComponents_pca_result = pca_result.fit_transform(X_norm)
+        # print(principalComponents_pca_result)
+        component_cols = ['principal_component_' + str(i) for i in range(n_components_1)]
+        principalComponents_Df = pd.DataFrame(data=principalComponents_pca_result
+                                           , columns=component_cols)
+        principalComponents_Df[categorical_variable]=dataset[categorical_variable]
+        # print(principalComponents_Df.tail())
+        print('Explained variation per principal component: {}'.format(pca_result.explained_variance_ratio_))
+        test_status = 'Unable to create scatter plot'
+        max_axs=0
+        for i in range(n_components_1):
+            for j in range(i + 1, n_components_1):
+                if i != j:
+                    max_axs+=1
+        # plt.figure(figsize=(10, 10))
+        if max_axs<=1:max_axs=2
+        fig, axs = plt.subplots(1, max_axs, figsize=(max_axs*8, 10),sharey='row')
+        k=-1
+        for i in range(n_components_1):
+            for j in range(i+1, n_components_1):
+                if i != j:
+                    # print('i: {}, j: {}'.format(i,j))
+                    # plt.figure()
+                    # plt.figure(figsize=(10, 10))
+                    # plt.xticks(fontsize=12)
+                    # plt.yticks(fontsize=14)
+                    k+=1
+                    axs[k].set_xlabel('Principal Component - '+str(i), fontsize=20)
+                    axs[k].set_ylabel('Principal Component - '+str(j), fontsize=20)
+                    # axs[k].legend(loc='upper left')
+
+                    axs[k].set_title("Principal Component Analysis", fontsize=20)
+                    targets = pd.unique(dataset[categorical_variable])
+                    colors = ["r", "g"] + ["#" + ''.join([random.choice('0123456789ABCDEF') for j in range(6)]) for i in range(len(targets)-2)]
+
+                    for target, color in zip(targets, colors):
+                        indicesToKeep = dataset[categorical_variable] == target
+                        axs[k].scatter(principalComponents_Df.loc[indicesToKeep, 'principal_component_'+str(i)]
+                                    , principalComponents_Df.loc[indicesToKeep, 'principal_component_'+str(j)], c=color, s=50)
+                        axs[k].legend(targets, prop={'size': 15})
+        # plt.show()
+        plt.tight_layout()
+        if max_axs==2:
+            fig.delaxes(axs[1])
+        plt.savefig(path_to_storage + "/output/PCA.svg", format="svg")
+
+        principal_axes = pd.DataFrame(pca_result.components_, columns=dataset.loc[:, independent_variables].columns,
+                                      index=component_cols)
+        principal_axes.insert(loc=0, column='Component', value=component_cols)
+        explained_variance = pd.DataFrame(pca_result.explained_variance_, columns=['Variance'])
+        explained_variance.insert(loc=0, column='Component', value=component_cols)
+        explained_variance_ratio = pd.DataFrame()
+        explained_variance_ratio = pd.DataFrame(pca_result.explained_variance_ratio_, columns=['Variance Ratio'])
+        explained_variance_ratio.insert(loc=0, column='Component', value=component_cols)
+        singular_values = pd.DataFrame(pca_result.singular_values_, columns=['Singular values'])
+        singular_values.insert(loc=0, column='Component', value=component_cols)
+        pd.DataFrame(data=principalComponents_pca_result,columns=component_cols).to_csv(path_to_storage + '/output/principalComponents_Df.csv', index=False)
+
+        # list_1 = []
+        # list_1.append(int(np.shape(X)[0]))
+        # list_1.append(int(np.shape(X)[1]))
+        # dim = min(list_1)
+        # if n_components_2 == None:
+        #     if n_components_1 > dim:
+        #         return {'Error: n_components must be between 0 and min(n_samples, n_features)=': dim}
+        #     pca = PCA(n_components=n_components_1)
+        #     pca_t = pca.fit_transform(X)
+        #     principal_Df = pd.DataFrame(data=pca_t, columns=["principalcomponent1", "principalcomponent2"])
+        #     # principal_Df = pd.DataFrame(data=pca_t,
+        #     #                             columns=['principal component 1', 'principal component 2'])
+        #     print(principal_Df)
+        #     print(dataset)
+        #     pca.fit(X)
+        # else:
+        #     pca = PCA(n_components=n_components_2)
+        #     pca.fit(X)
 
     # principal_Df = pd.DataFrame(data=pca, columns=['principal component 1', 'principal component 2'])
+        test_status = 'Error in creating info file.'
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            # Load existing data into a dict.
+            file_data = json.load(f)
+            # Join new data
+            new_data = {
+                "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                "workflow_id": workflow_id,
+                "run_id": run_id,
+                "step_id": step_id,
+                "test_name": 'Principal component analysis',
+                "test_params": {
+                    "Independent variables": independent_variables
+                },
+                "test_results": {'columns': dataset.loc[:, independent_variables].columns.tolist(),
+                                     'n_features_': pca_result.n_features_,
+                                     'n_features_in_': pca_result.n_features_in_,
+                                    'n_samples_': pca_result.n_samples_,
+                                    'random_state': pca_result.random_state,
+                                    'iterated_power': pca_result.iterated_power,
+                                    'mean_': pca_result.mean_.tolist(),
+                                    'explained_variance_': explained_variance.to_dict(),
+                                    'noise_variance_': pca_result.noise_variance_,
+                                    'pve': explained_variance_ratio.to_dict(),
+                                    'singular_values': singular_values.to_dict(),
+                                    'principal_axes': principal_axes.to_dict()}}
+            file_data['results'] = new_data
+            file_data['Output_datasets'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id + '/analysis_output' + '/principalComponents_Df.csv'}
+                                            ]
+            file_data['Saved_plots'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                 step_id + '/analysis_output/PCA.svg'}]
+            # Set file's current position at offset.
+            f.seek(0)
+            # convert back to json.
+            json.dump(file_data, f, indent=4)
+            f.truncate()
 
-    return {
-        'columns': dataset.columns.tolist(),
-        'n_features_': pca.n_features_,
-            'n_features_in_': pca.n_features_in_,
-            'n_samples_': pca.n_samples_,
-            'random_state': pca.random_state,
-            'iterated_power': pca.iterated_power,
-            'mean_': pca.mean_.tolist(),
-            'explained_variance_': pca.explained_variance_.tolist(),
-            'noise_variance_': pca.noise_variance_,
-            'pve': pca.explained_variance_ratio_.tolist(),
-            'singular_values': pca.singular_values_.tolist(),
-            'principal_axes': pca.components_[0].tolist()}
+
+
+        return JSONResponse(content={'status': 'Success',
+                                     'columns': dataset.loc[:, independent_variables].columns.tolist(),
+                                     'n_features_': pca_result.n_features_,
+                                     'n_features_in_': pca_result.n_features_in_,
+                                    'n_samples_': pca_result.n_samples_,
+                                    'random_state': pca_result.random_state,
+                                    'iterated_power': pca_result.iterated_power,
+                                    'mean_': pca_result.mean_.tolist(),
+                                    'explained_variance_': explained_variance.to_json(orient='records'),
+                                    'noise_variance_': pca_result.noise_variance_,
+                                    'pve': explained_variance_ratio.to_json(orient='records'),
+                                    'singular_values': singular_values.to_json(orient='records'),
+                                    'principal_axes': principal_axes.to_json(orient='records'),
+                                     'principalComponents_Df':pd.DataFrame(data=principalComponents_pca_result
+                                           , columns=component_cols).to_json(orient='records')},
+                            status_code=200)
+
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status': test_status,
+                                     'columns': [],
+                                     'n_features_': 0,
+                                     'n_features_in_': 0,
+                                     'n_samples_': 0,
+                                     'random_state': 0,
+                                     'iterated_power': 0,
+                                     'mean_': [],
+                                     'explained_variance_': [],
+                                     'noise_variance_': 0,
+                                     'pve': [],
+                                     'singular_values': [],
+                                     'principal_axes':[]
+                                     },
+                            status_code=200)
     # return {'Percentage of variance explained by each of the selected components': pca.explained_variance_ratio_.tolist(),
     #             'The singular values corresponding to each of the selected components. ': pca.singular_values_.tolist(),
     #             'Principal axes in feature space, representing the directions of maximum variance in the data.' : pca.components_.tolist()}
@@ -1360,7 +1545,7 @@ async def elastic_net(workflow_id: str,
         for columns in dataset.columns:
             if columns not in independent_variables:
                 dataset = dataset.drop(str(columns), axis=1)
-        data.dropna(inplace=True)
+        dataset.dropna(inplace=True)
 
         X = np.array(dataset)
         Y = np.array(df_label.astype('float64'))
@@ -1611,7 +1796,9 @@ async def ridge(workflow_id: str,
         for columns in dataset.columns:
             if columns not in independent_variables:
                 dataset = dataset.drop(str(columns), axis=1)
-        data.dropna(inplace=True)
+
+        ## probably that instead of data?
+        dataset.dropna(inplace=True)
 
         X = np.array(dataset)
         Y = np.array(df_label.astype('float64'))
@@ -1911,7 +2098,7 @@ async def sgd_regressor(workflow_id: str,
         for columns in dataset.columns:
             if columns not in independent_variables:
                 dataset = dataset.drop(str(columns), axis=1)
-        data.dropna(inplace=True)
+        dataset.dropna(inplace=True)
 
         X = np.array(dataset)
         Y = np.array(df_label.astype('float64'))
@@ -2045,7 +2232,7 @@ async def huber_regressor(workflow_id: str,
         for columns in dataset.columns:
             if columns not in independent_variables:
                 dataset = dataset.drop(str(columns), axis=1)
-        data.dropna(inplace=True)
+        dataset.dropna(inplace=True)
 
         X = np.array(dataset)
         Y = np.array(df_label.astype('float64'))
@@ -2176,7 +2363,7 @@ async def linear_svr_regressor(workflow_id: str,
         for columns in dataset.columns:
             if columns not in independent_variables:
                 dataset = dataset.drop(str(columns), axis=1)
-        data.dropna(inplace=True)
+        dataset.dropna(inplace=True)
 
         X = np.array(dataset)
         Y = np.array(df_label.astype('float64'))
@@ -3770,16 +3957,16 @@ async def correlations_pingouin(workflow_id: str,
         return JSONResponse(content={'status':test_status, 'DataFrame': []}, status_code=200)
         # return JSONResponse(content={'status':test_status, 'DataFrame': [],'Table_rcorr':dfe.to_json(orient='records')}, status_code=200)
 
-
-@router.get("/linear_regressor_pinguin")
-async def linear_regression_pinguin(dependent_variable: str,
-                                    alpha: float | None=Query(default=0.05),
-                                    relimp: bool | None=Query(default=False),
-                                    independent_variables: list[str] | None = Query(default=None)):
-
-    lm = pingouin.linear_regression(data[independent_variables], data[dependent_variable], as_dataframe=True, alpha=alpha, relimp=relimp)
-
-    return {'residuals': lm.residuals_.tolist(), 'degrees of freedom of the model': lm.df_model_, 'degrees of freedom of the residuals': lm.df_resid_ , 'dataframe': lm.to_json(orient='split')}
+# TODO:We use statsModel
+# @router.get("/linear_regressor_pinguin")
+# async def linear_regression_pinguin(dependent_variable: str,
+#                                     alpha: float | None=Query(default=0.05),
+#                                     relimp: bool | None=Query(default=False),
+#                                     independent_variables: list[str] | None = Query(default=None)):
+#
+#     lm = pingouin.linear_regression(data[independent_variables], data[dependent_variable], as_dataframe=True, alpha=alpha, relimp=relimp)
+#
+#     return {'residuals': lm.residuals_.tolist(), 'degrees of freedom of the model': lm.df_model_, 'degrees of freedom of the residuals': lm.df_resid_ , 'dataframe': lm.to_json(orient='split')}
 
 @router.get("/logistic_regressor_pinguin")
 async def logistic_regression_pinguin(workflow_id: str, step_id: str, run_id: str,
@@ -3964,17 +4151,17 @@ async def linear_regression_statsmodels(workflow_id: str, step_id: str, run_id: 
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
     test_status = ''
     # Load Datasets
+    print(dependent_variable)
+    print(independent_variables)
     try:
         test_status = 'Please provide all mandatory fields (dataset, dependent variable, one or more independent variables)'
         dfv['variables'] = independent_variables
         dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
         selected_datasources = pd.unique(dfv['Datasource'])
         test_status = 'Unable to retrieve datasets'
-        independent_variables = list(dfv['Variable'].values)
+        independent_variables = dfv['Variable'].tolist()
         data = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
-        data.dropna(inplace=True)
-
-
+        # data.dropna(inplace=True)
 
         x = data[independent_variables]
         y = data[dependent_variable]
@@ -3985,9 +4172,7 @@ async def linear_regression_statsmodels(workflow_id: str, step_id: str, run_id: 
 
         df_dict[str(dependent_variable)] = data[dependent_variable]
         df_features_label = pd.DataFrame.from_dict(df_dict)
-
         test_status = 'Unable to perform linear regression'
-
         x = sm.add_constant(x)
 
         # if regularization:
@@ -3995,20 +4180,19 @@ async def linear_regression_statsmodels(workflow_id: str, step_id: str, run_id: 
         # else:
         # fig = plt.figure(1)
         model = sm.OLS(y, x).fit()
+
         fitted_value = model.fittedvalues
         df_fitted_value = pd.DataFrame(fitted_value, columns=['fitted_values'])
         resid_value = model.resid
         df_resid_value = pd.DataFrame(resid_value, columns=['residuals'])
         # create instance of influence
         influence = model.get_influence()
-
         # sm.graphics.influence_plot(model)
         # plt.show()
 
         # obtain standardized residuals
         standardized_residuals = influence.resid_studentized_internal
         inf_sum = influence.summary_frame()
-
         df_final_influence = pd.concat([df_features_label, inf_sum, df_fitted_value, df_resid_value], axis=1)
         inf_dict = {}
         for column in df_final_influence.columns:
@@ -4020,7 +4204,6 @@ async def linear_regression_statsmodels(workflow_id: str, step_id: str, run_id: 
         (dffits, p) = influence.dffits
 
         df = model.summary()
-
         results_as_html = df.tables[0].as_html()
         df_0 = pd.read_html(results_as_html)[0]
         df_new = df_0[[2, 3]]
@@ -4070,7 +4253,7 @@ async def linear_regression_statsmodels(workflow_id: str, step_id: str, run_id: 
         goldfeld_test = pd.DataFrame(results_goldfeldquandt.values(), index=results_goldfeldquandt.keys())
         goldfeld_test.rename(columns={0: 'Values'}, inplace=True)
 
-        print(inf_dict)
+        # print(inf_dict)
         df_final_influence.to_csv(path_to_storage + '/output/influence_points.csv', index=False)
 
         response = {'DataFrame with all available influence results': df_final_influence.to_html(),
@@ -4163,32 +4346,33 @@ async def linear_regression_statsmodels(workflow_id: str, step_id: str, run_id: 
 
 
 
+# TODO These are included above
+# @router.get("/transformation_methods")
+# async def transformation_methods(dependent_variable: str,
+#                                  method: str | None = Query("log",
+#                                                             regex="^(log)$|^(squared)$|^(root)$")):
+#
+#
+#     x = data[dependent_variable]
+#
+#     if method == 'log':
+#         x = np.log(x)
+#     elif method == 'squared':
+#         x = np.sqrt(x)
+#     else:
+#         x = np.cbrt(x)
+#
+#     return {'transformed array': x}
 
-@router.get("/transformation_methods")
-async def transformation_methods(dependent_variable: str,
-                                 method: str | None = Query("log",
-                                                            regex="^(log)$|^(squared)$|^(root)$")):
-
-
-    x = data[dependent_variable]
-
-    if method == 'log':
-        x = np.log(x)
-    elif method == 'squared':
-        x = np.sqrt(x)
-    else:
-        x = np.cbrt(x)
-
-    return {'transformed array': x}
-
-@router.get("/skewness_kurtosis")
-async def skewness_kurtosis(dependent_variable: str):
-    x = data[dependent_variable]
-
-    skewness_res = skew(x)
-    kurtosis_res = kurtosis(x)
-
-    return {'skew': skewness_res, 'kurtosis': kurtosis_res}
+# TODO:In utils_hypothesis
+# @router.get("/skewness_kurtosis")
+# async def skewness_kurtosis(dependent_variable: str):
+#     x = data[dependent_variable]
+#
+#     skewness_res = skew(x)
+#     kurtosis_res = kurtosis(x)
+#
+#     return {'skew': skewness_res, 'kurtosis': kurtosis_res}
 
 
 @router.get("/z_score")
@@ -4382,21 +4566,21 @@ async def logistic_regression_statsmodels(workflow_id: str, step_id: str, run_id
         print(e)
         return JSONResponse(content={'status': test_status, 'Result': '[]'},
                             status_code=200)
-
-@router.get("/jarqueberatest")
-async def jarqueberatest(dependent_variable: str):
-
-    x = data[dependent_variable]
-
-    jarque_bera_test = jarque_bera(x)
-
-    statistic = jarque_bera_test.statistic
-    pvalue = jarque_bera_test.pvalue
-
-    if pvalue > 0.05:
-        return {'statistic': statistic, 'pvalue': pvalue, 'Since this p-value is not less than .05, we fail to reject the null hypothesis. We don’t have sufficient evidence to say that this data has skewness and kurtosis that is significantly different from a normal distribution.':''}
-    else:
-        return {'statistic': statistic, 'pvalue': pvalue,'Since this p-value is less than .05, we reject the null hypothesis. Thus, we have sufficient evidence to say that this data has skewness and kurtosis that is significantly different from a normal distribution.':''}
+# TODO:above
+# @router.get("/jarqueberatest")
+# async def jarqueberatest(dependent_variable: str):
+#
+#     x = data[dependent_variable]
+#
+#     jarque_bera_test = jarque_bera(x)
+#
+#     statistic = jarque_bera_test.statistic
+#     pvalue = jarque_bera_test.pvalue
+#
+#     if pvalue > 0.05:
+#         return {'statistic': statistic, 'pvalue': pvalue, 'Since this p-value is not less than .05, we fail to reject the null hypothesis. We don’t have sufficient evidence to say that this data has skewness and kurtosis that is significantly different from a normal distribution.':''}
+#     else:
+#         return {'statistic': statistic, 'pvalue': pvalue,'Since this p-value is less than .05, we reject the null hypothesis. Thus, we have sufficient evidence to say that this data has skewness and kurtosis that is significantly different from a normal distribution.':''}
 
 
 @router.get("/correlation_matrix")
@@ -5597,14 +5781,10 @@ async def Structural_Equation_Models_Optimization(
         step_id: str,
         run_id: str,
         file:str,
-        model: str):
-    # desc = multivariate_regression.get_model()
-    # print(desc)
-    #
-    # desc = political_democracy.get_model()
-    # print(desc)
+        model: str,
+        obj_func:str):
 
-    dfv = pd.DataFrame()
+
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
     test_status = ''
     try:
@@ -5614,62 +5794,134 @@ async def Structural_Equation_Models_Optimization(
         test_status = 'Unable to load the Dataset'
         # We expect only one here
         data = load_data_from_csv(path_to_storage + "/" + file)
-        print('model')
-        print(model)
-        print((data.columns))
+
+    # # TODO: check int64 with floats
+    #      because it raises an exception
+        print(data.dtypes)
+        print('------------------------')
+        print('non numeric')
+        print(data.select_dtypes(exclude=[np.number]))
+        print('int')
+        print(data.select_dtypes(include=[np.int]))
+        print('float')
+        print(data.select_dtypes(include=[np.float]))
+
+        if not data.select_dtypes(include=[np.float]).empty:
+            # for num_col in data.dtypes:
+            df_num = data.select_dtypes(include=[np.int])
+            print(df_num)
+            for col in df_num.columns:
+                data[col] = pd.to_numeric(data[col], downcast='float')
+            print(df_num.dtypes)
+            print(data.dtypes)
+    # *****************-----------------
+    # It's OK up until now
+    # *****************-----------------
         test_status = 'Unable to load Model'
         m = Model(model)
-        # print(data.head())
         test_status = 'Preparing to fit the model to the data'
-        r = m.fit(data)
-        print('fitted--------')
-        print(r)
-        ins = m.inspect()
-        print('inspect--------')
-        print(type(ins))
-        print(ins)
-        # Internet
-        opt = Optimizer(m)
-        objective_function_value = opt.optimize()
-        print('objective_function_value')
-        print(objective_function_value)
-        stats = gather_statistics(opt)
-        print('stats--------')
-        print(type(stats))
-        print(stats)
-
+        r = m.fit(data, obj=obj_func)
+        test_status = 'Unable to calculate inspect parameters estimate'
+        ins = m.inspect(std_est=True)
+        ins.columns = ins.columns.str.replace('.', '_', regex=True)
+        test_status = 'Unable to calculate estimate means'
         means = estimate_means(m)
-        print('means--------')
-        print(type(means))
-        print(means)
-        m = ModelMeans(model)
-        m.fit(data)
-        m.inspect()
-        print('m.inspect()--------')
-        print(type(m.inspect()))
-        print(m.inspect())
+        cstats = calc_stats(m)
+        test_status = 'Unable to calculate factors'
         factors = m.predict_factors(data)
-        print('factors--------')
-        print(type(factors))
-        print(factors.head())
-        calc_stats(m)
-        print('calc_stats--------')
-        print(type(calc_stats(m)))
-        print(calc_stats(m))
         robust = m.inspect(se_robust=True)
-        print('robust--------')
-        print(type(robust))
-        print(robust)
+        robust.columns = robust.columns.str.replace('.', '_', regex=True)
+        test_status = 'Unable to plot the graph'
+        g = semplot(m, filename='t.pdf',plot_covs=True)
 
-        g = semplot(m, filename='t.pdf')
-        # g
-        print('g--------')
-        print(type(g))
-        print(g)
+        # # TODO: Another implementation of means - We don't use it for now
+        # m = ModelMeans(model)
+        # m.fit(data)
+        # inspect_ModelMeans = m.inspect()
+        # inspect_ModelMeans.columns = inspect_ModelMeans.columns.str.replace('.', '_', regex=True)
 
-        return JSONResponse(content={'status': 'Success','fit_results':str(r), 'graph':str(g)},
+        # # TODO: FCA
+        # # Internet
+        # opt = Optimizer(m)
+        # objective_function_value = opt.optimize()
+        # print('objective_function_value')
+        # print(objective_function_value)
+        # stats = gather_statistics(opt)
+        # print('stats--------')
+        # print(type(stats))
+        # print(stats)
+
+
+        return JSONResponse(content={'status': 'Success','fit_results':str(r), 'inspect_means':ins.to_json(orient='records'),'estimate_means':means.to_json(orient='records'),
+                                     'factors':factors.to_json(orient='records'),'calc_stats':cstats.to_json(orient='records'),
+                                     'robust':robust.to_json(orient='records'),'graph':str(g)},
                             status_code=200)
     except Exception as e:
         print(e)
-        return JSONResponse(content={'status': test_status+"\n"+e.__str__(),'fit_results':'', 'graph':""},
+        return JSONResponse(content={'status': test_status+"\n"+e.__str__(),'fit_results':'','inspect_means':'[]','estimate_means':'[]',
+                                     'factors':'[]','calc_stats':'[]',
+                                     'robust':'[]', 'graph':""},
+                            status_code=200)
+
+@router.get("/EFA_extract_latent_structure")
+async def Exploratory_Factor_Analysis_extract_latent_structure(
+        workflow_id: str,
+        step_id: str,
+        run_id: str,
+        file:str,
+        test: str,
+        variables: list[str] | None = Query(default=None),
+        min_loadings: int | None = Query(default=2),
+        pval: float | None = Query(default=0.01),
+        levels: int | None = Query(default=2)):
+
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
+    dfv = pd.DataFrame()
+    try:
+        test_status = 'Dataset is not defined'
+        if file is None:
+            test_status = 'Dataset is not defined'
+            raise Exception
+        test_status = 'Unable to retrieve datasets'
+        # We expect only one here
+        data = load_data_from_csv(path_to_storage + "/" + file)
+        data.columns = data.columns.str.replace("[^a-zA-Z]+", "_", regex=True)
+        print(data.columns)
+        df = data[data.columns.intersection(variables)]
+        print(df.columns)
+        print(df.head())
+        # TODO: Remove nans
+        df = df.dropna()
+        print(df.head())
+        # data = data.dropna(subset=variables)
+
+        # *****************-------------------------
+        # *****************-------------------------
+        # if 'Unnamed: 0' in data.columns:
+            # data.columns = data.columns.str.replace('.', '_', regex=True)
+            # data.columns = data.columns.str.replace(':', '_', regex=True)
+            # data.columns = data.columns.str.replace(' ', '_', regex=True)
+
+            # df = data.drop('Unnamed: 0', axis='columns')
+        # else:
+
+        print(df.columns)
+        dfv1 = pd.DataFrame([df[col].tolist() for col in df.columns], index=df.columns).T
+        # print(dfv)
+        if test == 'explore_cfa_model':
+            test_result = efa.explore_cfa_model(dfv1,min_loadings=min_loadings,pval=pval)
+        elif test == 'explore_pine_model':
+            test_result = efa.explore_pine_model(dfv1,min_loadings=min_loadings,pval=pval,levels=levels)
+        else:
+            test_result=''
+        print(type(test_result))
+        print(test_result)
+        # print(pine_test)
+        return JSONResponse(content={'status': 'Success', 'test_result': test_result},
+                            status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status': test_status + "\n" + e.__str__(),
+                                     'test_result': ''},
                             status_code=200)

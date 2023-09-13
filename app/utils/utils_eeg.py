@@ -76,6 +76,23 @@ def transfer_hypnogram_to_interim_storage(workflow_id, run_id, step_id):
         os.rename(path + "/" + file, get_local_neurodesk_storage_path(workflow_id, run_id, step_id) + "/" + file)
 
 
+def return_number_and_names_groups(workflow_id, run_id, step_id):
+    """This function returns information of groups available in a step
+        These groups should always be found in the local storage of the step
+    """
+    path = get_local_storage_path(workflow_id, run_id, step_id)
+    group_folders = os.listdir(path)
+    # Filtering only the directories
+    group_folders = [f for f in group_folders if os.path.isdir(path + '/' + f)]
+    # Group folders all start with "group_"" so we keep only those
+    group_folders = [f for f in group_folders if f.startswith("group_")]
+
+    # Get the number of groups
+    number_of_groups = len(group_folders)
+    # Return
+    return {"number_of_groups" : number_of_groups, "group_folders_name": group_folders}
+    return number_of_groups, group_folders
+
 def convert_generic_sleep_score_to_annotation(name_of_file, workflow_id, run_id, step_id):
     """This function converts the generic sleep score to annotations for the EDFBrowser"""
     # Load data from csv
