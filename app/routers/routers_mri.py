@@ -682,7 +682,7 @@ async def reconall_files_to_local(workflow_id: str,
         path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
         if not os.path.exists(path_to_storage + "/output/ucl_test"):
             create_local_step(workflow_id=workflow_id, step_id=step_id, run_id=run_id, files_to_download=[{'bucket' : 'saved', 'file' :
-                'expertsystem/workflow/'+ workflow_id+'/'+ run_id+'/'+ step_id+'/output/ucl_test.zip'}])
+                'expertsystem/workflow/'+ workflow_id+'/'+ run_id+'/'+ step_id+'/output/ucl_test.zip', 'group_name': ''}])
             shutil.unpack_archive(path_to_storage + "/ucl_test.zip", path_to_storage)
             os.remove(path_to_storage + "/ucl_test.zip")
         return{'ok'}
