@@ -806,9 +806,9 @@ async def return_add_mask_period(workflow_id: str,
         height=800, width=950
     )
     # fig.show()
-    raw.IS()
+    print(raw.IS() )
     raw.mask_inactivity = True
-    raw.IS()
+    print (raw.IS() )
     # raw.mask_inactivity = False
     graphJSON = plotly.io.to_json(fig, pretty=True)
     return {"visualisation_add_mask_period": graphJSON}

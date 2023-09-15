@@ -1,5 +1,6 @@
 import json
 import os
+import uuid
 from os import walk
 from os.path import isfile, join
 
@@ -197,18 +198,19 @@ class FunctionNavigationItem(BaseModel):
 async def task_complete(run_id: str,
                              step_id: str) -> dict:
     # channels = data.ch_names
+    print("RUN COMPLETE IS RUNNING")
     print(WFAddress)
-    headers = {"Content-Type": "application/json"}
+    headers = {"Content-Type": "application/json", "Accept": "*/*"}
 
     saved_files = []
     data = {
         "data": {
-            "datalake": saved_files,
+            "datalake": [],
             "trino": []
         }
     }
 
-    url = WFAddress + "/run/" + run_id + "/step/" + step_id + "/task/script/complete"
+    url = WFAddress + "/run/" + uuid.UUID(run_id) + "/step/" + uuid.UUID(step_id) + "/task/script/complete"
     print(url)
     response = requests.patch(url=url, data=data, headers=headers)
     print("Test Response: Task Ping")
@@ -269,14 +271,14 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/eeg/old"
             case "envelop_trend_analysis":
                 url_to_redirect += "/envelope_trend"
-            case "group_sleep_analysis":
-                url_to_redirect += "/group_sleep_analysis"
-            case "group_sleep_sensitivity_analysis":
-                url_to_redirect += "/group_sleep_sensitivity_analysis"
-            case "group_sleep_sensitivity_analysis_add_subject":
-                url_to_redirect += "/group_sleep_sensitivity_analysis_add_subject"
-            case "group_sleep_sensitivity_analysis_add_subject_final":
-                url_to_redirect += "/group_sleep_sensitivity_analysis_add_subject_final"
+            # case "group_sleep_analysis":
+            #     url_to_redirect += "/group_sleep_analysis"
+            # case "group_sleep_sensitivity_analysis":
+            #     url_to_redirect += "/group_sleep_sensitivity_analysis"
+            # case "group_sleep_sensitivity_analysis_add_subject":
+            #     url_to_redirect += "/group_sleep_sensitivity_analysis_add_subject"
+            # case "group_sleep_sensitivity_analysis_add_subject_final":
+            #     url_to_redirect += "/group_sleep_sensitivity_analysis_add_subject_final"
             case "group_common_channels_across_subjects":
                 url_to_redirect += "/group_common_channels_across_subjects"
             case "group_sleep_analysis_sensitivity_add_subject_add_channels_final":
