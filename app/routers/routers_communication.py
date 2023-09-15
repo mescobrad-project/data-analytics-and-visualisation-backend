@@ -115,6 +115,7 @@ ExistingFunctions = [
     "survivalanalysistimevaryingcovariates",
     "survivalanalysiskaplanmeier",
     "principalcomponentanalysis",
+    'tsne',
     "LinearSVR",
     "LinearSVC",
     "LogisticRegressionPinguin",
@@ -425,6 +426,8 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/SurvivalAnalysisTimeVaryingCovariates"
             case "principalcomponentanalysis":
                 url_to_redirect += "/PrincipalComponentAnalysis"
+            case 'tsne':
+                url_to_redirect += "/TSNE"
             case "fisherexact":
                 url_to_redirect += "/FisherExact"
             case "mcnemar":

@@ -1543,7 +1543,7 @@ async def elastic_net(workflow_id: str,
         for columns in dataset.columns:
             if columns not in independent_variables:
                 dataset = dataset.drop(str(columns), axis=1)
-        data.dropna(inplace=True)
+        dataset.dropna(inplace=True)
 
         X = np.array(dataset)
         Y = np.array(df_label.astype('float64'))
@@ -5751,27 +5751,67 @@ async def compute_tsne(workflow_id: str,
                        method: str | None = Query("barnes_hut",
                                                   regex="^(barnes_hut)$|^(exact)$"),
                        independent_variables: list[str] | None = Query(default=None)):
+    dfv = pd.DataFrame()
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
+    try:
+        test_status = 'Dataset is not defined'
+        dfv['variables'] = independent_variables
+        dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
+        independent_variables = dfv["Variable"].tolist()
+        selected_datasources = pd.unique(dfv['Datasource'])
+        test_status = 'Unable to retrieve datasets'
+        # We expect only one here
+        dataset = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
+        for columns in dataset.columns:
+            if columns not in independent_variables:
+                dataset = dataset.drop(str(columns), axis=1)
+        X = np.array(dataset)
 
-    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
 
-    for columns in dataset.columns:
-        if columns not in independent_variables:
-            dataset = dataset.drop(str(columns), axis=1)
-
-    X = np.array(dataset)
-
-    transformer = TSNE(n_components=n_components, n_iter=n_iter, perplexity=perplexity, early_exaggeration=early_exaggeration, init=init, method=method)
-
-    X_transformed = transformer.fit_transform(X)
-
-    df = pd.DataFrame(X_transformed)
-
-    df_embedding = pd.DataFrame(transformer.embedding_)
+        # perplexity_test = np.arange(5, 100, 5)
+        # divergence = []
+        #
+        # for i in perplexity_test:
+        #     model = TSNE(n_components=2, init="pca", perplexity=i)
+        #     reduced = model.fit_transform(X)
+        #     divergence.append(model.kl_divergence_)
+        # fig = px.line(x=perplexity_test, y=divergence, markers=True)
+        # fig.update_layout(xaxis_title="Perplexity Values", yaxis_title="Divergence")
+        # fig.update_traces(line_color="red", line_width=1)
+        # fig.show()
 
 
-    return {'transformed': df.to_json(orient='split'), 'embeddings_vector':df_embedding.to_json(orient='split'),
-            'Kullback-Leibler divergence after optimization': transformer.kl_divergence_}
+        transformer = TSNE(n_components=n_components, n_iter=n_iter, perplexity=perplexity, early_exaggeration=early_exaggeration, init=init, method=method)
+        X_transformed = transformer.fit_transform(X)
+        df = pd.DataFrame(X_transformed)
+        df_embedding = pd.DataFrame(transformer.embedding_)
+        print(transformer.n_features_in_)
+        print(transformer.n_iter_)
+        print(transformer.square_distances)
+        print(transformer.verbose)
+        print(transformer.random_state)
+        print(transformer.angle)
+        print(transformer.metric)
 
+        fig1 = px.scatter(x=X_transformed[:, 0], y=X_transformed[:, 1])
+        fig1.update_layout(
+            title="t-SNE visualization",
+            xaxis_title="First t-SNE",
+            yaxis_title="Second t-SNE",
+        )
+        fig1.show()
+        return JSONResponse(content={'status': 'Success',
+                                     'transformed': df.to_json(orient='records'), 'embeddings_vector':df_embedding.to_json(orient='records'),
+                                     'Kullback_Leibler': transformer.kl_divergence_},
+                            status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status': test_status + e.__str__(),
+                                     'transformed': {},
+                                     'embeddings_vector': {},
+                                     'Kullback_Leibler': ''},
+                            status_code=200)
 
 @router.get("/SEM_Optimization")
 async def Structural_Equation_Models_Optimization(
