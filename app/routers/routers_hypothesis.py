@@ -70,7 +70,7 @@ from semopy import Model, estimate_means, ModelMeans, semplot, calc_stats, gathe
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-
+import traceback
 router = APIRouter()
 # data = pd.read_csv('example_data/mescobrad_dataset.csv')
 # data = data.drop(["Unnamed: 0"], axis=1)
@@ -772,7 +772,7 @@ async def check_homoskedasticity(workflow_id: str,
         return JSONResponse(content={'status':test_status,'statistic': "", 'p_value': "", 'variance': ""}, status_code=200)
 
 
-@router.get("/transformed_data_for_use_in_an_ANOVA", tags=['hypothesis_testing'])
+@router.get("/ ", tags=['hypothesis_testing'])
 async def transform_data_anova(
         workflow_id: str,
         step_id: str,
@@ -5406,12 +5406,22 @@ async def compute_mixed_anova_pinguin(workflow_id: str,
         # check_for_nan = dataset['Group'].isnull().values.any()
         # print(check_for_nan)
         # if correction_1==True:
+        print("DATASET", dataset)
+        print("DEP_VAR", dependent_variable)
+        print("SUBJECT", subject)
+        print("WITHIN", within)
+        print("BETWEEN", between)
+
+        dataset = dataset[[dependent_variable, subject, within, between]]
+
+        print(dataset)
         df = pingouin.mixed_anova(data=dataset, dv=dependent_variable, subject=subject, within=within, between=between,
                                   effsize=effsize, correction=correction)
 
         return JSONResponse(content={'status': 'Success', 'Dataframe': df.to_json(orient="records")},
                             status_code=200)
     except Exception as e:
+        print(traceback.format_exc())
         print(e)
         return JSONResponse(content={'status': test_status, 'table': '[]', 'col_transormed': '[]'},
                             status_code=200)
