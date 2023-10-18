@@ -1,6 +1,8 @@
 import csv
 import os
 import shutil
+from typing import Annotated
+
 import plotly.figure_factory as ff
 from datetime import datetime
 import json
@@ -4764,14 +4766,17 @@ async def group_sleep_analysis_sensitivity_add_subject_add_channels_final(
                                                                     workflow_id: str,
                                                                     step_id: str,
                                                                     run_id: str,
-                                                                    sampling_frequency: int,
-                                                                    channels_selection: list[str] | None = Query(default=None)):
+                                                                    # sampling_frequency: int,
+                                                                    # channels_selection: list[str] ):
+                                                                    channels_selection: list[str] | None = Query(default=[])):
+                                                                    # channels_selection: Annotated [list[str] | None, Query(default=[])]):
 
     #
     # df_first_hypnos = []
     # df_second_hypnos = []
     # df_first_fif_files = []
     # df_second_fif_files = []
+    sampling_frequency = 1
     path_to_groups = get_local_storage_path(workflow_id, run_id, step_id)
 
     # We put all name of directories containing the groups in a list
@@ -4784,6 +4789,7 @@ async def group_sleep_analysis_sensitivity_add_subject_add_channels_final(
     # We load the files from groups in a single dict
     # In the format { "group_name": {"list_hypno_files": <list of hypno files> , "list_fif_files" : <fif files>"} }
 
+    #  Step 1 Gather file names
     dict_group_files = {}
     for group_name in list_of_group_directories:
         temp_hypno_list = []
@@ -4798,9 +4804,7 @@ async def group_sleep_analysis_sensitivity_add_subject_add_channels_final(
         dict_group_files[group_name] = {"list_hypno_files": temp_hypno_list , "list_fif_files" : temp_fif_list}
 
 
-    print(dict_group_files)
 
-    return "Success Temp"
     #
     # path_first = 'UU_Sleep_final/' + 'Group_1'
     # for entries in os.listdir(path_first):
@@ -4815,105 +4819,206 @@ async def group_sleep_analysis_sensitivity_add_subject_add_channels_final(
     #         df_second_hypnos.append(entries)
     #     else:
     #         df_second_fif_files.append(entries)
+    #
+    # print(df_first_fif_files)
+    # print(df_first_hypnos)
+    # print(df_second_hypnos)
+    # print(df_second_fif_files)
+    print("----Step 1 Gather file metadata----")
+    print(dict_group_files)
 
-    print(df_first_fif_files)
-    print(df_first_hypnos)
-    print(df_second_hypnos)
-    print(df_second_fif_files)
-    fif_files = df_first_fif_files + df_second_fif_files
+    #  Step 2 Gather files and data
+
+    # fif_files = df_first_fif_files + df_second_fif_files
+
+    fif_files = []
+    for key, files in dict_group_files.items():
+        fif_files = fif_files + files["list_fif_files"]
+
+
+
     fif_files_subjects = []
     for i in range(len(fif_files)):
         fif_files_subjects.append(fif_files[i].split(".")[0])
 
-    duration_first = []
-    first_group_fif_files = []
-    for entries in df_first_fif_files:
-        path = 'UU_Sleep_final/Group_1/' + entries
-        data = mne.io.read_raw_fif(path)
-        info = data.info
-        raw_data = data.get_data()
-        channels = data.ch_names
-        print(channels)
-        duration_first.append(raw_data.shape[1]/info['sfreq'])
+    group_duration_files = {}
+    group_fif_files = {}
 
-        list_signals = []
-        new_channels = []
-        for i in range(len(channels)):
-            if channels[i] in channels_selection:
-                new_channels.append(channels[i])
-                list_signals.append(raw_data[i])
+    for group_name, group_data in dict_group_files.items():
+        temp_duration = []
+        temp_fif_files = []
+        for entries in group_data["list_fif_files"]:
+            path = os.path.join(path_to_groups, group_name, entries)
+            # path = 'UU_Sleep_final/Group_1/' + entries
+            data = mne.io.read_raw_fif(path)
+            info = data.info
+            raw_data = data.get_data()
+            channels = data.ch_names
+            print(channels)
+            temp_duration.append(raw_data.shape[1] / info['sfreq'])
 
-        #first_group_fif_files.append(np.array(list_signals).T.tolist())
-        df_signals = pd.DataFrame(np.array(list_signals).T.tolist(), columns=new_channels)
-        first_group_fif_files.append(df_signals)
-        #print(df_signals)
+            # Get sampling frequency from file
+            sampling_frequency = info['sfreq']
 
+            list_signals = []
+            new_channels = []
+            for i in range(len(channels)):
+                if channels[i] in channels_selection:
+                    print("CHANNELS IN SELECTION !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+                    new_channels.append(channels[i])
+                    list_signals.append(raw_data[i])
 
-    duration_second = []
-    second_group_fif_files = []
-    for entries in df_second_fif_files:
-        path = 'UU_Sleep_final/Group_2/' + entries
-        data = mne.io.read_raw_fif(path)
-        raw_data = data.get_data()
-        channels = data.ch_names
-        print(channels)
-        info = data.info
-        duration_second.append(raw_data.shape[1] / info['sfreq'])
+            # first_group_fif_files.append(np.array(list_signals).T.tolist())
+            df_signals = pd.DataFrame(np.array(list_signals).T.tolist(), columns=new_channels)
+            temp_fif_files.append(df_signals)
+        group_duration_files[group_name] = temp_duration
+        group_fif_files[group_name] = temp_fif_files
 
-        list_signals = []
-        new_channels = []
-        for i in range(len(channels)):
-            if channels[i] in channels_selection:
-                list_signals.append(raw_data[i])
-                new_channels.append(channels[i])
+    print("----Step 2 Gather files----")
+    print(channels_selection)
+    print(group_duration_files)
+    print(group_fif_files)
+    # duration_first = []
+    # first_group_fif_files = []
+    # for entries in df_first_fif_files:
+    #     path = 'UU_Sleep_final/Group_1/' + entries
+    #     data = mne.io.read_raw_fif(path)
+    #     info = data.info
+    #     raw_data = data.get_data()
+    #     channels = data.ch_names
+    #     print(channels)
+    #     duration_first.append(raw_data.shape[1]/info['sfreq'])
+    #
+    #     list_signals = []
+    #     new_channels = []
+    #     for i in range(len(channels)):
+    #         if channels[i] in channels_selection:
+    #             new_channels.append(channels[i])
+    #             list_signals.append(raw_data[i])
+    #
+    #     #first_group_fif_files.append(np.array(list_signals).T.tolist())
+    #     df_signals = pd.DataFrame(np.array(list_signals).T.tolist(), columns=new_channels)
+    #     first_group_fif_files.append(df_signals)
+    #     #print(df_signals)
+    #
+    #
+    # duration_second = []
+    # second_group_fif_files = []
+    # for entries in df_second_fif_files:
+    #     path = 'UU_Sleep_final/Group_2/' + entries
+    #     data = mne.io.read_raw_fif(path)
+    #     raw_data = data.get_data()
+    #     channels = data.ch_names
+    #     print(channels)
+    #     info = data.info
+    #     duration_second.append(raw_data.shape[1] / info['sfreq'])
+    #
+    #     list_signals = []
+    #     new_channels = []
+    #     for i in range(len(channels)):
+    #         if channels[i] in channels_selection:
+    #             list_signals.append(raw_data[i])
+    #             new_channels.append(channels[i])
+    #
+    #     # first_group_fif_files.append(np.array(list_signals).T.tolist())
+    #     df_signals = pd.DataFrame(np.array(list_signals).T.tolist(), columns=new_channels)
+    #     second_group_fif_files.append(df_signals)
+    #     # print(df_signals)
 
-        # first_group_fif_files.append(np.array(list_signals).T.tolist())
-        df_signals = pd.DataFrame(np.array(list_signals).T.tolist(), columns=new_channels)
-        second_group_fif_files.append(df_signals)
-        # print(df_signals)
-
+    # Create new temp info for new raws
     info = mne.create_info(ch_names=channels_selection, sfreq=sampling_frequency)
-    array_list_first = []
-    for i in range(len(first_group_fif_files)):
-        array_list_first.append(first_group_fif_files[i].to_numpy())
 
-    array_list_second = []
-    for i in range(len(second_group_fif_files)):
-        array_list_second.append(second_group_fif_files[i].to_numpy())
+    #  Step 3  Create array list
+    group_array_list = {}
+    for group_name, group_data in group_fif_files.items():
+        temp_array_list = []
+        for i in range(len(group_data)):
+            temp_array_list.append(group_data[i].to_numpy())
+        group_array_list[group_name] = temp_array_list
 
-    first_mneraw_list = []
-    second_mneraw_list = []
-    for i in range(len(array_list_first)):
-        temp_MNEraw = mne.io.RawArray(np.array(array_list_first[i]).T, info)
-        first_mneraw_list.append(temp_MNEraw)
+    print("step 3")
+    print(group_array_list)
+    # array_list_first = []
+    # for i in range(len(first_group_fif_files)):
+    #     array_list_first.append(first_group_fif_files[i].to_numpy())
+    #
+    # array_list_second = []
+    # for i in range(len(second_group_fif_files)):
+    #     array_list_second.append(second_group_fif_files[i].to_numpy())
 
-    for i in range(len(array_list_second)):
-        temp_MNEraw = mne.io.RawArray(np.array(array_list_second[i]).T, info)
-        second_mneraw_list.append(temp_MNEraw)
+    #  Step 4  Create MNE raw list
+    group_mneraw_list = {}
+    for group_name, group_data in group_array_list.items():
+        temp_mneraw_list = []
+        for i in range(len(group_data)):
+            temp_MNEraw = mne.io.RawArray(np.array(group_data[i]).T, info)
+            temp_mneraw_list.append(temp_MNEraw)
+        group_mneraw_list[group_name] = temp_mneraw_list
 
-    ######## hypnogram
-    mne_raw_list = first_mneraw_list + second_mneraw_list
-    firsthalf_mneraw_list = first_mneraw_list + second_mneraw_list
-    secondhalf_mneraw_list = first_mneraw_list + second_mneraw_list
+    print("step 4")
+    print(group_mneraw_list)
 
+    # first_mneraw_list = []
+    # second_mneraw_list = []
+    # for i in range(len(array_list_first)):
+    #     temp_MNEraw = mne.io.RawArray(np.array(array_list_first[i]).T, info)
+    #     first_mneraw_list.append(temp_MNEraw)
+    #
+    # for i in range(len(array_list_second)):
+    #     temp_MNEraw = mne.io.RawArray(np.array(array_list_second[i]).T, info)
+    #     second_mneraw_list.append(temp_MNEraw)
+
+    # Step 5 Raw lists
+
+    mne_raw_list = []
+    firsthalf_mneraw_list = []
+    secondhalf_mneraw_list = []
+    for group_name, group_data in group_mneraw_list.items():
+        mne_raw_list = mne_raw_list + group_data
+        secondhalf_mneraw_list = secondhalf_mneraw_list + group_data
+        secondhalf_mneraw_list = secondhalf_mneraw_list + group_data
+
+    # mne_raw_list = first_mneraw_list + second_mneraw_list
+    # firsthalf_mneraw_list = first_mneraw_list + second_mneraw_list
+    # secondhalf_mneraw_list = first_mneraw_list + second_mneraw_list
+
+    print("step 5")
+    print(mne_raw_list)
+
+    # Step 6 Hypnogram
 
     #print(yasa.sleep_statistics(np.squeeze(df.to_numpy()), sf_hyp=1/30))
     #yasa.plot_hypnogram(np.squeeze(df.to_numpy()))
 
-    list_first_hypnos = []
-    list_second_hypnos = []
-    for i in range(len(df_first_hypnos)):
-        path = 'UU_Sleep_final/Group_1/' + str(df_first_hypnos[i])
-        df = pd.read_csv(path)
-        list_first_hypnos.append(np.squeeze(df.to_numpy()))
+    # list_first_hypnos = []
+    # list_second_hypnos = []
+    group_hypno_list = {}
+    hypno_list = []
+    for group_name, group_data in dict_group_files.items():
+        temp_hypno_list = []
+        for entries in group_data["list_hypno_files"]:
+            path = os.path.join(path_to_groups, group_name, entries)
+            # path = 'UU_Sleep_final/Group_1/' + str(df_first_hypnos[i])
+            df = pd.read_csv(path)
+            temp_hypno_list.append(np.squeeze(df.to_numpy()))
+        group_hypno_list[group_name] =  temp_hypno_list
 
-    for i in range(len(df_second_hypnos)):
-        path = 'UU_Sleep_final/Group_2/' + str(df_second_hypnos[i])
-        df = pd.read_csv(path)
-        list_second_hypnos.append(np.squeeze(df.to_numpy()))
+    # for i in range(len(df_first_hypnos)):
+    #     path = 'UU_Sleep_final/Group_1/' + str(df_first_hypnos[i])
+    #     df = pd.read_csv(path)
+    #     list_first_hypnos.append(np.squeeze(df.to_numpy()))
+    #
+    # for i in range(len(df_second_hypnos)):
+    #     path = 'UU_Sleep_final/Group_2/' + str(df_second_hypnos[i])
+    #     df = pd.read_csv(path)
+    #     list_second_hypnos.append(np.squeeze(df.to_numpy()))
 
-    hypno_list = list_first_hypnos + list_second_hypnos
+        for group_name, group_data in group_hypno_list.items():
+            hypno_list.append(group_data)
 
+    print("Step 6")
+    print(hypno_list)
+    return
     ##########################################################################
     ##########################################################################
     ##########################################################################
