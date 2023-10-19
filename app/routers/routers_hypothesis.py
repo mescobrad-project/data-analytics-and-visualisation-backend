@@ -5318,14 +5318,61 @@ async def compute_granger_analysis(workflow_id: str,
 async def compute_one_way_welch_anova(workflow_id: str,
                                       step_id: str,
                                       run_id: str,
-                                      dependent_variable: str,
-                                      between_factor: str):
+                                      dv: str,
+                                      between: str):
 
-    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
+    # Load Datasets
+    try:
+        test_status = 'Dataset is not defined'
+        selected_datasource, dv = dv.split("--")
+        between = between.split("--")[1]
+        test_status = 'Unable to retrieve datasets'
+        # We expect only one here
+        df_data = load_data_from_csv(path_to_storage + "/" + selected_datasource)
 
-    df = pingouin.welch_anova(data=dataset, dv=dependent_variable, between=between_factor)
-    print(df)
-
+        test_status = 'Unable to compute Welch Anova test for the selected columns.'
+        df = pingouin.welch_anova(data=df_data, dv=dv, between=between)
+        print(df)
+        df = df.fillna('')
+        all_res = []
+        for ind, row in df.iterrows():
+            temp_to_append = {
+                'id': ind,
+                'Source': row['Source'],
+                'ddof1': row['ddof1'],
+                'ddof2': row['ddof2'],
+                'F': row['F'],
+                'p-unc': row['p-unc'],
+                'np2': row['np2']
+            }
+            all_res.append(temp_to_append)
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            file_data = json.load(f)
+            file_data['results'] |= {
+                "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                "workflow_id": workflow_id,
+                "run_id": run_id,
+                "step_id": step_id,
+                "test_name": 'Welch Anova test',
+                "test_params": {
+                    'selected_depedent_variable': dv,
+                    'selected_between_factor':between,
+                },
+                "test_results": all_res,
+                "Output_datasets":[],
+                'Saved_plots': []
+            }
+            f.seek(0)
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        return JSONResponse(content={'status': 'Success','DataFrame': all_res},
+                            status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status': test_status, 'Dataframe': []},
+                            status_code=200)
 @router.get("/calculate_kruskal_pinguin")
 async def compute_kruskal(workflow_id: str,
                           step_id: str,
