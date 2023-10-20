@@ -5018,34 +5018,61 @@ async def group_sleep_analysis_sensitivity_add_subject_add_channels_final(
 
     print("Step 6")
     print(hypno_list)
+
+    ##########################################################################
+    ##########################################################################
+    ##########################################################################
+    ### Step 7 Sensitivity Analysis 02 - trim all files to 06h window
+
+    group_hypno_sensitivity_2 = {}
+    group_mne_raw_sensitivity_2 = {}
+    for group_name, group_data in group_hypno_list.items():
+        temp_hypno_sensitivity_2 = []
+        temp_mne_raw_sensitivity_2 = []
+        for i in range(len(group_data)):
+            temp = group_data[i][:720]
+            temp_hypno_sensitivity_2.append(temp)
+            temp_mne_raw_sensitivity_2.append(group_mneraw_list[group_name][i])
+            if group_duration_files[group_name][i] > 21600:
+                temp_mne_raw_sensitivity_2[i].crop(tmin=0, tmax=21600)
+        group_hypno_sensitivity_2[group_name] = temp_hypno_sensitivity_2
+        group_mne_raw_sensitivity_2[group_name] = temp_mne_raw_sensitivity_2
+
+
+    # Hypno_sensitivity02_list_first = []
+    # sens02mnerawlist_first = []
+    # for i in range(len(list_first_hypnos)):
+    #     temp = list_first_hypnos[i][:720]
+    #     Hypno_sensitivity02_list_first.append(temp)
+    #     sens02mnerawlist_first.append(first_mneraw_list[i])
+    #     if duration_first[i] > 21600:
+    #         sens02mnerawlist_first[i].crop(tmin=0, tmax=21600)
+    #
+    # Hypno_sensitivity02_list_second = []
+    # sens02mnerawlist_second = []
+    # for i in range(len(list_second_hypnos)):
+    #     temp = list_second_hypnos[i][:720]
+    #     Hypno_sensitivity02_list_second.append(temp)
+    #     sens02mnerawlist_second.append(second_mneraw_list[i])
+    #     if duration_second[i] > 21600:
+    #         sens02mnerawlist_second[i].crop(tmin=0, tmax=21600)
+
+    sens_02_mnerawlist_all = []
+    hypnosensitivity02_all = []
+
+    for group_name, group_data in group_hypno_sensitivity_2.items():
+        sens_02_mnerawlist_all = sens_02_mnerawlist_all + group_data
+
+    for group_name, group_data in group_mne_raw_sensitivity_2.items():
+        hypnosensitivity02_all = hypnosensitivity02_all + group_data
+
+    # sens_02_mnerawlist_all = sens02mnerawlist_first + sens02mnerawlist_second
+    # hypnosensitivity02_all = Hypno_sensitivity02_list_first + Hypno_sensitivity02_list_second
+
+    print(sens_02_mnerawlist_all)
+    print(hypnosensitivity02_all)
     return
-    ##########################################################################
-    ##########################################################################
-    ##########################################################################
-    ### Sensitivity Analysis 02 - trim all files to 06h window
-
-    Hypno_sensitivity02_list_first = []
-    sens02mnerawlist_first = []
-    for i in range(len(list_first_hypnos)):
-        temp = list_first_hypnos[i][:720]
-        Hypno_sensitivity02_list_first.append(temp)
-        sens02mnerawlist_first.append(first_mneraw_list[i])
-        if duration_first[i] > 21600:
-            sens02mnerawlist_first[i].crop(tmin=0, tmax=21600)
-
-    Hypno_sensitivity02_list_second = []
-    sens02mnerawlist_second = []
-    for i in range(len(list_second_hypnos)):
-        temp = list_second_hypnos[i][:720]
-        Hypno_sensitivity02_list_second.append(temp)
-        sens02mnerawlist_second.append(second_mneraw_list[i])
-        if duration_second[i] > 21600:
-            sens02mnerawlist_second[i].crop(tmin=0, tmax=21600)
-
-    sens_02_mnerawlist_all = sens02mnerawlist_first + sens02mnerawlist_second
-    hypnosensitivity02_all = Hypno_sensitivity02_list_first + Hypno_sensitivity02_list_second
-
-    ##### Sensitivity Analysis 03
+    ##### Step 8 - Sensitivity Analysis 03
 
     hypno_first_half_list = []
     hypno_second_half_list = []
@@ -5060,7 +5087,7 @@ async def group_sleep_analysis_sensitivity_add_subject_add_channels_final(
         sens03mnerawlist_first.append(firsthalf_mneraw_list[i].copy().crop(tmin=0, tmax=int(x*30)))
         sens03mnerawlist_second.append(secondhalf_mneraw_list[i].copy().crop(tmin=int(x*30)))
 
-    ### Sensitivity Analysis 02 - hypnograms
+    ### Step 9 - Sensitivity Analysis 02 - hypnograms
 
     hypnosensitivity02list_all = Hypno_sensitivity02_list_first + Hypno_sensitivity02_list_second
     sensitivity02_sleepstatistics = []
@@ -5073,7 +5100,7 @@ async def group_sleep_analysis_sensitivity_add_subject_add_channels_final(
     print('Sensitivity 02 - Sleep Statistics')
     print(df_sens02sleep_statistics)
 
-    # Sensitivity Analysis 03 - Hypnograms
+    # Step 10 - Sensitivity Analysis 03 - Hypnograms
 
     sleepstats_firsthalf_list = []
     sleepstats_secondhalf_list = []
@@ -5094,7 +5121,8 @@ async def group_sleep_analysis_sensitivity_add_subject_add_channels_final(
     print('Sensitivity 03 - Sleep Statistics - second half list')
     print(df_sens03sleep_statisticssecondhalf)
 
-    ######################################################################################
+    # #####################################################################################
+    # Step 11
     sleep_stats_first = []
     sleep_stats_second = []
     for i in range(len(df_first_hypnos)):
@@ -5132,7 +5160,7 @@ async def group_sleep_analysis_sensitivity_add_subject_add_channels_final(
 
     ########################################################################
     #sleep transition matrix
-
+    # Step 12
     ## Sensitivity Analysis 02
 
     sensitivity02_counts_list = []
