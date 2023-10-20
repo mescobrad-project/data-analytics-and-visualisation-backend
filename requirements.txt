@@ -4,7 +4,6 @@ binaryornot==0.4.4
 black==23.1.0
 cloudpickle==2.2.1
 contourpy==1.0.6
-Cython==0.29.32
 edflib-python==1.0.6
 factor-analyzer==0.4.1
 fastapi==0.74.0
@@ -30,7 +29,6 @@ lightgbm==3.3.5
 minio==7.1.12
 mne-qt-browser==0.4.0
 mpld3==0.5.7
-numpy==1.22.4
 numpydoc==1.5.0
 paramiko==2.11.0
 pexpect==4.8.0
@@ -56,7 +54,6 @@ qtawesome==1.2.2
 rfc3339-validator==0.1.4
 rfc3986-validator==0.1.1
 rtree==1.0.1
-scikit-learn==1.0.1
 semopy==2.3.9
 spykeutils==0.4.3
 sqlalchemy==1.4.46

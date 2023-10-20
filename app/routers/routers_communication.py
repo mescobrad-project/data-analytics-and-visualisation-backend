@@ -209,7 +209,7 @@ async def task_complete(run_id: str,
         }
     }
 
-    url = WFAddress + "/run/" + uuid.UUID(run_id) + "/step/" + uuid.UUID(step_id) + "/task/script/complete"
+    url = WFAddress + "/run/" + str(uuid.UUID(run_id)) + "/step/" + str(uuid.UUID(step_id)) + "/task/script/complete"
     print(url)
     response = requests.patch(url=url, data=data, headers=headers)
     print("Test Response: Task Ping")
