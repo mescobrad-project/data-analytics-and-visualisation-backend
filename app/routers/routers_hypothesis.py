@@ -929,7 +929,10 @@ async def statistical_tests(workflow_id: str,
         elif statistical_test == "one-way ANOVA":
             samples = []
             for k in data.columns:
+                print(k)
+                print(data[k])
                 samples.append(data[k])
+            print(samples)
             statistic, p_value = f_oneway(*samples)
         elif statistical_test == "Wilcoxon rank-sum statistic":
             if len(data.columns) != 2:
@@ -5537,7 +5540,7 @@ async def compute_mixed_anova_pinguin(workflow_id: str,
 
 @router.get("/calculate_anova_pinguin")
 #SS-type should be a valid integer, currently accepting as string in order to use the inlande field validation of strings
-async def compute__anova_pinguin(workflow_id: str,
+async def compute_anova_pinguin(workflow_id: str,
                                  step_id: str,
                                  run_id: str,
                                  dependent_variable: str,
@@ -5547,12 +5550,66 @@ async def compute__anova_pinguin(workflow_id: str,
                                  effsize: str | None = Query("np2",
                                                              regex="^(np2)$|^(n2)$|^(ng2)$")):
 
-    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
+    print("HERE")
+    # Load Datasets
+    try:
+        test_status = 'Dataset is not defined'
+        selected_datasource = dependent_variable.split("--")[0]
+        dependent_variable = dependent_variable.split("--")[1]
 
-    df = pingouin.anova(data=dataset, dv=dependent_variable, between=between_factor, ss_type=int(ss_type), effsize=effsize)
+        between_factor = list(map(lambda x: str(x).split("--")[1], between_factor))
 
-    return df.to_json(orient="records")
+        test_status = 'Unable to retrieve datasets'
+        dataset = load_data_from_csv(path_to_storage + "/" + selected_datasource)
+        pd.set_option('display.max_columns', None)
 
+        df = pingouin.anova(data=dataset, dv=dependent_variable, between=between_factor, ss_type=int(ss_type),
+                            effsize=effsize)
+        print(df)
+        df = df.fillna('')
+        all_res = []
+        for ind, row in df.iterrows():
+            temp_to_append = {
+                'id': ind,
+                'Source': row['Source'],
+                'ddof1': row['ddof1'],
+                'ddof2': row['ddof2'],
+                'F': row['F'],
+                'p-unc': row['p-unc'],
+                'np2': row[effsize],
+            }
+            all_res.append(temp_to_append)
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            file_data = json.load(f)
+            file_data['results'] |= {
+                "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                "workflow_id": workflow_id,
+                "run_id": run_id,
+                "step_id": step_id,
+                "test_name": 'Anova',
+                "test_params": {
+                    'selected_depedent_variable': dependent_variable,
+                    'selected_between_variables': between_factor,
+                    'selected_ss_type': ss_type,
+                    'selected_effsize': effsize,
+                },
+                "test_results": all_res,
+                "Output_datasets":[],
+                'Saved_plots': []
+            }
+            f.seek(0)
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+
+        print(all_res)
+        return JSONResponse(content={'status': 'Success', 'DataFrame': all_res},
+                            status_code=200)
+    except Exception as e:
+        print(traceback.format_exc())
+        return JSONResponse(content={'status': test_status, 'DataFrame': []},
+                            status_code=200)
 @router.get("/compute_mean")
 async def compute_mean(workflow_id: str,
                                  step_id: str,
