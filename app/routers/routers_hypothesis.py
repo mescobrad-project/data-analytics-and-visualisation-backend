@@ -2626,11 +2626,12 @@ async def ancova_2(workflow_id: str,
             f.seek(0)
             json.dump(file_data, f, indent=4)
             f.truncate()
+        print(all_res)
         return JSONResponse(content={'status': 'Success','DataFrame': all_res},
                             status_code=200)
     except Exception as e:
         print(e)
-        return JSONResponse(content={'status': test_status, 'Dataframe': []},
+        return JSONResponse(content={'status': test_status, 'DataFrame': []},
                             status_code=200)
     # return {'ANCOVA':df.to_json(orient="split")}
 
@@ -3004,8 +3005,8 @@ async def anova_rm(workflow_id: str,
                    aggregate_func: str | None = Query(default=None,
                                                       regex="^(mean)$")):
 
-    # df_data = pd.read_csv('example_data/mescobrad_dataset.csv')
-    df_data = load_file_csv_direct(workflow_id, run_id, step_id)
+    df_data = pd.read_csv('C:\\neurodesktop-storage\\runtime_config\\workflow_3fa85f64-5717-4562-b3fc-2c963f66afa6\\run_3fa85f64-5717-4562-b3fc-2c963f66afa6\\step_3fa85f64-5717-4562-b3fc-2c963f66afa6/Sample_rep_measures.csv')
+    # df_data = load_file_csv_direct(workflow_id, run_id, step_id)
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
     print(df_data.columns)
     # unique, counts = np.unique(df_data[subject], return_counts=True)
@@ -3013,10 +3014,14 @@ async def anova_rm(workflow_id: str,
     # print(counts)
     # z = all(x==counts[0] for x in counts)
     # print(z)
-    posthocs = pingouin.pairwise_ttests(dv=dependent_variable,
-                                  within=within, between='Age',
-                                  subject=subject, data=df_data)
-    pingouin.print_table(posthocs)
+    print(dependent_variable)
+    print(subject)
+    print(within)
+    print(df_data)
+    # posthocs = pingouin.pairwise_ttests(dv=dependent_variable,
+    #                                     within=within, between='Age',
+    #                                     subject=subject, data=df_data)
+    # pingouin.print_table(posthocs)
 
     z=True
     if z:
@@ -5389,18 +5394,74 @@ async def compute_kruskal(workflow_id: str,
 async def compute_anova_repeated_measures_pinguin(workflow_id: str,
                                                   step_id: str,
                                                   run_id: str,
-                                                  dependent_variable: str,
+                                                  dv: str,
                                                   subject: str,
-                                                  correction: bool | None = Query(default=True),
+                                                  correction: str | None = Query(default=True),
                                                   within: list[str] | None = Query(default=None),
                                                   effsize: str | None = Query("np2",
                                                                              regex="^(np2)$|^(n2)$|^(ng2)$")
                                                   ):
 
-    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
+    # Load Datasets
+    try:
+        test_status = 'Dataset is not defined'
+        selected_datasource = dv.split("--")[0]
+        dependent_variable = dv.split("--")[1]
+        subject = subject.split("--")[1]
 
-    df = pingouin.rm_anova(data=dataset, dv=dependent_variable, subject=subject, within=within, correction=correction,effsize=effsize)
-    print(df)
+        within = list(map(lambda x: str(x).split("--")[1], within))
+
+        test_status = 'Unable to retrieve datasets'
+        dataset = load_data_from_csv(path_to_storage + "/" + selected_datasource)
+        pd.set_option('display.max_columns', None)
+
+        df = pingouin.rm_anova(data=dataset, dv=dependent_variable, subject=subject, within=within, correction=correction, effsize=effsize)
+        df = df.fillna('')
+        all_res = []
+        for ind, row in df.iterrows():
+            temp_to_append = {
+                'id': ind,
+                'Source': row['Source'],
+                'ddof1': row['ddof1'],
+                'ddof2': row['ddof2'],
+                'F': row['F'],
+                'p-unc': row['p-unc'],
+                'np2': row[effsize],
+                'eps': row['eps']
+            }
+            all_res.append(temp_to_append)
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            file_data = json.load(f)
+            file_data['results'] |= {
+                "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                "workflow_id": workflow_id,
+                "run_id": run_id,
+                "step_id": step_id,
+                "test_name": 'Anova Repeated Measures',
+                "test_params": {
+                    'selected_depedent_variable': dependent_variable,
+                    'selected_subject_variable':subject,
+                    'selected_within_variables':within,
+                    'selected_correction': correction,
+                    'selected_effsize': effsize,
+                },
+                "test_results": all_res,
+                "Output_datasets":[],
+                'Saved_plots': []
+            }
+            f.seek(0)
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+
+        return JSONResponse(content={'status': 'Success', 'DataFrame': all_res},
+                            status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status': test_status, 'DataFrame': []},
+                            status_code=200)
+
 
 @router.get("/calculate_friedman_test_pinguin")
 async def compute_friedman_test_pinguin(workflow_id: str,
