@@ -4975,7 +4975,7 @@ async def group_sleep_analysis_sensitivity_add_subject_add_channels_final(
     secondhalf_mneraw_list = []
     for group_name, group_data in group_mneraw_list.items():
         mne_raw_list = mne_raw_list + group_data
-        secondhalf_mneraw_list = secondhalf_mneraw_list + group_data
+        firsthalf_mneraw_list = firsthalf_mneraw_list + group_data
         secondhalf_mneraw_list = secondhalf_mneraw_list + group_data
 
     # mne_raw_list = first_mneraw_list + second_mneraw_list
@@ -5013,8 +5013,8 @@ async def group_sleep_analysis_sensitivity_add_subject_add_channels_final(
     #     df = pd.read_csv(path)
     #     list_second_hypnos.append(np.squeeze(df.to_numpy()))
 
-        for group_name, group_data in group_hypno_list.items():
-            hypno_list.append(group_data)
+    for group_name, group_data in group_hypno_list.items():
+        hypno_list.append(group_data)
 
     print("Step 6")
     print(hypno_list)
@@ -5057,28 +5057,42 @@ async def group_sleep_analysis_sensitivity_add_subject_add_channels_final(
     #     if duration_second[i] > 21600:
     #         sens02mnerawlist_second[i].crop(tmin=0, tmax=21600)
 
-    sens_02_mnerawlist_all = []
-    hypnosensitivity02_all = []
+    group_sens_02_mne_raw_list = []
+    group_hypno_sens_02 = []
 
     for group_name, group_data in group_hypno_sensitivity_2.items():
-        sens_02_mnerawlist_all = sens_02_mnerawlist_all + group_data
+        group_sens_02_mne_raw_list = group_sens_02_mne_raw_list + group_data
 
     for group_name, group_data in group_mne_raw_sensitivity_2.items():
-        hypnosensitivity02_all = hypnosensitivity02_all + group_data
+        group_hypno_sens_02 = group_hypno_sens_02 + group_data
 
     # sens_02_mnerawlist_all = sens02mnerawlist_first + sens02mnerawlist_second
     # hypnosensitivity02_all = Hypno_sensitivity02_list_first + Hypno_sensitivity02_list_second
 
-    print(sens_02_mnerawlist_all)
-    print(hypnosensitivity02_all)
-    return
+    print(group_sens_02_mne_raw_list)
+    print(group_hypno_sens_02)
+
     ##### Step 8 - Sensitivity Analysis 03
+
+    # group_half_lists = {}
+    # group_sens_03_mne_raw_list = {}
 
     hypno_first_half_list = []
     hypno_second_half_list = []
     sens03mnerawlist_first = []
     sens03mnerawlist_second = []
+    # for group_name, group_data in group_mneraw_list.items():
+    #     temp_hypno_half_list = []
+    #     temp_mne_raw_list = []
+    #     for i in range(len(group_data)):
+    #         x = hypno_list[i].size / 2
+
+
     for i in range(len(mne_raw_list)):
+        print("--------Printing hypno list")
+        print(hypno_list)
+        print("-----------------------------")
+        print(hypno_list[i])
         x = hypno_list[i].size/2
         temp_first = hypno_list[i][:int(x)]
         temp_second = hypno_list[i][int(x):]
@@ -5087,6 +5101,12 @@ async def group_sleep_analysis_sensitivity_add_subject_add_channels_final(
         sens03mnerawlist_first.append(firsthalf_mneraw_list[i].copy().crop(tmin=0, tmax=int(x*30)))
         sens03mnerawlist_second.append(secondhalf_mneraw_list[i].copy().crop(tmin=int(x*30)))
 
+    print("Step 8")
+    print(hypno_first_half_list)
+    print(hypno_second_half_list)
+    print(sens03mnerawlist_first)
+    print(sens03mnerawlist_first)
+    return
     ### Step 9 - Sensitivity Analysis 02 - hypnograms
 
     hypnosensitivity02list_all = Hypno_sensitivity02_list_first + Hypno_sensitivity02_list_second
@@ -5534,7 +5554,7 @@ async def group_sleep_analysis_sensitivity_add_subject_add_channels_final(
     # Sensitivity_Analysis_02
     hypnoyp_temp_02 = []
     for i in range(len(hypnosensitivity02list_all)):
-        hypnoyp_temp_02.append(yasa.hypno_upsample_to_data(hypnosensitivity02list_all[i], sf_hypno=1/30, data=sens_02_mnerawlist_all[i]))
+        hypnoyp_temp_02.append(yasa.hypno_upsample_to_data(hypnosensitivity02list_all[i], sf_hypno=1/30, data=group_sens_02_mne_raw_list[i]))
 
     #sensitivity_analysis_3
 
@@ -5572,7 +5592,7 @@ async def group_sleep_analysis_sensitivity_add_subject_add_channels_final(
     #Sensitivity Analysis 02
     sens02_bandpower_all = []
     for i in range(len(hypnosensitivity02list_all)):
-        sens02_bandpower_all.append(yasa.bandpower(sens_02_mnerawlist_all[i], hypno=hypnoyp_temp_02[i], include=(2,3,4)))
+        sens02_bandpower_all.append(yasa.bandpower(group_sens_02_mne_raw_list[i], hypno=hypnoyp_temp_02[i], include=(2,3,4)))
 
     df_bandpower_first = pd.concat(sens02_bandpower_all, keys=fif_files_subjects)
     print("Sensitivity Analysis 02")
