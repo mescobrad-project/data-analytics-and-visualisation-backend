@@ -4974,6 +4974,8 @@ async def group_sleep_analysis_sensitivity_add_subject_add_channels_final(
     firsthalf_mneraw_list = []
     secondhalf_mneraw_list = []
     for group_name, group_data in group_mneraw_list.items():
+        print("GROUP DATA  TO APPEND MNE RAW  ++++++++++++++++++++++++++++++++++++++++++++++++++++++")
+        print(group_data)
         mne_raw_list = mne_raw_list + group_data
         firsthalf_mneraw_list = firsthalf_mneraw_list + group_data
         secondhalf_mneraw_list = secondhalf_mneraw_list + group_data
@@ -5014,7 +5016,11 @@ async def group_sleep_analysis_sensitivity_add_subject_add_channels_final(
     #     list_second_hypnos.append(np.squeeze(df.to_numpy()))
 
     for group_name, group_data in group_hypno_list.items():
-        hypno_list.append(group_data)
+        print("GROUP DATA  TO APPEND HYPNO LIST++++++++++++++++++++++++++++++++++++++++++++++++++++++")
+        print(type(group_data))
+        print(group_data)
+        print(group_data[0])
+        hypno_list = hypno_list + group_data
 
     print("Step 6")
     print(hypno_list)
@@ -5089,10 +5095,11 @@ async def group_sleep_analysis_sensitivity_add_subject_add_channels_final(
 
 
     for i in range(len(mne_raw_list)):
-        print("--------Printing hypno list")
-        print(hypno_list)
-        print("-----------------------------")
-        print(hypno_list[i])
+        # print("--------Printing hypno list")
+        # print(hypno_list)
+        # print("---------Printing MNEW RAW LIST--------------------")
+        # print(mne_raw_list)
+        # print(hypno_list[i])
         x = hypno_list[i].size/2
         temp_first = hypno_list[i][:int(x)]
         temp_second = hypno_list[i][int(x):]
