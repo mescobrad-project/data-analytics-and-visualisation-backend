@@ -423,6 +423,8 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/Welch_Anova"
             case "anova_rm":
                 url_to_redirect += "/Anova_RM"
+            case "pairwise_tests":
+                url_to_redirect += "/Pairwise_test"
             case "anova":
                 url_to_redirect += "/Anova"
             case "linearmixedeffectsmodel":

@@ -7,6 +7,8 @@ from sklearn.cross_decomposition import CCA
 from sklearn.manifold import MDS, TSNE
 from sklearn.decomposition import FastICA
 from sklearn.preprocessing import LabelEncoder
+import re
+from pandas.api.types import is_numeric_dtype
 from sphinx.addnodes import index
 from statsmodels.tsa.stattools import grangercausalitytests
 from factor_analyzer.factor_analyzer import calculate_bartlett_sphericity
@@ -2998,6 +3000,141 @@ async def time_varying_covariates(
     return {'AIC':cph.AIC_partial_,'Dataframe':tbl1_res, 'figure': to_return}
     # return {'Akaike information criterion (AIC) (partial log-likelihood)':cph.AIC_partial_,'Dataframe of the coefficients, p-values, CIs, etc.':df.to_json(orient="split"), 'figure': to_return}
 
+@router.get("/anova_pairwise_tests")
+async def anova_pairwise_tests(workflow_id: str,
+                               run_id: str,
+                               step_id: str,
+                               dv: str,
+                               subject: str,
+                               marginal: str,
+                               alpha: str,
+                               alternative: str,
+                               padjust: str,
+                               effsize: str,
+                               correction: str,
+                               nan_policy: str,
+                               between: list[str] | None = Query(default=None),
+                               within: list[str] | None = Query(default=None),
+                               ):
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
+    # Load Datasets
+    try:
+        test_status = 'Dataset is not defined'
+        selected_datasource = dv.split("--")[0]
+        #TODO CHANGE THIS ON SIMPLE ANOVA!!!
+        dependent_variable = dv.split("--")[1]
+        dependent_variable_ping = re.sub("[\(\),:]", " ", dependent_variable)
+
+        subject = subject.split("--")[1]
+        subject_ping = re.sub("[\(\),:]", " ", subject)
+
+        test_status = 'Wrong variables'
+
+        between_factor = list(map(lambda x: str(x).split("--")[1], between))
+        between_factor_ping = list(map(lambda x: re.sub("[\(\),:]", " ", x), between_factor))
+        if between_factor_ping == ["None"]:
+            between_factor_ping = None
+
+        within_factor = list(map(lambda x: str(x).split("--")[1], within))
+        within_factor_ping = list(map(lambda x: re.sub("[\(\),:]", " ", x), within_factor))
+        if within_factor_ping == ["None"]:
+            within_factor_ping = None
+
+
+        alpha = float(alpha)
+        marginal = (marginal == "True")
+
+        if not (correction == "auto"):
+            correction = (correction == "True")
+
+        test_status = 'within or between must have a value'
+        assert not (within_factor_ping == None and between_factor_ping == None)
+
+        test_status = 'A column can not be selected multiple times'
+        var_list = [dependent_variable] + within_factor + between_factor + [subject]
+        assert len(var_list) == len(set(var_list))
+
+        test_status = 'Unable to retrieve datasets'
+        dataset = load_data_from_csv(path_to_storage + "/" + selected_datasource)
+        pd.set_option('display.max_columns', None)
+        dataset.columns = list(map(lambda x: re.sub("[\(\),:]", " ", x), dataset.columns))
+
+        df = pingouin.pairwise_tests(data=dataset, dv=dependent_variable_ping, within=within_factor_ping, between=between_factor_ping,
+                                     subject=subject_ping, marginal=marginal, alpha=alpha, alternative=alternative,
+                                     padjust=padjust, effsize=effsize, correction=correction, nan_policy=nan_policy)
+        df = df.fillna('')
+
+        columns = [{
+            "col" : "id"}]
+
+        for col in df.columns:
+            match col:
+                case "A":
+                    new_col = "1st measurement"
+                case "B":
+                    new_col = "2nd measurement"
+                case "dof":
+                    new_col = "Deg. of Fr."
+                case "p-unc":
+                    new_col = "p-uncorrected"
+                case "p-corr":
+                    new_col = "p-corrected"
+                case "p-adjust":
+                    new_col = "Correction method"
+                case "BF10":
+                    new_col = "Bayes Factor"
+                case _:
+                    new_col = col
+            columns.append({
+                "col": new_col
+            })
+            df.rename(columns={col: new_col}, inplace=True)
+
+        print(columns)
+
+        all_res = []
+        for ind, row in df.iterrows():
+            temp_to_append = row.to_dict()
+            temp_to_append['id'] = ind
+            all_res.append(temp_to_append)
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            file_data = json.load(f)
+            file_data['results'] |= {
+                "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                "workflow_id": workflow_id,
+                "run_id": run_id,
+                "step_id": step_id,
+                "test_name": 'Pairwise Tests',
+                "test_params": {
+                    'selected_depedent_variable': dependent_variable,
+                    'selected_subject': subject,
+                    'selected_marginal': marginal,
+                    'selected_alpha': alpha,
+                    'selected_alternative': alternative,
+                    'selected_padjust': padjust,
+                    'selected_effsize': effsize,
+                    'selected_correction': correction,
+                    'selected_nan_policy': nan_policy,
+                    'selected_between': between_factor,
+                    'selected_within': within_factor,
+                },
+                "test_results": all_res,
+                "Output_datasets": [],
+                'Saved_plots': []
+            }
+            f.seek(0)
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        print(all_res)
+
+
+        return JSONResponse(content={'status': 'Success', 'DataFrame': all_res, 'Columns': columns},
+                            status_code=200)
+    except Exception as e:
+        print(traceback.format_exc())
+        return JSONResponse(content={'status': test_status, 'DataFrame': [], 'Columns': []},
+                            status_code=200)
 @router.get("/anova_repeated_measures")
 async def anova_rm(workflow_id: str,
                    step_id: str,
@@ -5561,12 +5698,15 @@ async def compute_anova_pinguin(workflow_id: str,
 
         between_factor = list(map(lambda x: str(x).split("--")[1], between_factor))
 
+        between_factor_ping = list(map(lambda x: re.sub("[\(\),:]"," ", x), between_factor))
+
         test_status = 'Unable to retrieve datasets'
         dataset = load_data_from_csv(path_to_storage + "/" + selected_datasource)
         pd.set_option('display.max_columns', None)
+        dataset.columns = list(map(lambda x: re.sub("[\(\),:]"," ", x), dataset.columns))
 
-        df = pingouin.anova(data=dataset, dv=dependent_variable, between=between_factor, ss_type=int(ss_type),
-                            effsize=effsize)
+        df = pingouin.anova(data=dataset, dv=dependent_variable, between=between_factor_ping, ss_type=int(ss_type),
+                            effsize=effsize, detailed=True)
         print(df)
         df = df.fillna('')
         all_res = []
@@ -5574,8 +5714,9 @@ async def compute_anova_pinguin(workflow_id: str,
             temp_to_append = {
                 'id': ind,
                 'Source': row['Source'],
-                'ddof1': row['ddof1'],
-                'ddof2': row['ddof2'],
+                'SS': row['SS'],
+                'DF': row['DF'],
+                'MS': row['MS'],
                 'F': row['F'],
                 'p-unc': row['p-unc'],
                 'np2': row[effsize],
