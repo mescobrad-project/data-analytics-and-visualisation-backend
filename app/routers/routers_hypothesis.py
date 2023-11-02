@@ -5553,25 +5553,62 @@ async def compute_anova_repeated_measures_pinguin(workflow_id: str,
 
         within = list(map(lambda x: str(x).split("--")[1], within))
 
+        correction = (correction == 'True')
+
+        test_status = 'A column can not be selected multiple times'
+        var_list = [dependent_variable] + within + [subject]
+        assert len(var_list) == len(set(var_list))
+
         test_status = 'Unable to retrieve datasets'
         dataset = load_data_from_csv(path_to_storage + "/" + selected_datasource)
         pd.set_option('display.max_columns', None)
 
         df = pingouin.rm_anova(data=dataset, dv=dependent_variable, subject=subject, within=within, correction=correction, effsize=effsize)
         df = df.fillna('')
+        print(df)
+
+        columns = [{
+            "col": "id"}]
+
+        for col in df.columns:
+            match col:
+                case "ddof1":
+                    new_col = "numerator - DoF"
+                case "ddof2":
+                    new_col = "denominator - DoF"
+                case "ng2" | "n2" | "np2":
+                    new_col = "Effect size"
+                case "p-unc":
+                    new_col = "p-uncorrected"
+                case "p-GG-corr":
+                    new_col = "Gr.-Geis. corrected p-value"
+                case "SS":
+                    new_col = "Sums of squares"
+                case "DF":
+                    new_col = "Degrees of freedom"
+                case "MS":
+                    new_col = "Mean squares"
+                case "eps":
+                    new_col = "Epsilon Factor"
+                case "W-spher":
+                    new_col = "Sphericity stat."
+                case "p-spher":
+                    new_col = "Sphericity p-value"
+                case _:
+                    new_col = col
+            columns.append({
+                "col": new_col
+            })
+            df.rename(columns={col: new_col}, inplace=True)
+
+        print(columns)
+
         all_res = []
         for ind, row in df.iterrows():
-            temp_to_append = {
-                'id': ind,
-                'Source': row['Source'],
-                'ddof1': row['ddof1'],
-                'ddof2': row['ddof2'],
-                'F': row['F'],
-                'p-unc': row['p-unc'],
-                'np2': row[effsize],
-                'eps': row['eps']
-            }
+            temp_to_append = row.to_dict()
+            temp_to_append['id'] = ind
             all_res.append(temp_to_append)
+
         with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
             file_data = json.load(f)
             file_data['results'] |= {
@@ -5595,11 +5632,11 @@ async def compute_anova_repeated_measures_pinguin(workflow_id: str,
             json.dump(file_data, f, indent=4)
             f.truncate()
 
-        return JSONResponse(content={'status': 'Success', 'DataFrame': all_res},
+        return JSONResponse(content={'status': 'Success', 'DataFrame': all_res, "Columns": columns},
                             status_code=200)
     except Exception as e:
         print(e)
-        return JSONResponse(content={'status': test_status, 'DataFrame': []},
+        return JSONResponse(content={'status': test_status, 'DataFrame': [], "Columns": []},
                             status_code=200)
 
 
