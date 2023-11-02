@@ -5689,23 +5689,29 @@ async def compute_anova_pinguin(workflow_id: str,
 
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
     test_status = ''
-    print("HERE")
     # Load Datasets
     try:
         test_status = 'Dataset is not defined'
         selected_datasource = dependent_variable.split("--")[0]
         dependent_variable = dependent_variable.split("--")[1]
 
+        dependent_variable_ping = re.sub("[\(\),:]", " ", dependent_variable)
+
         between_factor = list(map(lambda x: str(x).split("--")[1], between_factor))
 
         between_factor_ping = list(map(lambda x: re.sub("[\(\),:]"," ", x), between_factor))
+
+        test_status = 'A column can not be selected multiple times'
+        var_list = [dependent_variable] + between_factor
+        assert len(var_list) == len(set(var_list))
 
         test_status = 'Unable to retrieve datasets'
         dataset = load_data_from_csv(path_to_storage + "/" + selected_datasource)
         pd.set_option('display.max_columns', None)
         dataset.columns = list(map(lambda x: re.sub("[\(\),:]"," ", x), dataset.columns))
 
-        df = pingouin.anova(data=dataset, dv=dependent_variable, between=between_factor_ping, ss_type=int(ss_type),
+
+        df = pingouin.anova(data=dataset, dv=dependent_variable_ping, between=between_factor_ping, ss_type=int(ss_type),
                             effsize=effsize, detailed=True)
         print(df)
         df = df.fillna('')
