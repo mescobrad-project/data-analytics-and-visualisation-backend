@@ -5066,10 +5066,10 @@ async def group_sleep_analysis_sensitivity_add_subject_add_channels_final(
     group_sens_02_mne_raw_list = []
     group_hypno_sens_02 = []
 
-    for group_name, group_data in group_hypno_sensitivity_2.items():
+    for group_name, group_data in group_mne_raw_sensitivity_2.items():
         group_sens_02_mne_raw_list = group_sens_02_mne_raw_list + group_data
 
-    for group_name, group_data in group_mne_raw_sensitivity_2.items():
+    for group_name, group_data in group_hypno_sensitivity_2.items():
         group_hypno_sens_02 = group_hypno_sens_02 + group_data
 
     # sens_02_mnerawlist_all = sens02mnerawlist_first + sens02mnerawlist_second
@@ -5093,7 +5093,7 @@ async def group_sleep_analysis_sensitivity_add_subject_add_channels_final(
     #     for i in range(len(group_data)):
     #         x = hypno_list[i].size / 2
 
-
+    #TODO WHY IS THIS ONLY DONE ON ONE FILE
     for i in range(len(mne_raw_list)):
         # print("--------Printing hypno list")
         # print(hypno_list)
@@ -5113,22 +5113,39 @@ async def group_sleep_analysis_sensitivity_add_subject_add_channels_final(
     print(hypno_second_half_list)
     print(sens03mnerawlist_first)
     print(sens03mnerawlist_first)
-    return
+
     ### Step 9 - Sensitivity Analysis 02 - hypnograms
 
-    hypnosensitivity02list_all = Hypno_sensitivity02_list_first + Hypno_sensitivity02_list_second
-    sensitivity02_sleepstatistics = []
-    for i in range(len(hypnosensitivity02list_all)):
-        sensitivity02_sleepstatistics.append(yasa.sleep_statistics(hypnosensitivity02list_all[i], sf_hyp=1/30))
+    #Create list
+    # Resuing group_hypno_sens_02 from above instead of recreating shouldn't be used afterwards
+    # Previously hypnosensitivity02list_all was the same as hypnosensitivity02_all but hypnosensitivity02_all wasnt used again
+    sensitivity_02_sleeps_tatistics = []
 
-    df_sens02sleep_statistics = pd.DataFrame(sensitivity02_sleepstatistics)
+    # hypnosensitivity02list_all = Hypno_sensitivity02_list_first + Hypno_sensitivity02_list_second
+    # sensitivity02_sleepstatistics = []
+
+    # for i in range(len(hypnosensitivity02list_all)):
+    #     sensitivity02_sleepstatistics.append(yasa.sleep_statistics(hypnosensitivity02list_all[i], sf_hyp=1 / 30))
+
+
+    for i in range(len(group_hypno_sens_02)):
+        sensitivity_02_sleeps_tatistics.append(yasa.sleep_statistics(group_hypno_sens_02[i], sf_hyp=1/30))
+
+    # df_sens02sleep_statistics = pd.DataFrame(sensitivity02_sleepstatistics)
+    # df_fif_files_subjects = pd.DataFrame(fif_files_subjects, columns=['subjects'])
+    # df_sens02sleep_statistics = pd.concat([df_fif_files_subjects, df_sens02sleep_statistics], axis=1)
+    # print('Sensitivity 02 - Sleep Statistics')
+    # print(df_sens02sleep_statistics)
+
+    df_sensitivity_02_sleeps_statistics = pd.DataFrame(sensitivity_02_sleeps_tatistics)
     df_fif_files_subjects = pd.DataFrame(fif_files_subjects, columns=['subjects'])
-    df_sens02sleep_statistics = pd.concat([df_fif_files_subjects, df_sens02sleep_statistics], axis=1)
+    df_sensitivity_02_sleeps_statistics = pd.concat([df_fif_files_subjects, df_sensitivity_02_sleeps_statistics], axis=1)
     print('Sensitivity 02 - Sleep Statistics')
-    print(df_sens02sleep_statistics)
+    print(df_sensitivity_02_sleeps_statistics)
 
     # Step 10 - Sensitivity Analysis 03 - Hypnograms
 
+    # group_sleep_stats_list = {}
     sleepstats_firsthalf_list = []
     sleepstats_secondhalf_list = []
     for i in range(len(hypno_first_half_list)):
@@ -5148,43 +5165,77 @@ async def group_sleep_analysis_sensitivity_add_subject_add_channels_final(
     print('Sensitivity 03 - Sleep Statistics - second half list')
     print(df_sens03sleep_statisticssecondhalf)
 
+
     # #####################################################################################
     # Step 11
+
+    group_sleep_stats = {}
     sleep_stats_first = []
     sleep_stats_second = []
-    for i in range(len(df_first_hypnos)):
-        path = 'UU_Sleep_final/Group_1/' + str(df_first_hypnos[i])
-        df = pd.read_csv(path)
-        sleep_stats_first.append(yasa.sleep_statistics(np.squeeze(df.to_numpy()), sf_hyp=1/30))
 
-    for i in range(len(df_second_hypnos)):
-        path = 'UU_Sleep_final/Group_2/' + str(df_second_hypnos[i])
-        df = pd.read_csv(path)
-        sleep_stats_second.append(yasa.sleep_statistics(np.squeeze(df.to_numpy()), sf_hyp=1/30))
+    for group_name, group_data in dict_group_files.items():
+        temp_sleep_stats = []
+        for entries in group_data["list_hypno_files"]:
+            path = os.path.join(path_to_groups, group_name, entries)
+            df = pd.read_csv(path)
+            temp_sleep_stats.append(yasa.sleep_statistics(np.squeeze(df.to_numpy()), sf_hyp=1/30))
+        group_sleep_stats[group_name] = temp_sleep_stats
 
-    df_first_sleep_statistics = pd.DataFrame(sleep_stats_first)
-    df_second_sleep_statistics = pd.DataFrame(sleep_stats_second)
+    # for i in range(len(df_first_hypnos)):
+    #     path = 'UU_Sleep_final/Group_1/' + str(df_first_hypnos[i])
+    #     df = pd.read_csv(path)
+    #     sleep_stats_first.append(yasa.sleep_statistics(np.squeeze(df.to_numpy()), sf_hyp=1/30))
+    #
+    # for i in range(len(df_second_hypnos)):
+    #     path = 'UU_Sleep_final/Group_2/' + str(df_second_hypnos[i])
+    #     df = pd.read_csv(path)
+    #     sleep_stats_second.append(yasa.sleep_statistics(np.squeeze(df.to_numpy()), sf_hyp=1/30))
 
-    first_fif_files_subjects = []
-    for i in range(len(df_first_fif_files)):
-        first_fif_files_subjects.append(df_first_fif_files[i].split(".")[0])
 
-    df_first_fif_files_dataframe = pd.DataFrame(first_fif_files_subjects, columns = ['subjects'])
+    df_group_sleep_statistics = {}
+    for group_name, group_data in group_sleep_stats.items():
+        temp_df_stats = pd.DataFrame(group_data)
+        df_group_sleep_statistics[group_name] = temp_df_stats
 
-    second_fif_files_subjects = []
-    for i in range(len(df_second_fif_files)):
-        second_fif_files_subjects.append(df_second_fif_files[i].split(".")[0])
+    # df_first_sleep_statistics = pd.DataFrame(sleep_stats_first)
+    # df_second_sleep_statistics = pd.DataFrame(sleep_stats_second)
 
-    df_second_fif_files_dataframe = pd.DataFrame(second_fif_files_subjects, columns=['subjects'])
+    group_fif_files_subjects = {}
+    for group_name, group_data in dict_group_files.items():
+        temp_fif_files_subjects = []
+        for i in range(len(group_data["list_fif_files"])):
+            temp_fif_files_subjects.append(group_data["list_fif_files"][i].split(".")[0])
 
-    df_first_sleep_statistics = pd.concat([df_first_fif_files_dataframe, df_first_sleep_statistics], axis = 1)
-    print('First folder - Sleep Statistics')
-    print(df_first_sleep_statistics)
+        df_temp_fif_file = pd.DataFrame(temp_fif_files_subjects, columns = ['subjects'])
+        group_fif_files_subjects[group_name] = df_temp_fif_file
 
-    df_second_sleep_statistics = pd.concat([df_second_fif_files_dataframe, df_second_sleep_statistics], axis = 1)
-    print('Second folder - Sleep Statistics')
-    print(df_second_sleep_statistics)
+    # first_fif_files_subjects = []
+    # for i in range(len(df_first_fif_files)):
+    #     first_fif_files_subjects.append(df_first_fif_files[i].split(".")[0])
+    #
+    # df_first_fif_files_dataframe = pd.DataFrame(first_fif_files_subjects, columns = ['subjects'])
+    #
+    # second_fif_files_subjects = []
+    # for i in range(len(df_second_fif_files)):
+    #     second_fif_files_subjects.append(df_second_fif_files[i].split(".")[0])
+    #
+    # df_second_fif_files_dataframe = pd.DataFrame(second_fif_files_subjects, columns=['subjects'])
 
+    for group_name, group_data in df_group_sleep_statistics.items():
+        group_data = pd.concat([group_fif_files_subjects[group_name], group_data] , axis = 1)
+
+    # df_first_sleep_statistics = pd.concat([df_first_fif_files_dataframe, df_first_sleep_statistics], axis = 1)
+    # print('First folder - Sleep Statistics')
+    # print(df_first_sleep_statistics)
+    #
+    # df_second_sleep_statistics = pd.concat([df_second_fif_files_dataframe, df_second_sleep_statistics], axis = 1)
+    # print('Second folder - Sleep Statistics')
+    # print(df_second_sleep_statistics)
+
+    print("GROUP - SLeep Statistic")
+    print(df_group_sleep_statistics)
+    #TODO SUBJECTS COLUMN ISNT CREATED - DOUBLE CHECK THE LAST PART
+    return
     ########################################################################
     #sleep transition matrix
     # Step 12
