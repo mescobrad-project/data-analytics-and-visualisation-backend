@@ -5222,7 +5222,11 @@ async def group_sleep_analysis_sensitivity_add_subject_add_channels_final(
     # df_second_fif_files_dataframe = pd.DataFrame(second_fif_files_subjects, columns=['subjects'])
 
     for group_name, group_data in df_group_sleep_statistics.items():
-        group_data = pd.concat([group_fif_files_subjects[group_name], group_data] , axis = 1)
+        # print("CONTACTING -------------------------------------------")
+        # print(group_fif_files_subjects[group_name])
+        # print(group_data)
+        df_group_sleep_statistics[group_name] = pd.concat([group_fif_files_subjects[group_name], group_data] , axis = 1)
+        # group_data = pd.concat([group_fif_files_subjects[group_name], group_data] , axis = 1)
 
     # df_first_sleep_statistics = pd.concat([df_first_fif_files_dataframe, df_first_sleep_statistics], axis = 1)
     # print('First folder - Sleep Statistics')
@@ -5234,7 +5238,6 @@ async def group_sleep_analysis_sensitivity_add_subject_add_channels_final(
 
     print("GROUP - SLeep Statistic")
     print(df_group_sleep_statistics)
-    #TODO SUBJECTS COLUMN ISNT CREATED - DOUBLE CHECK THE LAST PART
     return
     ########################################################################
     #sleep transition matrix
