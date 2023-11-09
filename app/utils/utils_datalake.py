@@ -1,13 +1,16 @@
+import os
+
 from minio import Minio, error
 
 from scipy import stats
 import numpy as np
 
 # Create client with access key and secret key.
+
 new_client = Minio(
     "storage.mescobrad.digital-enabler.eng.it",
-    access_key="mescobrad-user",
-    secret_key="AaA123456789"
+    access_key=os.getenv("MINIO_ACCESS_KEY"),
+    secret_key=os.getenv("MINIO_SECRET_KEY"),
 )
 
 
