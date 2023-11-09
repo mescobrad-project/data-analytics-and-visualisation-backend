@@ -7,7 +7,7 @@ import numpy as np
 new_client = Minio(
     "storage.mescobrad.digital-enabler.eng.it",
     access_key="mescobrad-user",
-    secret_key="DWnqw7Bp"
+    secret_key="AaA123456789"
 )
 
 

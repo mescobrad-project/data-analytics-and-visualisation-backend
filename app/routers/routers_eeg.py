@@ -5246,13 +5246,18 @@ async def group_sleep_analysis_sensitivity_add_subject_add_channels_final(
 
     sensitivity02_counts_list = []
     sensitivity02_probs_list = []
-    for i in range(len(hypnosensitivity02list_all)):
-        counts, probs = yasa.transition_matrix(hypnosensitivity02list_all[i])
+
+    for i in range(len(group_hypno_sens_02)):
+        counts, probs = yasa.transition_matrix(group_hypno_sens_02[i])
         sensitivity02_counts_list.append(counts)
         sensitivity02_probs_list.append(probs.round(3))
 
-    # Sensitivity Analysis 03
+    # for i in range(len(hypnosensitivity02list_all)):
+    #     counts, probs = yasa.transition_matrix(hypnosensitivity02list_all[i])
+    #     sensitivity02_counts_list.append(counts)
+    #     sensitivity02_probs_list.append(probs.round(3))
 
+    # Sensitivity Analysis 03
     sensitivity03_counts_list_firsthalf = []
     sensitivity03_probs_list_firsthalf = []
 
