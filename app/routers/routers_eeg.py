@@ -4766,7 +4766,7 @@ async def group_sleep_analysis_sensitivity_add_subject_add_channels_final(
                                                                     workflow_id: str,
                                                                     step_id: str,
                                                                     run_id: str,
-                                                                    # sampling_frequency: int,
+                                                                    sampling_frequency: int,
                                                                     # channels_selection: list[str] ):
                                                                     channels_selection: list[str] | None = Query(default=[])):
                                                                     # channels_selection: Annotated [list[str] | None, Query(default=[])]):
@@ -5238,7 +5238,7 @@ async def group_sleep_analysis_sensitivity_add_subject_add_channels_final(
 
     print("GROUP - SLeep Statistic")
     print(df_group_sleep_statistics)
-    return
+
     ########################################################################
     #sleep transition matrix
     # Step 12
@@ -5258,6 +5258,7 @@ async def group_sleep_analysis_sensitivity_add_subject_add_channels_final(
     #     sensitivity02_probs_list.append(probs.round(3))
 
     # Sensitivity Analysis 03
+
     sensitivity03_counts_list_firsthalf = []
     sensitivity03_probs_list_firsthalf = []
 
@@ -5272,37 +5273,87 @@ async def group_sleep_analysis_sensitivity_add_subject_add_channels_final(
         sensitivity03_counts_list_secondhalf.append(counts)
         sensitivity03_probs_list_secondhalf.append(probs.round(3))
 
+
+    print("Sensitivity 2-3 RESULTS _____--------------------------")
+    print("sensitivity02_counts_list")
+    print(sensitivity02_counts_list)
+    print("sensitivity02_probs_list")
+    print(sensitivity02_probs_list)
+    print("sensitivity03_counts_list_firsthalf")
+    print(sensitivity03_counts_list_firsthalf)
+    print("sensitivity03_probs_list_firsthalf")
+    print(sensitivity03_probs_list_firsthalf)
+    print("sensitivity03_counts_list_secondhalf")
+    print(sensitivity03_counts_list_secondhalf)
+    print("sensitivity03_probs_list_secondhalf")
+    print(sensitivity03_probs_list_secondhalf)
+
     ################################################
 
-    counts_first = []
-    probs_first = []
-    for i in range(len(df_first_hypnos)):
-        path = 'UU_Sleep_final/Group_1/' + str(df_first_hypnos[i])
-        df = pd.read_csv(path)
-        counts, probs = yasa.transition_matrix(np.squeeze(df.to_numpy()))
-        counts_first.append(counts)
-        probs_first.append(probs.round(3))
+    group_counts = {}
+    group_probs = {}
 
-    counts_second = []
-    probs_second = []
-    for i in range(len(df_second_hypnos)):
-        path = 'UU_Sleep_final/Group_2/' + str(df_second_hypnos[i])
-        df = pd.read_csv(path)
-        counts, probs = yasa.transition_matrix(np.squeeze(df.to_numpy()))
-        counts_second.append(counts)
-        probs_second.append(probs.round(3))
+    for group_name, group_data in dict_group_files.items():
+        temp_counts = []
+        temp_probs = []
+        for entries in group_data["list_hypno_files"]:
+            path = os.path.join(path_to_groups,
+                                group_name, entries)
+            df = pd.read_csv(path)
+            counts, probs = yasa.transition_matrix(np.squeeze(df.to_numpy()))
+            temp_counts.append(counts)
+            temp_probs.append(probs.round(3))
+        group_counts[group_name] = temp_counts
+        group_probs[group_name] = temp_probs
 
-    #Concatenate lists
-    Sleepmatrix_counts_list = counts_first + counts_second
-    Sleepmatrix_probs_list = probs_first + probs_second
+    # counts_first = []
+    # probs_first = []
+    #
+    # for i in range(len(df_first_hypnos)):
+    #     path = 'UU_Sleep_final/Group_1/' + str(df_first_hypnos[i])
+    #     df = pd.read_csv(path)
+    #     counts, probs = yasa.transition_matrix(np.squeeze(df.to_numpy()))
+    #     counts_first.append(counts)
+    #     probs_first.append(probs.round(3))
+    #
+    # counts_second = []
+    # probs_second = []
+    # for i in range(len(df_second_hypnos)):
+    #     path = 'UU_Sleep_final/Group_2/' + str(df_second_hypnos[i])
+    #     df = pd.read_csv(path)
+    #     counts, probs = yasa.transition_matrix(np.squeeze(df.to_numpy()))
+    #     counts_second.append(counts)
+    #     probs_second.append(probs.round(3))
 
-    #Worthless transitions
+    # Concatenate lists
+    Sleepmatrix_counts_list = []
+    for group_name, group_data in group_counts.items():
+        Sleepmatrix_counts_list = Sleepmatrix_counts_list + group_data
+
+    Sleepmatrix_probs_list = []
+    for group_name, group_data in group_probs.items():
+        Sleepmatrix_probs_list = Sleepmatrix_probs_list + group_data
+
+    # Sleepmatrix_counts_list = counts_first + counts_second
+    # Sleepmatrix_probs_list = probs_first + probs_second
+
+    print("Sleepmatrix_counts_list")
+    print(Sleepmatrix_counts_list)
+    print("Sleepmatrix_probs_list")
+    print(Sleepmatrix_probs_list)
+
+
+    # Worthless transitions
     worthless_transitions = []
-    worthless_first_transitions = []
-    worthless_second_transitions = []
+    group_worthless_transitions = {}
+    # worthless_first_transitions = []
+    # worthless_second_transitions = []
     worthless_firsthalf_transitions = []
     worthless_secondhalf_transitions = []
     worthless_sens02_transitions = []
+
+
+
 
     for i in range(len(Sleepmatrix_counts_list)):
         temp = Sleepmatrix_counts_list[i] == 0
@@ -5332,76 +5383,120 @@ async def group_sleep_analysis_sensitivity_add_subject_add_channels_final(
     print("Sensitivity 03 - second half")
     print(reduce(lambda x, y: x.add(y, fill_value=0), worthless_secondhalf_transitions))
 
-    for i in range(len(counts_first)):
-        temp = counts_first[i] == 0
-        temp.iloc[:,0:] = temp.iloc[:,0:].replace({True:1, False:0})
-        worthless_first_transitions.append(temp)
 
-    print(reduce(lambda x, y: x.add(y, fill_value=0), worthless_first_transitions))
 
-    for i in range(len(counts_second)):
-        temp = counts_second[i] == 0
-        temp.iloc[:,0:] = temp.iloc[:,0:].replace({True:1, False:0})
-        worthless_second_transitions.append(temp)
+    for group_name, group_data in group_counts.items():
+        temp_worthless = []
+        for i in range(len(group_data)):
+            temp = group_data[i] == 0
+            temp.iloc[:, 0:] = temp.iloc[:, 0:].replace({True: 1, False: 0})
+            temp_worthless.append(temp)
+        group_worthless_transitions[group_name] = temp_worthless
+        print(group_name)
+        print(reduce(lambda x, y: x.add(y, fill_value=0), temp_worthless))
 
-    print(reduce(lambda x, y: x.add(y, fill_value=0), worthless_second_transitions))
+    # for i in range(len(counts_first)):
+    #     temp = counts_first[i] == 0
+    #     temp.iloc[:,0:] = temp.iloc[:,0:].replace({True:1, False:0})
+    #     worthless_first_transitions.append(temp)
+    #
+    # print(reduce(lambda x, y: x.add(y, fill_value=0), worthless_first_transitions))
+    #
+    # for i in range(len(counts_second)):
+    #     temp = counts_second[i] == 0
+    #     temp.iloc[:,0:] = temp.iloc[:,0:].replace({True:1, False:0})
+    #     worthless_second_transitions.append(temp)
+    #
+    # print(reduce(lambda x, y: x.add(y, fill_value=0), worthless_second_transitions))
 
+    # probs
+    group_probs_sleep_matrix = {}
+
+    for group_name, group_data in group_probs.items():
+        temp_WAKE_trans = []
+        temp_N1_trans = []
+        temp_N2_trans = []
+        temp_N3_trans = []
+        temp_REM_trans = []
+        for i in range(len(group_data)):
+            temp = group_data[i][0:1]
+            temp2 = group_data[i][1:2]
+            temp3 = group_data[i][2:3]
+            temp4 = group_data[i][3:4]
+            temp5 = group_data[i][4:5]
+            temp_WAKE_trans.append(temp)
+            temp_N1_trans.append(temp2)
+            temp_N2_trans.append(temp3)
+            temp_N3_trans.append(temp4)
+            temp_REM_trans.append(temp5)
+
+        df_WAKE_trans = pd.concat(temp_WAKE_trans, keys=dict_group_files[group_name]["list_fif_files"])
+        df_N1_trans = pd.concat(temp_N1_trans, keys=dict_group_files[group_name]["list_fif_files"])
+        df_N2_trans = pd.concat(temp_N2_trans, keys=dict_group_files[group_name]["list_fif_files"])
+        df_N3_trans = pd.concat(temp_N3_trans, keys=dict_group_files[group_name]["list_fif_files"])
+        df_REM_trans = pd.concat(temp_REM_trans, keys=dict_group_files[group_name]["list_fif_files"])
+        temp_probs_Sleep_Matrix = pd.concat([df_WAKE_trans, df_N1_trans, df_N2_trans, df_N3_trans, df_REM_trans])
+        print("%s folder",group_name )
+        print(temp_probs_Sleep_Matrix)
+        group_probs_sleep_matrix[group_name] = temp_probs_Sleep_Matrix
+
+    return
     #probs
-    WAKE_trans = []
-    N1_trans = []
-    N2_trans = []
-    N3_trans = []
-    REM_trans = []
-
-    for i in range(len(probs_first)):
-        temp = probs_first[i][0:1]
-        temp2 = probs_first[i][1:2]
-        temp3 = probs_first[i][2:3]
-        temp4 = probs_first[i][3:4]
-        temp5 = probs_first[i][4:5]
-        WAKE_trans.append(temp)
-        N1_trans.append(temp2)
-        N2_trans.append(temp3)
-        N3_trans.append(temp4)
-        REM_trans.append(temp5)
-
-    df_WAKE_trans = pd.concat(WAKE_trans, keys=df_first_fif_files)
-    df_N1_trans = pd.concat(N1_trans, keys=df_first_fif_files)
-    df_N2_trans = pd.concat(N2_trans, keys=df_first_fif_files)
-    df_N3_trans = pd.concat(N3_trans, keys=df_first_fif_files)
-    df_REM_trans = pd.concat(REM_trans, keys=df_first_fif_files)
-
-    first_probs_Sleep_Matrix = pd.concat([df_WAKE_trans, df_N1_trans, df_N2_trans, df_N3_trans, df_REM_trans])
-    print("first folder")
-    print(first_probs_Sleep_Matrix)
-
-    WAKE_trans = []
-    N1_trans = []
-    N2_trans = []
-    N3_trans = []
-    REM_trans = []
-
-    for i in range(len(probs_second)):
-        temp = probs_second[i][0:1]
-        temp2 = probs_second[i][1:2]
-        temp3 = probs_second[i][2:3]
-        temp4 = probs_second[i][3:4]
-        temp5 = probs_second[i][4:5]
-        WAKE_trans.append(temp)
-        N1_trans.append(temp2)
-        N2_trans.append(temp3)
-        N3_trans.append(temp4)
-        REM_trans.append(temp5)
-
-    df_WAKE_trans = pd.concat(WAKE_trans, keys=df_second_fif_files)
-    df_N1_trans = pd.concat(N1_trans, keys=df_second_fif_files)
-    df_N2_trans = pd.concat(N2_trans, keys=df_second_fif_files)
-    df_N3_trans = pd.concat(N3_trans, keys=df_second_fif_files)
-    df_REM_trans = pd.concat(REM_trans, keys=df_second_fif_files)
-
-    second_probs_Sleep_Matrix = pd.concat([df_WAKE_trans, df_N1_trans, df_N2_trans, df_N3_trans, df_REM_trans])
-    print("second folder")
-    print(second_probs_Sleep_Matrix)
+    # WAKE_trans = []
+    # N1_trans = []
+    # N2_trans = []
+    # N3_trans = []
+    # REM_trans = []
+    #
+    # for i in range(len(probs_first)):
+    #     temp = probs_first[i][0:1]
+    #     temp2 = probs_first[i][1:2]
+    #     temp3 = probs_first[i][2:3]
+    #     temp4 = probs_first[i][3:4]
+    #     temp5 = probs_first[i][4:5]
+    #     WAKE_trans.append(temp)
+    #     N1_trans.append(temp2)
+    #     N2_trans.append(temp3)
+    #     N3_trans.append(temp4)
+    #     REM_trans.append(temp5)
+    #
+    # df_WAKE_trans = pd.concat(WAKE_trans, keys=df_first_fif_files)
+    # df_N1_trans = pd.concat(N1_trans, keys=df_first_fif_files)
+    # df_N2_trans = pd.concat(N2_trans, keys=df_first_fif_files)
+    # df_N3_trans = pd.concat(N3_trans, keys=df_first_fif_files)
+    # df_REM_trans = pd.concat(REM_trans, keys=df_first_fif_files)
+    #
+    # first_probs_Sleep_Matrix = pd.concat([df_WAKE_trans, df_N1_trans, df_N2_trans, df_N3_trans, df_REM_trans])
+    # print("first folder")
+    # print(first_probs_Sleep_Matrix)
+    #
+    # WAKE_trans = []
+    # N1_trans = []
+    # N2_trans = []
+    # N3_trans = []
+    # REM_trans = []
+    #
+    # for i in range(len(probs_second)):
+    #     temp = probs_second[i][0:1]
+    #     temp2 = probs_second[i][1:2]
+    #     temp3 = probs_second[i][2:3]
+    #     temp4 = probs_second[i][3:4]
+    #     temp5 = probs_second[i][4:5]
+    #     WAKE_trans.append(temp)
+    #     N1_trans.append(temp2)
+    #     N2_trans.append(temp3)
+    #     N3_trans.append(temp4)
+    #     REM_trans.append(temp5)
+    #
+    # df_WAKE_trans = pd.concat(WAKE_trans, keys=df_second_fif_files)
+    # df_N1_trans = pd.concat(N1_trans, keys=df_second_fif_files)
+    # df_N2_trans = pd.concat(N2_trans, keys=df_second_fif_files)
+    # df_N3_trans = pd.concat(N3_trans, keys=df_second_fif_files)
+    # df_REM_trans = pd.concat(REM_trans, keys=df_second_fif_files)
+    #
+    # second_probs_Sleep_Matrix = pd.concat([df_WAKE_trans, df_N1_trans, df_N2_trans, df_N3_trans, df_REM_trans])
+    # print("second folder")
+    # print(second_probs_Sleep_Matrix)
 
     # Sensitivity Analysis 02
 
