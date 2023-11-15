@@ -24,6 +24,15 @@ def get_single_file_from_local_temp_storage(workflow_id, run_id, step_id):
     files_to_return = [f for f in os.listdir(NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id) if isfile(join(NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id, f))]
     return files_to_return[0]
 
+def get_single_nii_file_from_local_temp_storage(workflow_id, run_id, step_id):
+    """Function to lazily retrieve name of a nii file from local storage"""
+    files_to_return = [f for f in os.listdir(NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id) if isfile(join(NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id, f))]
+    for file in files_to_return:
+        if not file.endswith(".nii"):
+            files_to_return.remove(file)
+
+    return files_to_return[0]
+
 def get_single_edf_file_from_local_temp_storage(workflow_id, run_id, step_id):
     """Function to lazily retrieve name of file from local storage when there is a single file"""
     files_to_return = [f for f in os.listdir(NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id) if isfile(join(NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id, f)) and (f.endswith(".edf"))]
