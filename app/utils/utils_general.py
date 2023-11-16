@@ -99,9 +99,10 @@ def create_local_step(workflow_id, run_id, step_id, files_to_download):
     print("CREATING LOCAL STEP")
     print(files_to_download)
     path_to_save = NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id
-    os.makedirs(path_to_save, exist_ok=True)
-    os.makedirs(path_to_save + '/output', exist_ok=True)
-    os.makedirs(path_to_save + '/neurodesk_interim_storage', exist_ok=True)
+    os.umask(0)
+    os.makedirs(path_to_save,  mode=0o777, exist_ok=True)
+    os.makedirs(path_to_save + '/output',  mode=0o777, exist_ok=True)
+    os.makedirs(path_to_save + '/neurodesk_interim_storage',  mode=0o777, exist_ok=True)
     # Download all files indicated
     for file_to_download in files_to_download:
         # print("file_to_download")
