@@ -5440,7 +5440,7 @@ async def group_sleep_analysis_sensitivity_add_subject_add_channels_final(
         print(temp_probs_Sleep_Matrix)
         group_probs_sleep_matrix[group_name] = temp_probs_Sleep_Matrix
 
-    return
+
     #probs
     # WAKE_trans = []
     # N1_trans = []
@@ -5499,6 +5499,8 @@ async def group_sleep_analysis_sensitivity_add_subject_add_channels_final(
     # print(second_probs_Sleep_Matrix)
 
     # Sensitivity Analysis 02
+
+
 
     WAKE_trans = []
     N1_trans = []
@@ -5588,6 +5590,7 @@ async def group_sleep_analysis_sensitivity_add_subject_add_channels_final(
     print("Sensitivity Analysis 03 - Second Half")
     print(sensitivity03_second_half_probs_Sleep_Matrix)
 
+
     # Sleep fragmentation from probs
 
     sleep_stability_list = []
@@ -5600,25 +5603,39 @@ async def group_sleep_analysis_sensitivity_add_subject_add_channels_final(
     print('Both folders')
     print(df_sleep_stability_all)
 
-    sleep_stability_list_first = []
-    for i in range(len(probs_first)):
-        stability_temp = np.diag(probs_first[i].loc[2:, 2:]).mean().round(3)
-        sleep_stability_list_first.append(stability_temp)
 
-    df_sleep_stability_first = pd.DataFrame(sleep_stability_list_first)
-    df_sleep_stability_first = pd.concat([df_first_fif_files_dataframe, df_sleep_stability_first], axis=1)
-    print("First Folder")
-    print(df_sleep_stability_first)
+    group_sleep_stability_list = {}
+    for group_name, group_data in group_probs.items():
+        temp_sleep_stability_list = []
+        for i in range(len(group_data)):
+            stability_temp = np.diag(group_data[i].loc[2:, 2:]).mean().round(3)
+            temp_sleep_stability_list.append(stability_temp)
+        df_sleep_stability_temp = pd.DataFrame(temp_sleep_stability_list)
+        df_sleep_stability_temp = pd.concat([group_fif_files_subjects[group_name], df_sleep_stability_temp], axis=1)
+        print("Folder ", group_name )
+        print(df_sleep_stability_temp)
+        group_sleep_stability_list[group_name] = df_sleep_stability_temp
 
-    sleep_stability_list_second = []
-    for i in range(len(probs_second)):
-        stability_temp = np.diag(probs_second[i].loc[2:, 2:]).mean().round(3)
-        sleep_stability_list_second.append(stability_temp)
 
-    df_sleep_stability_second = pd.DataFrame(sleep_stability_list_second)
-    df_sleep_stability_second = pd.concat([df_second_fif_files_dataframe, df_sleep_stability_second], axis=1)
-    print("Second Folder")
-    print(df_sleep_stability_second)
+    # sleep_stability_list_first = []
+    # for i in range(len(probs_first)):
+    #     stability_temp = np.diag(probs_first[i].loc[2:, 2:]).mean().round(3)
+    #     sleep_stability_list_first.append(stability_temp)
+    #
+    # df_sleep_stability_first = pd.DataFrame(sleep_stability_list_first)
+    # df_sleep_stability_first = pd.concat([df_first_fif_files_dataframe, df_sleep_stability_first], axis=1)
+    # print("First Folder")
+    # print(df_sleep_stability_first)
+    #
+    # sleep_stability_list_second = []
+    # for i in range(len(probs_second)):
+    #     stability_temp = np.diag(probs_second[i].loc[2:, 2:]).mean().round(3)
+    #     sleep_stability_list_second.append(stability_temp)
+    #
+    # df_sleep_stability_second = pd.DataFrame(sleep_stability_list_second)
+    # df_sleep_stability_second = pd.concat([df_second_fif_files_dataframe, df_sleep_stability_second], axis=1)
+    # print("Second Folder")
+    # print(df_sleep_stability_second)
 
     # Sensitivity 02
 
@@ -5656,6 +5673,7 @@ async def group_sleep_analysis_sensitivity_add_subject_add_channels_final(
     print("Sensitivity 03 - second half")
     print(df_sleep_stability_all_sens03_secondhalf)
 
+    return
     #average
     z = 0
     for s in probs_first:
