@@ -5863,12 +5863,49 @@ async def group_sleep_analysis_sensitivity_add_subject_add_channels_final(
     print(df_bandpower_sens_03_second_half)
 
     # Prepare return
+
+    # Add row id to all dataframes
+    df_sensitivity_02_sleeps_statistics.insert(0, 'id', range(1, 1 + len(df_sensitivity_02_sleeps_statistics)))
+    df_sens03sleep_statisticsfirsthalf.insert(0, 'id', range(1, 1 + len(df_sens03sleep_statisticsfirsthalf)))
+    df_sens03sleep_statisticssecondhalf.insert(0, 'id', range(1, 1 + len(df_sens03sleep_statisticssecondhalf)))
+    sensitivity02_probs_Sleep_Matrix.insert(0, 'id', range(1, 1 + len(sensitivity02_probs_Sleep_Matrix)))
+    sensitivity03_first_half_probs_Sleep_Matrix.insert(0, 'id', range(1, 1 + len(sensitivity03_first_half_probs_Sleep_Matrix)))
+    sensitivity03_second_half_probs_Sleep_Matrix.insert(0, 'id', range(1, 1 + len(sensitivity03_second_half_probs_Sleep_Matrix)))
+    df_sleep_stability_all.insert(0, 'id', range(1, 1 + len(df_sleep_stability_all)))
+    df_sleep_stability_sens02.insert(0, 'id', range(1, 1 + len(df_sleep_stability_sens02)))
+    df_sleep_stability_all_sens03_firsthalf.insert(0, 'id', range(1, 1 + len(df_sleep_stability_all_sens03_firsthalf)))
+    df_sleep_stability_all_sens03_secondhalf.insert(0, 'id', range(1, 1 + len(df_sleep_stability_all_sens03_secondhalf)))
+    df_bandpower_all.insert(0, 'id', range(1, 1 + len(df_bandpower_all)))
+    df_bandpower_sens_03_first_half.insert(0, 'id', range(1, 1 + len(df_bandpower_sens_03_first_half)))
+    df_bandpower_sens_03_second_half.insert(0, 'id', range(1, 1 + len(df_bandpower_sens_03_second_half)))
+
+    # df_bandpower_sens_03_first_half.insert(0, 'id', range(1, 1 + len(df_bandpower_sens_03_first_half)))
+    # df_bandpower_sens_03_second_half.insert(0, 'id', range(1, 1 + len(df_bandpower_sens_03_second_half)))
+
+    for i, data in df_group_sleep_statistics.items():
+        data.insert(0, 'id', range(1, 1 + len(data)))
+
+    for i, data in group_probs_sleep_matrix.items():
+        data.insert(0, 'id', range(1, 1 + len(data)))
+
+    for i, data in group_sleep_stability_list.items():
+        data.insert(0, 'id', range(1, 1 + len(data)))
+
+    # for i, data in df_group_sleep_statistics.items():
+    #     data.insert(0, 'id', range(1, 1 + len(data)))
+    # Create Json to send
     result_sensitivity_02_sleep_statistics = df_sensitivity_02_sleeps_statistics.to_json(orient='records')
     result_sensitivity_03_sleep_statistics_first_half_list = df_sens03sleep_statisticsfirsthalf.to_json(orient='records')
     result_sensitivity_03_sleep_statistics_second_half_list = df_sens03sleep_statisticssecondhalf.to_json(orient='records')
     result_group_sleep_statistics = [
         data.to_json(orient='records') for i, data in
         df_group_sleep_statistics.items()]
+
+    #
+    # worthless_sens02_transitions.insert(0, 'id', range(1, 1 + len(worthless_sens02_transitions)))
+    # worthless_firsthalf_transitions.insert(0, 'id', range(1, 1 + len(worthless_firsthalf_transitions)))
+    # worthless_secondhalf_transitions.insert(0, 'id', range(1, 1 + len(worthless_secondhalf_transitions)))
+
     result_sensitivity_02_worthless = reduce(
         lambda x, y: x.add(y, fill_value=0),
         worthless_sens02_transitions).to_json(
@@ -5881,6 +5918,7 @@ async def group_sleep_analysis_sensitivity_add_subject_add_channels_final(
         lambda x, y: x.add(y, fill_value=0),
         worthless_secondhalf_transitions).to_json(
         orient='records')
+
     result_group_sleep_matrix = [data.to_json(orient='records') for i, data in group_probs_sleep_matrix.items()]
     result_sensitivity_02_sleep_matrix = sensitivity02_probs_Sleep_Matrix.to_json(orient='records')
     result_sensitivity_03_sleep_matrix_first_half = sensitivity03_first_half_probs_Sleep_Matrix.to_json(orient='records')
