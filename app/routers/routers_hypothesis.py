@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 import json
-
+import random
 import sklearn.preprocessing
 from sklearn.cross_decomposition import CCA
 from sklearn.manifold import MDS, TSNE
@@ -49,6 +49,8 @@ from statsmodels.discrete.conditional_models import ConditionalLogit
 from zepid.base import RiskRatio, RiskDifference, OddsRatio, IncidenceRateRatio, IncidenceRateDifference, NNT
 from zepid import load_sample_data
 from zepid.calc import risk_ci, incidence_rate_ci, risk_ratio, risk_difference, number_needed_to_treat, odds_ratio, incidence_rate_ratio, incidence_rate_difference
+
+from app.routers.routers_communication import task_complete
 # from app.pydantic_models import ModelMultipleComparisons
 from app.utils.utils_datalake import fget_object, get_saved_dataset_for_Hypothesis, upload_object
 from app.utils.utils_general import get_local_storage_path, get_single_file_from_local_temp_storage, load_data_from_csv, \
@@ -58,11 +60,16 @@ import seaborn as sns
 from datetime import datetime
 import os
 from os.path import isfile, join
+import math
+from sklearn.preprocessing import StandardScaler
 
 from app.utils.utils_hypothesis import create_plots, compute_skewness, outliers_removal, compute_kurtosis, \
     statisticsMean, statisticsMin, statisticsMax, statisticsStd, statisticsCov, statisticsVar, statisticsStandardError, \
     statisticsConfidenceLevel
 from semopy import Model, estimate_means, ModelMeans, semplot, calc_stats, gather_statistics, Optimizer, efa
+import plotly.express as px
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
 router = APIRouter()
 # data = pd.read_csv('example_data/mescobrad_dataset.csv')
@@ -77,7 +84,8 @@ def normality_test_content_results(column: str, selected_dataframe,path_to_stora
             # Creating QQ-plot
             html_str = create_plots(plot_type='QQPlot', column=column, second_column='', selected_dataframe=selected_dataframe, path_to_storage=path_to_storage, filename='QQPlot')
             # Creating Probability-plot
-            html_str_P = create_plots(plot_type='PPlot', column=column, second_column='', selected_dataframe=selected_dataframe, path_to_storage=path_to_storage, filename='PPlot')
+            html_str_P = ''
+            # html_str_P = create_plots(plot_type='PPlot', column=column, second_column='', selected_dataframe=selected_dataframe, path_to_storage=path_to_storage, filename='PPlot')
             #Creating histogram
             html_str_H = create_plots(plot_type='HistogramPlot', column=column, second_column='', selected_dataframe=selected_dataframe, path_to_storage=path_to_storage, filename='HistogramPlot')
             skewtosend = compute_skewness(column, selected_dataframe)
@@ -87,17 +95,19 @@ def normality_test_content_results(column: str, selected_dataframe,path_to_stora
             standard_error = statisticsStandardError(column, selected_dataframe)
             # Used Statistics lib for cross-checking
             # standard_deviation = statistics.stdev(data[str(column)])
-            median_value = float(np.percentile(selected_dataframe[str(column)], 50))
+            median_value = float(np.percentile(selected_dataframe[str(column)], 50)) if not math.isnan(float(np.percentile(selected_dataframe[str(column)], 50))) else ''
             # Used a different way to calculate Median
             # TODO: we must investigate why it returns a different value
             # med2 = np.median(data[str(column)])
-            mean_value = np.mean(selected_dataframe[str(column)])
+            mean_value = np.mean(selected_dataframe[str(column)]) if not np.isinf(np.mean(selected_dataframe[str(column)])) else ''
             num_rows = selected_dataframe[str(column)].shape
             top5 = sorted(selected_dataframe[str(column)].tolist(), reverse=True)[:5]
             last5 = sorted(selected_dataframe[str(column)].tolist(), reverse=True)[-5:]
+
             confidence_level = statisticsConfidenceLevel(column, selected_dataframe,0.95)
             return {'plot_column': column, 'qqplot': html_str, 'histogramplot': html_str_H, 'boxplot': html_str_B, 'probplot': html_str_P, 'skew': skewtosend, 'kurtosis': kurtosistosend, 'standard_deviation': st_dev,'standard_error':standard_error, "median": median_value, "mean": mean_value, "sample_N": num_rows, "top_5": top5, "last_5": last5, 'sample_variance':sample_variance,'confidence_level':confidence_level}
         else:
+            print('The type of:' + column +' is:'+ str(selected_dataframe[column].dtypes))
             raise Exception
     except Exception as e:
         print('normality_test_content_results  ' +e.__str__())
@@ -106,18 +116,22 @@ def normality_test_content_results(column: str, selected_dataframe,path_to_stora
 def transformation_extra_content_results(column_In: str, column_Out:str, selected_dataframe,path_to_storage:str):
     try:
         if (selected_dataframe[column_In].dtypes == 'float64' or selected_dataframe[column_In].dtypes == 'int64'):
-            fig = plt.figure()
-            plt.plot(selected_dataframe[str(column_In)], selected_dataframe[str(column_In)],
-                     color='blue', marker="*")
-            plt.plot(selected_dataframe[str(column_Out)], selected_dataframe[str(column_In)],
-                     color='red', marker="o")
-            plt.title("Transformed data Comparison")
-            plt.xlabel("out_array")
-            plt.ylabel("in_array")
-            plt.savefig(path_to_storage + "/output/ComparisonPlot.svg", format="svg")
-            plt.show()
-            html_str_Transf = mpld3.fig_to_html(fig)
-            return html_str_Transf
+            # fig = plt.figure()
+            # plt.plot(selected_dataframe[str(column_In)], selected_dataframe[str(column_In)],
+            #          color='blue', marker="*")
+            # plt.plot(selected_dataframe[str(column_Out)], selected_dataframe[str(column_In)],
+            #          color='red', marker="o")
+            fig = px.scatter(selected_dataframe, x=str(column_In), y=str(column_Out), labels={'x':"Original Values", 'y':"Transformed Values"})
+            fig.write_image(path_to_storage + "/output/ComparisonPlot.svg")
+            html_str = fig.to_json(pretty=True)
+
+            # plt.title("Transformed data Comparison")
+            # plt.xlabel("Original Values")
+            # plt.ylabel("Transformed Values")
+            # plt.savefig(path_to_storage + "/output/ComparisonPlot.svg", format="svg")
+            # plt.show()
+            # html_str_Transf = mpld3.fig_to_html(fig)
+            return html_str
         else:
             raise Exception
     except Exception as e:
@@ -259,7 +273,7 @@ async def normal_tests(workflow_id: str, step_id: str, run_id: str,
                                                    regex="^(Shapiro-Wilk)$|^(Kolmogorov-Smirnov)$|^(Anderson-Darling)$|^(D’Agostino’s K\^2)$|^(Jarque-Bera)$")) -> dict:
 
     dfv = pd.DataFrame()
-    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    # path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
     test_status = ''
     # Load Datasets
@@ -273,6 +287,8 @@ async def normal_tests(workflow_id: str, step_id: str, run_id: str,
 
         data = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
         column = dfv['Variable'][0]
+        # Remove Nans for the calculations
+        data = data.dropna(subset=[str(column)])
 
         results_to_send = normality_test_content_results(column, data, path_to_storage)
         # region AmCharts_CODE_REGION
@@ -319,6 +335,7 @@ async def normal_tests(workflow_id: str, step_id: str, run_id: str,
                 'standard_error':results_to_send['standard_error'],
                 'median': results_to_send['median'],
                 'mean': results_to_send['mean'],
+                'confidence_level': results_to_send['confidence_level'],
                 'sample_N': results_to_send['sample_N'],
                 'top_5': results_to_send['top_5'],
                 'last_5': results_to_send['last_5']
@@ -447,7 +464,12 @@ async def transform_data(workflow_id: str,
             cbrt_array = np.cbrt(data[str(column)])
             data[newColumnName] = cbrt_array
 
+        # Remove inf
+        data[newColumnName] = data[newColumnName].replace([np.inf, -np.inf], np.nan)
         data.to_csv(path_to_storage + '/output/new_dataset.csv', index=False)
+        # Remove Nans for the calculations
+        data = data.dropna(subset=[str(newColumnName)])
+
         results_to_send = normality_test_content_results(newColumnName, data, path_to_storage)
         if results_to_send == -1:
             results_to_send = {'plot_column': "", 'qqplot': "", 'histogramplot': "", 'boxplot': "", 'probplot': "",
@@ -458,7 +480,6 @@ async def transform_data(workflow_id: str,
         if results_to_send_extra== -1:
             results_to_send['transf_plot']=''
             raise Exception
-
         results_to_send['transf_plot'] = results_to_send_extra
         # Prepare content for info.json
         new_data = {
@@ -478,6 +499,9 @@ async def transform_data(workflow_id: str,
                 'standard_deviation': results_to_send['standard_deviation'],
                 'median': results_to_send['median'],
                 'mean': results_to_send['mean'],
+                'standard_error': results_to_send['standard_error'],
+                'sample_variance': results_to_send['sample_variance'],
+                'confidence_level': results_to_send['confidence_level'],
                 'sample_N': results_to_send['sample_N'],
                 'top_5': results_to_send['top_5'],
                 'last_5': results_to_send['last_5']
@@ -502,7 +526,9 @@ async def transform_data(workflow_id: str,
             f.seek(0)
             json.dump(file_data, f, indent=4)
             f.truncate()
-        return JSONResponse(content={'status': 'Success','transformed array': data[newColumnName].to_json(orient='records'), 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}, status_code=200)
+
+        return JSONResponse(content={'status': 'Success','transformed array': data[newColumnName].to_json(orient='records'), 'data': {}, 'results': results_to_send}, status_code=200)
+        # return JSONResponse(content={'status': 'Success','transformed array': data[newColumnName].to_json(orient='records'), 'data': tabulate(data, headers='keys', tablefmt='html'), 'results': results_to_send}, status_code=200)
     except Exception as e:
         print(e)
         return JSONResponse(content={'status':test_status +'\n'+ e.__str__(),'transformed array': {}, 'data': {}, 'results': {}}, status_code=200)
@@ -1202,58 +1228,202 @@ async def LDA(workflow_id: str,
 
     # return {'coefficients': df_coefs.to_json(orient='split'), 'intercept': df_intercept.to_json(orient='split')}
 
-# TODO: Should we Delete this????
-# @router.get("/principal_component_analysis")
-# async def principal_component_analysis(workflow_id: str,
-#                                        step_id: str,
-#                                        run_id: str,
-#                                        n_components_1: int | None = Query(default=None),
-#                                        n_components_2: float | None = Query(default=None, gt=0, lt=1),
-#                                        independent_variables: list[str] | None = Query(default=None)):
-#     dataset = load_file_csv_direct(workflow_id, run_id, step_id)
-#     for columns in dataset.columns:
-#         if columns not in independent_variables:
-#             dataset = dataset.drop(str(columns), axis=1)
-#
-#     X = np.array(dataset)
-#     list_1 = []
-#     list_1.append(int(np.shape(X)[0]))
-#     list_1.append(int(np.shape(X)[1]))
-#     dim = min(list_1)
-#
-#     if n_components_2 == None:
-#         if n_components_1 > dim:
-#             return {'Error: n_components must be between 0 and min(n_samples, n_features)=': dim}
-#         pca = PCA(n_components=n_components_1)
-#         pca_t = pca.fit_transform(X)
-#         principal_Df = pd.DataFrame(data=pca_t, columns=["principalcomponent1", "principalcomponent2"])
-#         # principal_Df = pd.DataFrame(data=pca_t,
-#         #                             columns=['principal component 1', 'principal component 2'])
-#         print(principal_Df)
-#         print(dataset)
-#         pca.fit(X)
-#     else:
-#         pca = PCA(n_components=n_components_2)
-#         pca.fit(X)
-#
-#     # principal_Df = pd.DataFrame(data=pca, columns=['principal component 1', 'principal component 2'])
-#
-#     return {
-#         'columns': dataset.columns.tolist(),
-#         'n_features_': pca.n_features_,
-#             'n_features_in_': pca.n_features_in_,
-#             'n_samples_': pca.n_samples_,
-#             'random_state': pca.random_state,
-#             'iterated_power': pca.iterated_power,
-#             'mean_': pca.mean_.tolist(),
-#             'explained_variance_': pca.explained_variance_.tolist(),
-#             'noise_variance_': pca.noise_variance_,
-#             'pve': pca.explained_variance_ratio_.tolist(),
-#             'singular_values': pca.singular_values_.tolist(),
-#             'principal_axes': pca.components_[0].tolist()}
-#     # return {'Percentage of variance explained by each of the selected components': pca.explained_variance_ratio_.tolist(),
-#     #             'The singular values corresponding to each of the selected components. ': pca.singular_values_.tolist(),
-#     #             'Principal axes in feature space, representing the directions of maximum variance in the data.' : pca.components_.tolist()}
+
+@router.get("/principal_component_analysis")
+async def principal_component_analysis(workflow_id: str,
+                                       step_id: str,
+                                       run_id: str,
+                                       categorical_variable: str,
+                                       n_components_1: int | None = Query(default=None),
+                                       svd_solver: str | None = Query("auto", regex="^(auto)$|^(full)$"),
+                                       independent_variables: list[str] | None = Query(default=None)):
+    dfv = pd.DataFrame()
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
+    try:
+        test_status = 'Dataset is not defined'
+        dfv['variables'] = independent_variables
+        dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
+        independent_variables = dfv["Variable"].tolist()
+        categorical_variable = categorical_variable.split("--")[1]
+        selected_datasources = pd.unique(dfv['Datasource'])
+        test_status = 'Unable to retrieve datasets'
+        # We expect only one here
+        dataset = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
+        categorical_variable_df = dataset[categorical_variable]
+
+        for columns in dataset.columns:
+            if columns not in np.append(independent_variables, categorical_variable):
+                dataset = dataset.drop(str(columns), axis=1)
+
+        X = dataset.loc[:, independent_variables].values
+        if n_components_1 > min(int(np.shape(X)[0]), int(np.shape(X)[1])):
+            test_status = 'components must be <= min(n_samples, n_features)'
+            raise Exception
+        X_norm = StandardScaler().fit_transform(X)  # normalizing the features
+        # print(X_norm.shape)
+        print(np.mean(X_norm))
+        print(np.std(X_norm))
+        feat_cols = ['feature' + str(i) for i in range(X_norm.shape[1])]
+        normalised_dataset = pd.DataFrame(X_norm, columns=feat_cols)
+        # print(normalised_dataset.tail())
+
+        pca_result = PCA(n_components=n_components_1, svd_solver=svd_solver)
+        principalComponents_pca_result = pca_result.fit_transform(X_norm)
+        # print(principalComponents_pca_result)
+        component_cols = ['principal_component_' + str(i) for i in range(n_components_1)]
+        principalComponents_Df = pd.DataFrame(data=principalComponents_pca_result
+                                           , columns=component_cols)
+        principalComponents_Df[categorical_variable]=dataset[categorical_variable]
+        # print(principalComponents_Df.tail())
+        print('Explained variation per principal component: {}'.format(pca_result.explained_variance_ratio_))
+        test_status = 'Unable to create scatter plot'
+        max_axs=0
+        for i in range(n_components_1):
+            for j in range(i + 1, n_components_1):
+                if i != j:
+                    max_axs+=1
+        # plt.figure(figsize=(10, 10))
+        if max_axs<=1:max_axs=2
+        fig, axs = plt.subplots(1, max_axs, figsize=(max_axs*8, 10),sharey='row')
+        k=-1
+        for i in range(n_components_1):
+            for j in range(i+1, n_components_1):
+                if i != j:
+                    # print('i: {}, j: {}'.format(i,j))
+                    # plt.figure()
+                    # plt.figure(figsize=(10, 10))
+                    # plt.xticks(fontsize=12)
+                    # plt.yticks(fontsize=14)
+                    k+=1
+                    axs[k].set_xlabel('Principal Component - '+str(i), fontsize=20)
+                    axs[k].set_ylabel('Principal Component - '+str(j), fontsize=20)
+                    # axs[k].legend(loc='upper left')
+
+                    axs[k].set_title("Principal Component Analysis", fontsize=20)
+                    targets = pd.unique(dataset[categorical_variable])
+                    colors = ["r", "g"] + ["#" + ''.join([random.choice('0123456789ABCDEF') for j in range(6)]) for i in range(len(targets)-2)]
+
+                    for target, color in zip(targets, colors):
+                        indicesToKeep = dataset[categorical_variable] == target
+                        axs[k].scatter(principalComponents_Df.loc[indicesToKeep, 'principal_component_'+str(i)]
+                                    , principalComponents_Df.loc[indicesToKeep, 'principal_component_'+str(j)], c=color, s=50)
+                        axs[k].legend(targets, prop={'size': 15})
+        # plt.show()
+        plt.tight_layout()
+        if max_axs==2:
+            fig.delaxes(axs[1])
+        plt.savefig(path_to_storage + "/output/PCA.svg", format="svg")
+
+        principal_axes = pd.DataFrame(pca_result.components_, columns=dataset.loc[:, independent_variables].columns,
+                                      index=component_cols)
+        principal_axes.insert(loc=0, column='Component', value=component_cols)
+        explained_variance = pd.DataFrame(pca_result.explained_variance_, columns=['Variance'])
+        explained_variance.insert(loc=0, column='Component', value=component_cols)
+        explained_variance_ratio = pd.DataFrame()
+        explained_variance_ratio = pd.DataFrame(pca_result.explained_variance_ratio_, columns=['Variance Ratio'])
+        explained_variance_ratio.insert(loc=0, column='Component', value=component_cols)
+        singular_values = pd.DataFrame(pca_result.singular_values_, columns=['Singular values'])
+        singular_values.insert(loc=0, column='Component', value=component_cols)
+        pd.DataFrame(data=principalComponents_pca_result,columns=component_cols).to_csv(path_to_storage + '/output/principalComponents_Df.csv', index=False)
+
+        # list_1 = []
+        # list_1.append(int(np.shape(X)[0]))
+        # list_1.append(int(np.shape(X)[1]))
+        # dim = min(list_1)
+        # if n_components_2 == None:
+        #     if n_components_1 > dim:
+        #         return {'Error: n_components must be between 0 and min(n_samples, n_features)=': dim}
+        #     pca = PCA(n_components=n_components_1)
+        #     pca_t = pca.fit_transform(X)
+        #     principal_Df = pd.DataFrame(data=pca_t, columns=["principalcomponent1", "principalcomponent2"])
+        #     # principal_Df = pd.DataFrame(data=pca_t,
+        #     #                             columns=['principal component 1', 'principal component 2'])
+        #     print(principal_Df)
+        #     print(dataset)
+        #     pca.fit(X)
+        # else:
+        #     pca = PCA(n_components=n_components_2)
+        #     pca.fit(X)
+
+    # principal_Df = pd.DataFrame(data=pca, columns=['principal component 1', 'principal component 2'])
+        test_status = 'Error in creating info file.'
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            # Load existing data into a dict.
+            file_data = json.load(f)
+            # Join new data
+            new_data = {
+                "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                "workflow_id": workflow_id,
+                "run_id": run_id,
+                "step_id": step_id,
+                "test_name": 'Principal component analysis',
+                "test_params": {
+                    "Independent variables": independent_variables
+                },
+                "test_results": {'columns': dataset.loc[:, independent_variables].columns.tolist(),
+                                     'n_features_': pca_result.n_features_,
+                                     'n_features_in_': pca_result.n_features_in_,
+                                    'n_samples_': pca_result.n_samples_,
+                                    'random_state': pca_result.random_state,
+                                    'iterated_power': pca_result.iterated_power,
+                                    'mean_': pca_result.mean_.tolist(),
+                                    'explained_variance_': explained_variance.to_dict(),
+                                    'noise_variance_': pca_result.noise_variance_,
+                                    'pve': explained_variance_ratio.to_dict(),
+                                    'singular_values': singular_values.to_dict(),
+                                    'principal_axes': principal_axes.to_dict()}}
+            file_data['results'] = new_data
+            file_data['Output_datasets'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id + '/analysis_output' + '/principalComponents_Df.csv'}
+                                            ]
+            file_data['Saved_plots'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                 step_id + '/analysis_output/PCA.svg'}]
+            # Set file's current position at offset.
+            f.seek(0)
+            # convert back to json.
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+
+
+
+        return JSONResponse(content={'status': 'Success',
+                                     'columns': dataset.loc[:, independent_variables].columns.tolist(),
+                                     'n_features_': pca_result.n_features_,
+                                     'n_features_in_': pca_result.n_features_in_,
+                                    'n_samples_': pca_result.n_samples_,
+                                    'random_state': pca_result.random_state,
+                                    'iterated_power': pca_result.iterated_power,
+                                    'mean_': pca_result.mean_.tolist(),
+                                    'explained_variance_': explained_variance.to_json(orient='records'),
+                                    'noise_variance_': pca_result.noise_variance_,
+                                    'pve': explained_variance_ratio.to_json(orient='records'),
+                                    'singular_values': singular_values.to_json(orient='records'),
+                                    'principal_axes': principal_axes.to_json(orient='records'),
+                                     'principalComponents_Df':pd.DataFrame(data=principalComponents_pca_result
+                                           , columns=component_cols).to_json(orient='records')},
+                            status_code=200)
+
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status': test_status,
+                                     'columns': [],
+                                     'n_features_': 0,
+                                     'n_features_in_': 0,
+                                     'n_samples_': 0,
+                                     'random_state': 0,
+                                     'iterated_power': 0,
+                                     'mean_': [],
+                                     'explained_variance_': [],
+                                     'noise_variance_': 0,
+                                     'pve': [],
+                                     'singular_values': [],
+                                     'principal_axes':[]
+                                     },
+                            status_code=200)
+    # return {'Percentage of variance explained by each of the selected components': pca.explained_variance_ratio_.tolist(),
+    #             'The singular values corresponding to each of the selected components. ': pca.singular_values_.tolist(),
+    #             'Principal axes in feature space, representing the directions of maximum variance in the data.' : pca.components_.tolist()}
 
 @router.get("/kmeans_clustering")
 async def kmeans_clustering(workflow_id: str,
@@ -1375,7 +1545,7 @@ async def elastic_net(workflow_id: str,
         for columns in dataset.columns:
             if columns not in independent_variables:
                 dataset = dataset.drop(str(columns), axis=1)
-        data.dropna(inplace=True)
+        dataset.dropna(inplace=True)
 
         X = np.array(dataset)
         Y = np.array(df_label.astype('float64'))
@@ -1928,7 +2098,7 @@ async def sgd_regressor(workflow_id: str,
         for columns in dataset.columns:
             if columns not in independent_variables:
                 dataset = dataset.drop(str(columns), axis=1)
-        data.dropna(inplace=True)
+        dataset.dropna(inplace=True)
 
         X = np.array(dataset)
         Y = np.array(df_label.astype('float64'))
@@ -2062,7 +2232,7 @@ async def huber_regressor(workflow_id: str,
         for columns in dataset.columns:
             if columns not in independent_variables:
                 dataset = dataset.drop(str(columns), axis=1)
-        data.dropna(inplace=True)
+        dataset.dropna(inplace=True)
 
         X = np.array(dataset)
         Y = np.array(df_label.astype('float64'))
@@ -2193,7 +2363,7 @@ async def linear_svr_regressor(workflow_id: str,
         for columns in dataset.columns:
             if columns not in independent_variables:
                 dataset = dataset.drop(str(columns), axis=1)
-        data.dropna(inplace=True)
+        dataset.dropna(inplace=True)
 
         X = np.array(dataset)
         Y = np.array(df_label.astype('float64'))
