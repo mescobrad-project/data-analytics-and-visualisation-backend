@@ -2012,7 +2012,7 @@ async def sklearn_logistic_regression(workflow_id: str,
                                       solver: str | None = Query("lbfgs",
                                                                  regex="^(lbfgs)$|^(liblinear)$|^(newton-cg)$|^(newton-cholesky)$|^(sag)$|^(saga)$"),
                                       independent_variables: list[str] | None = Query(default=None)):
-
+    print("loukas")
     dataset = load_file_csv_direct(workflow_id, run_id, step_id)
     df_label = dataset[dependent_variable]
     for columns in dataset.columns:
