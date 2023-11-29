@@ -205,18 +205,20 @@ async def list_channels_group(workflow_id: str,
         It assumes that all the fif files are correctly the same, therefore the channel names from any one of them work
         It iterated through all the directories until it finds a correct one otherwise error
     """
-    # If file is altered we retrieve it from the edf interim storage fodler
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
-    for group_name in os.listdir(path_to_storage):
-        if group_name.startswith("group_"):
-            for group_file in os.listdir(os.path.join(path_to_storage, group_name)):
+    channels = []
+    group_names = []
+    for folder_name in os.listdir(path_to_storage):
+        if folder_name.startswith("group_"):
+            group_names.append(folder_name)
+            for group_file in os.listdir(os.path.join(path_to_storage, folder_name)):
                 if group_file.endswith(".fif"):
-                    data = load_data_from_edf_fif(os.path.join(path_to_storage, group_name, group_file))
+                    data = load_data_from_edf_fif(os.path.join(path_to_storage, folder_name, group_file))
                     channels = data.ch_names
                     print(channels)
-                    return {'channels': channels}
 
-    return {'Error: No channels found'}
+    return {'channels': channels, 'group_names' : group_names}
+    # return {'Error: No channels found'}
 
 
 @router.get("/return_autocorrelation", tags=["return_autocorrelation"])
@@ -4801,7 +4803,7 @@ async def group_sleep_analysis_sensitivity_add_subject_add_channels_final(
         workflow_id: str,
         step_id: str,
         run_id: str,
-        sampling_frequency: int,
+        # sampling_frequency: int,
         # channels_selection: list[str] ):
         channels_selection: list[str] | None = Query(default=[])):
     # channels_selection: Annotated [list[str] | None, Query(default=[])]):
@@ -5708,6 +5710,8 @@ async def group_sleep_analysis_sensitivity_add_subject_add_channels_final(
         ax.set_ylabel("From sleep stage")
         ax.xaxis.set_label_position('top')
         plt.rcParams["figure.dpi"] = 150
+        plt.savefig(
+            get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + 'sleep_stage_'+ group_name +'.png')
         plt.show()
 
         # average
@@ -5876,11 +5880,10 @@ async def group_sleep_analysis_sensitivity_add_subject_add_channels_final(
     df_sleep_stability_all_sens03_firsthalf.insert(0, 'id', range(1, 1 + len(df_sleep_stability_all_sens03_firsthalf)))
     df_sleep_stability_all_sens03_secondhalf.insert(0, 'id', range(1, 1 + len(df_sleep_stability_all_sens03_secondhalf)))
     df_bandpower_all.insert(0, 'id', range(1, 1 + len(df_bandpower_all)))
+    df_bandpower_sens_02.insert(0, 'id', range(1, 1 + len(df_bandpower_sens_02)))
     df_bandpower_sens_03_first_half.insert(0, 'id', range(1, 1 + len(df_bandpower_sens_03_first_half)))
     df_bandpower_sens_03_second_half.insert(0, 'id', range(1, 1 + len(df_bandpower_sens_03_second_half)))
 
-    # df_bandpower_sens_03_first_half.insert(0, 'id', range(1, 1 + len(df_bandpower_sens_03_first_half)))
-    # df_bandpower_sens_03_second_half.insert(0, 'id', range(1, 1 + len(df_bandpower_sens_03_second_half)))
 
     for i, data in df_group_sleep_statistics.items():
         data.insert(0, 'id', range(1, 1 + len(data)))
@@ -5908,16 +5911,21 @@ async def group_sleep_analysis_sensitivity_add_subject_add_channels_final(
 
     result_sensitivity_02_worthless = reduce(
         lambda x, y: x.add(y, fill_value=0),
-        worthless_sens02_transitions).to_json(
-        orient='records')
+        worthless_sens02_transitions)
+    result_sensitivity_02_worthless.insert(0, 'id', range(1, 1 + len(result_sensitivity_02_worthless)))
+    result_sensitivity_02_worthless = result_sensitivity_02_worthless.to_json(orient='records')
+
     result_sensitivity_03_worthless_first_half = reduce(
         lambda x, y: x.add(y, fill_value=0),
-        worthless_firsthalf_transitions).to_json(
-        orient='records')
+        worthless_firsthalf_transitions)
+    result_sensitivity_03_worthless_first_half.insert(0, 'id', range(1, 1 + len(result_sensitivity_03_worthless_first_half)))
+    result_sensitivity_03_worthless_first_half = result_sensitivity_03_worthless_first_half.to_json(orient='records')
+
     result_sensitivity_03_worthless_second_half = reduce(
         lambda x, y: x.add(y, fill_value=0),
-        worthless_secondhalf_transitions).to_json(
-        orient='records')
+        worthless_secondhalf_transitions)
+    result_sensitivity_03_worthless_second_half.insert(0, 'id', range(1, 1 + len(result_sensitivity_03_worthless_second_half)))
+    result_sensitivity_03_worthless_second_half = result_sensitivity_03_worthless_second_half.to_json(orient='records')
 
     result_group_sleep_matrix = [data.to_json(orient='records') for i, data in group_probs_sleep_matrix.items()]
     result_sensitivity_02_sleep_matrix = sensitivity02_probs_Sleep_Matrix.to_json(orient='records')
@@ -5932,6 +5940,12 @@ async def group_sleep_analysis_sensitivity_add_subject_add_channels_final(
     result_sensitivity_bandpower_02 = df_bandpower_sens_02.to_json(orient='records')
     result_sensitivity_bandpower_03_first_half = df_bandpower_sens_03_first_half.to_json(orient='records')
     result_sensitivity_bandpower_03_second_half = df_bandpower_sens_03_second_half.to_json(orient='records')
+
+    print("ID Sensitivity Analysis 03 - First Half")
+    print(result_sensitivity_bandpower_03_first_half)
+
+    print("ID Sensitivity Analysis 03 - Second Half")
+    print(result_sensitivity_bandpower_03_second_half)
 
 
     to_return = {
