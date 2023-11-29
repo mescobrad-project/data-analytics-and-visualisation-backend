@@ -1,5 +1,7 @@
 import json
 import os
+import shutil
+import tempfile
 import uuid
 from os import walk
 from os.path import isfile, join
@@ -8,8 +10,10 @@ import requests
 from fastapi import APIRouter, Request
 from pydantic import BaseModel
 from fastapi.responses import RedirectResponse
+from starlette.responses import JSONResponse
 
-from app.utils.utils_general import create_local_step
+from app.utils.utils_datalake import upload_object
+from app.utils.utils_general import create_local_step, get_local_storage_path
 
 router = APIRouter()
 
@@ -484,6 +488,45 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
     return {"url": url_to_redirect}
 
 
+@router.post("/function/save_data/", tags=["function_files"])
+async def function_save_data(
+                         workflow_id: str,
+                         step_id: str,
+                         run_id: str,
+                         function_type: str | None = None
+                         ) -> dict:
+    """ This function handles all the correct uploading for all types of tasks in datalake and/or trino"""
+    # General uploading of all data in output folder
+    if function_type is None:
+        try:
+            path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+            files_to_upload = [f for f in os.listdir(path_to_storage + '/output') if isfile(join(path_to_storage + '/output', f))]
+            for file in files_to_upload:
+                out_filename = path_to_storage + '/output/' + file
+                upload_object(bucket_name="demo", object_name='expertsystem/workflow/'+ workflow_id+'/'+ run_id+'/'+
+                                                              step_id+'/analysis_output/' + file, file=out_filename)
+            return JSONResponse(content='info.json file has been successfully uploaded to the DataLake', status_code=200)
+        except Exception as e:
+            print(e)
+            return JSONResponse(content='Error in saving info.json object to the DataLake',status_code=501)
+    elif function_type == "mri":
+        try:
+            path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+            tmpdir = tempfile.mkdtemp()
+            output_filename = os.path.join(tmpdir, 'ucl_test')
+            print(output_filename)
+            print(shutil.make_archive(output_filename, 'zip', root_dir=path_to_storage, base_dir='output/ucl_test'))
+            upload_object(bucket_name="saved", object_name='expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                           step_id + '/output/ucl_test.zip',
+                          file=output_filename + '.zip')
+
+            return JSONResponse(content='zip file has been successfully uploaded to the DataLake', status_code=200)
+        except Exception as e:
+            print(e)
+            return JSONResponse(content='Error in saving zip file to the DataLake', status_code=501)
+    return
+
+
 @router.get("/function/files/", tags=["function_files"])
 async def function_files(workflow_id: str,
                          step_id: str,
@@ -492,6 +535,7 @@ async def function_files(workflow_id: str,
     """This function returns the file id needed for a function"""
     files_to_return = [f for f in os.listdir(NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id) if isfile(join(NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id, f))]
     return files_to_return
+
 
 @router.get("/function/existing", tags=["function_existing"], status_code=200)
 async def task_existing(request: Request) -> dict:
