@@ -774,7 +774,7 @@ async def check_homoskedasticity(workflow_id: str,
         return JSONResponse(content={'status':test_status,'statistic': "", 'p_value': "", 'variance': ""}, status_code=200)
 
 
-@router.get("/ ", tags=['hypothesis_testing'])
+@router.get("/transformed_data_for_use_in_an_ANOVA", tags=['hypothesis_testing'])
 async def transform_data_anova(
         workflow_id: str,
         step_id: str,
