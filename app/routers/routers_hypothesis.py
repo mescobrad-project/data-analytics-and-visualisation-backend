@@ -4357,7 +4357,7 @@ async def linear_regression_statsmodels(workflow_id: str, step_id: str, run_id: 
         df_0.set_index(0, inplace=True)
         df_0.index.name = None
         df_0.rename(columns={1: 'Values'}, inplace=True)
-        df_0.drop(df_0.tail(2).index, inplace=True)
+        df_0 = df_0.iloc[:-2]
         # print(list(df_0.values))
 
         results_as_html = df.tables[1].as_html()
@@ -4486,6 +4486,7 @@ async def linear_regression_statsmodels(workflow_id: str, step_id: str, run_id: 
                             status_code=200)
     except Exception as e:
         print(e)
+        print(traceback.format_exc())
         return JSONResponse(content={'status': test_status, 'Result': '[]'},
                             status_code=200)
 
