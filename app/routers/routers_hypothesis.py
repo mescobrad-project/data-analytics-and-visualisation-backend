@@ -1256,6 +1256,8 @@ async def principal_component_analysis(workflow_id: str,
             if columns not in np.append(independent_variables, categorical_variable):
                 dataset = dataset.drop(str(columns), axis=1)
 
+        dataset = dataset.dropna()
+
         X = dataset.loc[:, independent_variables].values
         if n_components_1 > min(int(np.shape(X)[0]), int(np.shape(X)[1])):
             test_status = 'components must be <= min(n_samples, n_features)'
@@ -1386,7 +1388,7 @@ async def principal_component_analysis(workflow_id: str,
             f.truncate()
 
 
-
+        print(pca_result.mean_)
         return JSONResponse(content={'status': 'Success',
                                      'columns': dataset.loc[:, independent_variables].columns.tolist(),
                                      'n_features_': pca_result.n_features_,
