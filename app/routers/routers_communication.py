@@ -212,14 +212,17 @@ async def task_complete(run_id: str,
             "trino": []
         }
     }
+    try:
+        url = WFAddress + "/run/" + uuid.UUID(run_id) + "/step/" + uuid.UUID(step_id) + "/task/script/complete"
+    except ValueError:
+        return JSONResponse(content='Badly formed UUID string, probably testing function',status_code=500)
 
-    url = WFAddress + "/run/" + uuid.UUID(run_id) + "/step/" + uuid.UUID(step_id) + "/task/script/complete"
     print(url)
     response = requests.patch(url=url, data=data, headers=headers)
     print("Test Response: Task Ping")
     print(response)
 
-    return {'test': response}
+    return JSONResponse(content=response,status_code=200)
 
 
 @router.put("/function/navigation/", tags=["function_navigation"])
