@@ -291,8 +291,12 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/actigraphy_page"
             case "actigraphy_masking":
                 url_to_redirect += "/actigraphy_masking"
-            case "actigraphy_analysis":
-                url_to_redirect += "/actigraphy_analysis"
+            case "actigraphy_functional_linear_modelling":
+                url_to_redirect += "/actigraphy_functional_linear_modelling"
+            case "actigraphy_singular_spectrum_analysis":
+                url_to_redirect += "/actigraphy_singular_spectrum_analysis"
+            case "actigraphy_detrended_fluctuation_analysis":
+                url_to_redirect += "/actigraphy_detrended_fluctuation_analysis"
             case "actigraphy_cosinor":
                 url_to_redirect += "/Actigraphy_Cosinor"
             case "actigraphy_metrics":

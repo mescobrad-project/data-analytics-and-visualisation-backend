@@ -537,11 +537,14 @@ async def return_weekly_activity(workflow_id: str,
 
 @router.get("/return_functional_linear_modelling", tags=["actigraphy_analysis"])
 async def return_functional_linear_modelling(workflow_id: str,
-                                 run_id: str,
-                                 step_id: str):
+                                             run_id: str,
+                                             step_id: str,
+                                             dataset: str):
+    # Define path
+    fpath = 'example_data/actigraph/'
     # Fourier basis expansion (Single)
     raw = pyActigraphy.io.read_raw_rpx(
-        'example_data/actigraph/0345-024_18_07_2022_13_00_00_New_Analysis.csv',
+        fpath + dataset + '.csv',
         start_time='2022-07-18 12:00:00',
         period='7 days'
     )
@@ -581,26 +584,61 @@ async def return_functional_linear_modelling(workflow_id: str,
     graphJSON = plotly.io.to_json(fig, pretty=True)
     return {"flm_figure": graphJSON}
 
-    # # Fourier basis expansion (Multi)
-    # reader = pyActigraphy.io.read_raw('example_data/actigraph/0345-024_18_07_2022_13_00_00_New_Analysis.csv', 'RPX', n_jobs=10, prefer='threads', verbose=10)
-    # # Define a FLM Object that can be (re-)used to fit the data
-    # flm_fourier = FLM(basis='fourier', sampling_freq='10min', max_order=10)
-    # # Fit all the recordings contained in the "reader":
-    # flm_fourier.fit_reader(reader, verbose_fit=False, n_jobs=2, prefer='threads', verbose_parallel=10)
-    # y_est_group_fourier = flm_fourier.evaluate_reader(reader, r=10, n_jobs=2, prefer='threads', verbose_parallel=10)
-    # daily_avg = raw.average_daily_activity(binarize=False, freq='10min')
-    # # create objects for layout and traces
+
+@router.get("/return_multi_functional_linear_modelling", tags=["actigraphy_analysis"])
+async def return_multi_functional_linear_modelling(workflow_id: str,
+                                             run_id: str,
+                                             step_id: str,
+                                             multiple_datasets: str):
+    # Define path
+    fpath = 'example_data/actigraph/'
+    raw = pyActigraphy.io.read_raw_rpx(
+        fpath + multiple_datasets + '.csv',
+        start_time='2022-07-18 12:00:00',
+        period='7 days'
+    )
+    # Fourier basis expansion (Multi)
+    reader = pyActigraphy.io.read_raw(fpath + multiple_datasets + '_example_*.csv', 'RPX', n_jobs=10, prefer='threads', verbose=10)
+    # Define a FLM Object that can be (re-)used to fit the data
+    flm_fourier = FLM(basis='fourier', sampling_freq='10min', max_order=10)
+    # Fit all the recordings contained in the "reader":
+    flm_fourier.fit_reader(reader, verbose_fit=True, n_jobs=2, prefer='threads', verbose_parallel=10)
+
+    y_est_group_fourier = flm_fourier.evaluate_reader(reader, r=10, n_jobs=2, prefer='threads', verbose_parallel=10)
+    print(y_est_group_fourier.items())
+    daily_avg = raw.average_daily_activity(binarize=False, freq='10min')
+    # create objects for layout and traces
     # multi_layout = go.Layout(autosize=False, width=850, height=600, title="", xaxis=dict(title=""), shapes=[],
     #                    showlegend=True)
-    # multi_fig = go.Figure(data=[go.Scatter(x=daily_avg.index.astype(str),y=v,name=k) for k,v in y_est_group_fourier.items()],layout=multi_layout)
+    # set x-axis labels and their corresponding data values
+    labels = ['00:00', '06:00', '12:00', '18:00']
+    tickvals = ['00:00:00', '06:00:00', '12:00:00', '18:00:00']
+
+    layout = go.Layout(
+        autosize=False, width=900, height=600,
+        title="Daily profile",
+        xaxis=dict(
+            title="Time of day (HH:MM)",
+            ticktext=labels,
+            tickvals=tickvals),
+        yaxis=dict(title="Counts (a.u)"),
+        shapes=[], showlegend=True)
+    multi_fig = go.Figure(data=[go.Scatter(x=daily_avg.index.astype(str),y=v,name=k) for k,v in y_est_group_fourier.items()],layout=layout)
     # multi_fig.show()
+    graphJSON = plotly.io.to_json(multi_fig, pretty=True)
+    return {"multi_flm_figure": graphJSON}
 
 @router.get("/return_singular_spectrum_analysis", tags=["actigraphy_analysis"])
 async def return_singular_spectrum_analysis(workflow_id: str,
                                  run_id: str,
-                                 step_id: str):
+                                 step_id: str,
+                                 dataset: str):
+
+    # Define path
+    fpath = 'example_data/actigraph/'
+    # Fourier basis expansion (Single)
     raw = pyActigraphy.io.read_raw_rpx(
-        'example_data/actigraph/0345-024_18_07_2022_13_00_00_New_Analysis.csv',
+        fpath + dataset + '.csv',
         start_time='2022-07-18 12:00:00',
         period='7 days'
     )
@@ -670,9 +708,14 @@ async def return_singular_spectrum_analysis(workflow_id: str,
 @router.get("/return_detrended_fluctuation_analysis", tags=["actigraphy_analysis"])
 async def return_detrended_fluctuation_analysis(workflow_id: str,
                                  run_id: str,
-                                 step_id: str):
+                                 step_id: str,
+                                 dataset: str):
+
+    # Define path
+    fpath = 'example_data/actigraph/'
+    # Fourier basis expansion (Single)
     raw = pyActigraphy.io.read_raw_rpx(
-        'example_data/actigraph/0345-024_18_07_2022_13_00_00_New_Analysis.csv',
+        fpath + dataset + '.csv',
         start_time='2022-07-18 12:00:00',
         period='7 days'
     )
