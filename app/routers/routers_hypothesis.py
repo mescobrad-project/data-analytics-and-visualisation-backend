@@ -2207,6 +2207,7 @@ async def sgd_regressor(workflow_id: str,
         return JSONResponse(content={'status': 'Success', 'Result': response},
                             status_code=200)
     except Exception as e:
+        print(traceback.format_exc())
         print(e)
         return JSONResponse(content={'status': test_status, 'Result': '[]'},
                             status_code=200)
@@ -3183,92 +3184,133 @@ async def generalized_estimating_equations(workflow_id: str,
                                            family: str | None = Query("poisson",
                                                                       regex="^(poisson)$|^(gamma)$|^(gaussian)$|^(inverse_gaussian)$|^(negative_binomial)$|^(binomial)$|^(tweedie)$")):
 
-    data = load_file_csv_direct(workflow_id, run_id, step_id)
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
+    dfv = pd.DataFrame()
+    # Load Datasets
+    try:
+        test_status = 'Dataset is not defined'
+        test_status = 'Please provide all mandatory fields (dataset, dependent variable, one or more independent variables)'
+        z = dependent_variable + " ~ "
+        dfv['variables'] = independent_variables
+        dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
+        independent_variables = list(dfv['Variable'].values)
+        selected_datasource = pd.unique(dfv['Datasource'])[0]
+        z = z + " + ".join(independent_variables)
 
-    z = dependent_variable + "~"
-    for i in range(len(independent_variables)):
-        z = z + "+" + independent_variables[i]
+        test_status = 'Unable to retrieve datasets'
+        data = load_data_from_csv(path_to_storage + "/" + selected_datasource)
+        test_status = 'Unable to compute generalized estimating equations for the selected columns.'
+        print(family)
 
-    print(family)
+        if family == "poisson":
+            fam = sm.families.Poisson()
+        elif family == "gamma":
+            fam = sm.families.Gamma()
+        elif family == "gaussian":
+            fam = sm.families.Gaussian()
+        elif family == "inverse_gaussian":
+            fam = sm.families.InverseGaussian()
+        elif family == 'negative_binomial':
+            fam = sm.families.NegativeBinomial()
+        elif family == "binomial":
+            fam = sm.families.Binomial()
+        else:
+            fam = sm.families.Tweedie()
 
-    if family == "poisson":
-        fam = sm.families.Poisson()
-    elif family == "gamma":
-        fam = sm.families.Gamma()
-    elif family == "gaussian":
-        fam = sm.families.Gaussian()
-    elif family == "inverse_gaussian":
-        fam = sm.families.InverseGaussian()
-    elif family == 'negative_binomial':
-        fam = sm.families.NegativeBinomial()
-    elif family == "binomial":
-        fam = sm.families.Binomial()
-    else:
-        fam = sm.families.Tweedie()
+        if cov_struct == "independence":
+            ind = sm.cov_struct.Independence()
+        elif cov_struct == "autoregressive":
+            ind = sm.cov_struct.Autoregressive()
+        elif cov_struct == "exchangeable":
+            ind = sm.cov_struct.Exchangeable()
+        else:
+            ind = sm.cov_struct.Nested()
 
-    if cov_struct == "independence":
-        ind = sm.cov_struct.Independence()
-    elif cov_struct == "autoregressive":
-        ind = sm.cov_struct.Autoregressive()
-    elif cov_struct == "exchangeable":
-        ind = sm.cov_struct.Exchangeable()
-    else:
-        ind = sm.cov_struct.Nested()
+        print(cov_struct)
+        print(fam)
+        print(ind)
 
-    print(cov_struct)
-    print(fam)
-    print(ind)
+        print(z)
+        md = smf.gee(formula=z, groups=groups, data=data, cov_struct=ind, family=fam)
 
+        mdf = md.fit()
 
-    md = smf.gee(z, groups, data, cov_struct=ind, family=fam)
+        print(md.predict())
+        df = mdf.summary()
 
-    mdf = md.fit()
+        # print(df)
 
-    df = mdf.summary()
+        results_as_html = df.tables[0].as_html()
+        df_0 = pd.read_html(results_as_html)[0]
+        df_new = df_0[[2, 3]]
+        df_0.drop(columns=[2, 3], inplace=True)
+        df_0 = pd.concat([df_0, df_new.rename(columns={2: 0, 3: 1})], ignore_index=True)
+        df_0.set_index(0, inplace=True)
+        df_0.index.name = None
+        df_0.rename(columns={1: 'Values'}, inplace=True)
+        df_0.drop(df_0.tail(2).index, inplace=True)
+        df_0.reset_index(inplace=True)
+        # print(list(df_0.values))
 
-    # print(df)
+        results_as_html = df.tables[1].as_html()
+        df_1 = pd.read_html(results_as_html)[0]
+        new_header = df_1.iloc[0, 1:]
+        df_1 = df_1[1:]
+        df_1.set_index(0, inplace=True)
+        df_1.columns = new_header
+        df_1.index.name = None
+        df_1.reset_index(inplace=True)
+        df_1.rename(columns={'[0.025': '0.025', '0.975]': '0.975'}, inplace=True)
 
-    results_as_html = df.tables[0].as_html()
-    df_0 = pd.read_html(results_as_html)[0]
-    df_new = df_0[[2, 3]]
-    df_0.drop(columns=[2, 3], inplace=True)
-    df_0 = pd.concat([df_0, df_new.rename(columns={2: 0, 3: 1})], ignore_index=True)
-    df_0.set_index(0, inplace=True)
-    df_0.index.name = None
-    df_0.rename(columns={1: 'Values'}, inplace=True)
-    df_0.drop(df_0.tail(2).index, inplace=True)
-    df_0.reset_index(inplace=True)
-    # print(list(df_0.values))
+        results_as_html = df.tables[2].as_html()
+        df_2 = pd.read_html(results_as_html)[0]
+        df_new = df_2[[2, 3]]
+        df_2.drop(columns=[2, 3], inplace=True)
+        df_2 = pd.concat([df_2, df_new.rename(columns={2: 0, 3: 1})], ignore_index=True)
+        df_2.set_index(0, inplace=True)
+        df_2.index.name = None
+        df_2.rename(columns={1: 'Values'}, inplace=True)
+        df_2.reset_index(inplace=True)
+        test_status = 'Error in creating info file.'
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            file_data = json.load(f)
+            file_data['results'] |= {
+                "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                "workflow_id": workflow_id,
+                "run_id": run_id,
+                "step_id": step_id,
+                "test_name": 'Generalized Estimating Equations',
+                "test_params": {
+                    "dependent_variable" : dependent_variable,
+                    "groups": groups,
+                    "independent_variables" : independent_variables,
+                    "cov_struct" : cov_struct,
+                    "family" : family
+                },
+                "test_results": {
+                    "first_table":df_0.to_dict(),
+                    "second_table":df_1.to_dict(),
+                    "third_table":df_2.to_dict(),
+                },
+                "Output_datasets": [],
+                'Saved_plots': []
+            }
+            f.seek(0)
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        return JSONResponse(content={'first_table':df_0.to_json(orient='records'),
+                                     'second_table':df_1.to_json(orient='records'),
+                                     'third_table':df_2.to_json(orient='records')},
+                            status_code=200)
+    except Exception as e:
+        print(traceback.format_exc())
+        return JSONResponse(content={'status': test_status,
+                                     'first_table':[],
+                                     'second_table':[],
+                                     'third_table':[]},
+                                status_code=200)
 
-    results_as_html = df.tables[1].as_html()
-    df_1 = pd.read_html(results_as_html)[0]
-    new_header = df_1.iloc[0, 1:]
-    df_1 = df_1[1:]
-    df_1.set_index(0, inplace=True)
-    df_1.columns = new_header
-    df_1.index.name = None
-    df_1.reset_index(inplace=True)
-    df_1.rename(columns={'[0.025': '0.025', '0.975]': '0.975'}, inplace=True)
-
-    results_as_html = df.tables[2].as_html()
-    df_2 = pd.read_html(results_as_html)[0]
-    df_new = df_2[[2, 3]]
-    df_2.drop(columns=[2, 3], inplace=True)
-    df_2 = pd.concat([df_2, df_new.rename(columns={2: 0, 3: 1})], ignore_index=True)
-    df_2.set_index(0, inplace=True)
-    df_2.index.name = None
-    df_2.rename(columns={1: 'Values'}, inplace=True)
-    df_2.reset_index(inplace=True)
-
-    # print(df_1)
-    #
-    # print(df_0)
-    # # print(df_0['No. Observations: '])
-    print(df)
-
-    return {'first_table':df_0.to_json(orient='records'),
-            'second_table':df_1.to_json(orient='records'),
-            'third_table':df_2.to_json(orient='records')}
 
 @router.get("/kaplan_meier")
 async def kaplan_meier(workflow_id: str,
