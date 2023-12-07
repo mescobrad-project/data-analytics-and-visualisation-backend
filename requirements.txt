@@ -54,7 +54,6 @@ qtawesome==1.2.2
 rfc3339-validator==0.1.4
 rfc3986-validator==0.1.1
 rtree==1.0.1
-semopy==2.3.9
 spykeutils==0.4.3
 sqlalchemy==1.4.46
 tables==3.8.0

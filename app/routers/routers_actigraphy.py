@@ -188,7 +188,8 @@ async def return_daily_activity_activity_status_area(workflow_id: str,
     # Convert a String to a Date in Python
     # Date and time in format "YYYY/MM/DD hh:mm:ss"
     format_string = "%Y/%m/%d %H:%M:%S"
-
+    print(start_date)
+    print(end_date)
     # Convert start date string to date using strptime
     start_date_dt = datetime.strptime(start_date, format_string).date()
     # Convert end date string to date using strptime
