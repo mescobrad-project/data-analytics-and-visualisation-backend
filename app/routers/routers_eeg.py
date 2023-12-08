@@ -2583,6 +2583,94 @@ async def back_average(
     return True
 
 
+@router.get("/eeg_upsampling", tags=["eeg_upsampling"])
+async def eeg_upsampling( workflow_id: str,
+        step_id: str,
+        run_id: str,
+        sf_hypno: float):
+    """
+        This function handles both groups and single files
+        This function assumes the grop files hypno grams and fif have the same name
+        pairwise
+    """
+    path_to_groups = get_local_storage_path(workflow_id, run_id, step_id)
+    results = []
+
+    list_of_group_directories = []
+    for directory in os.listdir(path_to_groups):
+        if directory.startswith("group_"):
+            list_of_group_directories.append(directory)
+
+    #  Check if there are group directories to see which case we are in
+    if list_of_group_directories:
+        for group in list_of_group_directories:
+            for filename in os.listdir(path_to_groups + "/" + group):
+                file_name_only = os.path.splitext(filename)[0]
+                # Do each file pair by hand
+                csv_file = file_name_only + ".csv"
+                fif_file = file_name_only + ".fif"
+
+                path = path_to_groups + "/" + group + "/" + csv_file
+                df = pd.read_csv(path)
+                temp_hypno_data = df.squeeze("columns")
+
+                path = path_to_groups + "/" + group + "/" + fif_file
+                raw_data = mne.io.read_raw_fif(path, preload=True)
+
+                # Get original plot
+                yasa.plot_hypnogram(temp_hypno_data)
+                plt.rcParams["figure.dpi"] = 150
+                plt.savefig(
+                    get_local_storage_path(workflow_id, run_id,
+                                           step_id) + "/output/hypnogram_channel_num_og.png")
+                plt.show()
+
+                temp_result = yasa.hypno_upsample_to_data(temp_hypno_data, sf_hypno = 1/30, data = raw_data)
+
+                print(temp_result)
+                yasa.plot_hypnogram(temp_result)
+                plt.rcParams["figure.dpi"] = 150
+                plt.savefig(
+                    get_local_storage_path(workflow_id, run_id,
+                                           step_id) + "/output/hypnogram_channel_num.png")
+                plt.show()
+
+                print(temp_result)
+
+    else:
+        for file in os.listdir(path_to_groups):
+            if file.endswith("csv"):
+                path = path_to_groups + "/" + file
+                df = pd.read_csv(path)
+                temp_hypno_data = df.squeeze("columns")
+            elif file.endswith("fif"):
+                path = path_to_groups + "/" + file
+                raw_data = mne.io.read_raw_fif(path, preload=True)
+                # sampling_frequency = raw_data.info['sfreq']
+        print(temp_hypno_data)
+        print(raw_data.get_data())
+        print(sf_hypno)
+
+        # Get original plot
+        yasa.plot_hypnogram(temp_hypno_data)
+        plt.rcParams["figure.dpi"] = 150
+        plt.savefig(
+            get_local_storage_path(workflow_id, run_id,
+                                   step_id) + "/output/hypnogram_channel_num_og.png")
+        plt.show()
+
+        temp_result = yasa.hypno_upsample_to_data( temp_hypno_data,  sf_hypno = 1/30,data = raw_data)
+
+        # Get result plot
+        print(temp_result)
+        yasa.plot_hypnogram(temp_result)
+        plt.rcParams["figure.dpi"] = 150
+        plt.savefig(
+            get_local_storage_path(workflow_id, run_id,
+                                   step_id) + "/output/hypnogram_channel_num.png")
+        plt.show()
+
+    return results
 # @router.get("/group_sleep_analysis")
 # async def group_sleep_analysis(workflow_id: str,
 #                              step_id: str,
@@ -5067,13 +5155,6 @@ async def group_sleep_analysis_sensitivity_add_subject_add_channels_final(
     print("Step 6")
     print(hypno_list)
 
-    return
-    for hypnogram in hypno_list:
-        yasa.plot_hypnogram(hypnogram)
-        plt.rcParams["figure.dpi"] = 150
-        plt.savefig(
-            get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + 'hypnogram_' + group_name + '.png')
-        plt.show()
 
     ##########################################################################
     ##########################################################################
