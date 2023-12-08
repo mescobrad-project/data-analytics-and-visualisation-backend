@@ -1,5 +1,6 @@
 import json
 import os
+import uuid
 from os import walk
 from os.path import isfile, join
 
@@ -196,18 +197,19 @@ class FunctionNavigationItem(BaseModel):
 async def task_complete(run_id: str,
                              step_id: str) -> dict:
     # channels = data.ch_names
+    print("RUN COMPLETE IS RUNNING")
     print(WFAddress)
-    headers = {"Content-Type": "application/json"}
+    headers = {"Content-Type": "application/json", "Accept": "*/*"}
 
     saved_files = []
     data = {
         "data": {
-            "datalake": saved_files,
+            "datalake": [],
             "trino": []
         }
     }
 
-    url = WFAddress + "/run/" + run_id + "/step/" + step_id + "/task/script/complete"
+    url = WFAddress + "/run/" + uuid.UUID(run_id) + "/step/" + uuid.UUID(step_id) + "/task/script/complete"
     print(url)
     response = requests.patch(url=url, data=data, headers=headers)
     print("Test Response: Task Ping")
@@ -287,6 +289,10 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/actigraphy/general"
             case "actigraphy_page":
                 url_to_redirect += "/actigraphy_page"
+            case "actigraphy_masking":
+                url_to_redirect += "/actigraphy_masking"
+            case "actigraphy_analysis":
+                url_to_redirect += "/actigraphy_analysis"
             case "actigraphy_cosinor":
                 url_to_redirect += "/Actigraphy_Cosinor"
             case "actigraphy_metrics":

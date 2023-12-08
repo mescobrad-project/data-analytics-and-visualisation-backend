@@ -7,6 +7,7 @@ from lifelines.fitters.npmle import min_max
 from scipy.stats import probplot, skew, kurtosis, sem, t
 import scipy.stats as st
 import numpy as np
+import math
 import statistics
 from factor_analyzer.utils import cov
 import plotly.graph_objects as go
@@ -53,7 +54,7 @@ def create_plots(plot_type: str, column: str, second_column: str, selected_dataf
             return html_str
         except Exception as e:
             print(e)
-            print("Error : Creating BoxPlot")
+            print("Error : Creating BoxPlot \n"+e.__str__())
             return {"Error : Creating BoxPlot", e}
     if plot_type == "QQPlot":
         try:
@@ -110,7 +111,7 @@ def create_plots(plot_type: str, column: str, second_column: str, selected_dataf
             return html_str
         except Exception as e:
             print(e)
-            print("Error : Creating QQPlot")
+            print("Error : Creating QQPlot \n"+e.__str__())
             return {}
     if plot_type == 'PPlot':
         try:
@@ -126,7 +127,7 @@ def create_plots(plot_type: str, column: str, second_column: str, selected_dataf
             return html_str
         except Exception as e:
             print(e)
-            print("Error : Creating PPlot")
+            print("Error : Creating PPlot \n"+e.__str__())
             return {}
     if plot_type == 'HistogramPlot':
         try:
@@ -153,7 +154,11 @@ def create_plots(plot_type: str, column: str, second_column: str, selected_dataf
             # plt.savefig(path_to_storage + "/output/"+filename+".svg", format="svg")
             # plt.show()
 
-            fig = ff.create_distplot(hist_data=[selected_dataframe[str(column)]], group_labels=[column],curve_type='kde',bin_size=0.5,histnorm='probability')
+            # remove nans
+            # df = selected_dataframe[str(column)].apply(lambda x: pd.Series(x.dropna().values))
+            df = selected_dataframe[str(column)].dropna()
+            # create figure
+            fig = ff.create_distplot(hist_data=[df], group_labels=[column],curve_type='kde',bin_size=0.5,histnorm='probability')
             # fig = go.Figure(data=[go.Histogram(x=selected_dataframe[str(column)],histnorm='probability',bingroup=0.5)])
             # fig.show()
             fig.write_image(path_to_storage + "/output/"+filename+".svg")
@@ -162,7 +167,7 @@ def create_plots(plot_type: str, column: str, second_column: str, selected_dataf
             return html_str
         except Exception as e:
             print(e)
-            print("Error : Creating HistogramPlot")
+            print("Error : Creating HistogramPlot \n"+e.__str__())
             return {}
     if plot_type == 'Scatter_Two_Variables':
         try:
@@ -182,7 +187,7 @@ def create_plots(plot_type: str, column: str, second_column: str, selected_dataf
             return html_str
         except Exception as e:
             print(e)
-            print("Error : Creating Scatter Plot")
+            print("Error : Creating Scatter Plot \n"+e.__str__())
             return {}
     else:
         return -1
@@ -197,10 +202,12 @@ def compute_skewness(column: str, selected_dataframe):
         # print(skew(selected_dataframe[str(column)], axis=0, bias=False))
         # print('df.skew()')
         # print(selected_dataframe[str(column)].skew())
+        if math.isnan(result):
+            result = ''
         return result
     except Exception as e:
         print(e)
-        print("Error : Failed to compute skew")
+        print("Error : Failed to compute skew \n"+e.__str__())
         return {}
 
 
@@ -213,10 +220,12 @@ def compute_kurtosis(column: str, selected_dataframe):
         # print(kurtosis(selected_dataframe[str(column)], axis=0, bias=False))
         # print('df.kurtosis()')
         # print(selected_dataframe[str(column)].kurtosis())
+        if math.isnan(result):
+            result = ''
         return result
     except Exception as e:
         print(e)
-        print("Error : Failed to compute kurtosis")
+        print("Error : Failed to compute kurtosis \n"+e.__str__())
         return {}
 
 
@@ -235,17 +244,19 @@ def outliers_removal(column: str, selected_dataframe):
             return selected_dataframe, outliers
     except Exception as e:
         print(e)
-        print("Error : Failed to remove outliers")
+        print("Error : Failed to remove outliers \n"+e.__str__())
         return {}
 
 def statisticsMean(column: str, selected_dataframe):
     try:
         df2 = selected_dataframe.dropna(subset=[str(column)])
         result = statistics.mean(df2[str(column)])
+        if math.isnan(result):
+            result = ''
         return result
     except Exception as e:
         print(e)
-        print("Error : Failed to compute Mean for column: "+column)
+        print("Error : Failed to compute Mean for column: "+column+"\n"+e.__str__())
         return -1
 
 def statisticsMin(column: str, selected_dataframe):
@@ -258,7 +269,7 @@ def statisticsMin(column: str, selected_dataframe):
         return result
     except Exception as e:
         print(e)
-        print("Error : Failed to compute Min for column: "+column)
+        print("Error : Failed to compute Min for column: "+column+"\n"+e.__str__())
         return -1
 
 def statisticsMax(column: str, selected_dataframe):
@@ -271,7 +282,7 @@ def statisticsMax(column: str, selected_dataframe):
         return result
     except Exception as e:
         print(e)
-        print("Error : Failed to compute Max for column: "+column)
+        print("Error : Failed to compute Max for column: "+column+"\n"+e.__str__())
         return -1
 
 def statisticsStd(column: str, selected_dataframe, ddof):
@@ -281,10 +292,12 @@ def statisticsStd(column: str, selected_dataframe, ddof):
         # The result is the same with ddof=1
         # print('df.std()')
         # print(selected_dataframe[str(column)].std())
+        if math.isnan(result):
+            result = ''
         return result
     except Exception as e:
         print(e)
-        print("Error : Failed to compute Std for column: "+column)
+        print("Error : Failed to compute Std for column: "+column +"\n"+e.__str__())
         return -1
 
 def statisticsCov(selected_dataframe, ddof):
@@ -294,37 +307,46 @@ def statisticsCov(selected_dataframe, ddof):
         # Just to check if the result is the same
         # print(result)
         # print(np.cov(selected_dataframe.transpose(), ddof=ddof))
+        if math.isnan(result):
+            result = ''
         return result
     except Exception as e:
         print(e)
-        print("Error : Failed to compute Covariance Matrix")
+        print("Error : Failed to compute Covariance Matrix \n"+e.__str__())
         return ()
 
 def statisticsVar(column: str, selected_dataframe, ddof = 1):
     '''ddof=1 for Sample variance end 0 for population variance'''
     try:
         result = selected_dataframe[str(column)].var(ddof=ddof)
+        if math.isnan(result):
+            result = ''
         return result
     except Exception as e:
         print(e)
-        print("Error : Failed to compute Variance for column: "+column)
+        print("Error : Failed to compute Variance for column: "+column +"\n"+e.__str__())
         return -1
 
 def statisticsStandardError(column: str, selected_dataframe, ddof = 1):
     try:
         result = sem(selected_dataframe[column])
+        if math.isnan(result):
+            result = ''
         return result
     except Exception as e:
         print(e)
-        print("Error : Failed to compute Variance for column: "+column)
+        print("Error : Failed to compute Variance for column: "+column +"\n"+e.__str__())
         return -1
 
 def statisticsConfidenceLevel(column: str, selected_dataframe, alpha = 0.95):
     try:
         l,m = t.interval(alpha=alpha, df=len(selected_dataframe[column]) - 1, loc=np.mean(selected_dataframe[column]),
                        scale=sem(selected_dataframe[column]))
-        return (m-l)/2
+        result = (m-l)/2
+        if math.isnan(result):
+            result = ''
+        return result
     except Exception as e:
         print(e)
-        print("Error : Failed to compute Variance for column: "+column)
+        print("Error : Failed to compute Variance for column: "+column +"\n"+e.__str__())
         return -1
