@@ -8,7 +8,8 @@ from sklearn.manifold import MDS, TSNE
 from sklearn.decomposition import FastICA
 from sklearn.preprocessing import LabelEncoder
 from sphinx.addnodes import index
-from statsmodels.tsa.stattools import grangercausalitytests
+from statsmodels.graphics.tsaplots import plot_acf
+from statsmodels.tsa.stattools import grangercausalitytests, acf
 from factor_analyzer.factor_analyzer import calculate_bartlett_sphericity
 from factor_analyzer.factor_analyzer import calculate_kmo
 from factor_analyzer.utils import corr, cov
@@ -54,7 +55,7 @@ from app.routers.routers_communication import task_complete
 # from app.pydantic_models import ModelMultipleComparisons
 from app.utils.utils_datalake import fget_object, get_saved_dataset_for_Hypothesis, upload_object
 from app.utils.utils_general import get_local_storage_path, get_single_file_from_local_temp_storage, load_data_from_csv, \
-    load_file_csv_direct, get_all_files_from_local_temp_storage
+    load_file_csv_direct, get_all_files_from_local_temp_storage, write_function_data_to_config_file
 from tabulate import tabulate
 import seaborn as sns
 from datetime import datetime
@@ -5920,6 +5921,144 @@ async def Exploratory_Factor_Analysis_extract_latent_structure(
         # print(pine_test)
         return JSONResponse(content={'status': 'Success', 'test_result': test_result},
                             status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status': test_status + "\n" + e.__str__(),
+                                     'test_result': ''},
+                            status_code=200)
+
+@router.get("/hypothesis/autocorrelation", tags=["return_autocorrelation"])
+# Validation is done inline in the input of the function
+async def hypothesis_autocorrelation(workflow_id: str, step_id: str, run_id: str,
+                                 input_name: str,
+                                 file:str,
+                                 variables: list[str] | None = Query(default=None),
+                                 input_adjusted: bool | None = False,
+                                 input_qstat: bool | None = False,
+                                 input_fft: bool | None = False,
+                                 input_bartlett_confint: bool | None = False,
+                                 input_missing: str | None = Query("none",
+                                                                   regex="^(none)$|^(raise)$|^(conservative)$|^(drop)$"),
+                                 input_alpha: float | None = None,
+                                 input_nlags: int | None = None,
+                                 file_used: str | None = Query("original", regex="^(original)$|^(printed)$")
+                                 ) -> dict:
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
+    dfv = pd.DataFrame()
+    try:
+        test_status = 'Dataset is not defined'
+        if file is None:
+            test_status = 'Dataset is not defined'
+            raise Exception
+        test_status = 'Unable to retrieve datasets'
+        # We expect only one here
+        data = load_data_from_csv(path_to_storage + "/" + file)
+        data.columns = data.columns.str.replace("[^a-zA-Z]+", "_", regex=True)
+        print(data.columns)
+        df = data[data.columns.intersection(variables)]
+        print(df.columns)
+        print(df.head())
+        # TODO: Remove nans
+        df = df.dropna()
+        print(df.head())
+
+        z = acf(data, adjusted=input_adjusted, qstat=input_qstat,
+                fft=input_fft,
+                bartlett_confint=input_bartlett_confint,
+                missing=input_missing, alpha=input_alpha,
+                nlags=input_nlags)
+
+        to_return = {
+            'values_autocorrelation': None,
+            'confint': None,
+            'qstat': None,
+            'pvalues': None
+        }
+
+        fig, ax = plt.subplots(nrows=1, ncols=1, facecolor="#F0F0F0")
+
+        ax.legend(["ACF"], loc="upper right", fontsize="x-small", framealpha=1, edgecolor="black", shadow=None)
+        ax.grid(which="major", color="grey", linestyle="--", linewidth=0.5)
+        print(z[0])
+
+        # Parsing the results of acf into a single object
+        # Results will change depending on our input
+        if input_qstat and input_alpha:
+            to_return['values_autocorrelation'] = z[0].tolist()
+            to_return['confint'] = z[1].tolist()
+            to_return['qstat'] = z[2].tolist()
+            to_return['pvalues'] = z[3].tolist()
+            # plot_acf(z, adjusted=input_adjusted, alpha=input_alpha, lags=len(z[0].tolist())-1, ax=ax)
+            # ax.set_xticks(np.arange(1, len(z[0].tolist()), step=1))
+        elif input_qstat:
+            to_return['values_autocorrelation'] = z[0].tolist()
+            to_return['qstat'] = z[1].tolist()
+            to_return['pvalues'] = z[2].tolist()
+            # plot_acf(z, adjusted=input_adjusted, lags=len(z[0].tolist())-1, ax=ax)
+            # ax.set_xticks(np.arange(1, len(z[0].tolist()), step=1))
+        elif input_alpha:
+            to_return['values_autocorrelation'] = z[0].tolist()
+            to_return['confint'] = z[1].tolist()
+            plot_acf(x=data,
+                     adjusted=input_adjusted,
+                     # qstat=input_qstat,
+                     fft=input_fft,
+                     bartlett_confint=input_bartlett_confint,
+                     missing=input_missing,
+                     alpha=input_alpha,
+                     lags=input_nlags,
+                     ax=ax,
+                     use_vlines=True)
+            # plot_acf(z, adjusted=input_adjusted, alpha=input_alpha, lags=len(z[0].tolist()) -1, ax=ax)
+            # ax.set_xticks(np.arange(1, len(z[0].tolist()), step=1))
+        else:
+            to_return['values_autocorrelation'] = z.tolist()
+            # plot_acf(z, adjusted=input_adjusted, lags=len(z.tolist())-1, ax=ax)
+            # plot_acf(x=raw_data[i], adjusted=input_adjusted, qstat=input_qstat,
+            #     fft=input_fft,
+            #     bartlett_confint=input_bartlett_confint,
+            #     missing=input_missing, alpha=input_alpha,
+            #     nlags=input_nlags, ax=ax, use_vlines=True)
+            plot_acf(x=data,
+                     adjusted=input_adjusted,
+                     # qstat=input_qstat,
+                     fft=input_fft,
+                     bartlett_confint=input_bartlett_confint,
+                     missing=input_missing, alpha=input_alpha,
+                     ax=ax,
+                     lags=input_nlags,
+                     use_vlines=True)
+                # ax.set_xticks(np.arange(1, len(z.tolist()), step=1))
+
+            # plt.show()
+        print("RETURNING VALUES")
+        print(to_return)
+        plt.savefig(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + 'autocorrelation.png')
+
+        # plt.show()
+
+        # Prepare the data to be written to the config file
+        parameter_data = {
+            'name': input_name,
+            'adjusted': input_adjusted,
+            'qstat': input_qstat,
+            'fft': input_fft,
+            'bartlett_confint': input_bartlett_confint,
+            'missing': input_missing,
+            'alpha': input_alpha,
+            'nlags': input_nlags,
+        }
+        result_data = {
+            'data_values_autocorrelation': to_return['values_autocorrelation'],
+            'data_confint': to_return['confint'],
+            'data_qstat': to_return['qstat'],
+            'data_pvalues': to_return['pvalues']
+        }
+
+        write_function_data_to_config_file(parameter_data, result_data, workflow_id, run_id, step_id)
+
+        return to_return
     except Exception as e:
         print(e)
         return JSONResponse(content={'status': test_status + "\n" + e.__str__(),

@@ -40,7 +40,7 @@ import logging
 
 from app.utils.utils_eeg import load_data_from_edf, load_file_from_local_or_interim_edfbrowser_storage, \
     load_data_from_edf_fif, convert_yasa_sleep_stage_to_general, convert_generic_sleep_score_to_annotation, \
-    return_number_and_names_groups
+    return_number_and_names_groups, convert_compumedics_to_annotation
 from app.utils.utils_general import validate_and_convert_peaks, validate_and_convert_power_spectral_density, \
     create_notebook_mne_plot, get_neurodesk_display_id, get_annotations_from_csv, create_notebook_mne_modular, \
     get_single_file_from_local_temp_storage, get_local_storage_path, get_local_neurodesk_storage_path, \
@@ -220,6 +220,12 @@ async def list_channels_group(workflow_id: str,
     return {'channels': channels, 'group_names' : group_names}
     # return {'Error: No channels found'}
 
+
+@router.get("/type_input", tags=["type_input"])
+async def type_input(workflow_id: str,
+                              step_id: str,
+                              run_id: str,):
+    """ This functions is used to determine the file type of the input"""
 
 @router.get("/return_autocorrelation", tags=["return_autocorrelation"])
 # Validation is done inline in the input of the function
@@ -1385,6 +1391,25 @@ async def return_predictions(workflow_id: str, step_id: str, run_id: str, input_
             df_2 = pd.read_html(results_as_html_3, header=0, index_col=0)[0]
 
             z = input_future_seconds * sampling_frequency
+
+            # Create Predicted Plot
+            time_plot = np.arange(train.shape[0] + prediction.shape[0])
+
+            print("Data is")
+            print(len(train))
+            print(len(time_plot))
+            print(len(prediction))
+            print(input_test_size)
+            plt.figure("Plot Prediction")
+            plt.plot(time_plot[:len(train)], train, c='blue')
+            plt.plot(time_plot[len(train):], prediction.tolist(), c='green')
+            plt.savefig(get_local_storage_path(workflow_id, step_id, run_id) + "/output/" + 'prediction_plot.png')
+            plt.show()
+
+            plt.plot(time_plot[len(train):], prediction.tolist(), c='green')
+            plt.savefig(get_local_storage_path(workflow_id, step_id, run_id) + "/output/" + 'prediction_only_plot.png')
+
+            plt.show()
 
             prediction, confint = model.predict(n_periods=int(z), return_conf_int=True)
             return {'predictions': prediction.tolist(), 'error': smape, 'confint': confint,
@@ -4911,6 +4936,7 @@ async def group_sleep_analysis_sensitivity_add_subject_add_channels_final(
         workflow_id: str,
         step_id: str,
         run_id: str,
+        minutes_to_trim: int | None = 720,
         # sampling_frequency: int,
         # channels_selection: list[str] ):
         channels_selection: list[str] | None = Query(default=[])):
@@ -4924,6 +4950,7 @@ async def group_sleep_analysis_sensitivity_add_subject_add_channels_final(
     sampling_frequency = 1
     path_to_groups = get_local_storage_path(workflow_id, run_id, step_id)
 
+    number_of_files_total = 0
     # We put all name of directories containing the groups in a list
     list_of_group_directories = []
     # Get directories starting the name "group_"
@@ -4947,6 +4974,7 @@ async def group_sleep_analysis_sensitivity_add_subject_add_channels_final(
             else:
                 return "Error: Non csv or fif files detected"
         dict_group_files[group_name] = {"list_hypno_files": temp_hypno_list, "list_fif_files": temp_fif_list}
+
 
     #
     # path_first = 'UU_Sleep_final/' + 'Group_1'
@@ -5187,11 +5215,11 @@ async def group_sleep_analysis_sensitivity_add_subject_add_channels_final(
         temp_hypno_sensitivity_2 = []
         temp_mne_raw_sensitivity_2 = []
         for i in range(len(group_data)):
-            temp = group_data[i][:720]
+            temp = group_data[i][:minutes_to_trim]
             temp_hypno_sensitivity_2.append(temp)
             temp_mne_raw_sensitivity_2.append(group_mneraw_list[group_name][i])
-            if group_duration_files[group_name][i] > 21600:
-                temp_mne_raw_sensitivity_2[i].crop(tmin=0, tmax=21600)
+            if group_duration_files[group_name][i] > minutes_to_trim*30:
+                temp_mne_raw_sensitivity_2[i].crop(tmin=0, tmax=minutes_to_trim*30)
         group_hypno_sensitivity_2[group_name] = temp_hypno_sensitivity_2
         group_mne_raw_sensitivity_2[group_name] = temp_mne_raw_sensitivity_2
 
@@ -6253,3 +6281,13 @@ async def group_sw_spindles_analysis(
 
     print("Step 6")
     print(hypno_list)
+
+
+@router.get("/convert_compumedics")
+async def convert_compumedics(
+        workflow_id: str,
+        step_id: str,
+        run_id: str):
+    data = convert_compumedics_to_annotation("ttt.TXT", workflow_id, run_id, step_id)
+
+    return

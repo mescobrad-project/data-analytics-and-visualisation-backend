@@ -1,4 +1,6 @@
+import datetime
 import os
+import time
 
 import mne
 
@@ -93,9 +95,78 @@ def return_number_and_names_groups(workflow_id, run_id, step_id):
     return {"number_of_groups" : number_of_groups, "group_folders_name": group_folders}
     return number_of_groups, group_folders
 
+
+def convert_compumedics_seconds_to_int(initial_seconds):
+    """This function converts the seconds to an int format and rounds to upper second,
+     it also returns the actual value it had as string to be added to the description"""
+    split_initial = initial_seconds.split(":")
+    seconds_to_return = 0
+    actual_seconds_to_return = ""
+    if len(split_initial) ==3:
+        print("ERROR: DURATION EXCEEDS 60 Minutes")
+        return
+    elif len(split_initial) == 2:
+        split_milliseconds = split_initial[1].split(".")
+        if len(split_milliseconds) == 2:
+            # Format is "m:ss.s"
+            seconds_to_return = int(split_initial[0])*60 + int(split_milliseconds[0]) + 1
+            actual_seconds_to_return = split_initial[1]
+        elif len(split_milliseconds) == 1:
+            # Format is "m:ss"
+            # print(split_initial[0])
+            # print(split_milliseconds)
+            seconds_to_return = int(split_initial[0])*60 + int(split_milliseconds[0])
+    to_return = {"seconds" : seconds_to_return, "actual_seconds_str": actual_seconds_to_return}
+
+    return to_return
+def convert_compumedics_to_annotation(file_hypno,file_eeg, workflow_id, run_id, step_id):
+    data_df = pd.read_csv(get_local_storage_path(workflow_id, run_id, step_id) + "/" + file_hypno, sep=",", names=["start_time", "epoch", "stage", "description", "duration", "oxygen_sat", "ch_oxygen_sat", "position"])
+    print(type(data_df))
+    print(data_df)
+    print(data_df["stage"])
+    print(data_df["start_time"])
+    data_times = data_df["start_time"].tolist()
+    data_sleep_score = data_df["stage"].tolist()
+
+    # Get initial time from eeg file and convert to seconds
+    # TODO
+    initial_time = data_times[0]
+    initial_time_seconds = sum(x * int(t) for x, t in zip([3600, 60, 1], initial_time.split(":")))
+
+    # Day counter to know if day has lapsed into new one because given annotaitons only contain 24 Hour format
+    day_counter = 0
+
+    # Create Normal Annotations
+    annotations = mne.Annotations(onset=[], duration=[], description=[])
+    for index, entry in data_df.iterrows():
+        # print(entry)
+        converted_duration = convert_compumedics_seconds_to_int(entry["duration"])
+        converted_onset = sum(x * int(t) for x, t in zip([3600, 60, 1], entry["start_time"].split(":")))
+        converted_description = "Description:" + entry["description"] + " Oxygen Sat:" + entry["oxygen_sat"] + " Oxygen Sat Change:" + entry["ch_oxygen_sat"] + " Position: " + entry["position"] + " Actual Duration: " + entry["duration"]
+
+        if converted_onset < initial_time_seconds:
+            day_counter  += 1
+        # print(converted_onset)
+        # print(initial_time_seconds)
+        print((converted_onset- initial_time_seconds) + (day_counter * 86400))
+        print(converted_duration["seconds"])
+        print(converted_description)
+        # Onset is calculated by convertin time to seconds and subtracting
+        annotations.append(onset=(converted_onset- initial_time_seconds) + (day_counter * 86400), duration= converted_duration["seconds"], description= converted_description)
+    print("annotations")
+    print(annotations)
+
+    # Create Hypnogram
+    # for index, entry in data_df.iterrows():
+
+
+    return data_sleep_score
+
+
 def convert_generic_sleep_score_to_annotation(name_of_file, workflow_id, run_id, step_id):
     """This function converts the generic sleep score to annotations for the EDFBrowser"""
     # Load data from csv
+    # data_sleep_score = load_data_from_csv(get_local_storage_path(workflow_id, run_id, step_id) + "/" + name_of_file)
     data_sleep_score = load_data_from_csv(get_local_storage_path(workflow_id, run_id, step_id) + "/" + name_of_file)
 
     # Convert dataframe to list
