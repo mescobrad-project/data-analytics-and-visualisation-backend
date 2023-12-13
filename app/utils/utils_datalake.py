@@ -9,9 +9,6 @@ import numpy as np
 # Create client with access key and secret key.
 load_dotenv()
 
-print("Test Access Keys")
-print(os.getenv("MINIO_ACCESS_KEY"))
-print(os.getenv("MINIO_SECRET_KEY"))
 new_client = Minio(
     "storage.mescobrad.digital-enabler.eng.it",
     access_key=os.getenv("MINIO_ACCESS_KEY"),
