@@ -67,7 +67,7 @@ from sklearn.preprocessing import StandardScaler
 
 from app.utils.utils_hypothesis import create_plots, compute_skewness, outliers_removal, compute_kurtosis, \
     statisticsMean, statisticsMin, statisticsMax, statisticsStd, statisticsCov, statisticsVar, statisticsStandardError, \
-    statisticsConfidenceLevel
+    statisticsConfidenceLevel, DataframeImputation
 from semopy import Model, estimate_means, ModelMeans, semplot, calc_stats, gather_statistics, Optimizer, efa
 import plotly.express as px
 import plotly.graph_objects as go
@@ -1245,6 +1245,8 @@ async def principal_component_analysis(workflow_id: str,
     dfv = pd.DataFrame()
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
     test_status = ''
+    print(categorical_variable)
+    print(independent_variables)
     try:
         test_status = 'Dataset is not defined'
         dfv['variables'] = independent_variables
@@ -6326,3 +6328,37 @@ async def Exploratory_Factor_Analysis_extract_latent_structure(
         return JSONResponse(content={'status': test_status + "\n" + e.__str__(),
                                      'test_result': ''},
                             status_code=200)
+
+@router.get("/Dataframe_preparation")
+async def Dataframe_preparation(workflow_id: str,
+                                step_id: str,
+                                run_id: str,
+                                file:str,
+                                variables: list[str] | None = Query(default=None),
+                                method: str | None = Query("mean",
+                                                  regex="^(mean)$|^(median)$|^(most_frequent)$|^(constant)$|^(KNN)$|^(iterative)$")):
+
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    # test_status = ''
+    # dfv = pd.DataFrame()
+    print(path_to_storage)
+    try:
+        test_status = 'Dataset is not defined'
+        if file is None:
+            test_status = 'Dataset is not defined'
+            raise Exception
+        test_status = 'Unable to retrieve datasets'
+        # We expect only one here
+        data = load_data_from_csv(path_to_storage + "/" + file)
+        for variable in variables:
+            if variable not in data.columns:
+                raise Exception(str(variable) + '- The selected variable cannot be found in the dataset.')
+        print(method)
+        print(variables)
+        x = DataframeImputation(data,variables,method)
+        if is_numeric_dtype(type(x)):
+            raise Exception
+        return x.to_json(orient='records')
+    except Exception as e:
+        print(e)
+        return -1

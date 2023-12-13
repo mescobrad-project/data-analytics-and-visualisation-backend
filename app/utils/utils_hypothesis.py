@@ -12,6 +12,8 @@ import statistics
 from factor_analyzer.utils import cov
 import plotly.graph_objects as go
 import plotly.figure_factory as ff
+from sklearn.experimental import enable_iterative_imputer
+from sklearn.impute import SimpleImputer, KNNImputer, IterativeImputer
 from statsmodels.graphics.gofplots import qqplot
 
 
@@ -349,4 +351,58 @@ def statisticsConfidenceLevel(column: str, selected_dataframe, alpha = 0.95):
     except Exception as e:
         print(e)
         print("Error : Failed to compute Variance for column: "+column +"\n"+e.__str__())
+        return -1
+
+def DataframeImputation(selected_dataframe, selected_variables, method):
+    try:
+        df = selected_dataframe
+        print(df.dtypes)
+        print(df.shape)
+        NA = pd.DataFrame(data=[df.isna().sum().tolist(), ["{:.2f}".format(i) + '%' \
+                                                           for i in (df.isna().sum() / df.shape[0] * 100).tolist()]],
+                          columns=df.columns, index=['NA Count', 'NA Percent']).transpose()
+        NA.style.background_gradient(cmap="Pastel1_r", subset=['NA Count'])
+        print(NA)
+        data1 = df.copy()
+        data2 = df.copy()
+        print(selected_variables)
+        if method == 'mean' or method == 'median' or method == 'iterative':
+            print(method)
+            for variable in selected_variables:
+                print(df[variable].dtype)
+                if df[variable].dtype == object:
+                    raise Exception('Mean or Median or Iterative methods can only be used with numeric data.')
+
+        if method == 'mean':
+            imp = SimpleImputer(strategy='mean')
+            data1[selected_variables] = imp.fit_transform(data1[selected_variables])
+            # data1[selected_variables] = imp.fit_transform(data1[selected_variables].values.reshape(-1, 1))
+        elif method == 'median':
+            imp = SimpleImputer(strategy='median')
+            data1[selected_variables] = imp.fit_transform(data1[selected_variables])
+        elif method == 'most_frequent':
+            imp = SimpleImputer(strategy='most_frequent')
+            data1[selected_variables] = imp.fit_transform(data1[selected_variables])
+        elif method == 'constant':
+            imp = SimpleImputer(strategy='constant')
+            data1[selected_variables] = imp.fit_transform(data1[selected_variables])
+        elif method == 'KNN':
+            print('KNN')
+            # data1[selected_variable].replace('NaN', np.nan)
+            # imputer = KNNImputer(n_neighbors=2, missing_values=np.nan)
+            imputer = KNNImputer(n_neighbors=5)
+            data1[selected_variables] = imputer.fit_transform(data1[selected_variables])
+        elif method == 'iterative':
+            imp = IterativeImputer(max_iter=10, random_state=0)
+            data1[selected_variables] = imp.fit_transform(data1[selected_variables])
+        print(data1.head(15))
+        # After
+        NA = pd.DataFrame(data=[data1.isna().sum().tolist(), ["{:.2f}".format(i) + '%' \
+                                                           for i in (data1.isna().sum() / data1.shape[0] * 100).tolist()]],
+                          columns=data1.columns, index=['NA Count', 'NA Percent']).transpose()
+        NA.style.background_gradient(cmap="Pastel1_r", subset=['NA Count'])
+        print(NA)
+        return data1
+    except Exception as e:
+        print("Error : Failed to impute: " + "\n" + e.__str__())
         return -1
