@@ -2604,9 +2604,13 @@ async def eeg_upsampling( workflow_id: str,
     #  Check if there are group directories to see which case we are in
     if list_of_group_directories:
         for group in list_of_group_directories:
+            temp_group_done = []
             for filename in os.listdir(path_to_groups + "/" + group):
                 file_name_only = os.path.splitext(filename)[0]
-                # Do each file pair by hand
+                # Skip if already done
+                if file_name_only in temp_group_done:
+                    continue
+            # Do each file pair by hand
                 csv_file = file_name_only + ".csv"
                 fif_file = file_name_only + ".fif"
 
@@ -2622,23 +2626,31 @@ async def eeg_upsampling( workflow_id: str,
                 plt.rcParams["figure.dpi"] = 150
                 plt.savefig(
                     get_local_storage_path(workflow_id, run_id,
-                                           step_id) + "/output/hypnogram_channel_num_og.png")
+                                           step_id) + "/output/hypnogram_original_"+file_name_only+".png")
                 plt.show()
 
-                temp_result = yasa.hypno_upsample_to_data(temp_hypno_data, sf_hypno = 1/30, data = raw_data)
+                temp_result = yasa.hypno_upsample_to_data(temp_hypno_data, sf_hypno = sf_hypno, data = raw_data)
 
+                # Save CSV
+                df = pd.DataFrame(data={"stage": temp_result})
+                df.to_csv( get_local_storage_path(workflow_id, run_id,
+                                           step_id) + "/output/" +file_name_only+"_upsampled "+ ".csv" , sep=',', index=False)
+
+                # Save plot
                 print(temp_result)
                 yasa.plot_hypnogram(temp_result)
                 plt.rcParams["figure.dpi"] = 150
                 plt.savefig(
                     get_local_storage_path(workflow_id, run_id,
-                                           step_id) + "/output/hypnogram_channel_num.png")
+                                           step_id) + "/output/hypnogram_upsampled_"+ file_name_only+".png")
                 plt.show()
-
+                results.append({"file_name": file_name_only})
+                temp_group_done.append(file_name_only)
                 print(temp_result)
 
     else:
         for file in os.listdir(path_to_groups):
+            file_name_only = os.path.splitext(file)[0]
             if file.endswith("csv"):
                 path = path_to_groups + "/" + file
                 df = pd.read_csv(path)
@@ -2656,10 +2668,15 @@ async def eeg_upsampling( workflow_id: str,
         plt.rcParams["figure.dpi"] = 150
         plt.savefig(
             get_local_storage_path(workflow_id, run_id,
-                                   step_id) + "/output/hypnogram_channel_num_og.png")
+                                   step_id) + "/output/hypnogram_original_"+file_name_only+".png")
         plt.show()
 
-        temp_result = yasa.hypno_upsample_to_data( temp_hypno_data,  sf_hypno = 1/30,data = raw_data)
+        temp_result = yasa.hypno_upsample_to_data( temp_hypno_data,  sf_hypno = sf_hypno,data = raw_data)
+        # Save new CSV
+        df = pd.DataFrame(data={"stage": temp_result})
+        df.to_csv(get_local_storage_path(workflow_id, run_id,
+                                         step_id) + "/output/" + file_name_only + "_upsampled " + ".csv", sep=',',
+                  index=False)
 
         # Get result plot
         print(temp_result)
@@ -2667,8 +2684,11 @@ async def eeg_upsampling( workflow_id: str,
         plt.rcParams["figure.dpi"] = 150
         plt.savefig(
             get_local_storage_path(workflow_id, run_id,
-                                   step_id) + "/output/hypnogram_channel_num.png")
+                                   step_id) + "/output/hypnogram_upsampled_"+file_name_only+".png")
         plt.show()
+        # results.append({"file_name" : file_name_only, "original_hypno" : temp_hypno_data, "upsampled_hypno": temp_result})
+        results.append({"file_name" : file_name_only})
+
 
     return results
 # @router.get("/group_sleep_analysis")

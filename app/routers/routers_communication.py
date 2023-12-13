@@ -272,6 +272,8 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/envelope_trend"
             case "group_sleep_analysis":
                 url_to_redirect += "/group_sleep_analysis"
+            case "eeg_hypno_upsampling":
+                url_to_redirect += "/eeg_hypno_upsampling"
             # case "group_sleep_sensitivity_analysis":
             #     url_to_redirect += "/group_sleep_sensitivity_analysis"
             # case "group_sleep_sensitivity_analysis_add_subject":
