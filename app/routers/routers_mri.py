@@ -267,6 +267,18 @@ async def return_free_surfer_samseg_log(workflow_id: str,
 
     return False
 
+@router.get("/free_surfer/log/vol2vol", tags=["return_free_surfer_samseg"])
+async def return_free_surfer_log_vol2vol_coreg(workflow_id: str,
+                                   run_id: str,
+                                   step_id: str,
+                                   output_file: str,
+                                   ) -> dict:
+    """Check if vol2vol or coreg has finished by checking if the output file exists"""
+    path_to_output = os.path.join( get_local_storage_path(workflow_id, run_id, step_id), output_file)
+    if os.path.exists(path_to_output):
+        return True
+    else:
+        return False
 
 @router.get("free_surfer/recon/check", tags=["return_free_surfer_recon"])
 # Validation is done inline in the input of the function
@@ -290,7 +302,8 @@ async def return_free_surfer_recon_check(input_test_name_check: str) -> dict:
 async def return_free_surfer_samseg(workflow_id: str,
                                    run_id: str,
                                    step_id: str,
-                                   file_name: str,
+                                   input_file_name: str,
+                                   input_flair_file_name: str | None = None,
                                     # input_slices: str,
                                     ) -> dict:
     # Retrieve the paths file from the local storage
@@ -360,9 +373,14 @@ async def return_free_surfer_samseg(workflow_id: str,
     channel.send("sudo mkdir -m777 ./output/samseg_output > mkdir.txt\n")
 
 
-    print("nohup run_samseg" + " --input " + file_name + " -o ./output/samseg_output > ./output/samseg_log.txtr &\n")
-    channel.send(
-        "nohup run_samseg" + " --input " + file_name + " -o ./output/samseg_output > ./output/samseg_log.txtr &\n")
+    print("nohup run_samseg" + " --input " + input_file_name + " -o ./output/samseg_output > ./output/samseg_log.txtr &\n")
+
+    if input_flair_file_name is None:
+        channel.send(
+            "nohup run_samseg" + " --input " + input_file_name + " -o ./output/samseg_output > ./output/samseg_log.txtr &\n")
+    else:
+        channel.send(
+            "nohup run_samseg" + " --input " + input_file_name + " " + input_flair_file_name + " -o ./output/samseg_output > ./output/samseg_log.txtr &\n")
 
     # # If everything ok return Sucess
     to_return = "Success"
