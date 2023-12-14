@@ -6288,6 +6288,6 @@ async def convert_compumedics(
         workflow_id: str,
         step_id: str,
         run_id: str):
-    data = convert_compumedics_to_annotation("ttt.TXT", workflow_id, run_id, step_id)
+    data = convert_compumedics_to_annotation("ttt.TXT", "psg1 anonym2.edf",workflow_id, run_id, step_id)
 
     return

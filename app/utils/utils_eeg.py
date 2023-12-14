@@ -128,22 +128,30 @@ def convert_compumedics_to_annotation(file_hypno,file_eeg, workflow_id, run_id, 
     data_times = data_df["start_time"].tolist()
     data_sleep_score = data_df["stage"].tolist()
 
+    # Import eeg file
+    edf_data = load_data_from_edf(get_local_storage_path(workflow_id, run_id, step_id) + "/" +file_eeg)
+    # edf_data = load_file_from_local_or_interim_edfbrowser_storage("original", workflow_id, run_id, step_id)
+    eeg_initial_time = edf_data.info["meas_date"]
     # Get initial time from eeg file and convert to seconds
-    # TODO
-    initial_time = data_times[0]
-    initial_time_seconds = sum(x * int(t) for x, t in zip([3600, 60, 1], initial_time.split(":")))
+    # initial_time = eeg_start_time.strftime("%H:%M:%S")
+    # initial_time = data_times[0]
+    # initial_time_seconds = sum(x * int(t) for x, t in zip([3600, 60, 1], initial_time.split(":")))
 
     # Day counter to know if day has lapsed into new one because given annotaitons only contain 24 Hour format
     day_counter = 0
-
+    onset_format = "%H:%M:%S"
     # Create Normal Annotations
     annotations = mne.Annotations(onset=[], duration=[], description=[])
     for index, entry in data_df.iterrows():
         # print(entry)
         converted_duration = convert_compumedics_seconds_to_int(entry["duration"])
+        converted_onset_datetime = datetime.datetime.strptime(entry["start_time"], onset_format)
+        # converted_onset_datetime = converted_onset_datetime.replace(year=, month=,day=)
+        print(converted_onset_datetime)
+        print(eeg_initial_time)
         converted_onset = sum(x * int(t) for x, t in zip([3600, 60, 1], entry["start_time"].split(":")))
         converted_description = "Description:" + entry["description"] + " Oxygen Sat:" + entry["oxygen_sat"] + " Oxygen Sat Change:" + entry["ch_oxygen_sat"] + " Position: " + entry["position"] + " Actual Duration: " + entry["duration"]
-
+        initial_time_seconds = 0
         if converted_onset < initial_time_seconds:
             day_counter  += 1
         # print(converted_onset)
@@ -157,6 +165,8 @@ def convert_compumedics_to_annotation(file_hypno,file_eeg, workflow_id, run_id, 
     print(annotations)
 
     # Create Hypnogram
+    it_epoch = 0
+    # for it_epoch in range(0,)
     # for index, entry in data_df.iterrows():
 
 
