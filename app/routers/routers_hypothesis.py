@@ -3339,7 +3339,7 @@ async def generalized_estimating_equations(workflow_id: str,
 
         mdf = md.fit()
 
-        print(md.predict())
+        #print(md.predict())
         df = mdf.summary()
 
         # print(df)
@@ -5591,6 +5591,7 @@ async def compute_granger_analysis(workflow_id: str,
         # if all_lags_up_to==False:
         #     print(grangercausalitytests(dataset[[response_variable, predictor_variable]], maxlag=[num_lags]))
         # else:
+        test_status = 'Unable to conduct granger causality test. Check that all parameters have been provided'
         if len(num_lags) == 1:
             granger_result = grangercausalitytests(dataset[[response_variable, predictor_variable]], maxlag=num_lags[0])
         else:
@@ -5598,16 +5599,23 @@ async def compute_granger_analysis(workflow_id: str,
         # Union[int, List[int]]
 
         # print(type(granger_result))
-        # print(granger_result)
+        print(granger_result)
         # # df_granger = pd.DataFrame(data=granger_result)
         # print(granger_result.keys())
         lag_numbers = list(granger_result.keys())
-        to_return = {'lags': [], 'num_lags': lag_numbers}
+        to_return = []
         for lag in lag_numbers:
-            to_return['lags'].append(granger_result[lag][0])
+            func = lambda x : int(x) if type(x) == np.int32 else x
+            start_dict = dict((key, list(map(func, tuple_))) for (key, tuple_) in granger_result[lag][0].items())
+            list_for_lag = []
+            for key, value in start_dict.items():
+               if len(value) == 3:
+                   list_for_lag.append({"key": key, "F" : "-", "chi2" : "%.3f"%float(round(value[0], 3)), "p": "%.3f"%float(round(value[1], 3)), "df" :str(int(value[2])), "df_denom" : "-", "df_num" : "-"})
+               else:
+                   list_for_lag.append({"key": key, "F" : "%.3f"%float(round(value[0], 3)), "chi2" : "-", "p": "%.3f"%float(round(value[1], 3)), "df" : "-", "df_denom" : str(int(value[2])), "df_num" : str(int(value[3]))})
+            to_return.append({"lag_num" : str(lag), "result": list_for_lag})
         print(to_return)
-        print(to_return['lags'][0]['ssr_ftest'])
-        print(type(to_return['lags'][0]['ssr_ftest']))
+
 
         # with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
         #     file_data = json.load(f)
@@ -5628,17 +5636,13 @@ async def compute_granger_analysis(workflow_id: str,
         #     f.seek(0)
         #     json.dump(file_data, f, indent=4)
         #     f.truncate()
-        return JSONResponse(content={'status': 'Success', 'DataFrame': all_res},
+        return JSONResponse(content={'status': "Success", 'lags': to_return},
                             status_code=200)
     except Exception as e:
         print(e)
         print(traceback.format_exc())
-        return JSONResponse(content={'status': test_status, 'Dataframe': []},
+        return JSONResponse(content={'status': test_status, 'lags': []},
                             status_code=200)
-
-
-
-    return to_return['lags']
     # return to_return
 
 
