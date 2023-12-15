@@ -218,7 +218,7 @@ async def return_daily_activity_activity_status_area(workflow_id: str,
     date_list_obj = []
     for date in mylist:
         date_object = datetime.strptime(date, '%Y/%m/%d %H:%M:%S')
-        print(date_object)
+        # print(date_object)
         date_list_obj.append(date_object)
     date_list = [date_obj.strftime('%d/%m/%Y %H:%M:%S') for date_obj in date_list_obj]
     # print(date_list)
@@ -246,19 +246,41 @@ async def return_daily_activity_activity_status_area(workflow_id: str,
     df['Flag_1'] = np.where((df['Interval Status'] == "REST-S") & (df['Prev_Interval_Status'] != "REST-S"), "Slept", "")
     df['Flag_2'] = np.where((df['Interval Status'] == "REST-S") & (df['Next_Interval_Status'] != "REST-S"), "Woke", "")
     #     print(df.to_string())
-    # display(df)
+    # print(df)
 
     df_x0_list = df
     df_x0_list = df_x0_list.drop(index=[row for row in df_x0_list.index if "Slept" != df_x0_list.loc[row, 'Flag_1']])
+    print(df_x0_list)
     df_x1_list = df
     df_x1_list = df_x1_list.drop(index=[row for row in df_x1_list.index if "Woke" != df_x1_list.loc[row, 'Flag_2']])
+    print(df_x1_list)
 
     x0 = []
+    # for index, row in df_x0_list.iterrows():
+    #     if df_x0_list['Date'].eq(df_x0_list['Date'].shift(-1)):
+    #     x0 = []
     x0 = df_x0_list['Datetime'].tolist()
-    x0.pop()
+    #     x0.pop()
+    print(x0)
     x1 = []
     x1 = df_x1_list['Datetime'].tolist()
-    x1.pop()
+    #     x1.pop()
+    print(x1)
+
+    x_list = [list(item) for item in zip(x0, x1)]
+    print(x_list)
+
+    # Manipulate x_list
+    x_list_fixed = []
+    for sublist in x_list:
+        help_list = []
+        for item in sublist:
+            new_format_x0 = item.replace("/", "-")
+            date_object = datetime.strptime(new_format_x0, '%d-%m-%Y %H:%M:%S')
+            date_string = date_object.strftime('%Y-%m-%d %H:%M:%S')
+            help_list.append(date_string)
+        x_list_fixed.append(help_list)
+    print(x_list_fixed)
 
     # Manipulate x0_list
     x0_list = []
@@ -267,7 +289,6 @@ async def return_daily_activity_activity_status_area(workflow_id: str,
         date_object = datetime.strptime(new_format_x0, '%d-%m-%Y %H:%M:%S')
         date_string = date_object.strftime('%Y-%m-%d %H:%M:%S')
         x0_list.append(date_string)
-    # print(x0_list)
 
     # Manipulate x1_list
     x1_list = []
@@ -283,32 +304,74 @@ async def return_daily_activity_activity_status_area(workflow_id: str,
                             # shared_yaxes=True,
                             vertical_spacing=0.05,
                             subplot_titles=("Day 1", "Day 2", "Day 3", "Day 4", "Day 5", "Day 6"))
-    # fig = make_subplots(rows=7, cols=1,
-    #                     # shared_xaxes=True,
-    #                     vertical_spacing=0.1,
-    #                     subplot_titles=("Day 1", "Day 2", "Day 3", "Day 4", "Day 5", "Day 6"))
-    for i in datetime_list[:-2]:
+
+    raw_start_time = 0
+
+    for sublist in x_list_fixed:
         raw = pyActigraphy.io.read_raw_rpx(
             'example_data/actigraph/0345-024_18_07_2022_13_00_00_New_Analysis.csv',
-            start_time=i,
+            start_time=datetime_list[raw_start_time],
             period='1 day',
             language='ENG_UK'
         )
-        raw.create_inactivity_mask(duration='2h00min')
-        fig.add_scatter(x=raw.data.index.astype(str), y=raw.data, mode='lines', line=dict(width=2, color=cols[0]),
-                        name='Visualisation', row=day_count, col=1)
-        fig.add_vline(x=x0_list[x0_count], row=day_count, col=1)
-        fig.add_vline(x=x1_list[x1_count], row=day_count, col=1)
-        fig.add_vrect(x0=x0_list[x0_count], x1=x1_list[x1_count],
-                      annotation_text="REST Period", annotation_position="top left",
-                      fillcolor="green", opacity=0.25, line_width=0, row=day_count, col=1)
-        x0_count = x0_count + 1
-        x1_count = x1_count + 1
-        # fig.add_scatter(x=raw.mask.index.astype(str), y=raw.mask, yaxis='y2',mode='lines', line=dict(width=2, color=cols[1]), name='Inactivity Mask', row=day_count, col=1)
-        fig.update_layout(title='Activity Visualisation', width=800, height=1400,
-                          dragmode='select',
-                          activeselection=dict(fillcolor='yellow'))
-        day_count = day_count + 1
+        for item in sublist:
+            first_date = sublist[0][:10]
+            second_date = sublist[1][:10]
+        if (first_date == second_date):
+            print("yes")
+            fig.add_scatter(x=raw.data.index.astype(str), y=raw.data, mode='lines', line=dict(width=2, color=cols[0]),
+                            name='Visualisation', row=day_count, col=1)
+            fig.add_vline(x=sublist[0], row=day_count, col=1)
+            fig.add_vline(x=sublist[1], row=day_count, col=1)
+            fig.add_vrect(x0=sublist[0], x1=sublist[1],
+                          annotation_text="REST Period", annotation_position="top left",
+                          fillcolor="green", opacity=0.25, line_width=0, row=day_count, col=1)
+            x0_count = x0_count + 1
+            x1_count = x1_count + 1
+            # fig.add_scatter(x=raw.mask.index.astype(str), y=raw.mask, yaxis='y2',mode='lines', line=dict(width=2, color=cols[1]), name='Inactivity Mask', row=day_count, col=1)
+            fig.update_layout(title='Activity Visualisation', width=800, height=1400,
+                              dragmode='select',
+                              activeselection=dict(fillcolor='yellow'))
+        else:
+            print("no")
+            fig.add_scatter(x=raw.data.index.astype(str), y=raw.data, mode='lines', line=dict(width=2, color=cols[0]),
+                            name='Visualisation', row=day_count, col=1)
+            fig.add_vline(x=sublist[0], row=day_count, col=1)
+            fig.add_vline(x=sublist[1], row=day_count, col=1)
+            fig.add_vrect(x0=sublist[0], x1=sublist[1],
+                          annotation_text="REST Period", annotation_position="top left",
+                          fillcolor="green", opacity=0.25, line_width=0, row=day_count, col=1)
+            x0_count = x0_count + 1
+            x1_count = x1_count + 1
+            # fig.add_scatter(x=raw.mask.index.astype(str), y=raw.mask, yaxis='y2',mode='lines', line=dict(width=2, color=cols[1]), name='Inactivity Mask', row=day_count, col=1)
+            fig.update_layout(title='Activity Visualisation', width=800, height=1400,
+                              dragmode='select',
+                              activeselection=dict(fillcolor='yellow'))
+            day_count = day_count + 1
+            raw_start_time = raw_start_time + 1
+
+    # for i in datetime_list[:-2]:
+    #     raw = pyActigraphy.io.read_raw_rpx(
+    #         'copy.csv',
+    #         start_time=i,
+    #         period='1 day',
+    #         language='ENG_UK'
+    #     )
+    #     # raw.create_inactivity_mask(duration='2h00min')
+    #     fig.add_scatter(x=raw.data.index.astype(str), y=raw.data, mode='lines', line=dict(width=2, color=cols[0]),
+    #                     name='Visualisation', row=day_count, col=1)
+    #     fig.add_vline(x=x0_list[x0_count], row=day_count, col=1)
+    #     fig.add_vline(x=x1_list[x1_count], row=day_count, col=1)
+    #     fig.add_vrect(x0=x0_list[x0_count], x1=x1_list[x1_count],
+    #                   annotation_text="REST Period", annotation_position="top left",
+    #                   fillcolor="green", opacity=0.25, line_width=0, row=day_count, col=1)
+    #     x0_count = x0_count + 1
+    #     x1_count = x1_count + 1
+    #     # fig.add_scatter(x=raw.mask.index.astype(str), y=raw.mask, yaxis='y2',mode='lines', line=dict(width=2, color=cols[1]), name='Inactivity Mask', row=day_count, col=1)
+    #     fig.update_layout(title='Activity Visualisation', width=800, height=1400,
+    #                       dragmode='select',
+    #                       activeselection=dict(fillcolor='yellow'))
+    #     day_count = day_count + 1
 
     # fig.show()
     # print(datetime_list)
@@ -334,6 +397,7 @@ async def return_final_daily_activity_activity_status_area(workflow_id: str,
     datetime_list = []
     for i in range(0, (end_date_dt - start_date_dt).days + 1):
         datetime_list.append(str(start_date_dt + timedelta(days=i)) + str(" 12:00:00"))  # <-- here
+    #     print(datetime_list)
     day_count = 1
     x0_count = 0
     x1_count = 0
@@ -343,34 +407,73 @@ async def return_final_daily_activity_activity_status_area(workflow_id: str,
     for i in datetime_list:
         new = i.replace("-", "/")
         mylist.append(new)
+    # print(mylist)
     date_list_obj = []
     for date in mylist:
         date_object = datetime.strptime(date, '%Y/%m/%d %H:%M:%S')
-        date_list_obj.append(date_object.date())
-    date_list = [date_obj.strftime('%d/%m/%Y') for date_obj in date_list_obj]
+        # print(date_object)
+        date_list_obj.append(date_object)
+    date_list = [date_obj.strftime('%d/%m/%Y %H:%M:%S') for date_obj in date_list_obj]
     # print(date_list)
+
+    # create a datetime list to compare with datetimes from df
+    start = datetime.strptime(date_list[0], '%d/%m/%Y %H:%M:%S')
+    end = datetime.strptime(date_list[-1], '%d/%m/%Y %H:%M:%S')
+    # print(start)
+    # print(end)
+
+    dts = [dt.strftime('%d/%m/%Y %#H:%M:%S') for dt in
+           datetime_range(start, end,
+                          timedelta(seconds=15))]
+    #     print(dts)
 
     df = pd.read_csv('example_data/actigraph/copy.csv', skiprows=150)
     df["Datetime"] = df[["Date", "Time"]].apply(lambda x: " ".join(x), axis=1)
     df.drop(df.columns[[12]], axis=1, inplace=True)
-    df = df.drop(index=[row for row in df.index if df.loc[row, 'Date'] not in date_list])
+    #     for datetime in date_list:
+    df = df.drop(index=[row for row in df.index if df.loc[row, 'Datetime'] not in dts])
+    #     display(df)
 
     df["Prev_Interval_Status"] = df["Interval Status"].shift(+1)
     df["Next_Interval_Status"] = df["Interval Status"].shift(-1)
     df['Flag_1'] = np.where((df['Interval Status'] == "REST-S") & (df['Prev_Interval_Status'] != "REST-S"), "Slept", "")
     df['Flag_2'] = np.where((df['Interval Status'] == "REST-S") & (df['Next_Interval_Status'] != "REST-S"), "Woke", "")
+    #     print(df.to_string())
+    # print(df)
 
     df_x0_list = df
     df_x0_list = df_x0_list.drop(index=[row for row in df_x0_list.index if "Slept" != df_x0_list.loc[row, 'Flag_1']])
+    print(df_x0_list)
     df_x1_list = df
     df_x1_list = df_x1_list.drop(index=[row for row in df_x1_list.index if "Woke" != df_x1_list.loc[row, 'Flag_2']])
+    print(df_x1_list)
 
     x0 = []
+    # for index, row in df_x0_list.iterrows():
+    #     if df_x0_list['Date'].eq(df_x0_list['Date'].shift(-1)):
+    #     x0 = []
     x0 = df_x0_list['Datetime'].tolist()
-    x0.pop()
+    #     x0.pop()
+    print(x0)
     x1 = []
     x1 = df_x1_list['Datetime'].tolist()
-    x1.pop()
+    #     x1.pop()
+    print(x1)
+
+    x_list = [list(item) for item in zip(x0, x1)]
+    print(x_list)
+
+    # Manipulate x_list
+    x_list_fixed = []
+    for sublist in x_list:
+        help_list = []
+        for item in sublist:
+            new_format_x0 = item.replace("/", "-")
+            date_object = datetime.strptime(new_format_x0, '%d-%m-%Y %H:%M:%S')
+            date_string = date_object.strftime('%Y-%m-%d %H:%M:%S')
+            help_list.append(date_string)
+        x_list_fixed.append(help_list)
+    print(x_list_fixed)
 
     # Manipulate x0_list
     x0_list = []
@@ -379,7 +482,6 @@ async def return_final_daily_activity_activity_status_area(workflow_id: str,
         date_object = datetime.strptime(new_format_x0, '%d-%m-%Y %H:%M:%S')
         date_string = date_object.strftime('%Y-%m-%d %H:%M:%S')
         x0_list.append(date_string)
-    # print(x0_list)
 
     # Manipulate x1_list
     x1_list = []
@@ -390,36 +492,79 @@ async def return_final_daily_activity_activity_status_area(workflow_id: str,
         x1_list.append(date_string)
     # print(x1_list)
 
-    for i in range(len(datetime_list)-1):
-        fig = make_subplots(rows=i+1, cols=1,
+    for i in range(len(datetime_list) - 1):
+        fig = make_subplots(rows=i + 1, cols=1,
                             # shared_yaxes=True,
                             vertical_spacing=0.05,
                             subplot_titles=("Day 1", "Day 2", "Day 3", "Day 4", "Day 5", "Day 6"))
-    # fig = make_subplots(rows=7, cols=1,
-    #                     # shared_xaxes=True,
-    #                     vertical_spacing=0.1,
-    #                     subplot_titles=("Day 1", "Day 2", "Day 3", "Day 4", "Day 5", "Day 6"))
-    for i in datetime_list[:-1]:
+
+    raw_start_time = 0
+
+    for sublist in x_list_fixed:
         raw = pyActigraphy.io.read_raw_rpx(
-            'example_data/actigraph/0345-024_18_07_2022_13_00_00_New_Analysis.csv',
-            start_time=i,
+            'example_data/actigraph/copy.csv',
+            start_time=datetime_list[raw_start_time],
             period='1 day',
             language='ENG_UK'
         )
-        raw.create_inactivity_mask(duration='2h00min')
-        fig.add_scatter(x=raw.data.index.astype(str), y=raw.data, mode='lines', line=dict(width=2, color=cols[0]), name='Visualisation', row=day_count, col=1)
-        fig.add_vline(x=x0_list[x0_count], row=day_count, col=1)
-        fig.add_vline(x=x1_list[x1_count], row=day_count, col=1)
-        fig.add_vrect(x0=x0_list[x0_count], x1=x1_list[x1_count],
-                      annotation_text="REST Period", annotation_position="top left",
-                      fillcolor="green", opacity=0.25, line_width=0, row=day_count, col=1)
-        x0_count = x0_count + 1
-        x1_count = x1_count + 1
-        # fig.add_scatter(x=raw.mask.index.astype(str), y=raw.mask, yaxis='y2',mode='lines', line=dict(width=2, color=cols[1]), name='Inactivity Mask', row=day_count, col=1)
-        fig.update_layout(title='Activity Visualisation', width=800, height=1400,
-                          dragmode='select',
-                          activeselection=dict(fillcolor='yellow'))
-        day_count = day_count + 1
+        for item in sublist:
+            first_date = sublist[0][:10]
+            second_date = sublist[1][:10]
+        if (first_date == second_date):
+            print("yes")
+            fig.add_scatter(x=raw.data.index.astype(str), y=raw.data, mode='lines', line=dict(width=2, color=cols[0]),
+                            name='Visualisation', row=day_count, col=1)
+            fig.add_vline(x=sublist[0], row=day_count, col=1)
+            fig.add_vline(x=sublist[1], row=day_count, col=1)
+            fig.add_vrect(x0=sublist[0], x1=sublist[1],
+                          annotation_text="REST Period", annotation_position="top left",
+                          fillcolor="green", opacity=0.25, line_width=0, row=day_count, col=1)
+            x0_count = x0_count + 1
+            x1_count = x1_count + 1
+            # fig.add_scatter(x=raw.mask.index.astype(str), y=raw.mask, yaxis='y2',mode='lines', line=dict(width=2, color=cols[1]), name='Inactivity Mask', row=day_count, col=1)
+            fig.update_layout(title='Activity Visualisation', width=800, height=1400,
+                              dragmode='select',
+                              activeselection=dict(fillcolor='yellow'))
+        else:
+            print("no")
+            fig.add_scatter(x=raw.data.index.astype(str), y=raw.data, mode='lines', line=dict(width=2, color=cols[0]),
+                            name='Visualisation', row=day_count, col=1)
+            fig.add_vline(x=sublist[0], row=day_count, col=1)
+            fig.add_vline(x=sublist[1], row=day_count, col=1)
+            fig.add_vrect(x0=sublist[0], x1=sublist[1],
+                          annotation_text="REST Period", annotation_position="top left",
+                          fillcolor="green", opacity=0.25, line_width=0, row=day_count, col=1)
+            x0_count = x0_count + 1
+            x1_count = x1_count + 1
+            # fig.add_scatter(x=raw.mask.index.astype(str), y=raw.mask, yaxis='y2',mode='lines', line=dict(width=2, color=cols[1]), name='Inactivity Mask', row=day_count, col=1)
+            fig.update_layout(title='Activity Visualisation', width=800, height=1400,
+                              dragmode='select',
+                              activeselection=dict(fillcolor='yellow'))
+            day_count = day_count + 1
+            raw_start_time = raw_start_time + 1
+
+    # for i in datetime_list[:-2]:
+    #     raw = pyActigraphy.io.read_raw_rpx(
+    #         'copy.csv',
+    #         start_time=i,
+    #         period='1 day',
+    #         language='ENG_UK'
+    #     )
+    #     # raw.create_inactivity_mask(duration='2h00min')
+    #     fig.add_scatter(x=raw.data.index.astype(str), y=raw.data, mode='lines', line=dict(width=2, color=cols[0]),
+    #                     name='Visualisation', row=day_count, col=1)
+    #     fig.add_vline(x=x0_list[x0_count], row=day_count, col=1)
+    #     fig.add_vline(x=x1_list[x1_count], row=day_count, col=1)
+    #     fig.add_vrect(x0=x0_list[x0_count], x1=x1_list[x1_count],
+    #                   annotation_text="REST Period", annotation_position="top left",
+    #                   fillcolor="green", opacity=0.25, line_width=0, row=day_count, col=1)
+    #     x0_count = x0_count + 1
+    #     x1_count = x1_count + 1
+    #     # fig.add_scatter(x=raw.mask.index.astype(str), y=raw.mask, yaxis='y2',mode='lines', line=dict(width=2, color=cols[1]), name='Inactivity Mask', row=day_count, col=1)
+    #     fig.update_layout(title='Activity Visualisation', width=800, height=1400,
+    #                       dragmode='select',
+    #                       activeselection=dict(fillcolor='yellow'))
+    #     day_count = day_count + 1
 
     # fig.show()
     # print(datetime_list)
@@ -491,10 +636,10 @@ async def change_activity_status(workflow_id: str,
     df.drop(df.columns[[12, 13]], axis=1, inplace=True)
     df = df.set_index('Line')
     df.to_excel(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + 'new_dataset.xlsx')
-    #change_final_csv()
+    change_final_csv(workflow_id, run_id, step_id)
 
-@router.get("/change_final_csv", tags=["actigraphy_analysis_assessment_algorithm"])
-async def change_final_csv(workflow_id: str,
+# @router.get("/change_final_csv", tags=["actigraphy_analysis_assessment_algorithm"])
+def change_final_csv(workflow_id: str,
                                 run_id: str,
                                 step_id: str):
     subject_properties = pd.DataFrame(columns=['Field', 'Value'])
