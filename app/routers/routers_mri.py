@@ -618,7 +618,7 @@ async def return_free_surfer_vol2vol( workflow_id: str,
     # Output file has name "flair_reg_" + flair_file_name to keep track of it
     # Name of reg file is derived automatically from the name of the reference file as produced in the previous step
     # print("nohup mri_vol2vol --mov " + flair_file_name + " --reg flairToT1_" + ref_file_name[:-4] + ".lta --o flair_reg_" + ref_file_name + " --targ " + target_file_name + " &\n")
-    channel.send("nohup mri_vol2vol --mov " + flair_file_name + " --reg flairToT1_" + ref_file_name[:-4] + ".lta --o flair_reg_" +  ref_file_name + " --targ " + target_file_name + " > ./output/log_vol2.txt &\n")
+    channel.send("nohup mri_vol2vol --mov " + flair_file_name + " --reg flairToT1_" + ref_file_name[:-4] + ".lta --o flair_reg_" +  ref_file_name + " --targ " + target_file_name + " > ./log_vol2.txt &\n")
 
     # If everything ok return Success
     to_return = "Success"
