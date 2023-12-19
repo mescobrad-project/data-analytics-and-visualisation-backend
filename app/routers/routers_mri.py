@@ -86,7 +86,7 @@ async def list_nii_files(workflow_id: str, step_id: str, run_id: str):
 
 @router.get("/list_ita_files")
 async def list_ita_files(workflow_id: str, step_id: str, run_id: str):
-    """ This functions list all nii files in the working directory"""
+    """ This functions list all ita files in the working directory"""
     # Get list of files from the local storage
     try:
         list_of_files = get_all_files_from_local_temp_storage(workflow_id, run_id, step_id)
