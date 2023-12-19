@@ -438,7 +438,8 @@ async def return_free_view(input_test_name: str, input_slices: str,
 async def return_free_view_simple( workflow_id: str,
                                   step_id: str,
                                   run_id: str,
-                                  file_to_open: str | None = None) -> dict:
+                                  file_to_open: str | None = None,
+                                  file_to_open_2: str | None = None) -> dict:
     # CONNECT THROUGH SSH TO DOCKER WITH FREESURFER
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -482,7 +483,10 @@ async def return_free_view_simple( workflow_id: str,
     if file_to_open is None:
         channel.send("nohup freeview -v" + name_of_file + " &\n")
     else:
-        channel.send("nohup freeview -v " + file_to_open + " &\n")
+        if(file_to_open_2 is not None):
+            channel.send("nohup freeview -v " + file_to_open + " " + file_to_open_2 + " &\n")
+        else:
+            channel.send("nohup freeview -v " + file_to_open + " &\n")
     # channel.send("nohup freeview -v &\n")
     # channel.send("nohup freeview -v '/home/user" + file_full_path + "' &\n")
 
