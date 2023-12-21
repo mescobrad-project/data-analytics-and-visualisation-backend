@@ -3366,6 +3366,7 @@ async def generalized_estimating_equations(workflow_id: str,
         df_1.reset_index(inplace=True)
         df_1.rename(columns={'[0.025': '0.025', '0.975]': '0.975'}, inplace=True)
 
+        df_1.to_csv(path_to_storage + '/output/generalized_estimating_equations.csv', index=False)
         results_as_html = df.tables[2].as_html()
         df_2 = pd.read_html(results_as_html)[0]
         df_new = df_2[[2, 3]]
@@ -5617,25 +5618,26 @@ async def compute_granger_analysis(workflow_id: str,
         print(to_return)
 
 
-        # with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
-        #     file_data = json.load(f)
-        #     file_data['results'] |= {
-        #         "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
-        #         "workflow_id": workflow_id,
-        #         "run_id": run_id,
-        #         "step_id": step_id,
-        #         "test_name": 'Welch Anova test',
-        #         "test_params": {
-        #             'selected_depedent_variable': dv,
-        #             'selected_between_factor': between,
-        #         },
-        #         "test_results": all_res,
-        #         "Output_datasets": [],
-        #         'Saved_plots': []
-        #     }
-        #     f.seek(0)
-        #     json.dump(file_data, f, indent=4)
-        #     f.truncate()
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            file_data = json.load(f)
+            file_data['results'] |= {
+                "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                "workflow_id": workflow_id,
+                "run_id": run_id,
+                "step_id": step_id,
+                "test_name": 'Granger Analysis',
+                "test_params": {
+                    'selected_predictor_variable': predictor_variable,
+                    'selected_response_variable': response_variable,
+                    'selected_num_lags': num_lags,
+                },
+                "test_results": to_return,
+                "Output_datasets": [],
+                'Saved_plots': []
+            }
+            f.seek(0)
+            json.dump(file_data, f, indent=4)
+            f.truncate()
         return JSONResponse(content={'status': "Success", 'lags': to_return},
                             status_code=200)
     except Exception as e:
