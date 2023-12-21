@@ -39,7 +39,7 @@ router = APIRouter()
 async def return_cole_kripke(workflow_id: str,
                              run_id: str,
                              step_id: str):
-    raw = pyActigraphy.io.read_raw_rpx('example_data/actigraph/0345-024_18_07_2022_13_00_00_New_Analysis.csv',
+    raw = pyActigraphy.io.read_raw_rpx('/neurodesktop-storage/runtime_config/workflow_3fa85f64-5717-4562-b3fc-2c963f66afa6/run_3fa85f64-5717-4562-b3fc-2c963f66afa6/step_3fa85f64-5717-4562-b3fc-2c963f66afa6/0345-024_18_07_2022_13_00_00_New_Analysis.csv',
                                        start_time='2022-07-18 12:00:00',
                                        period='1 day',
                                        language='ENG_UK'
@@ -81,7 +81,7 @@ async def return_daily_activity(workflow_id: str,
     day_count = 1
     for i in datetime_list[:-1]:
         raw = pyActigraphy.io.read_raw_rpx(
-            'example_data/actigraph/0345-024_18_07_2022_13_00_00_New_Analysis.csv',
+            '/neurodesktop-storage/runtime_config/workflow_3fa85f64-5717-4562-b3fc-2c963f66afa6/run_3fa85f64-5717-4562-b3fc-2c963f66afa6/step_3fa85f64-5717-4562-b3fc-2c963f66afa6/0345-024_18_07_2022_13_00_00_New_Analysis.csv',
             start_time=i,
             period='1 day',
             language='ENG_UK'
@@ -188,7 +188,8 @@ async def return_daily_activity_activity_status_area(workflow_id: str,
     # Convert a String to a Date in Python
     # Date and time in format "YYYY/MM/DD hh:mm:ss"
     format_string = "%Y/%m/%d %H:%M:%S"
-
+    print(start_date)
+    print(end_date)
     # Convert start date string to date using strptime
     start_date_dt = datetime.strptime(start_date, format_string).date()
     # Convert end date string to date using strptime
@@ -214,7 +215,7 @@ async def return_daily_activity_activity_status_area(workflow_id: str,
     date_list = [date_obj.strftime('%d/%m/%Y') for date_obj in date_list_obj]
     # print(date_list)
 
-    df = pd.read_csv('example_data/actigraph/0345-024_18_07_2022_13_00_00_New_Analysis.csv', skiprows=150)
+    df = pd.read_csv('/neurodesktop-storage/runtime_config/workflow_3fa85f64-5717-4562-b3fc-2c963f66afa6/run_3fa85f64-5717-4562-b3fc-2c963f66afa6/step_3fa85f64-5717-4562-b3fc-2c963f66afa6/0345-024_18_07_2022_13_00_00_New_Analysis.csv', skiprows=150)
     df["Datetime"] = df[["Date", "Time"]].apply(lambda x: " ".join(x), axis=1)
     df.drop(df.columns[[12]], axis=1, inplace=True)
     df = df.drop(index=[row for row in df.index if df.loc[row, 'Date'] not in date_list])
@@ -265,7 +266,7 @@ async def return_daily_activity_activity_status_area(workflow_id: str,
     #                     subplot_titles=("Day 1", "Day 2", "Day 3", "Day 4", "Day 5", "Day 6"))
     for i in datetime_list[:-1]:
         raw = pyActigraphy.io.read_raw_rpx(
-            'example_data/actigraph/0345-024_18_07_2022_13_00_00_New_Analysis.csv',
+            '/neurodesktop-storage/runtime_config/workflow_3fa85f64-5717-4562-b3fc-2c963f66afa6/run_3fa85f64-5717-4562-b3fc-2c963f66afa6/step_3fa85f64-5717-4562-b3fc-2c963f66afa6/0345-024_18_07_2022_13_00_00_New_Analysis.csv',
             start_time=i,
             period='1 day',
             language='ENG_UK'
@@ -325,7 +326,7 @@ async def return_final_daily_activity_activity_status_area(workflow_id: str,
     date_list = [date_obj.strftime('%d/%m/%Y') for date_obj in date_list_obj]
     # print(date_list)
 
-    df = pd.read_csv('example_data/actigraph/copy.csv', skiprows=150)
+    df = pd.read_csv('/neurodesktop-storage/runtime_config/workflow_3fa85f64-5717-4562-b3fc-2c963f66afa6/run_3fa85f64-5717-4562-b3fc-2c963f66afa6/step_3fa85f64-5717-4562-b3fc-2c963f66afa6/copy.csv', skiprows=150)
     df["Datetime"] = df[["Date", "Time"]].apply(lambda x: " ".join(x), axis=1)
     df.drop(df.columns[[12]], axis=1, inplace=True)
     df = df.drop(index=[row for row in df.index if df.loc[row, 'Date'] not in date_list])
@@ -376,7 +377,7 @@ async def return_final_daily_activity_activity_status_area(workflow_id: str,
     #                     subplot_titles=("Day 1", "Day 2", "Day 3", "Day 4", "Day 5", "Day 6"))
     for i in datetime_list[:-1]:
         raw = pyActigraphy.io.read_raw_rpx(
-            'example_data/actigraph/0345-024_18_07_2022_13_00_00_New_Analysis.csv',
+            '/neurodesktop-storage/runtime_config/workflow_3fa85f64-5717-4562-b3fc-2c963f66afa6/run_3fa85f64-5717-4562-b3fc-2c963f66afa6/step_3fa85f64-5717-4562-b3fc-2c963f66afa6/0345-024_18_07_2022_13_00_00_New_Analysis.csv',
             start_time=i,
             period='1 day',
             language='ENG_UK'
@@ -407,7 +408,7 @@ async def return_initial_dataset(workflow_id: str,
                                  step_id: str):
     # Import dataset as pd dataframe excluding the first 150 rows
     json_dataframe = ''
-    df = pd.read_csv('example_data/actigraph/0345-024_18_07_2022_13_00_00_New_Analysis.csv', skiprows=150)
+    df = pd.read_csv('/neurodesktop-storage/runtime_config/workflow_3fa85f64-5717-4562-b3fc-2c963f66afa6/run_3fa85f64-5717-4562-b3fc-2c963f66afa6/step_3fa85f64-5717-4562-b3fc-2c963f66afa6/0345-024_18_07_2022_13_00_00_New_Analysis.csv', skiprows=150)
     df.drop(df.columns[[12]], axis=1, inplace=True)
     # df = df.set_index('Line')
     df_updated = df.head(100)
@@ -433,7 +434,7 @@ async def change_activity_status(workflow_id: str,
                                 activity_status: str,
                                 start_date: str,
                                 end_date: str):
-    raw = pyActigraphy.io.read_raw_rpx('example_data/actigraph/0345-024_18_07_2022_13_00_00_New_Analysis.csv')
+    raw = pyActigraphy.io.read_raw_rpx('/neurodesktop-storage/runtime_config/workflow_3fa85f64-5717-4562-b3fc-2c963f66afa6/run_3fa85f64-5717-4562-b3fc-2c963f66afa6/step_3fa85f64-5717-4562-b3fc-2c963f66afa6/0345-024_18_07_2022_13_00_00_New_Analysis.csv')
 
     # Convert the dates from string to datetime to change their format
     # Date and time in format "YYYY/MM/DD hh:mm:ss"
@@ -451,7 +452,7 @@ async def change_activity_status(workflow_id: str,
     end_date_final = end_date_dt.strftime("%d/%m/%Y %H:%M:%S")
 
     # Import dataset as pd dataframe excluding the first 150 rows
-    df = pd.read_csv('example_data/actigraph/0345-024_18_07_2022_13_00_00_New_Analysis.csv', skiprows=150)
+    df = pd.read_csv('/neurodesktop-storage/runtime_config/workflow_3fa85f64-5717-4562-b3fc-2c963f66afa6/run_3fa85f64-5717-4562-b3fc-2c963f66afa6/step_3fa85f64-5717-4562-b3fc-2c963f66afa6/0345-024_18_07_2022_13_00_00_New_Analysis.csv', skiprows=150)
 
     # Using DataFrame.apply() and lambda function to join the date and time columns to create a Datetime
     df["Datetime"] = df[["Date", "Time"]].apply(lambda x: " ".join(x), axis=1)
@@ -479,10 +480,10 @@ async def change_final_csv(workflow_id: str,
     df = df.astype(str)
     # df.set_index('Line', inplace=True)
     print('"' + '","'.join(df.loc[0, :].values.flatten().tolist()) + '"')
-    with open("example_data/actigraph/copy.csv", 'r') as f:
+    with open("/neurodesktop-storage/runtime_config/workflow_3fa85f64-5717-4562-b3fc-2c963f66afa6/run_3fa85f64-5717-4562-b3fc-2c963f66afa6/step_3fa85f64-5717-4562-b3fc-2c963f66afa6/copy.csv", 'r') as f:
         get_all = f.readlines()
 
-    with open("example_data/actigraph/copy.csv", 'w') as f:
+    with open("/neurodesktop-storage/runtime_config/workflow_3fa85f64-5717-4562-b3fc-2c963f66afa6/run_3fa85f64-5717-4562-b3fc-2c963f66afa6/step_3fa85f64-5717-4562-b3fc-2c963f66afa6/copy.csv", 'w') as f:
         list_count = 0
         for i, line in enumerate(get_all, 1):
             if i >= 153:
@@ -513,7 +514,7 @@ async def return_weekly_activity(workflow_id: str,
     day_count = 1
     for i in datetime_list:
         raw = pyActigraphy.io.read_raw_rpx(
-            'example_data/actigraph/0345-024_18_07_2022_13_00_00_New_Analysis.csv',
+            '/neurodesktop-storage/runtime_config/workflow_3fa85f64-5717-4562-b3fc-2c963f66afa6/run_3fa85f64-5717-4562-b3fc-2c963f66afa6/step_3fa85f64-5717-4562-b3fc-2c963f66afa6/0345-024_18_07_2022_13_00_00_New_Analysis.csv',
             start_time=i,
             period='1 day',
             language='ENG_UK'
@@ -541,7 +542,7 @@ async def return_functional_linear_modelling(workflow_id: str,
                                  step_id: str):
     # Fourier basis expansion (Single)
     raw = pyActigraphy.io.read_raw_rpx(
-        'example_data/actigraph/0345-024_18_07_2022_13_00_00_New_Analysis.csv',
+        '/neurodesktop-storage/runtime_config/workflow_3fa85f64-5717-4562-b3fc-2c963f66afa6/run_3fa85f64-5717-4562-b3fc-2c963f66afa6/step_3fa85f64-5717-4562-b3fc-2c963f66afa6/0345-024_18_07_2022_13_00_00_New_Analysis.csv',
         start_time='2022-07-18 12:00:00',
         period='7 days'
     )
@@ -582,7 +583,7 @@ async def return_functional_linear_modelling(workflow_id: str,
     return {"flm_figure": graphJSON}
 
     # # Fourier basis expansion (Multi)
-    # reader = pyActigraphy.io.read_raw('example_data/actigraph/0345-024_18_07_2022_13_00_00_New_Analysis.csv', 'RPX', n_jobs=10, prefer='threads', verbose=10)
+    # reader = pyActigraphy.io.read_raw('/neurodesktop-storage/runtime_config/workflow_3fa85f64-5717-4562-b3fc-2c963f66afa6/run_3fa85f64-5717-4562-b3fc-2c963f66afa6/step_3fa85f64-5717-4562-b3fc-2c963f66afa6/0345-024_18_07_2022_13_00_00_New_Analysis.csv', 'RPX', n_jobs=10, prefer='threads', verbose=10)
     # # Define a FLM Object that can be (re-)used to fit the data
     # flm_fourier = FLM(basis='fourier', sampling_freq='10min', max_order=10)
     # # Fit all the recordings contained in the "reader":
@@ -600,7 +601,7 @@ async def return_singular_spectrum_analysis(workflow_id: str,
                                  run_id: str,
                                  step_id: str):
     raw = pyActigraphy.io.read_raw_rpx(
-        'example_data/actigraph/0345-024_18_07_2022_13_00_00_New_Analysis.csv',
+        '/neurodesktop-storage/runtime_config/workflow_3fa85f64-5717-4562-b3fc-2c963f66afa6/run_3fa85f64-5717-4562-b3fc-2c963f66afa6/step_3fa85f64-5717-4562-b3fc-2c963f66afa6/0345-024_18_07_2022_13_00_00_New_Analysis.csv',
         start_time='2022-07-18 12:00:00',
         period='7 days'
     )
@@ -672,7 +673,7 @@ async def return_detrended_fluctuation_analysis(workflow_id: str,
                                  run_id: str,
                                  step_id: str):
     raw = pyActigraphy.io.read_raw_rpx(
-        'example_data/actigraph/0345-024_18_07_2022_13_00_00_New_Analysis.csv',
+        '/neurodesktop-storage/runtime_config/workflow_3fa85f64-5717-4562-b3fc-2c963f66afa6/run_3fa85f64-5717-4562-b3fc-2c963f66afa6/step_3fa85f64-5717-4562-b3fc-2c963f66afa6/0345-024_18_07_2022_13_00_00_New_Analysis.csv',
         start_time='2022-07-18 12:00:00',
         period='7 days'
     )
@@ -757,7 +758,7 @@ async def return_inactivity_mask_visualisation(workflow_id: str,
                                                 inactivity_masking_period_hour: str,
                                                 inactivity_masking_period_minutes: str):
     raw = pyActigraphy.io.read_raw_rpx(
-        'example_data/actigraph/0345-024_18_07_2022_13_00_00_New_Analysis.csv'
+        '/neurodesktop-storage/runtime_config/workflow_3fa85f64-5717-4562-b3fc-2c963f66afa6/run_3fa85f64-5717-4562-b3fc-2c963f66afa6/step_3fa85f64-5717-4562-b3fc-2c963f66afa6/0345-024_18_07_2022_13_00_00_New_Analysis.csv'
     )
     print(inactivity_masking_period_hour, inactivity_masking_period_minutes)
     my_duration = inactivity_masking_period_hour + 'h' + inactivity_masking_period_minutes + 'min'
@@ -787,12 +788,12 @@ async def return_add_mask_period(workflow_id: str,
                                 run_id: str,
                                  mask_period_start: str,
                                  mask_period_end: str):
-    original = r'example_data/actigraph/0345-024_18_07_2022_13_00_00_New_Analysis.csv'
-    target = r'example_data/actigraph/dataset_copy.csv'
+    original = r'/neurodesktop-storage/runtime_config/workflow_3fa85f64-5717-4562-b3fc-2c963f66afa6/run_3fa85f64-5717-4562-b3fc-2c963f66afa6/step_3fa85f64-5717-4562-b3fc-2c963f66afa6/0345-024_18_07_2022_13_00_00_New_Analysis.csv'
+    target = r'/neurodesktop-storage/runtime_config/workflow_3fa85f64-5717-4562-b3fc-2c963f66afa6/run_3fa85f64-5717-4562-b3fc-2c963f66afa6/step_3fa85f64-5717-4562-b3fc-2c963f66afa6/copy.csv'
     shutil.copyfile(original, target)
 
     raw = pyActigraphy.io.read_raw_rpx(
-        'example_data/actigraph/dataset_copy.csv'
+        '/neurodesktop-storage/runtime_config/workflow_3fa85f64-5717-4562-b3fc-2c963f66afa6/run_3fa85f64-5717-4562-b3fc-2c963f66afa6/step_3fa85f64-5717-4562-b3fc-2c963f66afa6/copy.csv'
     )
     # Create inactivity mask
     raw.add_mask_period(start=mask_period_start, stop=mask_period_end)
@@ -832,7 +833,7 @@ async def actigraphymetrics(workflow_id: str,
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
     try:
         test_status = 'Unable to retrieve actigraphy file.'
-        # raw = pyActigraphy.io.read_raw_rpx('example_data/actigraph/0345-024_18_07_2022_13_00_00_New_Analysis.csv')
+        # raw = pyActigraphy.io.read_raw_rpx('/neurodesktop-storage/runtime_config/workflow_3fa85f64-5717-4562-b3fc-2c963f66afa6/run_3fa85f64-5717-4562-b3fc-2c963f66afa6/step_3fa85f64-5717-4562-b3fc-2c963f66afa6/0345-024_18_07_2022_13_00_00_New_Analysis.csv')
         raw = pyActigraphy.io.read_raw_rpx(path_to_storage + "/" + file)
         test_status = 'Unable to compute metrics.'
 
@@ -957,7 +958,7 @@ async def cosinoranalysis(workflow_id: str,
     try:
         test_status = 'Unable to retrieve actigraphy file.'
         # TODO : file or files?
-        # raw = pyActigraphy.io.read_raw_rpx('example_data/actigraph/0345-024_18_07_2022_13_00_00_New_Analysis.csv')
+        # raw = pyActigraphy.io.read_raw_rpx('/neurodesktop-storage/runtime_config/workflow_3fa85f64-5717-4562-b3fc-2c963f66afa6/run_3fa85f64-5717-4562-b3fc-2c963f66afa6/step_3fa85f64-5717-4562-b3fc-2c963f66afa6/0345-024_18_07_2022_13_00_00_New_Analysis.csv')
         raw = pyActigraphy.io.read_raw_rpx(path_to_storage + "/" + file)
         test_status = 'Unable to set cosinor values.'
         json_response = json.loads(cosinor_parameters)

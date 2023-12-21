@@ -285,3 +285,5 @@ dist
 
 /anvizenv
 /example_data/NIA test.edf
+/annotation_test.csv
+/.idea/vcs.xml

@@ -1,11 +1,13 @@
 import os
 
+from dotenv import load_dotenv
 from minio import Minio, error
 
 from scipy import stats
 import numpy as np
 
 # Create client with access key and secret key.
+load_dotenv()
 
 new_client = Minio(
     "storage.mescobrad.digital-enabler.eng.it",
