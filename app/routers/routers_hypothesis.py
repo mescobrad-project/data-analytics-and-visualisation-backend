@@ -852,7 +852,7 @@ async def statistical_tests(workflow_id: str,
                             # column_1: str,
                             # column_2: str,
                             correction: bool = True,
-                            nan_policy: Optional[str] | None = Query("propagate",
+                            nan_policy: Optional[str] | None = Query("omit",
                                                                      regex="^(propagate)$|^(raise)$|^(omit)$"),
                             statistical_test: str | None = Query("Independent t-test",
                                                                  regex="^(Independent t-test)$|^(Welch t-test)$|^(Mann-Whitney U rank test)$|^(t-test on TWO RELATED samples of scores)$|^(Wilcoxon signed-rank test)$|^(Alexander Govern test)$|^(Kruskal-Wallis H-test)$|^(one-way ANOVA)$|^(Wilcoxon rank-sum statistic)$|^(one-way chi-square test)$"),
@@ -908,7 +908,8 @@ async def statistical_tests(workflow_id: str,
             if len(data.columns) != 2:
                 test_status = 'Two variables must be selected for ' + statistical_test
                 raise Exception
-            statistic, p_value = mannwhitneyu(data.iloc[:, 0],data.iloc[:, 1], nan_policy=nan_policy, alternative=alternative, method=method)
+            # TODO 21-12-2023 nan_policy needs scipy 1.11.4
+            statistic, p_value = mannwhitneyu(data.iloc[:, 0],data.iloc[:, 1], alternative=alternative, method=method)
         elif statistical_test == "Wilcoxon signed-rank test":
             if len(data.columns) != 2:
                 test_status = 'Two variables must be selected for ' + statistical_test
@@ -916,7 +917,9 @@ async def statistical_tests(workflow_id: str,
             elif np.shape(data.iloc[:, 0])[0] != np.shape(data.iloc[:, 1])[0]:
                 test_status = 'The arrays must have the same shape for' + statistical_test
                 raise Exception
-            statistic, p_value = wilcoxon(data.iloc[:, 0],data.iloc[:, 1], alternative=alternative, nan_policy=nan_policy, correction=correction, zero_method=zero_method, mode=mode)
+            # TODO 21-12-2023 nan_policy needs scipy 1.11.4
+            # statistic, p_value = wilcoxon(data.iloc[:, 0],data.iloc[:, 1], alternative=alternative, nan_policy=nan_policy, correction=correction, zero_method=zero_method, mode=mode)
+            statistic, p_value = wilcoxon(data.iloc[:, 0],data.iloc[:, 1], alternative=alternative, correction=correction, zero_method=zero_method, mode=mode)
         elif statistical_test == "Alexander Govern test":
             samples = []
             for k in data.columns:
@@ -940,9 +943,14 @@ async def statistical_tests(workflow_id: str,
             if len(data.columns) != 2:
                 test_status = 'Two variables must be selected for ' + statistical_test
                 raise Exception
-            statistic, p_value = ranksums(data.iloc[:, 0],data.iloc[:, 1], nan_policy=nan_policy, alternative=alternative)
+            # TODO 21-12-2023 nan_policy needs scipy 1.11.4
+            statistic, p_value = ranksums(data.iloc[:, 0],data.iloc[:, 1], alternative=alternative)
+            # statistic, p_value = ranksums(data.iloc[:, 0],data.iloc[:, 1], nan_policy=nan_policy, alternative=alternative)
         elif statistical_test == "one-way chi-square test":
             samples = []
+            # Removed NaNs 21-12-2023
+            # TODO: check if this is OK and return the removed count
+            data = data.dropna()
             for k in data.columns:
                 samples.append(data[k])
             # TODO: We can have several f_obs columns of observed frequencies and
@@ -3517,6 +3525,7 @@ async def mc_nemar(workflow_id: str,
                             status_code=200)
     # return {'statistic': result.statistic, "p_value": result.pvalue, "crosstab":df1.to_json(orient='split')}
 
+# TODO: Do we need this?
 @router.get("/all_statistics")
 async def all_statistics():
 
@@ -4059,16 +4068,17 @@ async def correlations_pingouin(workflow_id: str,
                     continue
                 res = pingouin.corr(x=data[i], y=data[j], method=method, alternative=alternative).round(5)
                 res.insert(0,'Cor', i + "-" + j, True)
+                print(res)
                 count = count + 1
                 for ind, row in res.iterrows():
                     temp_to_append = {
                         "id": count,
                         "Cor": row['Cor'],
                         "n": row['n'],
-                        "r": row['r'],
-                        "CI95%": "[" + str(row['CI95%'].item(0)) + "," + str(row['CI95%'].item(1)) + "]",
-                        "p-val": row['p-val'],
-                        "power": row['power']
+                        "r": row['r'] if not pd.isna(row['r']) else 'NaN',
+                        "CI95%": "[" + str(row['CI95%'].item(0)) + "," + str(row['CI95%'].item(1)) + "]" if type(row['CI95%'])!=float else 'NaN',
+                        "p-val": 'NaN' if pd.isna(row['p-val']) else row['p-val'],
+                        "power": 'NaN' if pd.isna(row['power']) else row['power']
                     }
                     if method == 'pearson':
                         temp_to_append["BF10"] = row['BF10']
@@ -4494,36 +4504,6 @@ async def linear_regression_statsmodels(workflow_id: str, step_id: str, run_id: 
                             status_code=200)
 
 
-
-# TODO These are included above
-# @router.get("/transformation_methods")
-# async def transformation_methods(dependent_variable: str,
-#                                  method: str | None = Query("log",
-#                                                             regex="^(log)$|^(squared)$|^(root)$")):
-#
-#
-#     x = data[dependent_variable]
-#
-#     if method == 'log':
-#         x = np.log(x)
-#     elif method == 'squared':
-#         x = np.sqrt(x)
-#     else:
-#         x = np.cbrt(x)
-#
-#     return {'transformed array': x}
-
-# TODO:In utils_hypothesis
-# @router.get("/skewness_kurtosis")
-# async def skewness_kurtosis(dependent_variable: str):
-#     x = data[dependent_variable]
-#
-#     skewness_res = skew(x)
-#     kurtosis_res = kurtosis(x)
-#
-#     return {'skew': skewness_res, 'kurtosis': kurtosis_res}
-
-
 @router.get("/z_score")
 async def z_score(workflow_id: str,
                   step_id: str,
@@ -4715,22 +4695,6 @@ async def logistic_regression_statsmodels(workflow_id: str, step_id: str, run_id
         print(e)
         return JSONResponse(content={'status': test_status, 'Result': '[]'},
                             status_code=200)
-# TODO:above
-# @router.get("/jarqueberatest")
-# async def jarqueberatest(dependent_variable: str):
-#
-#     x = data[dependent_variable]
-#
-#     jarque_bera_test = jarque_bera(x)
-#
-#     statistic = jarque_bera_test.statistic
-#     pvalue = jarque_bera_test.pvalue
-#
-#     if pvalue > 0.05:
-#         return {'statistic': statistic, 'pvalue': pvalue, 'Since this p-value is not less than .05, we fail to reject the null hypothesis. We don’t have sufficient evidence to say that this data has skewness and kurtosis that is significantly different from a normal distribution.':''}
-#     else:
-#         return {'statistic': statistic, 'pvalue': pvalue,'Since this p-value is less than .05, we reject the null hypothesis. Thus, we have sufficient evidence to say that this data has skewness and kurtosis that is significantly different from a normal distribution.':''}
-
 
 @router.get("/correlation_matrix")
 async def correlation(workflow_id: str,
@@ -6356,9 +6320,13 @@ async def Dataframe_preparation(workflow_id: str,
         print(method)
         print(variables)
         x = DataframeImputation(data,variables,method)
-        if is_numeric_dtype(type(x)):
-            raise Exception
-        return x.to_json(orient='records')
+        if type(x) == str:
+            test_status= 'Failed to impute values'
+            raise Exception (x)
+        return JSONResponse(content={'status': 'Success', 'newdataFrame': x.to_json(orient='records')},
+                            status_code=200)
     except Exception as e:
         print(e)
-        return -1
+        return JSONResponse(content={'status': test_status + "\n" + e.__str__(),
+                             'newdataFrame': '[]'},
+                    status_code=200)

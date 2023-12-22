@@ -395,7 +395,6 @@ def DataframeImputation(selected_dataframe, selected_variables, method):
         elif method == 'iterative':
             imp = IterativeImputer(max_iter=10, random_state=0)
             data1[selected_variables] = imp.fit_transform(data1[selected_variables])
-        print(data1.head(15))
         # After
         NA = pd.DataFrame(data=[data1.isna().sum().tolist(), ["{:.2f}".format(i) + '%' \
                                                            for i in (data1.isna().sum() / data1.shape[0] * 100).tolist()]],
@@ -404,5 +403,5 @@ def DataframeImputation(selected_dataframe, selected_variables, method):
         print(NA)
         return data1
     except Exception as e:
-        print("Error : Failed to impute: " + "\n" + e.__str__())
-        return -1
+        print("Error : Failed to impute values: " + "\n" + e.__str__())
+        return "Error : " + "\n" + e.__str__()

@@ -100,7 +100,7 @@ def test_normality_tests_missing_step_id(test_app):
 
 def test_normality_tests_error_in_results(test_app):
     response = test_app.get("/normality_tests",
-                            params={"column": '1000_test_cases_.csv--MOCACOMP',
+                            params={"column": '1000_test_cases_.csv--MOCALANX',
                                     "workflow_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
                                     "run_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
                                     "step_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
