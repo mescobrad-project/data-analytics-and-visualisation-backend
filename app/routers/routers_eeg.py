@@ -2120,7 +2120,7 @@ async def save_annotation_to_file(
 
 
 # TODO remove current user form param and ge from file
-@router.get("/mne/open/eeg", tags=["mne_open_eeg"])
+@router.get("save_annotation_to_file", tags=["mne_open_eeg"])
 # Validation is done inline in the input of the function
 # Slices are send in a single string and then de
 async def mne_open_eeg(workflow_id: str,
