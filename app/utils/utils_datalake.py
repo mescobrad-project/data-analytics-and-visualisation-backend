@@ -1,13 +1,18 @@
+import os
+
+from dotenv import load_dotenv
 from minio import Minio, error
 
 from scipy import stats
 import numpy as np
 
 # Create client with access key and secret key.
+load_dotenv()
+
 new_client = Minio(
     "storage.mescobrad.digital-enabler.eng.it",
-    access_key="mescobrad-user",
-    secret_key="DWnqw7Bp"
+    access_key=os.getenv("MINIO_ACCESS_KEY"),
+    secret_key=os.getenv("MINIO_SECRET_KEY"),
 )
 
 
@@ -66,12 +71,14 @@ def get_data_of_object(bucket_name: str, object_name: str):
 
 def upload_object(bucket_name: str, object_name: str, file: str):
     # Upload data .
-    result = new_client.fput_object(
-        bucket_name, object_name, file)
-    print(
-        "created {0} object; etag: {1}, version-id: {2}".format(
-            result.object_name, result.etag, result.version_id))
-
+    try:
+        result = new_client.fput_object(bucket_name, object_name, file)
+        print(
+            "created {0} object; etag: {1}, version-id: {2}".format(
+                result.object_name, result.etag, result.version_id))
+    except Exception as exc:
+        print(exc)
+        print("error")
 
 def object_stat(bucket_name: str, object_name: str):
     result = new_client.stat_object(bucket_name, object_name)
@@ -89,10 +96,20 @@ def get_saved_dataset_for_Hypothesis(bucket_name: str, object_name: str, file_lo
         print(exc)
         print("error")
 
+def get_saved_mri_files(bucket_name: str, object_name: str, file_location: str):
+    try:
+        fget_object(bucket_name, object_name, file_location)
+        print("file has been downloaded")
+    except Exception as exc:
+        print(exc)
+        print("error")
+
 # fget_object('saved', f"{'folder01'}/test-object", 'gd_test_data/Downloaded_object.json')
 
+# fget_object('demo', "expertsystem/workflow/3fa85f64-5717-4562-b3fc-2c963f66afa6/3fa85f64-5717-4562-b3fc-2c963f66afa6/3fa85f64-5717-4562-b3fc-2c963f66afa6/mescobrad_dataset.csv", 'gd_test_data/Downloaded_object.json')
+# list_all_objects("demo")
 # get_saved_dataset_for_Hypothesis('saved', 'FriSep302022182125.csv', 'runtime_config/FriSep302022182125.csv')
-
+# fget_object("demo","expertsystem/workflow/3fa85f64-5717-4562-b3fc-2c963f66afa6/3fa85f64-5717-4562-b3fc-2c963f66afa6/3fa85f64-5717-4562-b3fc-2c963f66afa6/mescobrad_dataset.csv", 'gd_test_data/Downloaded_object.json')
 # def normal_val():
 #     rng = np.random.default_rng()
 #     print(rng)

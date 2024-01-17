@@ -52,11 +52,24 @@ Pycharm IDE
             uvicorn main:app --reload
         ```
 
-## Running the tests (WIP)
-### Integration Testing
+## Testing
+### Integration Testing 
+Current branch: 'feat/unit_test' and 'dev'
+Testing running the following commands:
+Run pytest to run all testing files:
+(Might result to errors depending on final implementation of tests. Highly recommend to run files on their own)
 ```
-Current branch: 'feat/communication'
-Run tests from postman
+pytest
+```
+
+To disable all warning run
+```
+pytest  --disable-warnings
+```
+
+To run a specific testing file 
+```
+pytest app/test_eeg.py --disable-warnings
 ```
 
 ### Break down into end to end tests (WIP)
@@ -69,18 +82,47 @@ WIP
 WIP
 ```
 
-## Deployment (WIP)
+## Deployment Docker
     - Prerequisites
         ```
         Docker
         ```
-    - Clone current branch: 'feat/communication'
-    - Change env variables in /docker/docker-compose.yml
-    - Create Image and Container
+    - Clone current branch: 'dev'
+    - Create the folder "neurodesktop-storage" in the vm path '/home/ntua'
+    - Create the folder "static" in the vm path in '/home/ntua/neurodesktop-storage'
+    - Start docker image of Neurodesk using the production folder docker compose 
+    - Start docker of analytics backend using the production folder docker compose 
         ```
-        cd docker
         docker compose up -d --build 
         ```
+## Deployment (Kubernetes) WIP
+    - Prerequisites
+        ```
+        Kuberenetes : Recommended enable through docker desktop
+        ```
+    - kubectl create -f .\analytics-backend-claim0-persistentvolumeclaim.yaml
+    - kubectl create -f .\analytics-backend-service.yaml
+    - kubectl create -f .\analytics-backend-deployment.yaml
+    - kubectl create -f .\analytics-network-networkpolicy.yaml
+
+    - Misc 
+        ```
+        kubectl get services -o wide
+        kubectl get pods -o wide
+        kubectl get nodes -o wide
+        kubectl describe services
+        kubectl describe services/analytics-backend
+        
+        To stop the nodes:
+        kubectl get deployments
+        kubectl delete deployment analytics-backend
+        
+
+        To clear:  kubectl delete all --all --namespace default 
+
+        To see logs, can be done through docker-desktop
+        ```
+
 ## Built With
 WIP 
 

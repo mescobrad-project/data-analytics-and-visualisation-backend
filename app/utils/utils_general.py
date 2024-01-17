@@ -19,60 +19,123 @@ NeurodesktopStorageLocation = os.environ.get('NeurodesktopStorageLocation') if o
     'NeurodesktopStorageLocation') else "/neurodesktop-storage"
 
 
-def get_single_file_from_local_temp_storage(run_id, step_id):
-    """Function to lazily retrieve name and path of file from local storage when there is a single file"""
-    files_to_return = [f for f in os.listdir(NeurodesktopStorageLocation+'/runtime_config/run_' + run_id + '_step_' + step_id) if isfile(join(NeurodesktopStorageLocation+'/runtime_config/run_' + run_id + '_step_' + step_id, f))]
+def get_single_file_from_local_temp_storage(workflow_id, run_id, step_id):
+    """Function to lazily retrieve name of file from local storage when there is a single file"""
+    files_to_return = [f for f in os.listdir(NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id) if isfile(join(NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id, f))]
     return files_to_return[0]
 
-def get_single_file_from_edfbrowser_interim_storage(run_id, step_id):
-    """Function to lazily retrieve name and path of file from local storage when there is a single file"""
-    files_to_return = [f for f in os.listdir(NeurodesktopStorageLocation+'/runtime_config/run_' + run_id + '_step_' + step_id +'/edfbrowser_interim_storage') if isfile(join(NeurodesktopStorageLocation+'/runtime_config/run_' + run_id + '_step_' + step_id +'/edfbrowser_interim_storage', f))]
+def get_single_nii_file_from_local_temp_storage(workflow_id, run_id, step_id):
+    """Function to lazily retrieve name of a nii file from local storage"""
+    files_to_return = [f for f in os.listdir(NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id) if isfile(join(NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id, f))]
+    for file in files_to_return:
+        if not file.endswith(".nii"):
+            files_to_return.remove(file)
+
     return files_to_return[0]
 
-def get_all_files_from_local_temp_storage(run_id, step_id):
+def get_single_edf_file_from_local_temp_storage(workflow_id, run_id, step_id):
+    """Function to lazily retrieve name of file from local storage when there is a single file"""
+    files_to_return = [f for f in os.listdir(NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id) if isfile(join(NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id, f)) and (f.endswith(".edf"))]
+    return files_to_return[0]
+
+def get_single_file_from_neurodesk_interim_storage(workflow_id, run_id, step_id):
     """Function to lazily retrieve name and path of file from local storage when there is a single file"""
-    files_to_return = [f for f in os.listdir(NeurodesktopStorageLocation+'/runtime_config/run_' + run_id + '_step_' + step_id) if isfile(join(NeurodesktopStorageLocation+'/runtime_config/run_' + run_id + '_step_' + step_id, f))]
+    files_to_return = [f for f in os.listdir(NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id + '/neurodesk_interim_storage') if isfile(join(NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id +'/neurodesk_interim_storage', f))]
+    return files_to_return[0]
+
+
+def get_files_for_slowwaves_spindle(workflow_id, run_id, step_id):
+    """
+        Function to retrieve files for the slowaves and spindles functions
+        file name are returned as a dictionary with keys
+        edf and csv respectively
+        currently edf is detected by .edf or .fif
+    """
+    files_existing = [f for f in os.listdir(NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id) if isfile(join(NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id, f))]
+
+    files_to_return = {}
+
+    for file in files_existing:
+        if file.endswith(".csv"):
+            files_to_return["csv"] = file
+        elif file.endswith(".edf") or file.endswith(".fif"):
+            files_to_return["edf"] = file
+
     return files_to_return
 
+def get_all_files_from_local_temp_storage(workflow_id, run_id, step_id):
+    """Function to lazily retrieve name and path of files from local storage when there is a single file"""
+    files_to_return = [f for f in os.listdir(NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id) if isfile(join(NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id, f))]
+    return files_to_return
 
-def get_local_storage_path(run_id, step_id):
-    """Function returns path with / at the end"""
-    return NeurodesktopStorageLocation+'/runtime_config/run_' + run_id + '_step_' + step_id
+def get_output_info_path(workflow_id, run_id, step_id):
+    """Function to retrieve path of info file of single run"""
+    info_file_to_return = NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id + '/output/info.json'
+    return info_file_to_return
 
-def get_local_edfbrowser_storage_path(run_id, step_id):
+def get_local_storage_path(workflow_id, run_id, step_id):
     """Function returns path with / at the end"""
-    return NeurodesktopStorageLocation+'/runtime_config/run_' + run_id + '_step_' + step_id+'/edfbrowser_interim_storage'
+    return NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id
+
+def get_local_neurodesk_storage_path(workflow_id, run_id, step_id):
+    """Function returns path with / at the end"""
+    return NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id + '/neurodesk_interim_storage'
 
 def load_data_from_csv(file_with_path):
-    """This functions returns data from an edf file with the use of the MNE library
-        This functions returns file with infer types enabled
+    """This function read csv file using pandas library and return data as pandas dataframe
     """
     data = pd.read_csv(file_with_path)
     return data
 
-def load_file_csv_direct(run_id, step_id ):
-    path_to_storage = get_local_storage_path(run_id, step_id)
-    name_of_file = get_single_file_from_local_temp_storage(run_id, step_id)
+def load_file_csv_direct(workflow_id, run_id, step_id ):
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    name_of_file = get_single_file_from_local_temp_storage(workflow_id, run_id, step_id)
     data = load_data_from_csv(path_to_storage + "/" + name_of_file)
     return data
 
 
-def create_local_step(run_id, step_id, files_to_download):
-    """ files_to_download format is array of arrays with inner array 0: being bucket name and 1: object name each representing one file"""
+def create_local_step(workflow_id, run_id, step_id, files_to_download):
+    """ files_to_download format is array of dicts with 'bucket' being bucket name 'file' object name each representing one file"""
     print("CREATING LOCAL STEP")
     print(files_to_download)
-    path_to_save = NeurodesktopStorageLocation + '/runtime_config/run_' + run_id + '_step_' + step_id
-    os.makedirs(path_to_save, exist_ok=True)
-    os.makedirs(path_to_save + '/output', exist_ok=True)
-    os.makedirs(path_to_save + '/edfbrowser_interim_storage', exist_ok=True)
+    path_to_save = NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id
+    os.umask(0)
+    os.makedirs(path_to_save,  mode=0o777, exist_ok=True)
+    os.makedirs(path_to_save + '/output',  mode=0o777, exist_ok=True)
+    os.makedirs(path_to_save + '/neurodesk_interim_storage',  mode=0o777, exist_ok=True)
     # Download all files indicated
     for file_to_download in files_to_download:
-        print("file_to_download")
-        print(file_to_download)
-        get_saved_dataset_for_Hypothesis(bucket_name=file_to_download[0], object_name=file_to_download[1], file_location=path_to_save + "/" +file_to_download[1])
+        # print("file_to_download")
+        # print(file_to_download[0])
+        # print(file_to_download[1])
+        # print(path_to_save + "/" +file_to_download[1])
+
+        file_location_path = path_to_save + "/" +file_to_download["file"]
+
+        # We check if file is in a group and add a folder for the group if it is
+        if "group_name" in file_to_download :
+            if file_to_download["group_name"] != "":
+                file_location_path = path_to_save + "/" + file_to_download["group_name"] + "/" + file_to_download["file"]
+        else:
+            file_location_path = path_to_save + "/" + file_to_download["file"]
+
+        # Because of issues with the paths in windows and ubuntu we check if the path contains a / and if it does rewrite
+        # the path to be in the correct format taking into acount the existence of a group
+        if "/" in file_location_path:
+            if "group_name" in file_to_download:
+                if file_to_download["group_name"] != "":
+                    file_location_path = NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id + '/group_'+ file_to_download["group_name"] + "/" + file_location_path.split("/")[-1]
+                else:
+                    file_location_path = NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id + '/'+ file_location_path.split("/")[-1]
+            else:
+                file_location_path = NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id + '/' + \
+                                     file_location_path.split("/")[-1]
+        print("file_location_path")
+        get_saved_dataset_for_Hypothesis(bucket_name=file_to_download["bucket"], object_name=file_to_download["file"], file_location=file_location_path)
     # Info file might be unneeded
-    # with open( path_to_save+ '/info.json', 'w', encoding='utf-8') as f:
-    #     pass
+    with open( path_to_save + '/output/info.json', 'w', encoding='utf-8') as f:
+        json.dump({"selected_datasets":files_to_download, "results":{}}, f)
+        pass
 
 def validate_and_convert_peaks(input_height, input_threshold, input_prominence, input_width, input_plateau_size):
     to_return = {
@@ -108,7 +171,11 @@ def convert_string_to_number_or_array(input):
     return to_return
 
 
-def create_notebook_mne_modular(file_to_save,
+def create_notebook_mne_modular(
+                                workflow_id,
+                                run_id,
+                                step_id,
+                                file_to_save,
                                 file_to_open,
                               notches_enabled,
                               notches_length,
@@ -136,7 +203,7 @@ from mne.preprocessing import ICA
 
 %matplotlib qt5
 
-data = mne.io.read_raw_edf('""" + file_to_open + """', infer_types=True, preload = True)
+data = mne.io.read_raw_edf('../""" + get_single_file_from_local_temp_storage(workflow_id, run_id, step_id) + """', infer_types=True, preload = True)
 """))
 
     if float(selection_start_time) != 0 or float(selection_end_time) != 0:
@@ -221,10 +288,12 @@ fig = data.plot(n_channels=50)
 autosave_annots()
 """))
 
-    nbf.write(nb ,NeurodesktopStorageLocation + "/" + file_to_save + ".ipynb")
+    print("PATH TO SAVE NOTEBOOK")
+    print(get_local_neurodesk_storage_path(workflow_id, run_id, step_id) + "/" + file_to_save + ".ipynb")
+    nbf.write(nb, get_local_neurodesk_storage_path(workflow_id, run_id, step_id) + "/" + file_to_save + ".ipynb")
 
 
-def create_notebook_mne_plot(run_id, step_id):
+def create_notebook_mne_plot(workflow_id, run_id, step_id):
     # Test Function to create sample mne notebook
     nb = nbf.v4.new_notebook()
     nb['cells'] = []
@@ -241,7 +310,7 @@ def create_notebook_mne_plot(run_id, step_id):
     nbf.write(nb, NeurodesktopStorageLocation + run_id + "_" + step_id + '.ipynb')
 
 
-def create_notebook_mne_plot_annotate(run_id, step_id):
+def create_notebook_mne_plot_annotate(workflow_id, run_id, step_id):
     nb = nbf.v4.new_notebook()
     nb['cells'] = []
     nb['cells'].append(nbf.v4.new_code_cell("""import mne
@@ -387,4 +456,44 @@ def get_annotations_from_csv(annotation_file="annotation_test.csv"):
         # lines = file.read().splitlines()
         # print(lines[0])
     # return lines[0]
+
+
+def write_function_data_to_config_file(parameter_data: dict | list, result_data: dict | list, workflow_id, run_id, step_id,):
+    """This function gets the parameters and results of the applications' functions as either a list or dict with
+    parameter_data
+        <name_of_parameter>: <value_of_parameter>
+        do we also need type of parameter?? like int or str
+    result_data
+        if result contains data:
+            data_<name_of_result> -> <data>
+        if results is file:
+            path_<name_of_result> -> <path>
+     and writes it to the config file in the output folder
+
+     if parameter_data or result_data is a list then each entry represents a different iteration (only in functions where
+     it's applicable to do multiple iterations with different data in the same run)
+      and each entry in the list should contain one dict as described above
+     """
+
+    # Record misc information about the run
+    run_data = {
+       "workflow_id": workflow_id,
+       "step_id": step_id,
+       "run_id": run_id
+    }
+
+    if (type(parameter_data) is dict and type(result_data) is dict ) or (type(parameter_data) is list and type(result_data) is list):
+        data_to_write = {"run_data": run_data,
+                         "parameter_data": parameter_data,
+                         "result_data": result_data}
+
+        with open(get_output_info_path(workflow_id, run_id, step_id), "w") as info_file:
+            info_file.seek(0)
+            json.dump(data_to_write, info_file)
+    else:
+        return "error: parameter_data and result_data type should the same"
+
+
+
+
 
