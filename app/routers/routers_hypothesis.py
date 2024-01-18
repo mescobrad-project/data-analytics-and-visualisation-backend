@@ -1677,7 +1677,6 @@ async def elastic_net(workflow_id: str,
         return JSONResponse(content={'status': 'Success', 'Result': response},
                             status_code=200)
     except Exception as e:
-        print(e)
         return JSONResponse(content={'status': test_status, 'Result': '[]'},
                             status_code=200)
 
@@ -1803,9 +1802,8 @@ async def lasso(workflow_id: str,
         return JSONResponse(content={'status': 'Success', 'Result': response},
                             status_code=200)
     except Exception as e:
-        print(e)
         return JSONResponse(content={'status': test_status, 'Result': '[]'},
-                            status_code=200)
+                            status_code=422)
 
 # TODO Create frontend
 @router.get("/ridge_regression")
@@ -2244,7 +2242,7 @@ async def sgd_regressor(workflow_id: str,
         print(traceback.format_exc())
         print(e)
         return JSONResponse(content={'status': test_status, 'Result': '[]'},
-                            status_code=200)
+                            status_code=422)
 
 @router.get("/huber_regression")
 async def huber_regressor(workflow_id: str,
@@ -2372,7 +2370,7 @@ async def huber_regressor(workflow_id: str,
     except Exception as e:
         print(e)
         return JSONResponse(content={'status': test_status, 'Result': '[]'},
-                            status_code=200)
+                            status_code=422)
 
 @router.get("/linearsvr_regression")
 async def linear_svr_regressor(workflow_id: str,
@@ -2601,7 +2599,7 @@ async def linear_svc_regressor(workflow_id: str,
     except Exception as e:
         print(e)
         return JSONResponse(content={'status': test_status, 'Result': '[]'},
-                            status_code=200)
+                            status_code=422)
 
 
 
@@ -2838,7 +2836,6 @@ async def poisson_regression(workflow_id: str,
                     'predicted values': list(clf.predict(X)),
                     'residuals': list(Y - clf.predict(X)),
                     'coefficient of determination (R^2)': clf.score(X, Y)}
-        print(response)
         df_for_scatter.to_csv(path_to_storage + '/output/poisson_preds.csv', index=False)
         test_status = 'Unable to create info.json file'
         with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
@@ -2910,14 +2907,14 @@ async def cox_regression(workflow_id: str,
         test_status = 'Dataset is not defined'
         #TODO mandatory fields add
         test_status = 'Please provide all mandatory fields (dataset, dependent variable, one or more independent variables)'
-        print(covariates)
         dfv['covariates'] = covariates
         dfv[['Datasource', 'covariates']] = dfv["covariates"].apply(lambda x: pd.Series(str(x).split("--")))
         covariates = list(dfv['covariates'].values)
         selected_datasource = pd.unique(dfv['Datasource'])[0]
-        strata = list(map(lambda x: str(x).split("--")[1], strata))
-        print("STRATA", strata)
-        strata=None
+        try:
+            strata = list(map(lambda x: str(x).split("--")[1], strata))
+        except:
+            strata=None
 
         test_status = 'Unable to retrieve datasets'
         dataset = load_data_from_csv(path_to_storage + "/" + selected_datasource)
@@ -2941,7 +2938,7 @@ async def cox_regression(workflow_id: str,
         else:
             cph = CoxPHFitter(alpha=alpha, baseline_estimation_method=baseline_estimation_method, penalizer=penalizer,
                               l1_ratio=l1_ratio, strata=strata)
-        print(dataset)
+        if weights_col=='': weights_col=None
         cph.fit(dataset, duration_col=duration_col, event_col=event_col, weights_col=weights_col)
                 #cluster_col=cluster_col, entry_col=entry_col)
 
@@ -2965,22 +2962,18 @@ async def cox_regression(workflow_id: str,
             tbl1_res.append(temp_to_append)
         # fig = plt.figure(figsize=(18, 12))
         cph.plot(hazard_ratios=hazard_ratios)
-        plt.show()
         html_str = mpld3.fig_to_html(fig)
         to_return.append({"figure_1": html_str})
         plt.clf()
         if covariates != None:
             fig = plt.figure(1)
-            ax = plt.subplot(111)
             values = []
             for covariate in covariates:
                 values.append(list(pd.unique(dataset[covariate])))
-            print(values)
             values = list(itertools.product(*values))
-            print(values)
-            cph.plot_partial_effects_on_outcome(covariates=covariates, values=values, cmap='coolwarm')
-            plt.show()
-            html_str = mpld3.fig_to_html(fig)
+            ax = cph.plot_partial_effects_on_outcome(covariates=covariates, values=values, cmap='coolwarm')
+            ax.plot()
+            html_str = mpld3.fig_to_html(ax.get_figure())
             to_return.append({"figure_2": html_str})
             # to_return["figure_2"] = html_str
 
@@ -3031,17 +3024,16 @@ async def cox_regression(workflow_id: str,
                                      'AIC': AIC,
                                      'Dataframe': tbl1_res,
                                      'figure': to_return,
-                                     'proportional_hazard_test': []},
+                                     'proportional_hazard_test': tbl2_res},
                             status_code=200)
     except Exception as e:
-        print(traceback.format_exc())
         return JSONResponse(content={'status': test_status,
                                      'Concordance_Index':[],
                                      'AIC': [],
                                      'Dataframe': [],
                                      'figure': [],
                                      'proportional_hazard_test': []},
-                            status_code=200)
+                            status_code=422)
 
 @router.get("/time_varying_covariates")
 async def time_varying_covariates(
@@ -3304,7 +3296,6 @@ async def generalized_estimating_equations(workflow_id: str,
         test_status = 'Unable to retrieve datasets'
         data = load_data_from_csv(path_to_storage + "/" + selected_datasource)
         test_status = 'Unable to compute generalized estimating equations for the selected columns.'
-        print(family)
 
         if family == "poisson":
             fam = sm.families.Poisson()
@@ -3330,11 +3321,6 @@ async def generalized_estimating_equations(workflow_id: str,
         else:
             ind = sm.cov_struct.Nested()
 
-        print(cov_struct)
-        print(fam)
-        print(ind)
-
-        print(z)
         md = smf.gee(formula=z, groups=groups, data=data, cov_struct=ind, family=fam)
 
         mdf = md.fit()
@@ -3408,12 +3394,11 @@ async def generalized_estimating_equations(workflow_id: str,
                                      'third_table':df_2.to_json(orient='records')},
                             status_code=200)
     except Exception as e:
-        print(traceback.format_exc())
         return JSONResponse(content={'status': test_status,
                                      'first_table':[],
                                      'second_table':[],
                                      'third_table':[]},
-                                status_code=200)
+                                status_code=422)
 
 
 @router.get("/kaplan_meier")
@@ -4297,7 +4282,6 @@ async def logistic_regression_pinguin(workflow_id: str, step_id: str, run_id: st
                                           alpha=alpha)
 
         lm.rename(columns={'CI[2.5%]': 'CI_low', 'CI[97.5%]': 'CI_high'}, inplace=True)
-        print(lm.columns)
 
         values_dict = {}
         for column in lm.columns:
@@ -4337,7 +4321,7 @@ async def logistic_regression_pinguin(workflow_id: str, step_id: str, run_id: st
     except Exception as e:
         print(e)
         return JSONResponse(content={'status': test_status, 'Result': '[]'},
-                            status_code=200)
+                            status_code=422)
 
 # @router.get("/linear_regressor_statsmodels")
 # async def linear_regression_statsmodels(dependent_variable: str,
@@ -4442,8 +4426,7 @@ async def linear_regression_statsmodels(workflow_id: str, step_id: str, run_id: 
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
     test_status = ''
     # Load Datasets
-    print(dependent_variable)
-    print(independent_variables)
+
     try:
         test_status = 'Please provide all mandatory fields (dataset, dependent variable, one or more independent variables)'
         dfv['variables'] = independent_variables
@@ -4631,10 +4614,8 @@ async def linear_regression_statsmodels(workflow_id: str, step_id: str, run_id: 
         return JSONResponse(content={'status':'Success', 'Result': response},
                             status_code=200)
     except Exception as e:
-        print(e)
-        print(traceback.format_exc())
         return JSONResponse(content={'status': test_status, 'Result': '[]'},
-                            status_code=200)
+                            status_code=422)
 
 
 
@@ -5600,7 +5581,6 @@ async def compute_granger_analysis(workflow_id: str,
         # Union[int, List[int]]
 
         # print(type(granger_result))
-        print(granger_result)
         # # df_granger = pd.DataFrame(data=granger_result)
         # print(granger_result.keys())
         lag_numbers = list(granger_result.keys())
@@ -5615,7 +5595,6 @@ async def compute_granger_analysis(workflow_id: str,
                else:
                    list_for_lag.append({"key": key, "F" : "%.3f"%float(round(value[0], 3)), "chi2" : "-", "p": "%.3f"%float(round(value[1], 3)), "df" : "-", "df_denom" : str(int(value[2])), "df_num" : str(int(value[3]))})
             to_return.append({"lag_num" : str(lag), "result": list_for_lag})
-        print(to_return)
 
 
         with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
@@ -5641,10 +5620,8 @@ async def compute_granger_analysis(workflow_id: str,
         return JSONResponse(content={'status': "Success", 'lags': to_return},
                             status_code=200)
     except Exception as e:
-        print(e)
-        print(traceback.format_exc())
         return JSONResponse(content={'status': test_status, 'lags': []},
-                            status_code=200)
+                            status_code=422)
     # return to_return
 
 
@@ -5892,13 +5869,52 @@ async def compute_mixed_anova_pinguin(workflow_id: str,
         print(dataset)
         df = pingouin.mixed_anova(data=dataset, dv=dependent_variable, subject=subject, within=within, between=between,
                                   effsize=effsize, correction=correction)
-
-        return JSONResponse(content={'status': 'Success', 'Dataframe': df.to_json(orient="records")},
+        print(df)
+        df = df.fillna('')
+        all_res = []
+        for ind, row in df.iterrows():
+            temp_to_append = {
+                'id': ind,
+                'Source': row['Source'],
+                'SS': row['SS'],
+                'DF1': row['DF1'],
+                'DF2': row['DF2'],
+                'MS': row['MS'],
+                'F': row['F'],
+                'p-unc': row['p-unc'],
+                'np2': row[effsize],
+                'eps': row['eps'],
+            }
+            all_res.append(temp_to_append)
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            file_data = json.load(f)
+            file_data['results'] |= {
+                "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                "workflow_id": workflow_id,
+                "run_id": run_id,
+                "step_id": step_id,
+                "test_name": 'Mixed Anova',
+                "test_params": {
+                    'selected_depedent_variable': dependent_variable,
+                    'selected_subject': subject,
+                    'selected_within': within,
+                    'selected_between': between,
+                    'selected_correction': correction,
+                    'selected_effsize': effsize,
+                },
+                "test_results": all_res,
+                "Output_datasets": [],
+                'Saved_plots': []
+            }
+            f.seek(0)
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        return JSONResponse(content={'status': 'Success', 'Dataframe': all_res},
                             status_code=200)
     except Exception as e:
         print(traceback.format_exc())
         print(e)
-        return JSONResponse(content={'status': test_status, 'table': '[]', 'col_transormed': '[]'},
+        return JSONResponse(content={'status': test_status, 'Dataframe': [], 'col_transormed': '[]'},
                             status_code=200)
 
 
