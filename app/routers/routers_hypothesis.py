@@ -1391,11 +1391,11 @@ async def principal_component_analysis(workflow_id: str,
                                     'singular_values': singular_values.to_dict(),
                                     'principal_axes': principal_axes.to_dict()}}
             file_data['results'] = new_data
-            file_data['Output_datasets'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
-                                                     step_id + '/analysis_output' + '/principalComponents_Df.csv'}
+            file_data['Output_datasets'] = [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id + '/principalComponents_Df.csv'}
                                             ]
-            file_data['Saved_plots'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
-                                                 step_id + '/analysis_output/PCA.svg'}]
+            file_data['Saved_plots'] = [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
+                                                 step_id + '/PCA.svg'}]
             # Set file's current position at offset.
             f.seek(0)
             # convert back to json.
@@ -1471,6 +1471,7 @@ async def kmeans_clustering(workflow_id: str,
         kmeans = KMeans(n_clusters=n_clusters, random_state=0).fit(dataset)
         df = pd.DataFrame(kmeans.cluster_centers_, columns=dataset.columns)
         print(kmeans.cluster_centers_)
+        print(kmeans.labels_)
         to_return={'cluster_centers': df.to_json(orient='records'), 'sum_squared_dist' : kmeans.inertia_,
                    'iterations_No': kmeans.n_iter_}
                 # 'labels': kmeans.labels_.tolist(),
