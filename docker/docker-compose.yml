@@ -1,20 +1,20 @@
 version: '3.7'
 
 services:
-#  neurodesktop:
-#    privileged: true
-#    container_name: neurodesktop
-#    build:
-#      context: "./docker_neurodesk"
-#      dockerfile: Dockerfile
-#    volumes:
-#      - neurodesk-volume:/MES-CoBraD Input
-#      - 'C:/neurodesktop-storage:/neurodesktop-storage'
-#    ports:
-#      - '8080:8080'
-#    networks:
-#      - mri-freesurfer-network
-#    shm_size: 1gb
+  neurodesktop:
+    privileged: true
+    container_name: neurodesktop
+    build:
+      context: "./docker_neurodesk"
+      dockerfile: Dockerfile
+    volumes:
+      - neurodesk-volume:/MES-CoBraD Input
+      - 'C:/neurodesktop-storage:/neurodesktop-storage'
+    ports:
+      - '8080:8080'
+    networks:
+      - mri-freesurfer-network
+    shm_size: 1gb
 
   analytics-backend:
     build:
@@ -32,8 +32,8 @@ services:
       - 'C:\neurodesktop-storage:/neurodesktop-storage'
     ports:
       - "8000:8000"
-#    depends_on:
-#      - neurodesktop
+    depends_on:
+      - neurodesktop
     networks:
       - mri-freesurfer-network
       - analytics-network
