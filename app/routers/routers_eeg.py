@@ -40,7 +40,7 @@ import logging
 
 from app.utils.utils_eeg import load_data_from_edf, load_file_from_local_or_interim_edfbrowser_storage, \
     load_data_from_edf_fif, convert_yasa_sleep_stage_to_general, convert_generic_sleep_score_to_annotation, \
-    return_number_and_names_groups
+    return_number_and_names_groups, convert_compumedics_to_annotation
 from app.utils.utils_general import validate_and_convert_peaks, validate_and_convert_power_spectral_density, \
     create_notebook_mne_plot, get_neurodesk_display_id, get_annotations_from_csv, create_notebook_mne_modular, \
     get_single_file_from_local_temp_storage, get_local_storage_path, get_local_neurodesk_storage_path, \
@@ -220,6 +220,12 @@ async def list_channels_group(workflow_id: str,
     return {'channels': channels, 'group_names' : group_names}
     # return {'Error: No channels found'}
 
+
+@router.get("/type_input", tags=["type_input"])
+async def type_input(workflow_id: str,
+                              step_id: str,
+                              run_id: str,):
+    """ This functions is used to determine the file type of the input"""
 
 @router.get("/return_autocorrelation", tags=["return_autocorrelation"])
 # Validation is done inline in the input of the function
@@ -1385,6 +1391,25 @@ async def return_predictions(workflow_id: str, step_id: str, run_id: str, input_
             df_2 = pd.read_html(results_as_html_3, header=0, index_col=0)[0]
 
             z = input_future_seconds * sampling_frequency
+
+            # Create Predicted Plot
+            time_plot = np.arange(train.shape[0] + prediction.shape[0])
+
+            print("Data is")
+            print(len(train))
+            print(len(time_plot))
+            print(len(prediction))
+            print(input_test_size)
+            plt.figure("Plot Prediction")
+            plt.plot(time_plot[:len(train)], train, c='blue')
+            plt.plot(time_plot[len(train):], prediction.tolist(), c='green')
+            plt.savefig(get_local_storage_path(workflow_id, step_id, run_id) + "/output/" + 'prediction_plot.png')
+            plt.show()
+
+            plt.plot(time_plot[len(train):], prediction.tolist(), c='green')
+            plt.savefig(get_local_storage_path(workflow_id, step_id, run_id) + "/output/" + 'prediction_only_plot.png')
+
+            plt.show()
 
             prediction, confint = model.predict(n_periods=int(z), return_conf_int=True)
             return {'predictions': prediction.tolist(), 'error': smape, 'confint': confint,
@@ -2583,6 +2608,114 @@ async def back_average(
     return True
 
 
+@router.get("/eeg_upsampling", tags=["eeg_upsampling"])
+async def eeg_upsampling( workflow_id: str,
+        step_id: str,
+        run_id: str,
+        sf_hypno: float):
+    """
+        This function handles both groups and single files
+        This function assumes the grop files hypno grams and fif have the same name
+        pairwise
+    """
+    path_to_groups = get_local_storage_path(workflow_id, run_id, step_id)
+    results = []
+
+    list_of_group_directories = []
+    for directory in os.listdir(path_to_groups):
+        if directory.startswith("group_"):
+            list_of_group_directories.append(directory)
+
+    #  Check if there are group directories to see which case we are in
+    if list_of_group_directories:
+        for group in list_of_group_directories:
+            temp_group_done = []
+            for filename in os.listdir(path_to_groups + "/" + group):
+                file_name_only = os.path.splitext(filename)[0]
+                # Skip if already done
+                if file_name_only in temp_group_done:
+                    continue
+            # Do each file pair by hand
+                csv_file = file_name_only + ".csv"
+                fif_file = file_name_only + ".fif"
+
+                path = path_to_groups + "/" + group + "/" + csv_file
+                df = pd.read_csv(path)
+                temp_hypno_data = df.squeeze("columns")
+
+                path = path_to_groups + "/" + group + "/" + fif_file
+                raw_data = mne.io.read_raw_fif(path, preload=True)
+
+                # Get original plot
+                yasa.plot_hypnogram(temp_hypno_data)
+                plt.rcParams["figure.dpi"] = 150
+                plt.savefig(
+                    get_local_storage_path(workflow_id, run_id,
+                                           step_id) + "/output/hypnogram_original_"+file_name_only+".png")
+                plt.show()
+
+                temp_result = yasa.hypno_upsample_to_data(temp_hypno_data, sf_hypno = sf_hypno, data = raw_data)
+
+                # Save CSV
+                df = pd.DataFrame(data={"stage": temp_result})
+                df.to_csv( get_local_storage_path(workflow_id, run_id,
+                                           step_id) + "/output/" +file_name_only+"_upsampled "+ ".csv" , sep=',', index=False)
+
+                # Save plot
+                print(temp_result)
+                yasa.plot_hypnogram(temp_result)
+                plt.rcParams["figure.dpi"] = 150
+                plt.savefig(
+                    get_local_storage_path(workflow_id, run_id,
+                                           step_id) + "/output/hypnogram_upsampled_"+ file_name_only+".png")
+                plt.show()
+                results.append({"file_name": file_name_only})
+                temp_group_done.append(file_name_only)
+                print(temp_result)
+
+    else:
+        for file in os.listdir(path_to_groups):
+            file_name_only = os.path.splitext(file)[0]
+            if file.endswith("csv"):
+                path = path_to_groups + "/" + file
+                df = pd.read_csv(path)
+                temp_hypno_data = df.squeeze("columns")
+            elif file.endswith("fif"):
+                path = path_to_groups + "/" + file
+                raw_data = mne.io.read_raw_fif(path, preload=True)
+                # sampling_frequency = raw_data.info['sfreq']
+        print(temp_hypno_data)
+        print(raw_data.get_data())
+        print(sf_hypno)
+
+        # Get original plot
+        yasa.plot_hypnogram(temp_hypno_data)
+        plt.rcParams["figure.dpi"] = 150
+        plt.savefig(
+            get_local_storage_path(workflow_id, run_id,
+                                   step_id) + "/output/hypnogram_original_"+file_name_only+".png")
+        plt.show()
+
+        temp_result = yasa.hypno_upsample_to_data( temp_hypno_data,  sf_hypno = sf_hypno,data = raw_data)
+        # Save new CSV
+        df = pd.DataFrame(data={"stage": temp_result})
+        df.to_csv(get_local_storage_path(workflow_id, run_id,
+                                         step_id) + "/output/" + file_name_only + "_upsampled " + ".csv", sep=',',
+                  index=False)
+
+        # Get result plot
+        print(temp_result)
+        yasa.plot_hypnogram(temp_result)
+        plt.rcParams["figure.dpi"] = 150
+        plt.savefig(
+            get_local_storage_path(workflow_id, run_id,
+                                   step_id) + "/output/hypnogram_upsampled_"+file_name_only+".png")
+        plt.show()
+        # results.append({"file_name" : file_name_only, "original_hypno" : temp_hypno_data, "upsampled_hypno": temp_result})
+        results.append({"file_name" : file_name_only})
+
+
+    return results
 # @router.get("/group_sleep_analysis")
 # async def group_sleep_analysis(workflow_id: str,
 #                              step_id: str,
@@ -4803,6 +4936,7 @@ async def group_sleep_analysis_sensitivity_add_subject_add_channels_final(
         workflow_id: str,
         step_id: str,
         run_id: str,
+        minutes_to_trim: int | None = 720,
         # sampling_frequency: int,
         # channels_selection: list[str] ):
         channels_selection: list[str] | None = Query(default=[])):
@@ -4816,6 +4950,7 @@ async def group_sleep_analysis_sensitivity_add_subject_add_channels_final(
     sampling_frequency = 1
     path_to_groups = get_local_storage_path(workflow_id, run_id, step_id)
 
+    number_of_files_total = 0
     # We put all name of directories containing the groups in a list
     list_of_group_directories = []
     # Get directories starting the name "group_"
@@ -4839,6 +4974,7 @@ async def group_sleep_analysis_sensitivity_add_subject_add_channels_final(
             else:
                 return "Error: Non csv or fif files detected"
         dict_group_files[group_name] = {"list_hypno_files": temp_hypno_list, "list_fif_files": temp_fif_list}
+
 
     #
     # path_first = 'UU_Sleep_final/' + 'Group_1'
@@ -5053,10 +5189,20 @@ async def group_sleep_analysis_sensitivity_add_subject_add_channels_final(
         print(type(group_data))
         print(group_data)
         print(group_data[0])
+        # save and print hypnogram
+        for it,group_channel_data in enumerate(group_data):
+            yasa.plot_hypnogram(group_channel_data)
+            plt.rcParams["figure.dpi"] = 150
+            plt.savefig(
+                get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + 'hypnogram_' + group_name +'_channel_num'+ str(it)+'.png')
+            plt.show()
+
+        # Append to total list
         hypno_list = hypno_list + group_data
 
     print("Step 6")
     print(hypno_list)
+
 
     ##########################################################################
     ##########################################################################
@@ -5069,11 +5215,11 @@ async def group_sleep_analysis_sensitivity_add_subject_add_channels_final(
         temp_hypno_sensitivity_2 = []
         temp_mne_raw_sensitivity_2 = []
         for i in range(len(group_data)):
-            temp = group_data[i][:720]
+            temp = group_data[i][:minutes_to_trim]
             temp_hypno_sensitivity_2.append(temp)
             temp_mne_raw_sensitivity_2.append(group_mneraw_list[group_name][i])
-            if group_duration_files[group_name][i] > 21600:
-                temp_mne_raw_sensitivity_2[i].crop(tmin=0, tmax=21600)
+            if group_duration_files[group_name][i] > minutes_to_trim*30:
+                temp_mne_raw_sensitivity_2[i].crop(tmin=0, tmax=minutes_to_trim*30)
         group_hypno_sensitivity_2[group_name] = temp_hypno_sensitivity_2
         group_mne_raw_sensitivity_2[group_name] = temp_mne_raw_sensitivity_2
 
@@ -5977,3 +6123,171 @@ async def group_sleep_analysis_sensitivity_add_subject_add_channels_final(
 #
 # # return {'Sensitivity 02 - Sleep Statistics': df_sens02sleep_statistics.to_json(orient='records'),
     return to_return
+
+
+
+@router.get("/group_sw_spindles_analysis")
+async def group_sw_spindles_analysis(
+        workflow_id: str,
+        step_id: str,
+        run_id: str,
+        channels_selection: list[str] | None = Query(default=[])):
+
+
+    sampling_frequency = 1
+    path_to_groups = get_local_storage_path(workflow_id, run_id, step_id)
+
+    # We put all name of directories containing the groups in a list
+    list_of_group_directories = []
+    # Get directories starting the name "group_"
+    for directory in os.listdir(path_to_groups):
+        if directory.startswith("group_"):
+            list_of_group_directories.append(directory)
+
+    # We load the files from groups in a single dict
+    # In the format { "group_name": {"list_hypno_files": <list of hypno files> , "list_fif_files" : <fif files>"} }
+
+    #  Step 1 Gather file names
+    dict_group_files = {}
+    for group_name in list_of_group_directories:
+        temp_hypno_list = []
+        temp_fif_list = []
+        for files in os.listdir(os.path.join(path_to_groups, group_name)):
+            if files.endswith(".csv"):
+                temp_hypno_list.append(files)
+            elif files.endswith(".fif"):
+                temp_fif_list.append(files)
+            else:
+                return "Error: Non csv or fif files detected"
+        dict_group_files[group_name] = {"list_hypno_files": temp_hypno_list, "list_fif_files": temp_fif_list}
+
+
+    print("----Step 1 Gather file metadata----")
+    print(dict_group_files)
+
+    #  Step 2 Gather files and data
+
+    fif_files = []
+    for key, files in dict_group_files.items():
+        fif_files = fif_files + files["list_fif_files"]
+
+    fif_files_subjects = []
+    for i in range(len(fif_files)):
+        fif_files_subjects.append(fif_files[i].split(".")[0])
+
+    group_duration_files = {}
+    group_fif_files = {}
+
+    for group_name, group_data in dict_group_files.items():
+        temp_duration = []
+        temp_fif_files = []
+        for entries in group_data["list_fif_files"]:
+            path = os.path.join(path_to_groups, group_name, entries)
+            # path = 'UU_Sleep_final/Group_1/' + entries
+            data = mne.io.read_raw_fif(path)
+            info = data.info
+            raw_data = data.get_data()
+            channels = data.ch_names
+            print(channels)
+            temp_duration.append(raw_data.shape[1] / info['sfreq'])
+
+            # Get sampling frequency from file
+            sampling_frequency = info['sfreq']
+
+            list_signals = []
+            new_channels = []
+            for i in range(len(channels)):
+                if channels[i] in channels_selection:
+                    print("CHANNELS IN SELECTION !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+                    new_channels.append(channels[i])
+                    list_signals.append(raw_data[i])
+
+            # first_group_fif_files.append(np.array(list_signals).T.tolist())
+            df_signals = pd.DataFrame(np.array(list_signals).T.tolist(), columns=new_channels)
+            temp_fif_files.append(df_signals)
+        group_duration_files[group_name] = temp_duration
+        group_fif_files[group_name] = temp_fif_files
+
+    print("----Step 2 Gather files----")
+    print(channels_selection)
+    print(group_duration_files)
+    print(group_fif_files)
+
+    # Create new temp info for new raws
+    info = mne.create_info(ch_names=channels_selection, sfreq=sampling_frequency)
+
+    #  Step 3  Create array list
+    group_array_list = {}
+    for group_name, group_data in group_fif_files.items():
+        temp_array_list = []
+        for i in range(len(group_data)):
+            temp_array_list.append(group_data[i].to_numpy())
+        group_array_list[group_name] = temp_array_list
+
+    print("step 3")
+    print(group_array_list)
+
+
+    #  Step 4  Create MNE raw list
+    group_mneraw_list = {}
+    for group_name, group_data in group_array_list.items():
+        temp_mneraw_list = []
+        for i in range(len(group_data)):
+            temp_MNEraw = mne.io.RawArray(np.array(group_data[i]).T, info)
+            temp_mneraw_list.append(temp_MNEraw)
+        group_mneraw_list[group_name] = temp_mneraw_list
+
+    print("step 4")
+    print(group_mneraw_list)
+
+    # # Step 5 Raw lists
+    #
+    # mne_raw_list = []
+    # firsthalf_mneraw_list = []
+    # secondhalf_mneraw_list = []
+    # for group_name, group_data in group_mneraw_list.items():
+    #     print("GROUP DATA  TO APPEND MNE RAW  ++++++++++++++++++++++++++++++++++++++++++++++++++++++")
+    #     print(group_data)
+    #     mne_raw_list = mne_raw_list + group_data
+    #     firsthalf_mneraw_list = firsthalf_mneraw_list + group_data
+    #     secondhalf_mneraw_list = secondhalf_mneraw_list + group_data
+    #
+    #
+    # print("step 5")
+    # print(mne_raw_list)
+
+    # Step 6 Hypnogram
+
+
+    # list_first_hypnos = []
+    # list_second_hypnos = []
+    group_hypno_list = {}
+    hypno_list = []
+    for group_name, group_data in dict_group_files.items():
+        temp_hypno_list = []
+        for entries in group_data["list_hypno_files"]:
+            path = os.path.join(path_to_groups, group_name, entries)
+            # path = 'UU_Sleep_final/Group_1/' + str(df_first_hypnos[i])
+            df = pd.read_csv(path)
+            temp_hypno_list.append(np.squeeze(df.to_numpy()))
+        group_hypno_list[group_name] = temp_hypno_list
+
+    for group_name, group_data in group_hypno_list.items():
+        print("GROUP DATA  TO APPEND HYPNO LIST++++++++++++++++++++++++++++++++++++++++++++++++++++++")
+        print(type(group_data))
+        print(group_data)
+        print(group_data[0])
+        hypno_list = hypno_list + group_data
+
+    print("Step 6")
+    print(hypno_list)
+
+
+@router.get("/convert_compumedics")
+async def convert_compumedics(
+        workflow_id: str,
+        step_id: str,
+        run_id: str):
+    data = convert_compumedics_to_annotation("ttt.TXT", "psg1 anonym2.edf",workflow_id, run_id, step_id)
+
+    return

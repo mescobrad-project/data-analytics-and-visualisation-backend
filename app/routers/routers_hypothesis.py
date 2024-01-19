@@ -11,7 +11,8 @@ from sklearn.preprocessing import LabelEncoder
 import re
 from pandas.api.types import is_numeric_dtype
 from sphinx.addnodes import index
-from statsmodels.tsa.stattools import grangercausalitytests
+from statsmodels.graphics.tsaplots import plot_acf
+from statsmodels.tsa.stattools import grangercausalitytests, acf
 from factor_analyzer.factor_analyzer import calculate_bartlett_sphericity
 from factor_analyzer.factor_analyzer import calculate_kmo
 from factor_analyzer.utils import corr, cov
@@ -57,7 +58,7 @@ from app.routers.routers_communication import task_complete
 # from app.pydantic_models import ModelMultipleComparisons
 from app.utils.utils_datalake import fget_object, get_saved_dataset_for_Hypothesis, upload_object
 from app.utils.utils_general import get_local_storage_path, get_single_file_from_local_temp_storage, load_data_from_csv, \
-    load_file_csv_direct, get_all_files_from_local_temp_storage
+    load_file_csv_direct, get_all_files_from_local_temp_storage, write_function_data_to_config_file
 from tabulate import tabulate
 import seaborn as sns
 from datetime import datetime
@@ -377,14 +378,14 @@ async def normal_tests(workflow_id: str, step_id: str, run_id: str,
                 'last_5': results_to_send['last_5']
             },
             'Output_datasets': [],
-            'Saved_plots': [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
-                                             step_id + '/BoxPlot.svg'},
-                                    {"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
-                                             step_id + '/PPlot.svg'},
-                                    {"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
-                                             step_id + '/HistogramPlot.svg'},
-                                    {"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
-                                             step_id + '/QQPlot.svg'}
+            'Saved_plots': [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                             step_id + '/analysis_output/BoxPlot.svg'},
+                                    {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                             step_id + '/analysis_output/PPlot.svg'},
+                                    {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                             step_id + '/analysis_output/HistogramPlot.svg'},
+                                    {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                             step_id + '/analysis_output/QQPlot.svg'}
                                     ]
         }
 
@@ -542,18 +543,18 @@ async def transform_data(workflow_id: str,
                 'top_5': results_to_send['top_5'],
                 'last_5': results_to_send['last_5']
             },
-            'Output_datasets': [{"file": 'workflows/'+ workflow_id+'/'+ run_id+'/'+
-                                         step_id+'/new_dataset.csv'}],
-            'Saved_plots': [{"file": 'workflows/'+ workflow_id+'/'+ run_id+'/'+
-                                         step_id+'/BoxPlot.svg'},
-                            {"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
-                                     step_id + '/PPlot.svg'},
-                            {"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
-                                     step_id + '/HistogramPlot.svg'},
-                            {"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
-                                     step_id + '/QQPlot.svg'},
-                            {"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
-                                     step_id + '/Scatter_Two_Variables.svg'},
+            'Output_datasets': [{"file": 'expertsystem/workflow/'+ workflow_id+'/'+ run_id+'/'+
+                                         step_id+'/analysis_output' + '/new_dataset.csv'}],
+            'Saved_plots': [{"file": 'expertsystem/workflow/'+ workflow_id+'/'+ run_id+'/'+
+                                         step_id+'/analysis_output/BoxPlot.svg'},
+                            {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                     step_id + '/analysis_output/PPlot.svg'},
+                            {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                     step_id + '/analysis_output/HistogramPlot.svg'},
+                            {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                     step_id + '/analysis_output/QQPlot.svg'},
+                            {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                     step_id + '/analysis_output/Scatter_Two_Variables.svg'},
                             ]
         }
         with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
@@ -684,16 +685,16 @@ async def point_biserial_correlation(workflow_id: str, step_id: str, run_id: str
                     "test_params": {'Binary variable': str(column_1),
                                     'Variable': str(column_2)},
                     "test_results": data_to_return,
-                    "Output_datasets":[{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
-                                                step_id + '/new_dataset.csv'}],
-                    "Saved_plots": [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
-                                             step_id + '/BoxPlot.svg'},
-                                    {"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
-                                             step_id + '/HistogramPlot_GroupA.svg'},
-                                    {"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
-                                             step_id + '/HistogramPlot_GroupB.svg'},
-                                    {"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
-                                             step_id + '/Scatter_Two_Variables.svg'}]
+                    "Output_datasets":[{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                step_id + '/analysis_output' + '/new_dataset.csv'}],
+                    "Saved_plots": [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                             step_id + '/analysis_output/BoxPlot.svg'},
+                                    {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                             step_id + '/analysis_output/HistogramPlot_GroupA.svg'},
+                                    {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                             step_id + '/analysis_output/HistogramPlot_GroupB.svg'},
+                                    {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                             step_id + '/analysis_output/Scatter_Two_Variables.svg'}]
                     }
                 file_data['results'] |= new_data
                 f.seek(0)
@@ -858,8 +859,8 @@ async def transform_data_anova(
             },
             "test_results": {
             },
-            "Output_datasets":[{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
-                                                    step_id + '/new_dataset.csv'}],
+            "Output_datasets":[{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                    step_id + '/analysis_output' + '/new_dataset.csv'}],
             'Saved_plots': []
         }
 
@@ -886,7 +887,7 @@ async def statistical_tests(workflow_id: str,
                             # column_1: str,
                             # column_2: str,
                             correction: bool = True,
-                            nan_policy: Optional[str] | None = Query("omit",
+                            nan_policy: Optional[str] | None = Query("propagate",
                                                                      regex="^(propagate)$|^(raise)$|^(omit)$"),
                             statistical_test: str | None = Query("Independent t-test",
                                                                  regex="^(Independent t-test)$|^(Welch t-test)$|^(Mann-Whitney U rank test)$|^(t-test on TWO RELATED samples of scores)$|^(Wilcoxon signed-rank test)$|^(Alexander Govern test)$|^(Kruskal-Wallis H-test)$|^(one-way ANOVA)$|^(Wilcoxon rank-sum statistic)$|^(one-way chi-square test)$"),
@@ -942,8 +943,7 @@ async def statistical_tests(workflow_id: str,
             if len(data.columns) != 2:
                 test_status = 'Two variables must be selected for ' + statistical_test
                 raise Exception
-            # TODO 21-12-2023 nan_policy needs scipy 1.11.4
-            statistic, p_value = mannwhitneyu(data.iloc[:, 0],data.iloc[:, 1], alternative=alternative, method=method)
+            statistic, p_value = mannwhitneyu(data.iloc[:, 0],data.iloc[:, 1], nan_policy=nan_policy, alternative=alternative, method=method)
         elif statistical_test == "Wilcoxon signed-rank test":
             if len(data.columns) != 2:
                 test_status = 'Two variables must be selected for ' + statistical_test
@@ -951,9 +951,7 @@ async def statistical_tests(workflow_id: str,
             elif np.shape(data.iloc[:, 0])[0] != np.shape(data.iloc[:, 1])[0]:
                 test_status = 'The arrays must have the same shape for' + statistical_test
                 raise Exception
-            # TODO 21-12-2023 nan_policy needs scipy 1.11.4
-            # statistic, p_value = wilcoxon(data.iloc[:, 0],data.iloc[:, 1], alternative=alternative, nan_policy=nan_policy, correction=correction, zero_method=zero_method, mode=mode)
-            statistic, p_value = wilcoxon(data.iloc[:, 0],data.iloc[:, 1], alternative=alternative, correction=correction, zero_method=zero_method, mode=mode)
+            statistic, p_value = wilcoxon(data.iloc[:, 0],data.iloc[:, 1], alternative=alternative, nan_policy=nan_policy, correction=correction, zero_method=zero_method, mode=mode)
         elif statistical_test == "Alexander Govern test":
             samples = []
             for k in data.columns:
@@ -977,14 +975,9 @@ async def statistical_tests(workflow_id: str,
             if len(data.columns) != 2:
                 test_status = 'Two variables must be selected for ' + statistical_test
                 raise Exception
-            # TODO 21-12-2023 nan_policy needs scipy 1.11.4
-            statistic, p_value = ranksums(data.iloc[:, 0],data.iloc[:, 1], alternative=alternative)
-            # statistic, p_value = ranksums(data.iloc[:, 0],data.iloc[:, 1], nan_policy=nan_policy, alternative=alternative)
+            statistic, p_value = ranksums(data.iloc[:, 0],data.iloc[:, 1], nan_policy=nan_policy, alternative=alternative)
         elif statistical_test == "one-way chi-square test":
             samples = []
-            # Removed NaNs 21-12-2023
-            # TODO: check if this is OK and return the removed count
-            data = data.dropna()
             for k in data.columns:
                 samples.append(data[k])
             # TODO: We can have several f_obs columns of observed frequencies and
@@ -1097,8 +1090,8 @@ async def p_value_correction(workflow_id: str,
                     "test_results": ''
             }
             file_data['results'] = new_data
-            file_data['Output_datasets'] = [{"file": 'workflows/'+ workflow_id+'/'+ run_id+'/'+
-                                         step_id+'/new_dataset.csv'}]
+            file_data['Output_datasets'] = [{"file": 'expertsystem/workflow/'+ workflow_id+'/'+ run_id+'/'+
+                                         step_id+'/analysis_output' + '/new_dataset.csv'}]
             # Set file's current position at offset.
             f.seek(0)
             # convert back to json.
@@ -1287,8 +1280,6 @@ async def principal_component_analysis(workflow_id: str,
     dfv = pd.DataFrame()
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
     test_status = ''
-    print(categorical_variable)
-    print(independent_variables)
     try:
         test_status = 'Dataset is not defined'
         dfv['variables'] = independent_variables
@@ -1304,8 +1295,6 @@ async def principal_component_analysis(workflow_id: str,
         for columns in dataset.columns:
             if columns not in np.append(independent_variables, categorical_variable):
                 dataset = dataset.drop(str(columns), axis=1)
-
-        dataset = dataset.dropna()
 
         X = dataset.loc[:, independent_variables].values
         if n_components_1 > min(int(np.shape(X)[0]), int(np.shape(X)[1])):
@@ -1425,11 +1414,11 @@ async def principal_component_analysis(workflow_id: str,
                                     'singular_values': singular_values.to_dict(),
                                     'principal_axes': principal_axes.to_dict()}}
             file_data['results'] = new_data
-            file_data['Output_datasets'] = [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
-                                                     step_id + '/principalComponents_Df.csv'}
+            file_data['Output_datasets'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id + '/analysis_output' + '/principalComponents_Df.csv'}
                                             ]
-            file_data['Saved_plots'] = [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
-                                                 step_id + '/PCA.svg'}]
+            file_data['Saved_plots'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                 step_id + '/analysis_output/PCA.svg'}]
             # Set file's current position at offset.
             f.seek(0)
             # convert back to json.
@@ -1437,7 +1426,7 @@ async def principal_component_analysis(workflow_id: str,
             f.truncate()
 
 
-        print(pca_result.mean_)
+
         return JSONResponse(content={'status': 'Success',
                                      'columns': dataset.loc[:, independent_variables].columns.tolist(),
                                      'n_features_': pca_result.n_features_,
@@ -1504,11 +1493,7 @@ async def kmeans_clustering(workflow_id: str,
         # X = np.array(dataset)
         kmeans = KMeans(n_clusters=n_clusters, random_state=0).fit(dataset)
         df = pd.DataFrame(kmeans.cluster_centers_, columns=dataset.columns)
-        dataset['Component'] = kmeans.labels_
-
         print(kmeans.cluster_centers_)
-        print(kmeans.labels_)
-        print(dataset.head(50))
         to_return={'cluster_centers': df.to_json(orient='records'), 'sum_squared_dist' : kmeans.inertia_,
                    'iterations_No': kmeans.n_iter_}
                 # 'labels': kmeans.labels_.tolist(),
@@ -1524,14 +1509,12 @@ async def kmeans_clustering(workflow_id: str,
                     "test_name": "KMeans",
                     "test_params": {
                         'selected_variables': independent_variables,
-                        'n_clusters': n_clusters,
+                        'n_clusters': n_clusters
                     },
                     "test_results": to_return
             }
             file_data['results'] = new_data
-            file_data['Output_datasets'] = [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
-                                                     step_id + '/kmeans_df.csv'}
-                                            ]
+            file_data['Output_datasets'] = []
             # Set file's current position at offset.
             f.seek(0)
             # convert back to json.
@@ -1685,8 +1668,8 @@ async def elastic_net(workflow_id: str,
                                  'dataframe': df.to_dict()}
             }
             file_data['results'] = new_data
-            file_data['Output_datasets'] = [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
-                                                     step_id + '/elastic_preds.csv'}]
+            file_data['Output_datasets'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id + '/analysis_output' + '/elastic_preds.csv'}]
             # Set file's current position at offset.
             f.seek(0)
             # convert back to json.
@@ -1695,7 +1678,6 @@ async def elastic_net(workflow_id: str,
         return JSONResponse(content={'status': 'Success', 'Result': response},
                             status_code=200)
     except Exception as e:
-        print(e)
         return JSONResponse(content={'status': test_status, 'Result': '[]'},
                             status_code=200)
 
@@ -1811,8 +1793,8 @@ async def lasso(workflow_id: str,
                     'dataframe': df.to_dict()}
             }
             file_data['results'] = new_data
-            file_data['Output_datasets'] = [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
-                                                     step_id + '/lasso_preds.csv'}]
+            file_data['Output_datasets'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id + '/analysis_output' + '/lasso_preds.csv'}]
             # Set file's current position at offset.
             f.seek(0)
             # convert back to json.
@@ -1821,7 +1803,6 @@ async def lasso(workflow_id: str,
         return JSONResponse(content={'status': 'Success', 'Result': response},
                             status_code=200)
     except Exception as e:
-        print(e)
         return JSONResponse(content={'status': test_status, 'Result': '[]'},
                             status_code=200)
 
@@ -1941,8 +1922,8 @@ async def ridge(workflow_id: str,
                                  'dataframe': df.to_dict()}
             }
             file_data['results'] = new_data
-            file_data['Output_datasets'] = [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
-                                                     step_id + '/ridge_preds.csv'}]
+            file_data['Output_datasets'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id + '/analysis_output' + '/ridge_preds.csv'}]
             # Set file's current position at offset.
             f.seek(0)
             # convert back to json.
@@ -2249,8 +2230,8 @@ async def sgd_regressor(workflow_id: str,
                                  'dataframe': df.to_dict()}
             }
             file_data['results'] = new_data
-            file_data['Output_datasets'] = [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
-                                                     step_id + '/sgd_preds.csv'}]
+            file_data['Output_datasets'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id + '/analysis_output' + '/sgd_preds.csv'}]
             # Set file's current position at offset.
             f.seek(0)
             # convert back to json.
@@ -2378,8 +2359,8 @@ async def huber_regressor(workflow_id: str,
                                  'dataframe': df.to_dict()}
             }
             file_data['results'] = new_data
-            file_data['Output_datasets'] = [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
-                                                     step_id + '/huber_preds.csv'}]
+            file_data['Output_datasets'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id + '/analysis_output' + '/huber_preds.csv'}]
             # Set file's current position at offset.
             f.seek(0)
             # convert back to json.
@@ -2505,8 +2486,8 @@ async def linear_svr_regressor(workflow_id: str,
                                  'dataframe': df.to_dict()}
             }
             file_data['results'] = new_data
-            file_data['Output_datasets'] = [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
-                                                     step_id + '/linearsvr_preds.csv'}]
+            file_data['Output_datasets'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id + '/analysis_output' + '/linearsvr_preds.csv'}]
             # Set file's current position at offset.
             f.seek(0)
             # convert back to json.
@@ -2607,8 +2588,8 @@ async def linear_svc_regressor(workflow_id: str,
                 "test_results": {}
             }
             file_data['results'] = new_data
-            file_data['Output_datasets'] = [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
-                                                     step_id + '/linearsvc.csv'}]
+            file_data['Output_datasets'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id + '/analysis_output' + '/linearsvc.csv'}]
             # Set file's current position at offset.
             f.seek(0)
             # convert back to json.
@@ -2856,7 +2837,6 @@ async def poisson_regression(workflow_id: str,
                     'predicted values': list(clf.predict(X)),
                     'residuals': list(Y - clf.predict(X)),
                     'coefficient of determination (R^2)': clf.score(X, Y)}
-        print(response)
         df_for_scatter.to_csv(path_to_storage + '/output/poisson_preds.csv', index=False)
         test_status = 'Unable to create info.json file'
         with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
@@ -2886,8 +2866,8 @@ async def poisson_regression(workflow_id: str,
                                  'dataframe': df.to_dict()}
             }
             file_data['results'] = new_data
-            file_data['Output_datasets'] = [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
-                                                     step_id + '/poisson_preds.csv'}]
+            file_data['Output_datasets'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id + '/analysis_output' + '/poisson_preds.csv'}]
             # Set file's current position at offset.
             f.seek(0)
             # convert back to json.
@@ -2928,14 +2908,14 @@ async def cox_regression(workflow_id: str,
         test_status = 'Dataset is not defined'
         #TODO mandatory fields add
         test_status = 'Please provide all mandatory fields (dataset, dependent variable, one or more independent variables)'
-        print(covariates)
         dfv['covariates'] = covariates
         dfv[['Datasource', 'covariates']] = dfv["covariates"].apply(lambda x: pd.Series(str(x).split("--")))
         covariates = list(dfv['covariates'].values)
         selected_datasource = pd.unique(dfv['Datasource'])[0]
-        strata = list(map(lambda x: str(x).split("--")[1], strata))
-        print("STRATA", strata)
-        strata=None
+        try:
+            strata = list(map(lambda x: str(x).split("--")[1], strata))
+        except:
+            strata=None
 
         test_status = 'Unable to retrieve datasets'
         dataset = load_data_from_csv(path_to_storage + "/" + selected_datasource)
@@ -2959,7 +2939,7 @@ async def cox_regression(workflow_id: str,
         else:
             cph = CoxPHFitter(alpha=alpha, baseline_estimation_method=baseline_estimation_method, penalizer=penalizer,
                               l1_ratio=l1_ratio, strata=strata)
-        print(dataset)
+        if weights_col=='': weights_col=None
         cph.fit(dataset, duration_col=duration_col, event_col=event_col, weights_col=weights_col)
                 #cluster_col=cluster_col, entry_col=entry_col)
 
@@ -2983,22 +2963,18 @@ async def cox_regression(workflow_id: str,
             tbl1_res.append(temp_to_append)
         # fig = plt.figure(figsize=(18, 12))
         cph.plot(hazard_ratios=hazard_ratios)
-        plt.show()
         html_str = mpld3.fig_to_html(fig)
         to_return.append({"figure_1": html_str})
         plt.clf()
         if covariates != None:
             fig = plt.figure(1)
-            ax = plt.subplot(111)
             values = []
             for covariate in covariates:
                 values.append(list(pd.unique(dataset[covariate])))
-            print(values)
             values = list(itertools.product(*values))
-            print(values)
-            cph.plot_partial_effects_on_outcome(covariates=covariates, values=values, cmap='coolwarm')
-            plt.show()
-            html_str = mpld3.fig_to_html(fig)
+            ax = cph.plot_partial_effects_on_outcome(covariates=covariates, values=values, cmap='coolwarm')
+            ax.plot()
+            html_str = mpld3.fig_to_html(ax.get_figure())
             to_return.append({"figure_2": html_str})
             # to_return["figure_2"] = html_str
 
@@ -3049,10 +3025,9 @@ async def cox_regression(workflow_id: str,
                                      'AIC': AIC,
                                      'Dataframe': tbl1_res,
                                      'figure': to_return,
-                                     'proportional_hazard_test': []},
+                                     'proportional_hazard_test': tbl2_res},
                             status_code=200)
     except Exception as e:
-        print(traceback.format_exc())
         return JSONResponse(content={'status': test_status,
                                      'Concordance_Index':[],
                                      'AIC': [],
@@ -3322,7 +3297,6 @@ async def generalized_estimating_equations(workflow_id: str,
         test_status = 'Unable to retrieve datasets'
         data = load_data_from_csv(path_to_storage + "/" + selected_datasource)
         test_status = 'Unable to compute generalized estimating equations for the selected columns.'
-        print(family)
 
         if family == "poisson":
             fam = sm.families.Poisson()
@@ -3348,11 +3322,6 @@ async def generalized_estimating_equations(workflow_id: str,
         else:
             ind = sm.cov_struct.Nested()
 
-        print(cov_struct)
-        print(fam)
-        print(ind)
-
-        print(z)
         md = smf.gee(formula=z, groups=groups, data=data, cov_struct=ind, family=fam)
 
         mdf = md.fit()
@@ -3426,7 +3395,6 @@ async def generalized_estimating_equations(workflow_id: str,
                                      'third_table':df_2.to_json(orient='records')},
                             status_code=200)
     except Exception as e:
-        print(traceback.format_exc())
         return JSONResponse(content={'status': test_status,
                                      'first_table':[],
                                      'second_table':[],
@@ -4317,7 +4285,6 @@ async def logistic_regression_pinguin(workflow_id: str, step_id: str, run_id: st
                                           alpha=alpha)
 
         lm.rename(columns={'CI[2.5%]': 'CI_low', 'CI[97.5%]': 'CI_high'}, inplace=True)
-        print(lm.columns)
 
         values_dict = {}
         for column in lm.columns:
@@ -4462,8 +4429,7 @@ async def linear_regression_statsmodels(workflow_id: str, step_id: str, run_id: 
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
     test_status = ''
     # Load Datasets
-    print(dependent_variable)
-    print(independent_variables)
+
     try:
         test_status = 'Please provide all mandatory fields (dataset, dependent variable, one or more independent variables)'
         dfv['variables'] = independent_variables
@@ -4641,8 +4607,8 @@ async def linear_regression_statsmodels(workflow_id: str, step_id: str, run_id: 
                                     goldfeld_test.loc['ordering used in the alternative'][0]}
             }
             file_data['results'] = new_data
-            file_data['Output_datasets'] = [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
-                                                     step_id + '/influence_points.csv'}]
+            file_data['Output_datasets'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id + '/analysis_output' + '/influence_points.csv'}]
             # Set file's current position at offset.
             f.seek(0)
             # convert back to json.
@@ -4651,8 +4617,6 @@ async def linear_regression_statsmodels(workflow_id: str, step_id: str, run_id: 
         return JSONResponse(content={'status':'Success', 'Result': response},
                             status_code=200)
     except Exception as e:
-        print(e)
-        print(traceback.format_exc())
         return JSONResponse(content={'status': test_status, 'Result': '[]'},
                             status_code=200)
 
@@ -5594,7 +5558,6 @@ async def compute_granger_analysis(workflow_id: str,
         # Union[int, List[int]]
 
         # print(type(granger_result))
-        print(granger_result)
         # # df_granger = pd.DataFrame(data=granger_result)
         # print(granger_result.keys())
         lag_numbers = list(granger_result.keys())
@@ -5609,7 +5572,6 @@ async def compute_granger_analysis(workflow_id: str,
                else:
                    list_for_lag.append({"key": key, "F" : "%.3f"%float(round(value[0], 3)), "chi2" : "-", "p": "%.3f"%float(round(value[1], 3)), "df" : "-", "df_denom" : str(int(value[2])), "df_num" : str(int(value[3]))})
             to_return.append({"lag_num" : str(lag), "result": list_for_lag})
-        print(to_return)
 
 
         with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
@@ -5635,8 +5597,6 @@ async def compute_granger_analysis(workflow_id: str,
         return JSONResponse(content={'status': "Success", 'lags': to_return},
                             status_code=200)
     except Exception as e:
-        print(e)
-        print(traceback.format_exc())
         return JSONResponse(content={'status': test_status, 'lags': []},
                             status_code=200)
     # return to_return
@@ -5886,13 +5846,52 @@ async def compute_mixed_anova_pinguin(workflow_id: str,
         print(dataset)
         df = pingouin.mixed_anova(data=dataset, dv=dependent_variable, subject=subject, within=within, between=between,
                                   effsize=effsize, correction=correction)
-
-        return JSONResponse(content={'status': 'Success', 'Dataframe': df.to_json(orient="records")},
+        print(df)
+        df = df.fillna('')
+        all_res = []
+        for ind, row in df.iterrows():
+            temp_to_append = {
+                'id': ind,
+                'Source': row['Source'],
+                'SS': row['SS'],
+                'DF1': row['DF1'],
+                'DF2': row['DF2'],
+                'MS': row['MS'],
+                'F': row['F'],
+                'p-unc': row['p-unc'],
+                'np2': row[effsize],
+                'eps': row['eps'],
+            }
+            all_res.append(temp_to_append)
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            file_data = json.load(f)
+            file_data['results'] |= {
+                "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                "workflow_id": workflow_id,
+                "run_id": run_id,
+                "step_id": step_id,
+                "test_name": 'Mixed Anova',
+                "test_params": {
+                    'selected_depedent_variable': dependent_variable,
+                    'selected_subject': subject,
+                    'selected_within': within,
+                    'selected_between': between,
+                    'selected_correction': correction,
+                    'selected_effsize': effsize,
+                },
+                "test_results": all_res,
+                "Output_datasets": [],
+                'Saved_plots': []
+            }
+            f.seek(0)
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        return JSONResponse(content={'status': 'Success', 'Dataframe': all_res},
                             status_code=200)
     except Exception as e:
         print(traceback.format_exc())
         print(e)
-        return JSONResponse(content={'status': test_status, 'table': '[]', 'col_transormed': '[]'},
+        return JSONResponse(content={'status': test_status, 'Dataframe': [], 'col_transormed': '[]'},
                             status_code=200)
 
 
@@ -6546,3 +6545,141 @@ async def Dataframe_preparation(workflow_id: str,
         return JSONResponse(content={'status': test_status + "\n" + e.__str__(),
                              'newdataFrame': '[]'},
                     status_code=200)
+
+@router.get("/hypothesis/autocorrelation", tags=["return_autocorrelation"])
+# Validation is done inline in the input of the function
+async def hypothesis_autocorrelation(workflow_id: str, step_id: str, run_id: str,
+                                 input_name: str,
+                                 file:str,
+                                 variables: list[str] | None = Query(default=None),
+                                 input_adjusted: bool | None = False,
+                                 input_qstat: bool | None = False,
+                                 input_fft: bool | None = False,
+                                 input_bartlett_confint: bool | None = False,
+                                 input_missing: str | None = Query("none",
+                                                                   regex="^(none)$|^(raise)$|^(conservative)$|^(drop)$"),
+                                 input_alpha: float | None = None,
+                                 input_nlags: int | None = None,
+                                 file_used: str | None = Query("original", regex="^(original)$|^(printed)$")
+                                 ) -> dict:
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
+    dfv = pd.DataFrame()
+    try:
+        test_status = 'Dataset is not defined'
+        if file is None:
+            test_status = 'Dataset is not defined'
+            raise Exception
+        test_status = 'Unable to retrieve datasets'
+        # We expect only one here
+        data = load_data_from_csv(path_to_storage + "/" + file)
+        data.columns = data.columns.str.replace("[^a-zA-Z]+", "_", regex=True)
+        print(data.columns)
+        df = data[data.columns.intersection(variables)]
+        print(df.columns)
+        print(df.head())
+        # TODO: Remove nans
+        df = df.dropna()
+        print(df.head())
+
+        z = acf(data, adjusted=input_adjusted, qstat=input_qstat,
+                fft=input_fft,
+                bartlett_confint=input_bartlett_confint,
+                missing=input_missing, alpha=input_alpha,
+                nlags=input_nlags)
+
+        to_return = {
+            'values_autocorrelation': None,
+            'confint': None,
+            'qstat': None,
+            'pvalues': None
+        }
+
+        fig, ax = plt.subplots(nrows=1, ncols=1, facecolor="#F0F0F0")
+
+        ax.legend(["ACF"], loc="upper right", fontsize="x-small", framealpha=1, edgecolor="black", shadow=None)
+        ax.grid(which="major", color="grey", linestyle="--", linewidth=0.5)
+        print(z[0])
+
+        # Parsing the results of acf into a single object
+        # Results will change depending on our input
+        if input_qstat and input_alpha:
+            to_return['values_autocorrelation'] = z[0].tolist()
+            to_return['confint'] = z[1].tolist()
+            to_return['qstat'] = z[2].tolist()
+            to_return['pvalues'] = z[3].tolist()
+            # plot_acf(z, adjusted=input_adjusted, alpha=input_alpha, lags=len(z[0].tolist())-1, ax=ax)
+            # ax.set_xticks(np.arange(1, len(z[0].tolist()), step=1))
+        elif input_qstat:
+            to_return['values_autocorrelation'] = z[0].tolist()
+            to_return['qstat'] = z[1].tolist()
+            to_return['pvalues'] = z[2].tolist()
+            # plot_acf(z, adjusted=input_adjusted, lags=len(z[0].tolist())-1, ax=ax)
+            # ax.set_xticks(np.arange(1, len(z[0].tolist()), step=1))
+        elif input_alpha:
+            to_return['values_autocorrelation'] = z[0].tolist()
+            to_return['confint'] = z[1].tolist()
+            plot_acf(x=data,
+                     adjusted=input_adjusted,
+                     # qstat=input_qstat,
+                     fft=input_fft,
+                     bartlett_confint=input_bartlett_confint,
+                     missing=input_missing,
+                     alpha=input_alpha,
+                     lags=input_nlags,
+                     ax=ax,
+                     use_vlines=True)
+            # plot_acf(z, adjusted=input_adjusted, alpha=input_alpha, lags=len(z[0].tolist()) -1, ax=ax)
+            # ax.set_xticks(np.arange(1, len(z[0].tolist()), step=1))
+        else:
+            to_return['values_autocorrelation'] = z.tolist()
+            # plot_acf(z, adjusted=input_adjusted, lags=len(z.tolist())-1, ax=ax)
+            # plot_acf(x=raw_data[i], adjusted=input_adjusted, qstat=input_qstat,
+            #     fft=input_fft,
+            #     bartlett_confint=input_bartlett_confint,
+            #     missing=input_missing, alpha=input_alpha,
+            #     nlags=input_nlags, ax=ax, use_vlines=True)
+            plot_acf(x=data,
+                     adjusted=input_adjusted,
+                     # qstat=input_qstat,
+                     fft=input_fft,
+                     bartlett_confint=input_bartlett_confint,
+                     missing=input_missing, alpha=input_alpha,
+                     ax=ax,
+                     lags=input_nlags,
+                     use_vlines=True)
+                # ax.set_xticks(np.arange(1, len(z.tolist()), step=1))
+
+            # plt.show()
+        print("RETURNING VALUES")
+        print(to_return)
+        plt.savefig(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + 'autocorrelation.png')
+
+        # plt.show()
+
+        # Prepare the data to be written to the config file
+        parameter_data = {
+            'name': input_name,
+            'adjusted': input_adjusted,
+            'qstat': input_qstat,
+            'fft': input_fft,
+            'bartlett_confint': input_bartlett_confint,
+            'missing': input_missing,
+            'alpha': input_alpha,
+            'nlags': input_nlags,
+        }
+        result_data = {
+            'data_values_autocorrelation': to_return['values_autocorrelation'],
+            'data_confint': to_return['confint'],
+            'data_qstat': to_return['qstat'],
+            'data_pvalues': to_return['pvalues']
+        }
+
+        write_function_data_to_config_file(parameter_data, result_data, workflow_id, run_id, step_id)
+
+        return to_return
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status': test_status + "\n" + e.__str__(),
+                                     'test_result': ''},
+                            status_code=200)

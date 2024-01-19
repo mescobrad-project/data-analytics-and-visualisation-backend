@@ -751,15 +751,15 @@ async def return_reconall_stats_table(workflow_id: str,
     path_to_folder = get_local_storage_path(workflow_id, run_id, step_id)
     if "*" in file_name:
         path_to_file = os.path.join(path_to_folder, "output", "ucl_test", "stats", "l" + file_name[1:])
-        stats_dict = load_stats_measurements_table(path_to_file, 0)
+        stats_dict = load_stats_measurements_table(path_to_file, 0, False)
         print(stats_dict["table"])
         path_to_file = os.path.join(path_to_folder, "output", "ucl_test", "stats", "r" + file_name[1:])
-        right = load_stats_measurements_table(path_to_file, len(stats_dict["table"]))["table"]
+        right = load_stats_measurements_table(path_to_file, len(stats_dict["table"]), False)["table"]
         stats_dict["table"] = pd.concat([stats_dict["table"], right])
         print(stats_dict["table"])
     else:
         path_to_file = os.path.join(path_to_folder, "output", "ucl_test", "stats", file_name)
-        stats_dict = load_stats_measurements_table(path_to_file, 0)
+        stats_dict = load_stats_measurements_table(path_to_file, 0, False)
 
     stats_dict["table"] = stats_dict["table"].to_dict('records')
     return stats_dict
