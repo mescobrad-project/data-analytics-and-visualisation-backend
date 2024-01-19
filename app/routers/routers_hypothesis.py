@@ -3,6 +3,7 @@ import pandas as pd
 import json
 import random
 import sklearn.preprocessing
+import itertools
 from sklearn.cross_decomposition import CCA
 from sklearn.manifold import MDS, TSNE
 from sklearn.decomposition import FastICA
@@ -10,7 +11,8 @@ from sklearn.preprocessing import LabelEncoder
 import re
 from pandas.api.types import is_numeric_dtype
 from sphinx.addnodes import index
-from statsmodels.tsa.stattools import grangercausalitytests
+from statsmodels.graphics.tsaplots import plot_acf
+from statsmodels.tsa.stattools import grangercausalitytests, acf
 from factor_analyzer.factor_analyzer import calculate_bartlett_sphericity
 from factor_analyzer.factor_analyzer import calculate_kmo
 from factor_analyzer.utils import corr, cov
@@ -56,7 +58,7 @@ from app.routers.routers_communication import task_complete
 # from app.pydantic_models import ModelMultipleComparisons
 from app.utils.utils_datalake import fget_object, get_saved_dataset_for_Hypothesis, upload_object
 from app.utils.utils_general import get_local_storage_path, get_single_file_from_local_temp_storage, load_data_from_csv, \
-    load_file_csv_direct, get_all_files_from_local_temp_storage
+    load_file_csv_direct, get_all_files_from_local_temp_storage, write_function_data_to_config_file
 from tabulate import tabulate
 import seaborn as sns
 from datetime import datetime
@@ -67,7 +69,7 @@ from sklearn.preprocessing import StandardScaler
 
 from app.utils.utils_hypothesis import create_plots, compute_skewness, outliers_removal, compute_kurtosis, \
     statisticsMean, statisticsMin, statisticsMax, statisticsStd, statisticsCov, statisticsVar, statisticsStandardError, \
-    statisticsConfidenceLevel
+    statisticsConfidenceLevel, DataframeImputation
 from semopy import Model, estimate_means, ModelMeans, semplot, calc_stats, gather_statistics, Optimizer, efa
 import plotly.express as px
 import plotly.graph_objects as go
@@ -212,6 +214,8 @@ async def name_columns(workflow_id: str, step_id: str, run_id: str, file_name:st
         else:
             path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
             name_of_files = get_all_files_from_local_temp_storage(workflow_id, run_id, step_id)
+            print(name_of_files)
+            print(file_name)
             if file_name in name_of_files:
                 data = load_data_from_csv(path_to_storage + "/" + file_name)
             else:
@@ -223,6 +227,37 @@ async def name_columns(workflow_id: str, step_id: str, run_id: str, file_name:st
     except Exception as e:
         print(e)
         return JSONResponse(content='Error : Failed to retrieve column names',status_code=501)
+
+@router.get("/return_cox_columns")
+async def return_cox_columns(workflow_id: str, step_id: str, run_id: str, file_name:str|None=None):
+    try:
+        if file_name is None:
+            # path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+            # name_of_file = get_single_file_from_local_temp_storage(workflow_id, run_id, step_id)
+            # data = load_data_from_csv(path_to_storage + "/" + name_of_file)
+            return {'columns': []}
+        else:
+            path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+            name_of_files = get_all_files_from_local_temp_storage(workflow_id, run_id, step_id)
+            print(name_of_files)
+            print(file_name)
+            if file_name in name_of_files:
+                data = load_data_from_csv(path_to_storage + "/" + file_name)
+            else:
+                print("Error : Failed to find the file")
+                return {'columns': []}
+
+        columns = data.columns
+
+        suitable_columns = []
+        for column in columns:
+            if len(pd.unique(data[column])) <= 10:
+                suitable_columns.append(column)
+        return{'columns': suitable_columns}
+    except Exception as e:
+        print(e)
+        return JSONResponse(content='Error : Failed to retrieve column names',status_code=501)
+
 
 @router.get("/return_binary_columns")
 async def name_columns(workflow_id: str, step_id: str, run_id: str, file_name:str|None=None):
@@ -1643,7 +1678,6 @@ async def elastic_net(workflow_id: str,
         return JSONResponse(content={'status': 'Success', 'Result': response},
                             status_code=200)
     except Exception as e:
-        print(e)
         return JSONResponse(content={'status': test_status, 'Result': '[]'},
                             status_code=200)
 
@@ -1769,7 +1803,6 @@ async def lasso(workflow_id: str,
         return JSONResponse(content={'status': 'Success', 'Result': response},
                             status_code=200)
     except Exception as e:
-        print(e)
         return JSONResponse(content={'status': test_status, 'Result': '[]'},
                             status_code=200)
 
@@ -2207,6 +2240,7 @@ async def sgd_regressor(workflow_id: str,
         return JSONResponse(content={'status': 'Success', 'Result': response},
                             status_code=200)
     except Exception as e:
+        print(traceback.format_exc())
         print(e)
         return JSONResponse(content={'status': test_status, 'Result': '[]'},
                             status_code=200)
@@ -2803,7 +2837,6 @@ async def poisson_regression(workflow_id: str,
                     'predicted values': list(clf.predict(X)),
                     'residuals': list(Y - clf.predict(X)),
                     'coefficient of determination (R^2)': clf.score(X, Y)}
-        print(response)
         df_for_scatter.to_csv(path_to_storage + '/output/poisson_preds.csv', index=False)
         test_status = 'Unable to create info.json file'
         with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
@@ -2852,7 +2885,7 @@ async def cox_regression(workflow_id: str,
                          step_id: str,
                          run_id: str,
                          duration_col: str,
-                         covariates: str,
+                         covariates: list[str] | None = Query(default=None),
                          alpha: float | None = Query(default=0.05),
                          penalizer: float | None = Query(default=0.0),
                          l1_ratio: float | None = Query(default=0.0),
@@ -2863,81 +2896,145 @@ async def cox_regression(workflow_id: str,
                          cluster_col: str | None = Query(default=None),
                          entry_col: str | None = Query(default=None),
                          strata: list[str] | None = Query(default=None),
-                         values: list[int] | None = Query(default=None),
                          hazard_ratios: bool | None = Query(default=False),
                          baseline_estimation_method: str | None = Query("breslow",
                                                                        regex="^(breslow)$|^(spline)$|^(piecewise)$")):
 
-    to_return = []
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
+    dfv = pd.DataFrame()
+    # Load Datasets
+    try:
+        test_status = 'Dataset is not defined'
+        #TODO mandatory fields add
+        test_status = 'Please provide all mandatory fields (dataset, dependent variable, one or more independent variables)'
+        dfv['covariates'] = covariates
+        dfv[['Datasource', 'covariates']] = dfv["covariates"].apply(lambda x: pd.Series(str(x).split("--")))
+        covariates = list(dfv['covariates'].values)
+        selected_datasource = pd.unique(dfv['Datasource'])[0]
+        try:
+            strata = list(map(lambda x: str(x).split("--")[1], strata))
+        except:
+            strata=None
 
-    fig = plt.figure(1)
-    ax = plt.subplot(111)
-    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+        test_status = 'Unable to retrieve datasets'
+        dataset = load_data_from_csv(path_to_storage + "/" + selected_datasource)
+        test_status = 'Unable to compute generalized estimating equations for the selected columns.'
 
-    # dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
+        to_return = []
 
-    if baseline_estimation_method == "spline":
-        cph = CoxPHFitter(alpha=alpha, baseline_estimation_method=baseline_estimation_method,penalizer=penalizer,l1_ratio=l1_ratio,strata=strata,
-                          n_baseline_knots=n_baseline_knots)
-    elif baseline_estimation_method == "piecewise":
-        cph = CoxPHFitter(alpha=alpha, baseline_estimation_method=baseline_estimation_method, penalizer=penalizer, l1_ratio=l1_ratio,strata=strata,
-                          breakpoints=breakpoints)
-    else:
-        cph = CoxPHFitter(alpha=alpha,baseline_estimation_method=baseline_estimation_method, penalizer=penalizer, l1_ratio=l1_ratio,strata=strata)
+        fig = plt.figure(1)
+        ax = plt.subplot(111)
 
-    cph.fit(dataset, duration_col=duration_col, event_col=event_col,weights_col=weights_col,cluster_col=cluster_col,entry_col=entry_col)
+        # dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
 
-    df = cph.summary
-    tbl1_res = []
-    for ind, row in df.iterrows():
-        temp_to_append = {
-            'id': ind,
-            "col0": row[0],
-            "col1": row[1],
-            "col2": row[2],
-            "col3": row[3],
-            "col4": row[4],
-            "col5": row[5],
-            "col6": row[6],
-            "col7": row[7],
-            "col8": row[8],
-            "col9": row[9],
-            "col10": row[10],
-        }
-        tbl1_res.append(temp_to_append)
-    #fig = plt.figure(figsize=(18, 12))
-    cph.plot(hazard_ratios=hazard_ratios, ax=ax)
-    plt.show()
+        if baseline_estimation_method == "spline":
+            cph = CoxPHFitter(alpha=alpha, baseline_estimation_method=baseline_estimation_method, penalizer=penalizer,
+                              l1_ratio=l1_ratio, strata=strata,
+                              n_baseline_knots=n_baseline_knots)
+        elif baseline_estimation_method == "piecewise":
+            cph = CoxPHFitter(alpha=alpha, baseline_estimation_method=baseline_estimation_method, penalizer=penalizer,
+                              l1_ratio=l1_ratio, strata=strata,
+                              breakpoints=breakpoints)
+        else:
+            cph = CoxPHFitter(alpha=alpha, baseline_estimation_method=baseline_estimation_method, penalizer=penalizer,
+                              l1_ratio=l1_ratio, strata=strata)
+        if weights_col=='': weights_col=None
+        cph.fit(dataset, duration_col=duration_col, event_col=event_col, weights_col=weights_col)
+                #cluster_col=cluster_col, entry_col=entry_col)
 
-    html_str = mpld3.fig_to_html(fig)
-    to_return.append({"figure_1": html_str})
-    #plt.close(1)
-    #fig = plt.figure(2)
-    #ax = plt.subplot(121)
-    plt.clf()
-    if values!=None:
-        cph.plot_partial_effects_on_outcome(covariates=covariates, values=values, cmap='coolwarm')
-        plt.show()
+        df = cph.summary
+        tbl1_res = []
+        for ind, row in df.iterrows():
+            temp_to_append = {
+                'id': ind,
+                "col0": row[0],
+                "col1": row[1],
+                "col2": row[2],
+                "col3": row[3],
+                "col4": row[4],
+                "col5": row[5],
+                "col6": row[6],
+                "col7": row[7],
+                "col8": row[8],
+                "col9": row[9],
+                "col10": row[10],
+            }
+            tbl1_res.append(temp_to_append)
+        # fig = plt.figure(figsize=(18, 12))
+        cph.plot(hazard_ratios=hazard_ratios)
         html_str = mpld3.fig_to_html(fig)
-        to_return.append({"figure_2": html_str})
-        # to_return["figure_2"] = html_str
+        to_return.append({"figure_1": html_str})
+        plt.clf()
+        if covariates != None:
+            fig = plt.figure(1)
+            values = []
+            for covariate in covariates:
+                values.append(list(pd.unique(dataset[covariate])))
+            values = list(itertools.product(*values))
+            ax = cph.plot_partial_effects_on_outcome(covariates=covariates, values=values, cmap='coolwarm')
+            ax.plot()
+            html_str = mpld3.fig_to_html(ax.get_figure())
+            to_return.append({"figure_2": html_str})
+            # to_return["figure_2"] = html_str
 
-    results = proportional_hazard_test(cph, dataset, time_transform='rank')
+        results = proportional_hazard_test(cph, dataset, time_transform='rank')
 
-    df_1 = results.summary
-    tbl2_res = []
-    for ind, row in df_1.iterrows():
-        temp_to_append = {
-            'id': ind,
-            "test_statistic": row[0],
-            "p": row[1],
-            "-log2(p)": row[2]
-        }
-        tbl2_res.append(temp_to_append)
+        df_1 = results.summary
+        tbl2_res = []
+        for ind, row in df_1.iterrows():
+            temp_to_append = {
+                'id': ind,
+                "test_statistic": row[0],
+                "p": row[1],
+                "-log2(p)": row[2]
+            }
+            tbl2_res.append(temp_to_append)
 
-    AIC = cph.AIC_partial_
-    return {'Concordance_Index':cph.concordance_index_,'AIC': AIC, 'Dataframe': tbl1_res, 'figure': to_return, 'proportional_hazard_test': tbl2_res}
-    # return {'Concordance Index':cph.concordance_index_ ,'Akaike information criterion (AIC) (partial log-likelihood)': AIC,'Dataframe of the coefficients, p-values, CIs, etc.':df.to_json(orient="split"), 'figure': to_return, 'proportional hazard test': df_1.to_json(orient='split')}
+        AIC = cph.AIC_partial_
+
+        test_status = 'Error in creating info file.'
+        # with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+        #     file_data = json.load(f)
+        #     file_data['results'] |= {
+        #         "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+        #         "workflow_id": workflow_id,
+        #         "run_id": run_id,
+        #         "step_id": step_id,
+        #         "test_name": 'Generalized Estimating Equations',
+        #         "test_params": {
+        #             "dependent_variable": dependent_variable,
+        #             "groups": groups,
+        #             "independent_variables": independent_variables,
+        #             "cov_struct": cov_struct,
+        #             "family": family
+        #         },
+        #         "test_results": {
+        #             "first_table": df_0.to_dict(),
+        #             "second_table": df_1.to_dict(),
+        #             "third_table": df_2.to_dict(),
+        #         },
+        #         "Output_datasets": [],
+        #         'Saved_plots': []
+        #     }
+        #     f.seek(0)
+        #     json.dump(file_data, f, indent=4)
+        #     f.truncate()
+        return JSONResponse(content={'status': 'Success',
+                                     'Concordance_Index':cph.concordance_index_,
+                                     'AIC': AIC,
+                                     'Dataframe': tbl1_res,
+                                     'figure': to_return,
+                                     'proportional_hazard_test': tbl2_res},
+                            status_code=200)
+    except Exception as e:
+        return JSONResponse(content={'status': test_status,
+                                     'Concordance_Index':[],
+                                     'AIC': [],
+                                     'Dataframe': [],
+                                     'figure': [],
+                                     'proportional_hazard_test': []},
+                            status_code=200)
 
 @router.get("/time_varying_covariates")
 async def time_varying_covariates(
@@ -2970,7 +3067,7 @@ async def time_varying_covariates(
 
     cph = CoxTimeVaryingFitter(alpha=alpha, penalizer=penalizer, l1_ratio=l1_ratio)
     print(cph)
-    cph.fit(dataset_long, event_col=event_col, id_col='id', weights_col=weights_col,start_col='start', stop_col='stop',strata=strata)
+    cph.fit(dataset_long, event_col=event_col, id_col='id', weights_col=weights_col,start_col='start', stop_col='stop', strata=strata)
 
     df = cph.summary
     tbl1_res = []
@@ -3183,92 +3280,127 @@ async def generalized_estimating_equations(workflow_id: str,
                                            family: str | None = Query("poisson",
                                                                       regex="^(poisson)$|^(gamma)$|^(gaussian)$|^(inverse_gaussian)$|^(negative_binomial)$|^(binomial)$|^(tweedie)$")):
 
-    data = load_file_csv_direct(workflow_id, run_id, step_id)
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
+    dfv = pd.DataFrame()
+    # Load Datasets
+    try:
+        test_status = 'Dataset is not defined'
+        test_status = 'Please provide all mandatory fields (dataset, dependent variable, one or more independent variables)'
+        z = dependent_variable + " ~ "
+        dfv['variables'] = independent_variables
+        dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
+        independent_variables = list(dfv['Variable'].values)
+        selected_datasource = pd.unique(dfv['Datasource'])[0]
+        z = z + " + ".join(independent_variables)
 
-    z = dependent_variable + "~"
-    for i in range(len(independent_variables)):
-        z = z + "+" + independent_variables[i]
+        test_status = 'Unable to retrieve datasets'
+        data = load_data_from_csv(path_to_storage + "/" + selected_datasource)
+        test_status = 'Unable to compute generalized estimating equations for the selected columns.'
 
-    print(family)
+        if family == "poisson":
+            fam = sm.families.Poisson()
+        elif family == "gamma":
+            fam = sm.families.Gamma()
+        elif family == "gaussian":
+            fam = sm.families.Gaussian()
+        elif family == "inverse_gaussian":
+            fam = sm.families.InverseGaussian()
+        elif family == 'negative_binomial':
+            fam = sm.families.NegativeBinomial()
+        elif family == "binomial":
+            fam = sm.families.Binomial()
+        else:
+            fam = sm.families.Tweedie()
 
-    if family == "poisson":
-        fam = sm.families.Poisson()
-    elif family == "gamma":
-        fam = sm.families.Gamma()
-    elif family == "gaussian":
-        fam = sm.families.Gaussian()
-    elif family == "inverse_gaussian":
-        fam = sm.families.InverseGaussian()
-    elif family == 'negative_binomial':
-        fam = sm.families.NegativeBinomial()
-    elif family == "binomial":
-        fam = sm.families.Binomial()
-    else:
-        fam = sm.families.Tweedie()
+        if cov_struct == "independence":
+            ind = sm.cov_struct.Independence()
+        elif cov_struct == "autoregressive":
+            ind = sm.cov_struct.Autoregressive()
+        elif cov_struct == "exchangeable":
+            ind = sm.cov_struct.Exchangeable()
+        else:
+            ind = sm.cov_struct.Nested()
 
-    if cov_struct == "independence":
-        ind = sm.cov_struct.Independence()
-    elif cov_struct == "autoregressive":
-        ind = sm.cov_struct.Autoregressive()
-    elif cov_struct == "exchangeable":
-        ind = sm.cov_struct.Exchangeable()
-    else:
-        ind = sm.cov_struct.Nested()
+        md = smf.gee(formula=z, groups=groups, data=data, cov_struct=ind, family=fam)
 
-    print(cov_struct)
-    print(fam)
-    print(ind)
+        mdf = md.fit()
 
+        #print(md.predict())
+        df = mdf.summary()
 
-    md = smf.gee(z, groups, data, cov_struct=ind, family=fam)
+        # print(df)
 
-    mdf = md.fit()
+        results_as_html = df.tables[0].as_html()
+        df_0 = pd.read_html(results_as_html)[0]
+        df_new = df_0[[2, 3]]
+        df_0.drop(columns=[2, 3], inplace=True)
+        df_0 = pd.concat([df_0, df_new.rename(columns={2: 0, 3: 1})], ignore_index=True)
+        df_0.set_index(0, inplace=True)
+        df_0.index.name = None
+        df_0.rename(columns={1: 'Values'}, inplace=True)
+        df_0.drop(df_0.tail(2).index, inplace=True)
+        df_0.reset_index(inplace=True)
+        # print(list(df_0.values))
 
-    df = mdf.summary()
+        results_as_html = df.tables[1].as_html()
+        df_1 = pd.read_html(results_as_html)[0]
+        new_header = df_1.iloc[0, 1:]
+        df_1 = df_1[1:]
+        df_1.set_index(0, inplace=True)
+        df_1.columns = new_header
+        df_1.index.name = None
+        df_1.reset_index(inplace=True)
+        df_1.rename(columns={'[0.025': '0.025', '0.975]': '0.975'}, inplace=True)
 
-    # print(df)
+        df_1.to_csv(path_to_storage + '/output/generalized_estimating_equations.csv', index=False)
+        results_as_html = df.tables[2].as_html()
+        df_2 = pd.read_html(results_as_html)[0]
+        df_new = df_2[[2, 3]]
+        df_2.drop(columns=[2, 3], inplace=True)
+        df_2 = pd.concat([df_2, df_new.rename(columns={2: 0, 3: 1})], ignore_index=True)
+        df_2.set_index(0, inplace=True)
+        df_2.index.name = None
+        df_2.rename(columns={1: 'Values'}, inplace=True)
+        df_2.reset_index(inplace=True)
+        test_status = 'Error in creating info file.'
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            file_data = json.load(f)
+            file_data['results'] |= {
+                "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                "workflow_id": workflow_id,
+                "run_id": run_id,
+                "step_id": step_id,
+                "test_name": 'Generalized Estimating Equations',
+                "test_params": {
+                    "dependent_variable" : dependent_variable,
+                    "groups": groups,
+                    "independent_variables" : independent_variables,
+                    "cov_struct" : cov_struct,
+                    "family" : family
+                },
+                "test_results": {
+                    "first_table":df_0.to_dict(),
+                    "second_table":df_1.to_dict(),
+                    "third_table":df_2.to_dict(),
+                },
+                "Output_datasets": [],
+                'Saved_plots': []
+            }
+            f.seek(0)
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        return JSONResponse(content={'first_table':df_0.to_json(orient='records'),
+                                     'second_table':df_1.to_json(orient='records'),
+                                     'third_table':df_2.to_json(orient='records')},
+                            status_code=200)
+    except Exception as e:
+        return JSONResponse(content={'status': test_status,
+                                     'first_table':[],
+                                     'second_table':[],
+                                     'third_table':[]},
+                                status_code=200)
 
-    results_as_html = df.tables[0].as_html()
-    df_0 = pd.read_html(results_as_html)[0]
-    df_new = df_0[[2, 3]]
-    df_0.drop(columns=[2, 3], inplace=True)
-    df_0 = pd.concat([df_0, df_new.rename(columns={2: 0, 3: 1})], ignore_index=True)
-    df_0.set_index(0, inplace=True)
-    df_0.index.name = None
-    df_0.rename(columns={1: 'Values'}, inplace=True)
-    df_0.drop(df_0.tail(2).index, inplace=True)
-    df_0.reset_index(inplace=True)
-    # print(list(df_0.values))
-
-    results_as_html = df.tables[1].as_html()
-    df_1 = pd.read_html(results_as_html)[0]
-    new_header = df_1.iloc[0, 1:]
-    df_1 = df_1[1:]
-    df_1.set_index(0, inplace=True)
-    df_1.columns = new_header
-    df_1.index.name = None
-    df_1.reset_index(inplace=True)
-    df_1.rename(columns={'[0.025': '0.025', '0.975]': '0.975'}, inplace=True)
-
-    results_as_html = df.tables[2].as_html()
-    df_2 = pd.read_html(results_as_html)[0]
-    df_new = df_2[[2, 3]]
-    df_2.drop(columns=[2, 3], inplace=True)
-    df_2 = pd.concat([df_2, df_new.rename(columns={2: 0, 3: 1})], ignore_index=True)
-    df_2.set_index(0, inplace=True)
-    df_2.index.name = None
-    df_2.rename(columns={1: 'Values'}, inplace=True)
-    df_2.reset_index(inplace=True)
-
-    # print(df_1)
-    #
-    # print(df_0)
-    # # print(df_0['No. Observations: '])
-    print(df)
-
-    return {'first_table':df_0.to_json(orient='records'),
-            'second_table':df_1.to_json(orient='records'),
-            'third_table':df_2.to_json(orient='records')}
 
 @router.get("/kaplan_meier")
 async def kaplan_meier(workflow_id: str,
@@ -3343,8 +3475,8 @@ async def kaplan_meier(workflow_id: str,
                     "median_survival_time": str(median_survival_time)
                 },
                 "Output_datasets": [],
-                'Saved_plots': [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
-                                             step_id + '/analysis_output/survival_function.svg'}
+                'Saved_plots': [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
+                                             step_id + '/survival_function.svg'}
                                     ]
             }
             f.seek(0)
@@ -3513,6 +3645,7 @@ async def mc_nemar(workflow_id: str,
                             status_code=200)
     # return {'statistic': result.statistic, "p_value": result.pvalue, "crosstab":df1.to_json(orient='split')}
 
+# TODO: Do we need this?
 @router.get("/all_statistics")
 async def all_statistics():
 
@@ -3637,8 +3770,8 @@ async def risk_ratio_1(
                     'table': df.to_dict()
                 },
                 "Output_datasets": [],
-                'Saved_plots': [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
-                                             step_id + '/analysis_output/Risktest.svg'}
+                'Saved_plots': [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
+                                             step_id + '/Risktest.svg'}
                                     ]
             }
             f.seek(0)
@@ -4055,16 +4188,17 @@ async def correlations_pingouin(workflow_id: str,
                     continue
                 res = pingouin.corr(x=data[i], y=data[j], method=method, alternative=alternative).round(5)
                 res.insert(0,'Cor', i + "-" + j, True)
+                print(res)
                 count = count + 1
                 for ind, row in res.iterrows():
                     temp_to_append = {
                         "id": count,
                         "Cor": row['Cor'],
                         "n": row['n'],
-                        "r": row['r'],
-                        "CI95%": "[" + str(row['CI95%'].item(0)) + "," + str(row['CI95%'].item(1)) + "]",
-                        "p-val": row['p-val'],
-                        "power": row['power']
+                        "r": row['r'] if not pd.isna(row['r']) else 'NaN',
+                        "CI95%": "[" + str(row['CI95%'].item(0)) + "," + str(row['CI95%'].item(1)) + "]" if type(row['CI95%'])!=float else 'NaN',
+                        "p-val": 'NaN' if pd.isna(row['p-val']) else row['p-val'],
+                        "power": 'NaN' if pd.isna(row['power']) else row['power']
                     }
                     if method == 'pearson':
                         temp_to_append["BF10"] = row['BF10']
@@ -4151,7 +4285,6 @@ async def logistic_regression_pinguin(workflow_id: str, step_id: str, run_id: st
                                           alpha=alpha)
 
         lm.rename(columns={'CI[2.5%]': 'CI_low', 'CI[97.5%]': 'CI_high'}, inplace=True)
-        print(lm.columns)
 
         values_dict = {}
         for column in lm.columns:
@@ -4179,8 +4312,8 @@ async def logistic_regression_pinguin(workflow_id: str, step_id: str, run_id: st
                 "test_results": {'dataframe': lm.to_json(orient='records')}
             }
             file_data['results'] = new_data
-            file_data['Output_datasets'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
-                                                     step_id + '/analysis_output' + '/logistic_pingouin.csv'}]
+            file_data['Output_datasets'] = [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id + '/logistic_pingouin.csv'}]
             # Set file's current position at offset.
             f.seek(0)
             # convert back to json.
@@ -4296,8 +4429,7 @@ async def linear_regression_statsmodels(workflow_id: str, step_id: str, run_id: 
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
     test_status = ''
     # Load Datasets
-    print(dependent_variable)
-    print(independent_variables)
+
     try:
         test_status = 'Please provide all mandatory fields (dataset, dependent variable, one or more independent variables)'
         dfv['variables'] = independent_variables
@@ -4357,7 +4489,7 @@ async def linear_regression_statsmodels(workflow_id: str, step_id: str, run_id: 
         df_0.set_index(0, inplace=True)
         df_0.index.name = None
         df_0.rename(columns={1: 'Values'}, inplace=True)
-        df_0.drop(df_0.tail(2).index, inplace=True)
+        df_0 = df_0.iloc[:-2]
         # print(list(df_0.values))
 
         results_as_html = df.tables[1].as_html()
@@ -4485,39 +4617,8 @@ async def linear_regression_statsmodels(workflow_id: str, step_id: str, run_id: 
         return JSONResponse(content={'status':'Success', 'Result': response},
                             status_code=200)
     except Exception as e:
-        print(e)
         return JSONResponse(content={'status': test_status, 'Result': '[]'},
                             status_code=200)
-
-
-
-# TODO These are included above
-# @router.get("/transformation_methods")
-# async def transformation_methods(dependent_variable: str,
-#                                  method: str | None = Query("log",
-#                                                             regex="^(log)$|^(squared)$|^(root)$")):
-#
-#
-#     x = data[dependent_variable]
-#
-#     if method == 'log':
-#         x = np.log(x)
-#     elif method == 'squared':
-#         x = np.sqrt(x)
-#     else:
-#         x = np.cbrt(x)
-#
-#     return {'transformed array': x}
-
-# TODO:In utils_hypothesis
-# @router.get("/skewness_kurtosis")
-# async def skewness_kurtosis(dependent_variable: str):
-#     x = data[dependent_variable]
-#
-#     skewness_res = skew(x)
-#     kurtosis_res = kurtosis(x)
-#
-#     return {'skew': skewness_res, 'kurtosis': kurtosis_res}
 
 
 @router.get("/z_score")
@@ -4698,8 +4799,8 @@ async def logistic_regression_statsmodels(workflow_id: str, step_id: str, run_id
             'converged': df_0.loc['converged:'][0]}
             }
             file_data['results'] = new_data
-            file_data['Output_datasets'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
-                                                     step_id + '/analysis_output' + '/logistic_statsmodels.csv'}]
+            file_data['Output_datasets'] = [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id + '/logistic_statsmodels.csv'}]
             # Set file's current position at offset.
             f.seek(0)
             # convert back to json.
@@ -4711,22 +4812,6 @@ async def logistic_regression_statsmodels(workflow_id: str, step_id: str, run_id
         print(e)
         return JSONResponse(content={'status': test_status, 'Result': '[]'},
                             status_code=200)
-# TODO:above
-# @router.get("/jarqueberatest")
-# async def jarqueberatest(dependent_variable: str):
-#
-#     x = data[dependent_variable]
-#
-#     jarque_bera_test = jarque_bera(x)
-#
-#     statistic = jarque_bera_test.statistic
-#     pvalue = jarque_bera_test.pvalue
-#
-#     if pvalue > 0.05:
-#         return {'statistic': statistic, 'pvalue': pvalue, 'Since this p-value is not less than .05, we fail to reject the null hypothesis. We don’t have sufficient evidence to say that this data has skewness and kurtosis that is significantly different from a normal distribution.':''}
-#     else:
-#         return {'statistic': statistic, 'pvalue': pvalue,'Since this p-value is less than .05, we reject the null hypothesis. Thus, we have sufficient evidence to say that this data has skewness and kurtosis that is significantly different from a normal distribution.':''}
-
 
 @router.get("/correlation_matrix")
 async def correlation(workflow_id: str,
@@ -4877,158 +4962,178 @@ async def compute_factor_analysis(workflow_id: str,
                                                              regex="^(drop)$|^(mean)$|^(median)$"),
                                   independent_variables: list[str] | None = Query(default=None)):
 
-    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
-
-    for columns in dataset.columns:
-        if columns not in independent_variables:
-            dataset = dataset.drop(str(columns), axis=1)
-
-
-    if rotation == str(None):
-        fa = FactorAnalyzer(n_factors=n_factors, rotation=None, method=method, use_smc=use_smc, impute=impute)
-    else:
-        fa = FactorAnalyzer(n_factors=n_factors, rotation=rotation, method=method, use_smc=use_smc, impute=impute)
-
-
-    fa.fit(dataset)
-
-    original_eigen_values, common_factor_eigen_values = fa.get_eigenvalues()
-    factor_variance, proportional_factor_variance, cumulative_variance = fa.get_factor_variance()
-    uniquenesses = fa.get_uniquenesses()
-
-    new_dataset = fa.transform(dataset)
-    print(fa.phi_)
-
-    df = pd.DataFrame(data=dataset.values, columns=independent_variables)
-    corrs = df.corr()
-    fig, ax = plt.subplots()
-    sns.heatmap(corrs, cmap='Spectral_r', square=True, annot=True)
-    plt.title('Correlation matrix')
-    plt.savefig(get_local_storage_path(workflow_id, run_id, step_id) + '/output/correlation_matrix.png')
-    plt.show()
-    correlation_matrix = mpld3.fig_to_html(fig)
-
-    factor_list = ['Factor'+str(i+1) for i in range(n_factors)]
-
-    df_factor_loadings = pd.DataFrame(data=fa.loadings_, index=independent_variables, columns=factor_list)
-    print(df_factor_loadings)
-    df_factor_loadings = df_factor_loadings.reset_index().rename(columns={'index': 'Variables'})
-    df_corr = pd.DataFrame(data=fa.corr_, index=independent_variables, columns=independent_variables)
-    fig, ax = plt.subplots()
-    ax.matshow(df_corr, cmap='viridis')
-    plt.xticks(ticks=range(len(df_corr)), labels=independent_variables)
-    plt.yticks(ticks=range(len(df_corr)), labels=independent_variables)
-    for (i, j), z in np.ndenumerate(df_corr.values):
-        ax.text(j, i, '{:0.3f}'.format(z), ha='center', va='center')
-    plt.show()
+    # dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    print(workflow_id, step_id, run_id, independent_variables)
+    test_status = ''
+    dfi = pd.DataFrame()
+    try:
+        test_status = 'Dataset is not defined'
+        dfi['variables'] = independent_variables
+        dfi[['Datasource', 'Variable']] = dfi["variables"].apply(lambda x: pd.Series(str(x).split("--")))
+        independent_variables.clear()
+        independent_variables = dfi['Variable'].tolist()
+        test_status = 'Unable to retrieve datasets'
+        selected_datasources = pd.unique(dfi['Datasource'])
+        dataset = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
+        print(selected_datasources)
+        print(independent_variables)
+        for columns in dataset.columns:
+            if columns not in independent_variables:
+                dataset = dataset.drop(str(columns), axis=1)
 
 
-    df_com_eigen = pd.DataFrame(data={'Variables': independent_variables, 'Communalities': fa.get_communalities(), 'Original Eigenvalues': original_eigen_values,
-                                'Common Factor Eigenvalues': common_factor_eigen_values, 'Uniquenesses from the factor loading matrix': uniquenesses})
-    print(len(new_dataset))
-    df_factor_variances = pd.DataFrame(data={'Factors': factor_list, 'Factor variances': factor_variance, 'Proportional Factor Variance': proportional_factor_variance,
-                                     'Cumulative Factor Variance': cumulative_variance})
-    df_new_dataset = pd.DataFrame(data=new_dataset, columns=factor_list)
+        if rotation == str(None):
+            fa = FactorAnalyzer(n_factors=n_factors, rotation=None, method=method, use_smc=use_smc, impute=impute)
+        else:
+            fa = FactorAnalyzer(n_factors=n_factors, rotation=rotation, method=method, use_smc=use_smc, impute=impute)
+
+
+        fa.fit(dataset)
+
+        original_eigen_values, common_factor_eigen_values = fa.get_eigenvalues()
+        factor_variance, proportional_factor_variance, cumulative_variance = fa.get_factor_variance()
+        uniquenesses = fa.get_uniquenesses()
+
+        new_dataset = fa.transform(dataset)
+        print(fa.phi_)
+
+        df = pd.DataFrame(data=dataset.values, columns=independent_variables)
+        corrs = df.corr()
+        fig, ax = plt.subplots()
+        sns.heatmap(corrs, cmap='Spectral_r', square=True, annot=True)
+        plt.title('Correlation matrix')
+        plt.savefig(get_local_storage_path(workflow_id, run_id, step_id) + '/output/correlation_matrix.png')
+        plt.show()
+        correlation_matrix = mpld3.fig_to_html(fig)
+
+        factor_list = ['Factor'+str(i+1) for i in range(n_factors)]
+
+        df_factor_loadings = pd.DataFrame(data=fa.loadings_, index=independent_variables, columns=factor_list)
+        print(df_factor_loadings)
+        df_factor_loadings = df_factor_loadings.reset_index().rename(columns={'index': 'Variables'})
+        df_corr = pd.DataFrame(data=fa.corr_, index=independent_variables, columns=independent_variables)
+        fig, ax = plt.subplots()
+        ax.matshow(df_corr, cmap='viridis')
+        plt.xticks(ticks=range(len(df_corr)), labels=independent_variables)
+        plt.yticks(ticks=range(len(df_corr)), labels=independent_variables)
+        for (i, j), z in np.ndenumerate(df_corr.values):
+            ax.text(j, i, '{:0.3f}'.format(z), ha='center', va='center')
+        plt.show()
+
+
+        df_com_eigen = pd.DataFrame(data={'Variables': independent_variables, 'Communalities': fa.get_communalities(), 'Original Eigenvalues': original_eigen_values,
+                                    'Common Factor Eigenvalues': common_factor_eigen_values, 'Uniquenesses from the factor loading matrix': uniquenesses})
+        print(len(new_dataset))
+        df_factor_variances = pd.DataFrame(data={'Factors': factor_list, 'Factor variances': factor_variance, 'Proportional Factor Variance': proportional_factor_variance,
+                                         'Cumulative Factor Variance': cumulative_variance})
+        df_new_dataset = pd.DataFrame(data=new_dataset, columns=factor_list)
 
 
 
 
 
-    # df_factor_correlations = pd.DataFrame(data=fa.phi_, columns=factor_list).corr()
-    # fig, ax = plt.subplots()
-    # sns.heatmap(df_factor_correlations, cmap='Spectral_r', square=True, annot=True)
-    # plt.title('Correlation matrix')
-    # plt.show()
-    # correlation_matrix = mpld3.fig_to_html(fig)
+        # df_factor_correlations = pd.DataFrame(data=fa.phi_, columns=factor_list).corr()
+        # fig, ax = plt.subplots()
+        # sns.heatmap(df_factor_correlations, cmap='Spectral_r', square=True, annot=True)
+        # plt.title('Correlation matrix')
+        # plt.show()
+        # correlation_matrix = mpld3.fig_to_html(fig)
 
-    to_return = {'factor_matrix': df_factor_loadings.to_json(orient='records'),
-                 'corr_matrix': correlation_matrix,
-                 'df_com_eigen': df_com_eigen.to_json(orient='records'),
-                 'df_factor_variances': df_factor_variances.to_json(orient='records'),
-                 'df_new_dataset': df_new_dataset.to_json(orient='records'),
-                 'rotation': str(rotation),
-                 'df_structure': None,
-                 'df_rotation': None,
-                 'factor_corr_matrix': None}
+        to_return = {'factor_matrix': df_factor_loadings.to_json(orient='records'),
+                     'corr_matrix': correlation_matrix,
+                     'df_com_eigen': df_com_eigen.to_json(orient='records'),
+                     'df_factor_variances': df_factor_variances.to_json(orient='records'),
+                     'df_new_dataset': df_new_dataset.to_json(orient='records'),
+                     'rotation': str(rotation),
+                     'df_structure': None,
+                     'df_rotation': None,
+                     'factor_corr_matrix': None}
 
-    if rotation == str(None):
-        # return{'factor_matrix_test': fa.loadings_.tolist(), #Factor Loadings matrix
-        #     'factor_matrix': df_factor_loadings.to_json(orient='records'),
-        #        'corr_matrix': correlation_matrix,
-        #        'orig_corr_matrix': fa.corr_.tolist(), #Original Correlation Matrix
-        #        'df_com_eigen': df_com_eigen.to_json(orient='records'),
-        #        'Communalities': fa.get_communalities().tolist(),
-        #        'Original Eigenvalues': original_eigen_values.tolist(),
-        #        'Common Factor Eigenvalues': common_factor_eigen_values.tolist(),
-        #        'df_factor_variances': df_factor_variances.to_json(orient='records'),
-        #        'Factor variances': factor_variance.tolist(),
-        #        'Proportional Factor Variance': proportional_factor_variance.tolist(),
-        #        'Cumulative Factor Variance': cumulative_variance.tolist(),
-        #        'uniquenesses from the factor loading matrix': uniquenesses.tolist(),
-        #        'df_new_dataset': df_new_dataset.to_json(orient='records'),
-        #        'Factor scores for a new dataset': new_dataset.tolist()}
-        pass
-    else:
-        df_rotation = pd.concat([pd.DataFrame(data=factor_list, columns=['Factors']),
-                                 pd.DataFrame(data=fa.rotation_matrix_, columns=factor_list)],
-                                 axis=1)
-        to_return['df_rotation'] = df_rotation.to_json(orient='records')
-        if rotation in ["promax", "oblimin", "quartimin"]:
-            df_factor_corr_matrix = pd.DataFrame(data=fa.phi_, columns=factor_list, index=factor_list)
-            fig, ax = plt.subplots()
-            sns.heatmap(df_factor_corr_matrix, cmap='Spectral_r', square=True, annot=True)
-            plt.title('Factor correlation matrix')
-            plt.savefig(get_local_storage_path(workflow_id, run_id, step_id) + '/output/factor_correlation_matrix.png')
-            plt.show()
-            factor_corr_matrix = mpld3.fig_to_html(fig)
-            to_return['factor_corr_matrix'] = factor_corr_matrix
-            if rotation == 'promax':
-                df_structure = pd.concat([pd.DataFrame(data=independent_variables, columns=['Variables']),
-                                          pd.DataFrame(data=fa.structure_, columns=factor_list)],
-                                          axis=1)
-                to_return['df_structure'] = df_structure.to_json(orient='records')
-        # return {'Factor Loadings matrix': fa.loadings_.tolist(),
-        #         'Original Correlation Matrix': fa.corr_.tolist(),
-        #         'Structure Loading Matrix': fa.structure_.tolist(),
-        #         'Rotation Matrix': fa.rotation_matrix_.tolist(),
-        #        'Communalities': fa.get_communalities().tolist(),
-        #        'Original Eigenvalues': original_eigen_values.tolist(),
-        #        'Common Factor Eigenvalues': common_factor_eigen_values.tolist(),
-        #        'Factor variances': factor_variance.tolist(),
-        #        'Proportional Factor Variance': proportional_factor_variance.tolist(),
-        #        'Cumulative Factor Variance': cumulative_variance.tolist(),
-        #        'uniquenesses from the factor loading matrix': uniquenesses.tolist(),
-        #        'Factor scores for a new dataset': new_dataset.tolist()}
-        # to_return.update({'df_rotation': df_rotation.to_json(orient='records')})
-    # elif rotation == 'oblique':
-    #     return {'Factor Loadings matrix': fa.loadings_.tolist(),
-    #             'Original Correlation Matrix': fa.corr_.tolist(),
-    #             'Structure Loading Matrix': fa.structure_.tolist(),
-    #             'Factor Correlations Matrix': fa.phi_.tolist(),
-    #             'Rotation Matrix': fa.rotation_matrix_.tolist(),
-    #            'Communalities': fa.get_communalities().tolist(),
-    #            'Original Eigenvalues': original_eigen_values.tolist(),
-    #            'Common Factor Eigenvalues': common_factor_eigen_values.tolist(),
-    #            'Factor variances': factor_variance.tolist(),
-    #            'Proportional Factor Variance': proportional_factor_variance.tolist(),
-    #            'Cumulative Factor Variance': cumulative_variance.tolist(),
-    #            'uniquenesses from the factor loading matrix': uniquenesses.tolist(),
-    #            'Factor scores for a new dataset': new_dataset.tolist()}
+        if rotation == str(None):
+            # return{'factor_matrix_test': fa.loadings_.tolist(), #Factor Loadings matrix
+            #     'factor_matrix': df_factor_loadings.to_json(orient='records'),
+            #        'corr_matrix': correlation_matrix,
+            #        'orig_corr_matrix': fa.corr_.tolist(), #Original Correlation Matrix
+            #        'df_com_eigen': df_com_eigen.to_json(orient='records'),
+            #        'Communalities': fa.get_communalities().tolist(),
+            #        'Original Eigenvalues': original_eigen_values.tolist(),
+            #        'Common Factor Eigenvalues': common_factor_eigen_values.tolist(),
+            #        'df_factor_variances': df_factor_variances.to_json(orient='records'),
+            #        'Factor variances': factor_variance.tolist(),
+            #        'Proportional Factor Variance': proportional_factor_variance.tolist(),
+            #        'Cumulative Factor Variance': cumulative_variance.tolist(),
+            #        'uniquenesses from the factor loading matrix': uniquenesses.tolist(),
+            #        'df_new_dataset': df_new_dataset.to_json(orient='records'),
+            #        'Factor scores for a new dataset': new_dataset.tolist()}
+            pass
+        else:
+            df_rotation = pd.concat([pd.DataFrame(data=factor_list, columns=['Factors']),
+                                     pd.DataFrame(data=fa.rotation_matrix_, columns=factor_list)],
+                                     axis=1)
+            to_return['df_rotation'] = df_rotation.to_json(orient='records')
+            if rotation in ["promax", "oblimin", "quartimin"]:
+                df_factor_corr_matrix = pd.DataFrame(data=fa.phi_, columns=factor_list, index=factor_list)
+                fig, ax = plt.subplots()
+                sns.heatmap(df_factor_corr_matrix, cmap='Spectral_r', square=True, annot=True)
+                plt.title('Factor correlation matrix')
+                plt.savefig(get_local_storage_path(workflow_id, run_id, step_id) + '/output/factor_correlation_matrix.png')
+                plt.show()
+                factor_corr_matrix = mpld3.fig_to_html(fig)
+                to_return['factor_corr_matrix'] = factor_corr_matrix
+                if rotation == 'promax':
+                    df_structure = pd.concat([pd.DataFrame(data=independent_variables, columns=['Variables']),
+                                              pd.DataFrame(data=fa.structure_, columns=factor_list)],
+                                              axis=1)
+                    to_return['df_structure'] = df_structure.to_json(orient='records')
+            # return {'Factor Loadings matrix': fa.loadings_.tolist(),
+            #         'Original Correlation Matrix': fa.corr_.tolist(),
+            #         'Structure Loading Matrix': fa.structure_.tolist(),
+            #         'Rotation Matrix': fa.rotation_matrix_.tolist(),
+            #        'Communalities': fa.get_communalities().tolist(),
+            #        'Original Eigenvalues': original_eigen_values.tolist(),
+            #        'Common Factor Eigenvalues': common_factor_eigen_values.tolist(),
+            #        'Factor variances': factor_variance.tolist(),
+            #        'Proportional Factor Variance': proportional_factor_variance.tolist(),
+            #        'Cumulative Factor Variance': cumulative_variance.tolist(),
+            #        'uniquenesses from the factor loading matrix': uniquenesses.tolist(),
+            #        'Factor scores for a new dataset': new_dataset.tolist()}
+            # to_return.update({'df_rotation': df_rotation.to_json(orient='records')})
+        # elif rotation == 'oblique':
+        #     return {'Factor Loadings matrix': fa.loadings_.tolist(),
+        #             'Original Correlation Matrix': fa.corr_.tolist(),
+        #             'Structure Loading Matrix': fa.structure_.tolist(),
+        #             'Factor Correlations Matrix': fa.phi_.tolist(),
+        #             'Rotation Matrix': fa.rotation_matrix_.tolist(),
+        #            'Communalities': fa.get_communalities().tolist(),
+        #            'Original Eigenvalues': original_eigen_values.tolist(),
+        #            'Common Factor Eigenvalues': common_factor_eigen_values.tolist(),
+        #            'Factor variances': factor_variance.tolist(),
+        #            'Proportional Factor Variance': proportional_factor_variance.tolist(),
+        #            'Cumulative Factor Variance': cumulative_variance.tolist(),
+        #            'uniquenesses from the factor loading matrix': uniquenesses.tolist(),
+        #            'Factor scores for a new dataset': new_dataset.tolist()}
 
-    # else:
-        # return {'Factor Loadings matrix': fa.loadings_.tolist(),
-        #         'Original Correlation Matrix': fa.corr_.tolist(),
-        #         'Rotation Matrix': fa.rotation_matrix_.tolist(),
-        #        'Communalities': fa.get_communalities().tolist(),
-        #        'Original Eigenvalues': original_eigen_values.tolist(),
-        #        'Common Factor Eigenvalues': common_factor_eigen_values.tolist(),
-        #        'Factor variances': factor_variance.tolist(),
-        #        'Proportional Factor Variance': proportional_factor_variance.tolist(),
-        #        'Cumulative Factor Variance': cumulative_variance.tolist(),
-        #        'uniquenesses from the factor loading matrix': uniquenesses.tolist(),
-        #        'Factor scores for a new dataset': new_dataset.tolist()}
+        # else:
+            # return {'Factor Loadings matrix': fa.loadings_.tolist(),
+            #         'Original Correlation Matrix': fa.corr_.tolist(),
+            #         'Rotation Matrix': fa.rotation_matrix_.tolist(),
+            #        'Communalities': fa.get_communalities().tolist(),
+            #        'Original Eigenvalues': original_eigen_values.tolist(),
+            #        'Common Factor Eigenvalues': common_factor_eigen_values.tolist(),
+            #        'Factor variances': factor_variance.tolist(),
+            #        'Proportional Factor Variance': proportional_factor_variance.tolist(),
+            #        'Cumulative Factor Variance': cumulative_variance.tolist(),
+            #        'uniquenesses from the factor loading matrix': uniquenesses.tolist(),
+            #        'Factor scores for a new dataset': new_dataset.tolist()}
 
-    return to_return
+        # return to_return
+        return JSONResponse(content={'status': 'Success', 'Result': to_return},
+                            status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status': test_status, 'Result': '[]'},
+                            status_code=200)
 
 
 @router.get("/adequacy_test_factor_analysis_bartlett")
@@ -5379,19 +5484,19 @@ async def canonical_correlation(workflow_id: str,
                                      'coef_df': coef_df.to_dict()}
             }
             file_data['results'] = new_data
-            file_data['Output_datasets'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
-                                                step_id + '/analysis_output' + '/Xc_df.csv'},
-                                            {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
-                                                     step_id + '/analysis_output' + '/Yc_df.csv'}
+            file_data['Output_datasets'] = [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
+                                                step_id + '/Xc_df.csv'},
+                                            {"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id + '/Yc_df.csv'}
                                             ]
-            file_data['Saved_plots'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
-                                             step_id + '/analysis_output/CCA_XYcorr.svg'},
-                                        {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
-                                                 step_id + '/analysis_output/CCA_comp_corr.svg'},
-                                        {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
-                                                 step_id + '/analysis_output/CCA_XY_c_corr.svg'},
-                                        {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
-                                                 step_id + '/analysis_output/CCA_coefs.svg'}]
+            file_data['Saved_plots'] = [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
+                                             step_id + '/CCA_XYcorr.svg'},
+                                        {"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
+                                                 step_id + '/CCA_comp_corr.svg'},
+                                        {"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
+                                                 step_id + '/CCA_XY_c_corr.svg'},
+                                        {"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
+                                                 step_id + '/CCA_coefs.svg'}]
             # Set file's current position at offset.
             f.seek(0)
             # convert back to json.
@@ -5431,30 +5536,69 @@ async def compute_granger_analysis(workflow_id: str,
                                    num_lags: list[int] | None = Query(default=None)):
                                    # all_lags_up_to : bool | None = Query(default=False)):
 
-    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
+    # Load Datasets
+    try:
+        test_status = 'Dataset is not defined'
+        selected_datasource, predictor_variable = predictor_variable.split("--")
+        response_variable = response_variable.split("--")[1]
+        test_status = 'Unable to retrieve datasets'
+        # We expect only one here
+        dataset = load_data_from_csv(path_to_storage + "/" + selected_datasource)
 
-    # if all_lags_up_to==False:
-    #     print(grangercausalitytests(dataset[[response_variable, predictor_variable]], maxlag=[num_lags]))
-    # else:
-    if len(num_lags) == 1:
-        granger_result = grangercausalitytests(dataset[[response_variable, predictor_variable]], maxlag=num_lags[0])
-    else:
-        granger_result = grangercausalitytests(dataset[[response_variable, predictor_variable]], maxlag=num_lags)
-    # Union[int, List[int]]
+        # if all_lags_up_to==False:
+        #     print(grangercausalitytests(dataset[[response_variable, predictor_variable]], maxlag=[num_lags]))
+        # else:
+        test_status = 'Unable to conduct granger causality test. Check that all parameters have been provided'
+        if len(num_lags) == 1:
+            granger_result = grangercausalitytests(dataset[[response_variable, predictor_variable]], maxlag=num_lags[0])
+        else:
+            granger_result = grangercausalitytests(dataset[[response_variable, predictor_variable]], maxlag=num_lags)
+        # Union[int, List[int]]
 
-    # print(type(granger_result))
-    # print(granger_result)
-    # # df_granger = pd.DataFrame(data=granger_result)
-    # print(granger_result.keys())
-    lag_numbers = list(granger_result.keys())
-    to_return = {'lags': [], 'num_lags': lag_numbers}
-    for lag in lag_numbers:
-        to_return['lags'].append(granger_result[lag][0])
-    print(to_return)
-    print(to_return['lags'][0]['ssr_ftest'])
-    print(type(to_return['lags'][0]['ssr_ftest']))
+        # print(type(granger_result))
+        # # df_granger = pd.DataFrame(data=granger_result)
+        # print(granger_result.keys())
+        lag_numbers = list(granger_result.keys())
+        to_return = []
+        for lag in lag_numbers:
+            func = lambda x : int(x) if type(x) == np.int32 else x
+            start_dict = dict((key, list(map(func, tuple_))) for (key, tuple_) in granger_result[lag][0].items())
+            list_for_lag = []
+            for key, value in start_dict.items():
+               if len(value) == 3:
+                   list_for_lag.append({"key": key, "F" : "-", "chi2" : "%.3f"%float(round(value[0], 3)), "p": "%.3f"%float(round(value[1], 3)), "df" :str(int(value[2])), "df_denom" : "-", "df_num" : "-"})
+               else:
+                   list_for_lag.append({"key": key, "F" : "%.3f"%float(round(value[0], 3)), "chi2" : "-", "p": "%.3f"%float(round(value[1], 3)), "df" : "-", "df_denom" : str(int(value[2])), "df_num" : str(int(value[3]))})
+            to_return.append({"lag_num" : str(lag), "result": list_for_lag})
 
-    return to_return['lags']
+
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            file_data = json.load(f)
+            file_data['results'] |= {
+                "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                "workflow_id": workflow_id,
+                "run_id": run_id,
+                "step_id": step_id,
+                "test_name": 'Granger Analysis',
+                "test_params": {
+                    'selected_predictor_variable': predictor_variable,
+                    'selected_response_variable': response_variable,
+                    'selected_num_lags': num_lags,
+                },
+                "test_results": to_return,
+                "Output_datasets": [],
+                'Saved_plots': []
+            }
+            f.seek(0)
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        return JSONResponse(content={'status': "Success", 'lags': to_return},
+                            status_code=200)
+    except Exception as e:
+        return JSONResponse(content={'status': test_status, 'lags': []},
+                            status_code=200)
     # return to_return
 
 
@@ -5702,13 +5846,52 @@ async def compute_mixed_anova_pinguin(workflow_id: str,
         print(dataset)
         df = pingouin.mixed_anova(data=dataset, dv=dependent_variable, subject=subject, within=within, between=between,
                                   effsize=effsize, correction=correction)
-
-        return JSONResponse(content={'status': 'Success', 'Dataframe': df.to_json(orient="records")},
+        print(df)
+        df = df.fillna('')
+        all_res = []
+        for ind, row in df.iterrows():
+            temp_to_append = {
+                'id': ind,
+                'Source': row['Source'],
+                'SS': row['SS'],
+                'DF1': row['DF1'],
+                'DF2': row['DF2'],
+                'MS': row['MS'],
+                'F': row['F'],
+                'p-unc': row['p-unc'],
+                'np2': row[effsize],
+                'eps': row['eps'],
+            }
+            all_res.append(temp_to_append)
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            file_data = json.load(f)
+            file_data['results'] |= {
+                "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                "workflow_id": workflow_id,
+                "run_id": run_id,
+                "step_id": step_id,
+                "test_name": 'Mixed Anova',
+                "test_params": {
+                    'selected_depedent_variable': dependent_variable,
+                    'selected_subject': subject,
+                    'selected_within': within,
+                    'selected_between': between,
+                    'selected_correction': correction,
+                    'selected_effsize': effsize,
+                },
+                "test_results": all_res,
+                "Output_datasets": [],
+                'Saved_plots': []
+            }
+            f.seek(0)
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        return JSONResponse(content={'status': 'Success', 'Dataframe': all_res},
                             status_code=200)
     except Exception as e:
         print(traceback.format_exc())
         print(e)
-        return JSONResponse(content={'status': test_status, 'table': '[]', 'col_transormed': '[]'},
+        return JSONResponse(content={'status': test_status, 'Dataframe': [], 'col_transormed': '[]'},
                             status_code=200)
 
 
@@ -6112,27 +6295,67 @@ async def compute_tsne(workflow_id: str,
                        method: str | None = Query("barnes_hut",
                                                   regex="^(barnes_hut)$|^(exact)$"),
                        independent_variables: list[str] | None = Query(default=None)):
+    dfv = pd.DataFrame()
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
+    try:
+        test_status = 'Dataset is not defined'
+        dfv['variables'] = independent_variables
+        dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
+        independent_variables = dfv["Variable"].tolist()
+        selected_datasources = pd.unique(dfv['Datasource'])
+        test_status = 'Unable to retrieve datasets'
+        # We expect only one here
+        dataset = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
+        for columns in dataset.columns:
+            if columns not in independent_variables:
+                dataset = dataset.drop(str(columns), axis=1)
+        X = np.array(dataset)
 
-    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
 
-    for columns in dataset.columns:
-        if columns not in independent_variables:
-            dataset = dataset.drop(str(columns), axis=1)
-
-    X = np.array(dataset)
-
-    transformer = TSNE(n_components=n_components, n_iter=n_iter, perplexity=perplexity, early_exaggeration=early_exaggeration, init=init, method=method)
-
-    X_transformed = transformer.fit_transform(X)
-
-    df = pd.DataFrame(X_transformed)
-
-    df_embedding = pd.DataFrame(transformer.embedding_)
+        # perplexity_test = np.arange(5, 100, 5)
+        # divergence = []
+        #
+        # for i in perplexity_test:
+        #     model = TSNE(n_components=2, init="pca", perplexity=i)
+        #     reduced = model.fit_transform(X)
+        #     divergence.append(model.kl_divergence_)
+        # fig = px.line(x=perplexity_test, y=divergence, markers=True)
+        # fig.update_layout(xaxis_title="Perplexity Values", yaxis_title="Divergence")
+        # fig.update_traces(line_color="red", line_width=1)
+        # fig.show()
 
 
-    return {'transformed': df.to_json(orient='split'), 'embeddings_vector':df_embedding.to_json(orient='split'),
-            'Kullback-Leibler divergence after optimization': transformer.kl_divergence_}
+        transformer = TSNE(n_components=n_components, n_iter=n_iter, perplexity=perplexity, early_exaggeration=early_exaggeration, init=init, method=method)
+        X_transformed = transformer.fit_transform(X)
+        df = pd.DataFrame(X_transformed)
+        df_embedding = pd.DataFrame(transformer.embedding_)
+        print(transformer.n_features_in_)
+        print(transformer.n_iter_)
+        print(transformer.square_distances)
+        print(transformer.verbose)
+        print(transformer.random_state)
+        print(transformer.angle)
+        print(transformer.metric)
 
+        fig1 = px.scatter(x=X_transformed[:, 0], y=X_transformed[:, 1])
+        fig1.update_layout(
+            title="t-SNE visualization",
+            xaxis_title="First t-SNE",
+            yaxis_title="Second t-SNE",
+        )
+        fig1.show()
+        return JSONResponse(content={'status': 'Success',
+                                     'transformed': df.to_json(orient='records'), 'embeddings_vector':df_embedding.to_json(orient='records'),
+                                     'Kullback_Leibler': transformer.kl_divergence_},
+                            status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status': test_status + e.__str__(),
+                                     'transformed': {},
+                                     'embeddings_vector': {},
+                                     'Kullback_Leibler': ''},
+                            status_code=200)
 
 @router.get("/SEM_Optimization")
 async def Structural_Equation_Models_Optimization(
@@ -6279,6 +6502,182 @@ async def Exploratory_Factor_Analysis_extract_latent_structure(
         # print(pine_test)
         return JSONResponse(content={'status': 'Success', 'test_result': test_result},
                             status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status': test_status + "\n" + e.__str__(),
+                                     'test_result': ''},
+                            status_code=200)
+
+@router.get("/Dataframe_preparation")
+async def Dataframe_preparation(workflow_id: str,
+                                step_id: str,
+                                run_id: str,
+                                file:str,
+                                variables: list[str] | None = Query(default=None),
+                                method: str | None = Query("mean",
+                                                  regex="^(mean)$|^(median)$|^(most_frequent)$|^(constant)$|^(KNN)$|^(iterative)$")):
+
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    # test_status = ''
+    # dfv = pd.DataFrame()
+    print(path_to_storage)
+    try:
+        test_status = 'Dataset is not defined'
+        if file is None:
+            test_status = 'Dataset is not defined'
+            raise Exception
+        test_status = 'Unable to retrieve datasets'
+        # We expect only one here
+        data = load_data_from_csv(path_to_storage + "/" + file)
+        for variable in variables:
+            if variable not in data.columns:
+                raise Exception(str(variable) + '- The selected variable cannot be found in the dataset.')
+        print(method)
+        print(variables)
+        x = DataframeImputation(data,variables,method)
+        if type(x) == str:
+            test_status= 'Failed to impute values'
+            raise Exception (x)
+        return JSONResponse(content={'status': 'Success', 'newdataFrame': x.to_json(orient='records')},
+                            status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status': test_status + "\n" + e.__str__(),
+                             'newdataFrame': '[]'},
+                    status_code=200)
+
+@router.get("/hypothesis/autocorrelation", tags=["return_autocorrelation"])
+# Validation is done inline in the input of the function
+async def hypothesis_autocorrelation(workflow_id: str, step_id: str, run_id: str,
+                                 input_name: str,
+                                 file:str,
+                                 variables: list[str] | None = Query(default=None),
+                                 input_adjusted: bool | None = False,
+                                 input_qstat: bool | None = False,
+                                 input_fft: bool | None = False,
+                                 input_bartlett_confint: bool | None = False,
+                                 input_missing: str | None = Query("none",
+                                                                   regex="^(none)$|^(raise)$|^(conservative)$|^(drop)$"),
+                                 input_alpha: float | None = None,
+                                 input_nlags: int | None = None,
+                                 file_used: str | None = Query("original", regex="^(original)$|^(printed)$")
+                                 ) -> dict:
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
+    dfv = pd.DataFrame()
+    try:
+        test_status = 'Dataset is not defined'
+        if file is None:
+            test_status = 'Dataset is not defined'
+            raise Exception
+        test_status = 'Unable to retrieve datasets'
+        # We expect only one here
+        data = load_data_from_csv(path_to_storage + "/" + file)
+        data.columns = data.columns.str.replace("[^a-zA-Z]+", "_", regex=True)
+        print(data.columns)
+        df = data[data.columns.intersection(variables)]
+        print(df.columns)
+        print(df.head())
+        # TODO: Remove nans
+        df = df.dropna()
+        print(df.head())
+
+        z = acf(data, adjusted=input_adjusted, qstat=input_qstat,
+                fft=input_fft,
+                bartlett_confint=input_bartlett_confint,
+                missing=input_missing, alpha=input_alpha,
+                nlags=input_nlags)
+
+        to_return = {
+            'values_autocorrelation': None,
+            'confint': None,
+            'qstat': None,
+            'pvalues': None
+        }
+
+        fig, ax = plt.subplots(nrows=1, ncols=1, facecolor="#F0F0F0")
+
+        ax.legend(["ACF"], loc="upper right", fontsize="x-small", framealpha=1, edgecolor="black", shadow=None)
+        ax.grid(which="major", color="grey", linestyle="--", linewidth=0.5)
+        print(z[0])
+
+        # Parsing the results of acf into a single object
+        # Results will change depending on our input
+        if input_qstat and input_alpha:
+            to_return['values_autocorrelation'] = z[0].tolist()
+            to_return['confint'] = z[1].tolist()
+            to_return['qstat'] = z[2].tolist()
+            to_return['pvalues'] = z[3].tolist()
+            # plot_acf(z, adjusted=input_adjusted, alpha=input_alpha, lags=len(z[0].tolist())-1, ax=ax)
+            # ax.set_xticks(np.arange(1, len(z[0].tolist()), step=1))
+        elif input_qstat:
+            to_return['values_autocorrelation'] = z[0].tolist()
+            to_return['qstat'] = z[1].tolist()
+            to_return['pvalues'] = z[2].tolist()
+            # plot_acf(z, adjusted=input_adjusted, lags=len(z[0].tolist())-1, ax=ax)
+            # ax.set_xticks(np.arange(1, len(z[0].tolist()), step=1))
+        elif input_alpha:
+            to_return['values_autocorrelation'] = z[0].tolist()
+            to_return['confint'] = z[1].tolist()
+            plot_acf(x=data,
+                     adjusted=input_adjusted,
+                     # qstat=input_qstat,
+                     fft=input_fft,
+                     bartlett_confint=input_bartlett_confint,
+                     missing=input_missing,
+                     alpha=input_alpha,
+                     lags=input_nlags,
+                     ax=ax,
+                     use_vlines=True)
+            # plot_acf(z, adjusted=input_adjusted, alpha=input_alpha, lags=len(z[0].tolist()) -1, ax=ax)
+            # ax.set_xticks(np.arange(1, len(z[0].tolist()), step=1))
+        else:
+            to_return['values_autocorrelation'] = z.tolist()
+            # plot_acf(z, adjusted=input_adjusted, lags=len(z.tolist())-1, ax=ax)
+            # plot_acf(x=raw_data[i], adjusted=input_adjusted, qstat=input_qstat,
+            #     fft=input_fft,
+            #     bartlett_confint=input_bartlett_confint,
+            #     missing=input_missing, alpha=input_alpha,
+            #     nlags=input_nlags, ax=ax, use_vlines=True)
+            plot_acf(x=data,
+                     adjusted=input_adjusted,
+                     # qstat=input_qstat,
+                     fft=input_fft,
+                     bartlett_confint=input_bartlett_confint,
+                     missing=input_missing, alpha=input_alpha,
+                     ax=ax,
+                     lags=input_nlags,
+                     use_vlines=True)
+                # ax.set_xticks(np.arange(1, len(z.tolist()), step=1))
+
+            # plt.show()
+        print("RETURNING VALUES")
+        print(to_return)
+        plt.savefig(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + 'autocorrelation.png')
+
+        # plt.show()
+
+        # Prepare the data to be written to the config file
+        parameter_data = {
+            'name': input_name,
+            'adjusted': input_adjusted,
+            'qstat': input_qstat,
+            'fft': input_fft,
+            'bartlett_confint': input_bartlett_confint,
+            'missing': input_missing,
+            'alpha': input_alpha,
+            'nlags': input_nlags,
+        }
+        result_data = {
+            'data_values_autocorrelation': to_return['values_autocorrelation'],
+            'data_confint': to_return['confint'],
+            'data_qstat': to_return['qstat'],
+            'data_pvalues': to_return['pvalues']
+        }
+
+        write_function_data_to_config_file(parameter_data, result_data, workflow_id, run_id, step_id)
+
+        return to_return
     except Exception as e:
         print(e)
         return JSONResponse(content={'status': test_status + "\n" + e.__str__(),

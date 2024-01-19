@@ -978,8 +978,11 @@ async def cosinoranalysis(workflow_id: str,
         # cosinor_obj.fit_initial_params.pretty_print()
         test_status = 'Unable to load Cosinor initial values.'
         data = CosinorParameters.get_values(cosinor_obj)
-        test_status = 'Unable to execute Cosinor fit.'
-        results = cosinor_obj.fit(raw, verbose=True)
+        test_status = 'Unable to get Cosinor values.'
+        print(raw.data.index)
+        print(data)
+        results = cosinor_obj.fit(raw.data, verbose=True)
+        print(results)
         test_status = 'Unable to plot Cosinor fit.'
         fig = go.Figure(go.Scatter(x=raw.data.index.astype(str), y=raw.data))
         fig.write_image(path_to_storage + "/output/cosinor.svg", format="svg")
@@ -991,7 +994,7 @@ async def cosinoranalysis(workflow_id: str,
                 "workflow_id": workflow_id,
                 "run_id": run_id,
                 "step_id": step_id,
-                "test_name": 'Kaplan Meier Fitter',
+                "test_name": 'Cosinor fit',
                 "test_params": {
                     'file': file,
                     'cosinor_parameters': data

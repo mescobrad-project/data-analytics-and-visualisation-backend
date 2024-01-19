@@ -2,16 +2,17 @@ version: '3.7'
 
 services:
   neurodesktop:
+    user: root
     privileged: true
     container_name: neurodesktop
     build:
       context: "."
-      dockerfile: Dockerfile
+      dockerfile: DockerfileUpdated
     volumes:
       - neurodesk-volume:/MES-CoBraD Input
       - 'C:/neurodesktop-storage:/neurodesktop-storage'
     ports:
-      - '8888:8888'
+      - '8080:8888'
     networks:
       - mri-freesurfer-network
     shm_size: 1gb

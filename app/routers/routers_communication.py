@@ -120,6 +120,7 @@ ExistingFunctions = [
     "survivalanalysistimevaryingcovariates",
     "survivalanalysiskaplanmeier",
     "principalcomponentanalysis",
+    'tsne',
     "LinearSVR",
     "LinearSVC",
     "LogisticRegressionPinguin",
@@ -144,6 +145,7 @@ ExistingFunctions = [
     "GrangerAnalysis",
     "structural_equation_models_optimization",
     'exploratory_factor_analysis_extract_latent_structure',
+    'valuesimputation',
     # Dashboard
     "dashboard",
 ]
@@ -259,7 +261,7 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/alpha_variability"
             case "asymmetry_indices":
                 url_to_redirect += "/asymmetry_indices"
-            case "slow_waves":
+            case "slowwaves":
                 url_to_redirect += "/slowwaves"
             case "spindles":
                 url_to_redirect += "/spindles"
@@ -281,6 +283,8 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/envelope_trend"
             case "group_sleep_analysis":
                 url_to_redirect += "/group_sleep_analysis"
+            case "eeg_hypno_upsampling":
+                url_to_redirect += "/eeg_hypno_upsampling"
             # case "group_sleep_sensitivity_analysis":
             #     url_to_redirect += "/group_sleep_sensitivity_analysis"
             # case "group_sleep_sensitivity_analysis_add_subject":
@@ -444,6 +448,8 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/SurvivalAnalysisTimeVaryingCovariates"
             case "principalcomponentanalysis":
                 url_to_redirect += "/PrincipalComponentAnalysis"
+            case 'tsne':
+                url_to_redirect += "/TSNE"
             case "fisherexact":
                 url_to_redirect += "/FisherExact"
             case "mcnemar":
@@ -478,7 +484,9 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/Structural_Equation_Models_Optimization"
             case "exploratory_factor_analysis_extract_latent_structure":
                 url_to_redirect += "/Exploratory_Factor_Analysis_extract_latent_structure"
-            # Dashboard
+            case "valuesimputation":
+                url_to_redirect += "/ValuesImputation"
+        # Dashboard
             case "dashboard":
                 url_to_redirect += "/dashboard"
         #  Create local storage for files and download them
@@ -516,8 +524,8 @@ async def function_save_data(
             files_to_upload = [f for f in os.listdir(path_to_storage + '/output') if isfile(join(path_to_storage + '/output', f))]
             for file in files_to_upload:
                 out_filename = path_to_storage + '/output/' + file
-                upload_object(bucket_name="demo", object_name='expertsystem/workflow/'+ workflow_id+'/'+ run_id+'/'+
-                                                              step_id+'/analysis_output/' + file, file=out_filename)
+                upload_object(bucket_name="common", object_name='workflows/'+ workflow_id+'/'+ run_id+'/'+
+                                                              step_id + '/' + file, file=out_filename)
             return JSONResponse(content='info.json file has been successfully uploaded to the DataLake', status_code=200)
         except Exception as e:
             print(e)
@@ -529,8 +537,8 @@ async def function_save_data(
             output_filename = os.path.join(tmpdir, 'ucl_test')
             print(output_filename)
             print(shutil.make_archive(output_filename, 'zip', root_dir=path_to_storage, base_dir='output/ucl_test'))
-            upload_object(bucket_name="saved", object_name='expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
-                                                           step_id + '/output/ucl_test.zip',
+            upload_object(bucket_name="common", object_name='workflows/' + workflow_id + '/' + run_id + '/' +
+                                                           step_id + '/ucl_test.zip',
                           file=output_filename + '.zip')
 
             return JSONResponse(content='zip file has been successfully uploaded to the DataLake', status_code=200)
