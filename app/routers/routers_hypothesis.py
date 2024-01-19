@@ -69,7 +69,7 @@ from sklearn.preprocessing import StandardScaler
 
 from app.utils.utils_hypothesis import create_plots, compute_skewness, outliers_removal, compute_kurtosis, \
     statisticsMean, statisticsMin, statisticsMax, statisticsStd, statisticsCov, statisticsVar, statisticsStandardError, \
-    statisticsConfidenceLevel
+    statisticsConfidenceLevel, DataframeImputation
 from semopy import Model, estimate_means, ModelMeans, semplot, calc_stats, gather_statistics, Optimizer, efa
 import plotly.express as px
 import plotly.graph_objects as go
@@ -1804,7 +1804,7 @@ async def lasso(workflow_id: str,
                             status_code=200)
     except Exception as e:
         return JSONResponse(content={'status': test_status, 'Result': '[]'},
-                            status_code=422)
+                            status_code=200)
 
 # TODO Create frontend
 @router.get("/ridge_regression")
@@ -2243,7 +2243,7 @@ async def sgd_regressor(workflow_id: str,
         print(traceback.format_exc())
         print(e)
         return JSONResponse(content={'status': test_status, 'Result': '[]'},
-                            status_code=422)
+                            status_code=200)
 
 @router.get("/huber_regression")
 async def huber_regressor(workflow_id: str,
@@ -2371,7 +2371,7 @@ async def huber_regressor(workflow_id: str,
     except Exception as e:
         print(e)
         return JSONResponse(content={'status': test_status, 'Result': '[]'},
-                            status_code=422)
+                            status_code=200)
 
 @router.get("/linearsvr_regression")
 async def linear_svr_regressor(workflow_id: str,
@@ -2600,7 +2600,7 @@ async def linear_svc_regressor(workflow_id: str,
     except Exception as e:
         print(e)
         return JSONResponse(content={'status': test_status, 'Result': '[]'},
-                            status_code=422)
+                            status_code=200)
 
 
 
@@ -3034,7 +3034,7 @@ async def cox_regression(workflow_id: str,
                                      'Dataframe': [],
                                      'figure': [],
                                      'proportional_hazard_test': []},
-                            status_code=422)
+                            status_code=200)
 
 @router.get("/time_varying_covariates")
 async def time_varying_covariates(
@@ -3399,7 +3399,7 @@ async def generalized_estimating_equations(workflow_id: str,
                                      'first_table':[],
                                      'second_table':[],
                                      'third_table':[]},
-                                status_code=422)
+                                status_code=200)
 
 
 @router.get("/kaplan_meier")
@@ -3475,8 +3475,8 @@ async def kaplan_meier(workflow_id: str,
                     "median_survival_time": str(median_survival_time)
                 },
                 "Output_datasets": [],
-                'Saved_plots': [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
-                                             step_id + '/analysis_output/survival_function.svg'}
+                'Saved_plots': [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
+                                             step_id + '/survival_function.svg'}
                                     ]
             }
             f.seek(0)
@@ -3645,6 +3645,7 @@ async def mc_nemar(workflow_id: str,
                             status_code=200)
     # return {'statistic': result.statistic, "p_value": result.pvalue, "crosstab":df1.to_json(orient='split')}
 
+# TODO: Do we need this?
 @router.get("/all_statistics")
 async def all_statistics():
 
@@ -3769,8 +3770,8 @@ async def risk_ratio_1(
                     'table': df.to_dict()
                 },
                 "Output_datasets": [],
-                'Saved_plots': [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
-                                             step_id + '/analysis_output/Risktest.svg'}
+                'Saved_plots': [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
+                                             step_id + '/Risktest.svg'}
                                     ]
             }
             f.seek(0)
@@ -4187,16 +4188,17 @@ async def correlations_pingouin(workflow_id: str,
                     continue
                 res = pingouin.corr(x=data[i], y=data[j], method=method, alternative=alternative).round(5)
                 res.insert(0,'Cor', i + "-" + j, True)
+                print(res)
                 count = count + 1
                 for ind, row in res.iterrows():
                     temp_to_append = {
                         "id": count,
                         "Cor": row['Cor'],
                         "n": row['n'],
-                        "r": row['r'],
-                        "CI95%": "[" + str(row['CI95%'].item(0)) + "," + str(row['CI95%'].item(1)) + "]",
-                        "p-val": row['p-val'],
-                        "power": row['power']
+                        "r": row['r'] if not pd.isna(row['r']) else 'NaN',
+                        "CI95%": "[" + str(row['CI95%'].item(0)) + "," + str(row['CI95%'].item(1)) + "]" if type(row['CI95%'])!=float else 'NaN',
+                        "p-val": 'NaN' if pd.isna(row['p-val']) else row['p-val'],
+                        "power": 'NaN' if pd.isna(row['power']) else row['power']
                     }
                     if method == 'pearson':
                         temp_to_append["BF10"] = row['BF10']
@@ -4310,8 +4312,8 @@ async def logistic_regression_pinguin(workflow_id: str, step_id: str, run_id: st
                 "test_results": {'dataframe': lm.to_json(orient='records')}
             }
             file_data['results'] = new_data
-            file_data['Output_datasets'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
-                                                     step_id + '/analysis_output' + '/logistic_pingouin.csv'}]
+            file_data['Output_datasets'] = [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id + '/logistic_pingouin.csv'}]
             # Set file's current position at offset.
             f.seek(0)
             # convert back to json.
@@ -4322,7 +4324,7 @@ async def logistic_regression_pinguin(workflow_id: str, step_id: str, run_id: st
     except Exception as e:
         print(e)
         return JSONResponse(content={'status': test_status, 'Result': '[]'},
-                            status_code=422)
+                            status_code=200)
 
 # @router.get("/linear_regressor_statsmodels")
 # async def linear_regression_statsmodels(dependent_variable: str,
@@ -4616,37 +4618,7 @@ async def linear_regression_statsmodels(workflow_id: str, step_id: str, run_id: 
                             status_code=200)
     except Exception as e:
         return JSONResponse(content={'status': test_status, 'Result': '[]'},
-                            status_code=422)
-
-
-
-# TODO These are included above
-# @router.get("/transformation_methods")
-# async def transformation_methods(dependent_variable: str,
-#                                  method: str | None = Query("log",
-#                                                             regex="^(log)$|^(squared)$|^(root)$")):
-#
-#
-#     x = data[dependent_variable]
-#
-#     if method == 'log':
-#         x = np.log(x)
-#     elif method == 'squared':
-#         x = np.sqrt(x)
-#     else:
-#         x = np.cbrt(x)
-#
-#     return {'transformed array': x}
-
-# TODO:In utils_hypothesis
-# @router.get("/skewness_kurtosis")
-# async def skewness_kurtosis(dependent_variable: str):
-#     x = data[dependent_variable]
-#
-#     skewness_res = skew(x)
-#     kurtosis_res = kurtosis(x)
-#
-#     return {'skew': skewness_res, 'kurtosis': kurtosis_res}
+                            status_code=200)
 
 
 @router.get("/z_score")
@@ -4827,8 +4799,8 @@ async def logistic_regression_statsmodels(workflow_id: str, step_id: str, run_id
             'converged': df_0.loc['converged:'][0]}
             }
             file_data['results'] = new_data
-            file_data['Output_datasets'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
-                                                     step_id + '/analysis_output' + '/logistic_statsmodels.csv'}]
+            file_data['Output_datasets'] = [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id + '/logistic_statsmodels.csv'}]
             # Set file's current position at offset.
             f.seek(0)
             # convert back to json.
@@ -4840,22 +4812,6 @@ async def logistic_regression_statsmodels(workflow_id: str, step_id: str, run_id
         print(e)
         return JSONResponse(content={'status': test_status, 'Result': '[]'},
                             status_code=200)
-# TODO:above
-# @router.get("/jarqueberatest")
-# async def jarqueberatest(dependent_variable: str):
-#
-#     x = data[dependent_variable]
-#
-#     jarque_bera_test = jarque_bera(x)
-#
-#     statistic = jarque_bera_test.statistic
-#     pvalue = jarque_bera_test.pvalue
-#
-#     if pvalue > 0.05:
-#         return {'statistic': statistic, 'pvalue': pvalue, 'Since this p-value is not less than .05, we fail to reject the null hypothesis. We don’t have sufficient evidence to say that this data has skewness and kurtosis that is significantly different from a normal distribution.':''}
-#     else:
-#         return {'statistic': statistic, 'pvalue': pvalue,'Since this p-value is less than .05, we reject the null hypothesis. Thus, we have sufficient evidence to say that this data has skewness and kurtosis that is significantly different from a normal distribution.':''}
-
 
 @router.get("/correlation_matrix")
 async def correlation(workflow_id: str,
@@ -5006,158 +4962,178 @@ async def compute_factor_analysis(workflow_id: str,
                                                              regex="^(drop)$|^(mean)$|^(median)$"),
                                   independent_variables: list[str] | None = Query(default=None)):
 
-    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
-
-    for columns in dataset.columns:
-        if columns not in independent_variables:
-            dataset = dataset.drop(str(columns), axis=1)
-
-
-    if rotation == str(None):
-        fa = FactorAnalyzer(n_factors=n_factors, rotation=None, method=method, use_smc=use_smc, impute=impute)
-    else:
-        fa = FactorAnalyzer(n_factors=n_factors, rotation=rotation, method=method, use_smc=use_smc, impute=impute)
-
-
-    fa.fit(dataset)
-
-    original_eigen_values, common_factor_eigen_values = fa.get_eigenvalues()
-    factor_variance, proportional_factor_variance, cumulative_variance = fa.get_factor_variance()
-    uniquenesses = fa.get_uniquenesses()
-
-    new_dataset = fa.transform(dataset)
-    print(fa.phi_)
-
-    df = pd.DataFrame(data=dataset.values, columns=independent_variables)
-    corrs = df.corr()
-    fig, ax = plt.subplots()
-    sns.heatmap(corrs, cmap='Spectral_r', square=True, annot=True)
-    plt.title('Correlation matrix')
-    plt.savefig(get_local_storage_path(workflow_id, run_id, step_id) + '/output/correlation_matrix.png')
-    plt.show()
-    correlation_matrix = mpld3.fig_to_html(fig)
-
-    factor_list = ['Factor'+str(i+1) for i in range(n_factors)]
-
-    df_factor_loadings = pd.DataFrame(data=fa.loadings_, index=independent_variables, columns=factor_list)
-    print(df_factor_loadings)
-    df_factor_loadings = df_factor_loadings.reset_index().rename(columns={'index': 'Variables'})
-    df_corr = pd.DataFrame(data=fa.corr_, index=independent_variables, columns=independent_variables)
-    fig, ax = plt.subplots()
-    ax.matshow(df_corr, cmap='viridis')
-    plt.xticks(ticks=range(len(df_corr)), labels=independent_variables)
-    plt.yticks(ticks=range(len(df_corr)), labels=independent_variables)
-    for (i, j), z in np.ndenumerate(df_corr.values):
-        ax.text(j, i, '{:0.3f}'.format(z), ha='center', va='center')
-    plt.show()
+    # dataset = load_file_csv_direct(workflow_id, run_id, step_id)
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    print(workflow_id, step_id, run_id, independent_variables)
+    test_status = ''
+    dfi = pd.DataFrame()
+    try:
+        test_status = 'Dataset is not defined'
+        dfi['variables'] = independent_variables
+        dfi[['Datasource', 'Variable']] = dfi["variables"].apply(lambda x: pd.Series(str(x).split("--")))
+        independent_variables.clear()
+        independent_variables = dfi['Variable'].tolist()
+        test_status = 'Unable to retrieve datasets'
+        selected_datasources = pd.unique(dfi['Datasource'])
+        dataset = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
+        print(selected_datasources)
+        print(independent_variables)
+        for columns in dataset.columns:
+            if columns not in independent_variables:
+                dataset = dataset.drop(str(columns), axis=1)
 
 
-    df_com_eigen = pd.DataFrame(data={'Variables': independent_variables, 'Communalities': fa.get_communalities(), 'Original Eigenvalues': original_eigen_values,
-                                'Common Factor Eigenvalues': common_factor_eigen_values, 'Uniquenesses from the factor loading matrix': uniquenesses})
-    print(len(new_dataset))
-    df_factor_variances = pd.DataFrame(data={'Factors': factor_list, 'Factor variances': factor_variance, 'Proportional Factor Variance': proportional_factor_variance,
-                                     'Cumulative Factor Variance': cumulative_variance})
-    df_new_dataset = pd.DataFrame(data=new_dataset, columns=factor_list)
+        if rotation == str(None):
+            fa = FactorAnalyzer(n_factors=n_factors, rotation=None, method=method, use_smc=use_smc, impute=impute)
+        else:
+            fa = FactorAnalyzer(n_factors=n_factors, rotation=rotation, method=method, use_smc=use_smc, impute=impute)
+
+
+        fa.fit(dataset)
+
+        original_eigen_values, common_factor_eigen_values = fa.get_eigenvalues()
+        factor_variance, proportional_factor_variance, cumulative_variance = fa.get_factor_variance()
+        uniquenesses = fa.get_uniquenesses()
+
+        new_dataset = fa.transform(dataset)
+        print(fa.phi_)
+
+        df = pd.DataFrame(data=dataset.values, columns=independent_variables)
+        corrs = df.corr()
+        fig, ax = plt.subplots()
+        sns.heatmap(corrs, cmap='Spectral_r', square=True, annot=True)
+        plt.title('Correlation matrix')
+        plt.savefig(get_local_storage_path(workflow_id, run_id, step_id) + '/output/correlation_matrix.png')
+        plt.show()
+        correlation_matrix = mpld3.fig_to_html(fig)
+
+        factor_list = ['Factor'+str(i+1) for i in range(n_factors)]
+
+        df_factor_loadings = pd.DataFrame(data=fa.loadings_, index=independent_variables, columns=factor_list)
+        print(df_factor_loadings)
+        df_factor_loadings = df_factor_loadings.reset_index().rename(columns={'index': 'Variables'})
+        df_corr = pd.DataFrame(data=fa.corr_, index=independent_variables, columns=independent_variables)
+        fig, ax = plt.subplots()
+        ax.matshow(df_corr, cmap='viridis')
+        plt.xticks(ticks=range(len(df_corr)), labels=independent_variables)
+        plt.yticks(ticks=range(len(df_corr)), labels=independent_variables)
+        for (i, j), z in np.ndenumerate(df_corr.values):
+            ax.text(j, i, '{:0.3f}'.format(z), ha='center', va='center')
+        plt.show()
+
+
+        df_com_eigen = pd.DataFrame(data={'Variables': independent_variables, 'Communalities': fa.get_communalities(), 'Original Eigenvalues': original_eigen_values,
+                                    'Common Factor Eigenvalues': common_factor_eigen_values, 'Uniquenesses from the factor loading matrix': uniquenesses})
+        print(len(new_dataset))
+        df_factor_variances = pd.DataFrame(data={'Factors': factor_list, 'Factor variances': factor_variance, 'Proportional Factor Variance': proportional_factor_variance,
+                                         'Cumulative Factor Variance': cumulative_variance})
+        df_new_dataset = pd.DataFrame(data=new_dataset, columns=factor_list)
 
 
 
 
 
-    # df_factor_correlations = pd.DataFrame(data=fa.phi_, columns=factor_list).corr()
-    # fig, ax = plt.subplots()
-    # sns.heatmap(df_factor_correlations, cmap='Spectral_r', square=True, annot=True)
-    # plt.title('Correlation matrix')
-    # plt.show()
-    # correlation_matrix = mpld3.fig_to_html(fig)
+        # df_factor_correlations = pd.DataFrame(data=fa.phi_, columns=factor_list).corr()
+        # fig, ax = plt.subplots()
+        # sns.heatmap(df_factor_correlations, cmap='Spectral_r', square=True, annot=True)
+        # plt.title('Correlation matrix')
+        # plt.show()
+        # correlation_matrix = mpld3.fig_to_html(fig)
 
-    to_return = {'factor_matrix': df_factor_loadings.to_json(orient='records'),
-                 'corr_matrix': correlation_matrix,
-                 'df_com_eigen': df_com_eigen.to_json(orient='records'),
-                 'df_factor_variances': df_factor_variances.to_json(orient='records'),
-                 'df_new_dataset': df_new_dataset.to_json(orient='records'),
-                 'rotation': str(rotation),
-                 'df_structure': None,
-                 'df_rotation': None,
-                 'factor_corr_matrix': None}
+        to_return = {'factor_matrix': df_factor_loadings.to_json(orient='records'),
+                     'corr_matrix': correlation_matrix,
+                     'df_com_eigen': df_com_eigen.to_json(orient='records'),
+                     'df_factor_variances': df_factor_variances.to_json(orient='records'),
+                     'df_new_dataset': df_new_dataset.to_json(orient='records'),
+                     'rotation': str(rotation),
+                     'df_structure': None,
+                     'df_rotation': None,
+                     'factor_corr_matrix': None}
 
-    if rotation == str(None):
-        # return{'factor_matrix_test': fa.loadings_.tolist(), #Factor Loadings matrix
-        #     'factor_matrix': df_factor_loadings.to_json(orient='records'),
-        #        'corr_matrix': correlation_matrix,
-        #        'orig_corr_matrix': fa.corr_.tolist(), #Original Correlation Matrix
-        #        'df_com_eigen': df_com_eigen.to_json(orient='records'),
-        #        'Communalities': fa.get_communalities().tolist(),
-        #        'Original Eigenvalues': original_eigen_values.tolist(),
-        #        'Common Factor Eigenvalues': common_factor_eigen_values.tolist(),
-        #        'df_factor_variances': df_factor_variances.to_json(orient='records'),
-        #        'Factor variances': factor_variance.tolist(),
-        #        'Proportional Factor Variance': proportional_factor_variance.tolist(),
-        #        'Cumulative Factor Variance': cumulative_variance.tolist(),
-        #        'uniquenesses from the factor loading matrix': uniquenesses.tolist(),
-        #        'df_new_dataset': df_new_dataset.to_json(orient='records'),
-        #        'Factor scores for a new dataset': new_dataset.tolist()}
-        pass
-    else:
-        df_rotation = pd.concat([pd.DataFrame(data=factor_list, columns=['Factors']),
-                                 pd.DataFrame(data=fa.rotation_matrix_, columns=factor_list)],
-                                 axis=1)
-        to_return['df_rotation'] = df_rotation.to_json(orient='records')
-        if rotation in ["promax", "oblimin", "quartimin"]:
-            df_factor_corr_matrix = pd.DataFrame(data=fa.phi_, columns=factor_list, index=factor_list)
-            fig, ax = plt.subplots()
-            sns.heatmap(df_factor_corr_matrix, cmap='Spectral_r', square=True, annot=True)
-            plt.title('Factor correlation matrix')
-            plt.savefig(get_local_storage_path(workflow_id, run_id, step_id) + '/output/factor_correlation_matrix.png')
-            plt.show()
-            factor_corr_matrix = mpld3.fig_to_html(fig)
-            to_return['factor_corr_matrix'] = factor_corr_matrix
-            if rotation == 'promax':
-                df_structure = pd.concat([pd.DataFrame(data=independent_variables, columns=['Variables']),
-                                          pd.DataFrame(data=fa.structure_, columns=factor_list)],
-                                          axis=1)
-                to_return['df_structure'] = df_structure.to_json(orient='records')
-        # return {'Factor Loadings matrix': fa.loadings_.tolist(),
-        #         'Original Correlation Matrix': fa.corr_.tolist(),
-        #         'Structure Loading Matrix': fa.structure_.tolist(),
-        #         'Rotation Matrix': fa.rotation_matrix_.tolist(),
-        #        'Communalities': fa.get_communalities().tolist(),
-        #        'Original Eigenvalues': original_eigen_values.tolist(),
-        #        'Common Factor Eigenvalues': common_factor_eigen_values.tolist(),
-        #        'Factor variances': factor_variance.tolist(),
-        #        'Proportional Factor Variance': proportional_factor_variance.tolist(),
-        #        'Cumulative Factor Variance': cumulative_variance.tolist(),
-        #        'uniquenesses from the factor loading matrix': uniquenesses.tolist(),
-        #        'Factor scores for a new dataset': new_dataset.tolist()}
-        # to_return.update({'df_rotation': df_rotation.to_json(orient='records')})
-    # elif rotation == 'oblique':
-    #     return {'Factor Loadings matrix': fa.loadings_.tolist(),
-    #             'Original Correlation Matrix': fa.corr_.tolist(),
-    #             'Structure Loading Matrix': fa.structure_.tolist(),
-    #             'Factor Correlations Matrix': fa.phi_.tolist(),
-    #             'Rotation Matrix': fa.rotation_matrix_.tolist(),
-    #            'Communalities': fa.get_communalities().tolist(),
-    #            'Original Eigenvalues': original_eigen_values.tolist(),
-    #            'Common Factor Eigenvalues': common_factor_eigen_values.tolist(),
-    #            'Factor variances': factor_variance.tolist(),
-    #            'Proportional Factor Variance': proportional_factor_variance.tolist(),
-    #            'Cumulative Factor Variance': cumulative_variance.tolist(),
-    #            'uniquenesses from the factor loading matrix': uniquenesses.tolist(),
-    #            'Factor scores for a new dataset': new_dataset.tolist()}
+        if rotation == str(None):
+            # return{'factor_matrix_test': fa.loadings_.tolist(), #Factor Loadings matrix
+            #     'factor_matrix': df_factor_loadings.to_json(orient='records'),
+            #        'corr_matrix': correlation_matrix,
+            #        'orig_corr_matrix': fa.corr_.tolist(), #Original Correlation Matrix
+            #        'df_com_eigen': df_com_eigen.to_json(orient='records'),
+            #        'Communalities': fa.get_communalities().tolist(),
+            #        'Original Eigenvalues': original_eigen_values.tolist(),
+            #        'Common Factor Eigenvalues': common_factor_eigen_values.tolist(),
+            #        'df_factor_variances': df_factor_variances.to_json(orient='records'),
+            #        'Factor variances': factor_variance.tolist(),
+            #        'Proportional Factor Variance': proportional_factor_variance.tolist(),
+            #        'Cumulative Factor Variance': cumulative_variance.tolist(),
+            #        'uniquenesses from the factor loading matrix': uniquenesses.tolist(),
+            #        'df_new_dataset': df_new_dataset.to_json(orient='records'),
+            #        'Factor scores for a new dataset': new_dataset.tolist()}
+            pass
+        else:
+            df_rotation = pd.concat([pd.DataFrame(data=factor_list, columns=['Factors']),
+                                     pd.DataFrame(data=fa.rotation_matrix_, columns=factor_list)],
+                                     axis=1)
+            to_return['df_rotation'] = df_rotation.to_json(orient='records')
+            if rotation in ["promax", "oblimin", "quartimin"]:
+                df_factor_corr_matrix = pd.DataFrame(data=fa.phi_, columns=factor_list, index=factor_list)
+                fig, ax = plt.subplots()
+                sns.heatmap(df_factor_corr_matrix, cmap='Spectral_r', square=True, annot=True)
+                plt.title('Factor correlation matrix')
+                plt.savefig(get_local_storage_path(workflow_id, run_id, step_id) + '/output/factor_correlation_matrix.png')
+                plt.show()
+                factor_corr_matrix = mpld3.fig_to_html(fig)
+                to_return['factor_corr_matrix'] = factor_corr_matrix
+                if rotation == 'promax':
+                    df_structure = pd.concat([pd.DataFrame(data=independent_variables, columns=['Variables']),
+                                              pd.DataFrame(data=fa.structure_, columns=factor_list)],
+                                              axis=1)
+                    to_return['df_structure'] = df_structure.to_json(orient='records')
+            # return {'Factor Loadings matrix': fa.loadings_.tolist(),
+            #         'Original Correlation Matrix': fa.corr_.tolist(),
+            #         'Structure Loading Matrix': fa.structure_.tolist(),
+            #         'Rotation Matrix': fa.rotation_matrix_.tolist(),
+            #        'Communalities': fa.get_communalities().tolist(),
+            #        'Original Eigenvalues': original_eigen_values.tolist(),
+            #        'Common Factor Eigenvalues': common_factor_eigen_values.tolist(),
+            #        'Factor variances': factor_variance.tolist(),
+            #        'Proportional Factor Variance': proportional_factor_variance.tolist(),
+            #        'Cumulative Factor Variance': cumulative_variance.tolist(),
+            #        'uniquenesses from the factor loading matrix': uniquenesses.tolist(),
+            #        'Factor scores for a new dataset': new_dataset.tolist()}
+            # to_return.update({'df_rotation': df_rotation.to_json(orient='records')})
+        # elif rotation == 'oblique':
+        #     return {'Factor Loadings matrix': fa.loadings_.tolist(),
+        #             'Original Correlation Matrix': fa.corr_.tolist(),
+        #             'Structure Loading Matrix': fa.structure_.tolist(),
+        #             'Factor Correlations Matrix': fa.phi_.tolist(),
+        #             'Rotation Matrix': fa.rotation_matrix_.tolist(),
+        #            'Communalities': fa.get_communalities().tolist(),
+        #            'Original Eigenvalues': original_eigen_values.tolist(),
+        #            'Common Factor Eigenvalues': common_factor_eigen_values.tolist(),
+        #            'Factor variances': factor_variance.tolist(),
+        #            'Proportional Factor Variance': proportional_factor_variance.tolist(),
+        #            'Cumulative Factor Variance': cumulative_variance.tolist(),
+        #            'uniquenesses from the factor loading matrix': uniquenesses.tolist(),
+        #            'Factor scores for a new dataset': new_dataset.tolist()}
 
-    # else:
-        # return {'Factor Loadings matrix': fa.loadings_.tolist(),
-        #         'Original Correlation Matrix': fa.corr_.tolist(),
-        #         'Rotation Matrix': fa.rotation_matrix_.tolist(),
-        #        'Communalities': fa.get_communalities().tolist(),
-        #        'Original Eigenvalues': original_eigen_values.tolist(),
-        #        'Common Factor Eigenvalues': common_factor_eigen_values.tolist(),
-        #        'Factor variances': factor_variance.tolist(),
-        #        'Proportional Factor Variance': proportional_factor_variance.tolist(),
-        #        'Cumulative Factor Variance': cumulative_variance.tolist(),
-        #        'uniquenesses from the factor loading matrix': uniquenesses.tolist(),
-        #        'Factor scores for a new dataset': new_dataset.tolist()}
+        # else:
+            # return {'Factor Loadings matrix': fa.loadings_.tolist(),
+            #         'Original Correlation Matrix': fa.corr_.tolist(),
+            #         'Rotation Matrix': fa.rotation_matrix_.tolist(),
+            #        'Communalities': fa.get_communalities().tolist(),
+            #        'Original Eigenvalues': original_eigen_values.tolist(),
+            #        'Common Factor Eigenvalues': common_factor_eigen_values.tolist(),
+            #        'Factor variances': factor_variance.tolist(),
+            #        'Proportional Factor Variance': proportional_factor_variance.tolist(),
+            #        'Cumulative Factor Variance': cumulative_variance.tolist(),
+            #        'uniquenesses from the factor loading matrix': uniquenesses.tolist(),
+            #        'Factor scores for a new dataset': new_dataset.tolist()}
 
-    return to_return
+        # return to_return
+        return JSONResponse(content={'status': 'Success', 'Result': to_return},
+                            status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status': test_status, 'Result': '[]'},
+                            status_code=200)
 
 
 @router.get("/adequacy_test_factor_analysis_bartlett")
@@ -5508,19 +5484,19 @@ async def canonical_correlation(workflow_id: str,
                                      'coef_df': coef_df.to_dict()}
             }
             file_data['results'] = new_data
-            file_data['Output_datasets'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
-                                                step_id + '/analysis_output' + '/Xc_df.csv'},
-                                            {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
-                                                     step_id + '/analysis_output' + '/Yc_df.csv'}
+            file_data['Output_datasets'] = [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
+                                                step_id + '/Xc_df.csv'},
+                                            {"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id + '/Yc_df.csv'}
                                             ]
-            file_data['Saved_plots'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
-                                             step_id + '/analysis_output/CCA_XYcorr.svg'},
-                                        {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
-                                                 step_id + '/analysis_output/CCA_comp_corr.svg'},
-                                        {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
-                                                 step_id + '/analysis_output/CCA_XY_c_corr.svg'},
-                                        {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
-                                                 step_id + '/analysis_output/CCA_coefs.svg'}]
+            file_data['Saved_plots'] = [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
+                                             step_id + '/CCA_XYcorr.svg'},
+                                        {"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
+                                                 step_id + '/CCA_comp_corr.svg'},
+                                        {"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
+                                                 step_id + '/CCA_XY_c_corr.svg'},
+                                        {"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
+                                                 step_id + '/CCA_coefs.svg'}]
             # Set file's current position at offset.
             f.seek(0)
             # convert back to json.
@@ -5622,7 +5598,7 @@ async def compute_granger_analysis(workflow_id: str,
                             status_code=200)
     except Exception as e:
         return JSONResponse(content={'status': test_status, 'lags': []},
-                            status_code=422)
+                            status_code=200)
     # return to_return
 
 
@@ -6319,27 +6295,67 @@ async def compute_tsne(workflow_id: str,
                        method: str | None = Query("barnes_hut",
                                                   regex="^(barnes_hut)$|^(exact)$"),
                        independent_variables: list[str] | None = Query(default=None)):
+    dfv = pd.DataFrame()
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    test_status = ''
+    try:
+        test_status = 'Dataset is not defined'
+        dfv['variables'] = independent_variables
+        dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
+        independent_variables = dfv["Variable"].tolist()
+        selected_datasources = pd.unique(dfv['Datasource'])
+        test_status = 'Unable to retrieve datasets'
+        # We expect only one here
+        dataset = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
+        for columns in dataset.columns:
+            if columns not in independent_variables:
+                dataset = dataset.drop(str(columns), axis=1)
+        X = np.array(dataset)
 
-    dataset = load_file_csv_direct(workflow_id, run_id, step_id)
 
-    for columns in dataset.columns:
-        if columns not in independent_variables:
-            dataset = dataset.drop(str(columns), axis=1)
-
-    X = np.array(dataset)
-
-    transformer = TSNE(n_components=n_components, n_iter=n_iter, perplexity=perplexity, early_exaggeration=early_exaggeration, init=init, method=method)
-
-    X_transformed = transformer.fit_transform(X)
-
-    df = pd.DataFrame(X_transformed)
-
-    df_embedding = pd.DataFrame(transformer.embedding_)
+        # perplexity_test = np.arange(5, 100, 5)
+        # divergence = []
+        #
+        # for i in perplexity_test:
+        #     model = TSNE(n_components=2, init="pca", perplexity=i)
+        #     reduced = model.fit_transform(X)
+        #     divergence.append(model.kl_divergence_)
+        # fig = px.line(x=perplexity_test, y=divergence, markers=True)
+        # fig.update_layout(xaxis_title="Perplexity Values", yaxis_title="Divergence")
+        # fig.update_traces(line_color="red", line_width=1)
+        # fig.show()
 
 
-    return {'transformed': df.to_json(orient='split'), 'embeddings_vector':df_embedding.to_json(orient='split'),
-            'Kullback-Leibler divergence after optimization': transformer.kl_divergence_}
+        transformer = TSNE(n_components=n_components, n_iter=n_iter, perplexity=perplexity, early_exaggeration=early_exaggeration, init=init, method=method)
+        X_transformed = transformer.fit_transform(X)
+        df = pd.DataFrame(X_transformed)
+        df_embedding = pd.DataFrame(transformer.embedding_)
+        print(transformer.n_features_in_)
+        print(transformer.n_iter_)
+        print(transformer.square_distances)
+        print(transformer.verbose)
+        print(transformer.random_state)
+        print(transformer.angle)
+        print(transformer.metric)
 
+        fig1 = px.scatter(x=X_transformed[:, 0], y=X_transformed[:, 1])
+        fig1.update_layout(
+            title="t-SNE visualization",
+            xaxis_title="First t-SNE",
+            yaxis_title="Second t-SNE",
+        )
+        fig1.show()
+        return JSONResponse(content={'status': 'Success',
+                                     'transformed': df.to_json(orient='records'), 'embeddings_vector':df_embedding.to_json(orient='records'),
+                                     'Kullback_Leibler': transformer.kl_divergence_},
+                            status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status': test_status + e.__str__(),
+                                     'transformed': {},
+                                     'embeddings_vector': {},
+                                     'Kullback_Leibler': ''},
+                            status_code=200)
 
 @router.get("/SEM_Optimization")
 async def Structural_Equation_Models_Optimization(
@@ -6491,6 +6507,44 @@ async def Exploratory_Factor_Analysis_extract_latent_structure(
         return JSONResponse(content={'status': test_status + "\n" + e.__str__(),
                                      'test_result': ''},
                             status_code=200)
+
+@router.get("/Dataframe_preparation")
+async def Dataframe_preparation(workflow_id: str,
+                                step_id: str,
+                                run_id: str,
+                                file:str,
+                                variables: list[str] | None = Query(default=None),
+                                method: str | None = Query("mean",
+                                                  regex="^(mean)$|^(median)$|^(most_frequent)$|^(constant)$|^(KNN)$|^(iterative)$")):
+
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    # test_status = ''
+    # dfv = pd.DataFrame()
+    print(path_to_storage)
+    try:
+        test_status = 'Dataset is not defined'
+        if file is None:
+            test_status = 'Dataset is not defined'
+            raise Exception
+        test_status = 'Unable to retrieve datasets'
+        # We expect only one here
+        data = load_data_from_csv(path_to_storage + "/" + file)
+        for variable in variables:
+            if variable not in data.columns:
+                raise Exception(str(variable) + '- The selected variable cannot be found in the dataset.')
+        print(method)
+        print(variables)
+        x = DataframeImputation(data,variables,method)
+        if type(x) == str:
+            test_status= 'Failed to impute values'
+            raise Exception (x)
+        return JSONResponse(content={'status': 'Success', 'newdataFrame': x.to_json(orient='records')},
+                            status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status': test_status + "\n" + e.__str__(),
+                             'newdataFrame': '[]'},
+                    status_code=200)
 
 @router.get("/hypothesis/autocorrelation", tags=["return_autocorrelation"])
 # Validation is done inline in the input of the function
