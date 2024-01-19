@@ -516,8 +516,8 @@ async def function_save_data(
             files_to_upload = [f for f in os.listdir(path_to_storage + '/output') if isfile(join(path_to_storage + '/output', f))]
             for file in files_to_upload:
                 out_filename = path_to_storage + '/output/' + file
-                upload_object(bucket_name="demo", object_name='expertsystem/workflow/'+ workflow_id+'/'+ run_id+'/'+
-                                                              step_id+'/analysis_output/' + file, file=out_filename)
+                upload_object(bucket_name="common", object_name='workflows/'+ workflow_id+'/'+ run_id+'/'+
+                                                              step_id+'/' + file, file=out_filename)
             return JSONResponse(content='info.json file has been successfully uploaded to the DataLake', status_code=200)
         except Exception as e:
             print(e)
@@ -529,8 +529,8 @@ async def function_save_data(
             output_filename = os.path.join(tmpdir, 'ucl_test')
             print(output_filename)
             print(shutil.make_archive(output_filename, 'zip', root_dir=path_to_storage, base_dir='output/ucl_test'))
-            upload_object(bucket_name="saved", object_name='expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
-                                                           step_id + '/output/ucl_test.zip',
+            upload_object(bucket_name="common", object_name='workflows/' + workflow_id + '/' + run_id + '/' +
+                                                           step_id + '/ucl_test.zip',
                           file=output_filename + '.zip')
 
             return JSONResponse(content='zip file has been successfully uploaded to the DataLake', status_code=200)
