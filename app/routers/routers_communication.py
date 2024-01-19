@@ -120,6 +120,7 @@ ExistingFunctions = [
     "survivalanalysistimevaryingcovariates",
     "survivalanalysiskaplanmeier",
     "principalcomponentanalysis",
+    'tsne',
     "LinearSVR",
     "LinearSVC",
     "LogisticRegressionPinguin",
@@ -144,6 +145,7 @@ ExistingFunctions = [
     "GrangerAnalysis",
     "structural_equation_models_optimization",
     'exploratory_factor_analysis_extract_latent_structure',
+    'valuesimputation',
     # Dashboard
     "dashboard",
 ]
@@ -259,7 +261,7 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/alpha_variability"
             case "asymmetry_indices":
                 url_to_redirect += "/asymmetry_indices"
-            case "slow_waves":
+            case "slowwaves":
                 url_to_redirect += "/slowwaves"
             case "spindles":
                 url_to_redirect += "/spindles"
@@ -281,6 +283,8 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/envelope_trend"
             case "group_sleep_analysis":
                 url_to_redirect += "/group_sleep_analysis"
+            case "eeg_hypno_upsampling":
+                url_to_redirect += "/eeg_hypno_upsampling"
             # case "group_sleep_sensitivity_analysis":
             #     url_to_redirect += "/group_sleep_sensitivity_analysis"
             # case "group_sleep_sensitivity_analysis_add_subject":
@@ -444,6 +448,8 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/SurvivalAnalysisTimeVaryingCovariates"
             case "principalcomponentanalysis":
                 url_to_redirect += "/PrincipalComponentAnalysis"
+            case 'tsne':
+                url_to_redirect += "/TSNE"
             case "fisherexact":
                 url_to_redirect += "/FisherExact"
             case "mcnemar":
@@ -478,7 +484,9 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/Structural_Equation_Models_Optimization"
             case "exploratory_factor_analysis_extract_latent_structure":
                 url_to_redirect += "/Exploratory_Factor_Analysis_extract_latent_structure"
-            # Dashboard
+            case "valuesimputation":
+                url_to_redirect += "/ValuesImputation"
+        # Dashboard
             case "dashboard":
                 url_to_redirect += "/dashboard"
         #  Create local storage for files and download them
