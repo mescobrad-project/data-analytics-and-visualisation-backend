@@ -35,6 +35,39 @@ from app.utils.utils_general import get_local_storage_path
 
 router = APIRouter()
 
+@router.get("/return_dates", tags=["actigraphy_analysis"])
+async def return_dates(workflow_id: str,
+                      run_id: str,
+                      step_id: str,
+                      dataset: str):
+    # Import dataset as pd dataframe excluding the first 150 rows
+    json_dataframe = ''
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    df = pd.read_csv(path_to_storage + '/' + dataset, skiprows=150)
+    df.drop(df.columns[[12]], axis=1, inplace=True)
+    df["DateTime"] = df[["Date", "Time"]].agg(" ".join, axis=1)
+    mylist = df['DateTime'].tolist()
+    new_list = []
+    numbers_list = []
+
+    for item in mylist:
+        if item[:2] not in numbers_list:
+            new_list.append(item[:10])
+            numbers_list.append(item[:2])
+
+    # Convert a String to a Date in Python
+    # Date and time in format "YYYY/MM/DD hh:mm:ss"
+    format_string = "%d/%m/%Y"
+
+    final_dates_list = []
+
+    for item in new_list:
+        # Convert start date string to date using strptime
+        datetime_date = datetime.strptime(item, format_string).date()
+        final_dates_list.append(str(datetime_date).replace("-", "/") + str(" 12:00:00"))
+
+    return{'dates': list(final_dates_list)}
+
 @router.get("/return_cole_kripke", tags=["actigraphy_analysis_assessment_algorithm"])
 async def return_cole_kripke(workflow_id: str,
                              run_id: str,
@@ -62,6 +95,7 @@ async def return_cole_kripke(workflow_id: str,
 async def return_daily_activity(workflow_id: str,
                                  run_id: str,
                                  step_id: str,
+                                 dataset: str,
                                  algorithm: str,
                                  start_date: str,
                                  end_date: str):
@@ -79,9 +113,10 @@ async def return_daily_activity(workflow_id: str,
     for i in range(0, (end_date_dt - start_date_dt).days + 1):
         datetime_list.append(str(start_date_dt + timedelta(days=i)) + str(" 12:00:00"))  # <-- here
     day_count = 1
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
     for i in datetime_list[:-1]:
         raw = pyActigraphy.io.read_raw_rpx(
-            '/neurodesktop-storage/runtime_config/workflow_3fa85f64-5717-4562-b3fc-2c963f66afa6/run_3fa85f64-5717-4562-b3fc-2c963f66afa6/step_3fa85f64-5717-4562-b3fc-2c963f66afa6/0345-024_18_07_2022_13_00_00_New_Analysis.csv',
+            path_to_storage + '/' + dataset,
             start_time=i,
             period='1 day',
             language='ENG_UK'
@@ -179,10 +214,17 @@ async def return_daily_activity(workflow_id: str,
 
     # output.show()
 
+def datetime_range(start, end, delta):
+    current = start
+    while current < end:
+        yield current
+        current += delta
+
 @router.get("/return_daily_activity_activity_status_area", tags=["actigraphy_analysis"])
 async def return_daily_activity_activity_status_area(workflow_id: str,
                                                      run_id: str,
                                                      step_id: str,
+                                                     dataset: str,
                                                      start_date: str,
                                                      end_date: str):
     # Convert a String to a Date in Python
@@ -199,6 +241,7 @@ async def return_daily_activity_activity_status_area(workflow_id: str,
     datetime_list = []
     for i in range(0, (end_date_dt - start_date_dt).days + 1):
         datetime_list.append(str(start_date_dt + timedelta(days=i)) + str(" 12:00:00"))  # <-- here
+    #     print(datetime_list)
     day_count = 1
     x0_count = 0
     x1_count = 0
@@ -208,34 +251,75 @@ async def return_daily_activity_activity_status_area(workflow_id: str,
     for i in datetime_list:
         new = i.replace("-", "/")
         mylist.append(new)
+    # print(mylist)
     date_list_obj = []
     for date in mylist:
         date_object = datetime.strptime(date, '%Y/%m/%d %H:%M:%S')
-        date_list_obj.append(date_object.date())
-    date_list = [date_obj.strftime('%d/%m/%Y') for date_obj in date_list_obj]
+        # print(date_object)
+        date_list_obj.append(date_object)
+    date_list = [date_obj.strftime('%d/%m/%Y %H:%M:%S') for date_obj in date_list_obj]
     # print(date_list)
 
-    df = pd.read_csv('/neurodesktop-storage/runtime_config/workflow_3fa85f64-5717-4562-b3fc-2c963f66afa6/run_3fa85f64-5717-4562-b3fc-2c963f66afa6/step_3fa85f64-5717-4562-b3fc-2c963f66afa6/0345-024_18_07_2022_13_00_00_New_Analysis.csv', skiprows=150)
+    # create a datetime list to compare with datetimes from df
+    start = datetime.strptime(date_list[0], '%d/%m/%Y %H:%M:%S')
+    end = datetime.strptime(date_list[-1], '%d/%m/%Y %H:%M:%S')
+    # print(start)
+    # print(end)
+
+    dts = [dt.strftime('%d/%m/%Y %#H:%M:%S') for dt in
+           datetime_range(start, end,
+                          timedelta(seconds=15))]
+    #     print(dts)
+
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+
+    df = pd.read_csv(path_to_storage + '/' + dataset, skiprows=150)
     df["Datetime"] = df[["Date", "Time"]].apply(lambda x: " ".join(x), axis=1)
     df.drop(df.columns[[12]], axis=1, inplace=True)
-    df = df.drop(index=[row for row in df.index if df.loc[row, 'Date'] not in date_list])
+    #     for datetime in date_list:
+    df = df.drop(index=[row for row in df.index if df.loc[row, 'Datetime'] not in dts])
+    #     display(df)
 
     df["Prev_Interval_Status"] = df["Interval Status"].shift(+1)
     df["Next_Interval_Status"] = df["Interval Status"].shift(-1)
     df['Flag_1'] = np.where((df['Interval Status'] == "REST-S") & (df['Prev_Interval_Status'] != "REST-S"), "Slept", "")
     df['Flag_2'] = np.where((df['Interval Status'] == "REST-S") & (df['Next_Interval_Status'] != "REST-S"), "Woke", "")
+    #     print(df.to_string())
+    # print(df)
 
     df_x0_list = df
     df_x0_list = df_x0_list.drop(index=[row for row in df_x0_list.index if "Slept" != df_x0_list.loc[row, 'Flag_1']])
+    print(df_x0_list)
     df_x1_list = df
     df_x1_list = df_x1_list.drop(index=[row for row in df_x1_list.index if "Woke" != df_x1_list.loc[row, 'Flag_2']])
+    print(df_x1_list)
 
     x0 = []
+    # for index, row in df_x0_list.iterrows():
+    #     if df_x0_list['Date'].eq(df_x0_list['Date'].shift(-1)):
+    #     x0 = []
     x0 = df_x0_list['Datetime'].tolist()
-    x0.pop()
+    #     x0.pop()
+    print(x0)
     x1 = []
     x1 = df_x1_list['Datetime'].tolist()
-    x1.pop()
+    #     x1.pop()
+    print(x1)
+
+    x_list = [list(item) for item in zip(x0, x1)]
+    print(x_list)
+
+    # Manipulate x_list
+    x_list_fixed = []
+    for sublist in x_list:
+        help_list = []
+        for item in sublist:
+            new_format_x0 = item.replace("/", "-")
+            date_object = datetime.strptime(new_format_x0, '%d-%m-%Y %H:%M:%S')
+            date_string = date_object.strftime('%Y-%m-%d %H:%M:%S')
+            help_list.append(date_string)
+        x_list_fixed.append(help_list)
+    print(x_list_fixed)
 
     # Manipulate x0_list
     x0_list = []
@@ -244,7 +328,6 @@ async def return_daily_activity_activity_status_area(workflow_id: str,
         date_object = datetime.strptime(new_format_x0, '%d-%m-%Y %H:%M:%S')
         date_string = date_object.strftime('%Y-%m-%d %H:%M:%S')
         x0_list.append(date_string)
-    # print(x0_list)
 
     # Manipulate x1_list
     x1_list = []
@@ -255,36 +338,79 @@ async def return_daily_activity_activity_status_area(workflow_id: str,
         x1_list.append(date_string)
     # print(x1_list)
 
-    for i in range(len(datetime_list)-1):
-        fig = make_subplots(rows=i+1, cols=1,
+    for i in range(len(datetime_list) - 1):
+        fig = make_subplots(rows=i + 1, cols=1,
                             # shared_yaxes=True,
                             vertical_spacing=0.05,
                             subplot_titles=("Day 1", "Day 2", "Day 3", "Day 4", "Day 5", "Day 6"))
-    # fig = make_subplots(rows=7, cols=1,
-    #                     # shared_xaxes=True,
-    #                     vertical_spacing=0.1,
-    #                     subplot_titles=("Day 1", "Day 2", "Day 3", "Day 4", "Day 5", "Day 6"))
-    for i in datetime_list[:-1]:
+
+    raw_start_time = 0
+
+    for sublist in x_list_fixed:
         raw = pyActigraphy.io.read_raw_rpx(
-            '/neurodesktop-storage/runtime_config/workflow_3fa85f64-5717-4562-b3fc-2c963f66afa6/run_3fa85f64-5717-4562-b3fc-2c963f66afa6/step_3fa85f64-5717-4562-b3fc-2c963f66afa6/0345-024_18_07_2022_13_00_00_New_Analysis.csv',
-            start_time=i,
+            path_to_storage + '/' + dataset,
+            start_time=datetime_list[raw_start_time],
             period='1 day',
             language='ENG_UK'
         )
-        raw.create_inactivity_mask(duration='2h00min')
-        fig.add_scatter(x=raw.data.index.astype(str), y=raw.data, mode='lines', line=dict(width=2, color=cols[0]), name='Visualisation', row=day_count, col=1)
-        fig.add_vline(x=x0_list[x0_count], row=day_count, col=1)
-        fig.add_vline(x=x1_list[x1_count], row=day_count, col=1)
-        fig.add_vrect(x0=x0_list[x0_count], x1=x1_list[x1_count],
-                      annotation_text="REST Period", annotation_position="top left",
-                      fillcolor="green", opacity=0.25, line_width=0, row=day_count, col=1)
-        x0_count = x0_count + 1
-        x1_count = x1_count + 1
-        # fig.add_scatter(x=raw.mask.index.astype(str), y=raw.mask, yaxis='y2',mode='lines', line=dict(width=2, color=cols[1]), name='Inactivity Mask', row=day_count, col=1)
-        fig.update_layout(title='Activity Visualisation', width=800, height=1400,
-                          dragmode='select',
-                          activeselection=dict(fillcolor='yellow'))
-        day_count = day_count + 1
+        for item in sublist:
+            first_date = sublist[0][:10]
+            second_date = sublist[1][:10]
+        if (first_date == second_date):
+            print("yes")
+            fig.add_scatter(x=raw.data.index.astype(str), y=raw.data, mode='lines', line=dict(width=2, color=cols[0]),
+                            name='Visualisation', row=day_count, col=1)
+            fig.add_vline(x=sublist[0], row=day_count, col=1)
+            fig.add_vline(x=sublist[1], row=day_count, col=1)
+            fig.add_vrect(x0=sublist[0], x1=sublist[1],
+                          annotation_text="REST Period", annotation_position="top left",
+                          fillcolor="green", opacity=0.25, line_width=0, row=day_count, col=1)
+            x0_count = x0_count + 1
+            x1_count = x1_count + 1
+            # fig.add_scatter(x=raw.mask.index.astype(str), y=raw.mask, yaxis='y2',mode='lines', line=dict(width=2, color=cols[1]), name='Inactivity Mask', row=day_count, col=1)
+            fig.update_layout(title='Activity Visualisation', width=800, height=1400,
+                              dragmode='select',
+                              activeselection=dict(fillcolor='yellow'))
+        else:
+            print("no")
+            fig.add_scatter(x=raw.data.index.astype(str), y=raw.data, mode='lines', line=dict(width=2, color=cols[0]),
+                            name='Visualisation', row=day_count, col=1)
+            fig.add_vline(x=sublist[0], row=day_count, col=1)
+            fig.add_vline(x=sublist[1], row=day_count, col=1)
+            fig.add_vrect(x0=sublist[0], x1=sublist[1],
+                          annotation_text="REST Period", annotation_position="top left",
+                          fillcolor="green", opacity=0.25, line_width=0, row=day_count, col=1)
+            x0_count = x0_count + 1
+            x1_count = x1_count + 1
+            # fig.add_scatter(x=raw.mask.index.astype(str), y=raw.mask, yaxis='y2',mode='lines', line=dict(width=2, color=cols[1]), name='Inactivity Mask', row=day_count, col=1)
+            fig.update_layout(title='Activity Visualisation', width=800, height=1400,
+                              dragmode='select',
+                              activeselection=dict(fillcolor='yellow'))
+            day_count = day_count + 1
+            raw_start_time = raw_start_time + 1
+
+    # for i in datetime_list[:-2]:
+    #     raw = pyActigraphy.io.read_raw_rpx(
+    #         'copy.csv',
+    #         start_time=i,
+    #         period='1 day',
+    #         language='ENG_UK'
+    #     )
+    #     # raw.create_inactivity_mask(duration='2h00min')
+    #     fig.add_scatter(x=raw.data.index.astype(str), y=raw.data, mode='lines', line=dict(width=2, color=cols[0]),
+    #                     name='Visualisation', row=day_count, col=1)
+    #     fig.add_vline(x=x0_list[x0_count], row=day_count, col=1)
+    #     fig.add_vline(x=x1_list[x1_count], row=day_count, col=1)
+    #     fig.add_vrect(x0=x0_list[x0_count], x1=x1_list[x1_count],
+    #                   annotation_text="REST Period", annotation_position="top left",
+    #                   fillcolor="green", opacity=0.25, line_width=0, row=day_count, col=1)
+    #     x0_count = x0_count + 1
+    #     x1_count = x1_count + 1
+    #     # fig.add_scatter(x=raw.mask.index.astype(str), y=raw.mask, yaxis='y2',mode='lines', line=dict(width=2, color=cols[1]), name='Inactivity Mask', row=day_count, col=1)
+    #     fig.update_layout(title='Activity Visualisation', width=800, height=1400,
+    #                       dragmode='select',
+    #                       activeselection=dict(fillcolor='yellow'))
+    #     day_count = day_count + 1
 
     # fig.show()
     # print(datetime_list)
@@ -310,6 +436,7 @@ async def return_final_daily_activity_activity_status_area(workflow_id: str,
     datetime_list = []
     for i in range(0, (end_date_dt - start_date_dt).days + 1):
         datetime_list.append(str(start_date_dt + timedelta(days=i)) + str(" 12:00:00"))  # <-- here
+    #     print(datetime_list)
     day_count = 1
     x0_count = 0
     x1_count = 0
@@ -319,34 +446,75 @@ async def return_final_daily_activity_activity_status_area(workflow_id: str,
     for i in datetime_list:
         new = i.replace("-", "/")
         mylist.append(new)
+    # print(mylist)
     date_list_obj = []
     for date in mylist:
         date_object = datetime.strptime(date, '%Y/%m/%d %H:%M:%S')
-        date_list_obj.append(date_object.date())
-    date_list = [date_obj.strftime('%d/%m/%Y') for date_obj in date_list_obj]
+        # print(date_object)
+        date_list_obj.append(date_object)
+    date_list = [date_obj.strftime('%d/%m/%Y %H:%M:%S') for date_obj in date_list_obj]
     # print(date_list)
 
-    df = pd.read_csv('/neurodesktop-storage/runtime_config/workflow_3fa85f64-5717-4562-b3fc-2c963f66afa6/run_3fa85f64-5717-4562-b3fc-2c963f66afa6/step_3fa85f64-5717-4562-b3fc-2c963f66afa6/copy.csv', skiprows=150)
+    # create a datetime list to compare with datetimes from df
+    start = datetime.strptime(date_list[0], '%d/%m/%Y %H:%M:%S')
+    end = datetime.strptime(date_list[-1], '%d/%m/%Y %H:%M:%S')
+    # print(start)
+    # print(end)
+
+    dts = [dt.strftime('%d/%m/%Y %#H:%M:%S') for dt in
+           datetime_range(start, end,
+                          timedelta(seconds=15))]
+    #     print(dts)
+
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+
+    df = pd.read_csv(path_to_storage + '/output/' + 'NewAnalysisCopy.csv', skiprows=150)
     df["Datetime"] = df[["Date", "Time"]].apply(lambda x: " ".join(x), axis=1)
     df.drop(df.columns[[12]], axis=1, inplace=True)
-    df = df.drop(index=[row for row in df.index if df.loc[row, 'Date'] not in date_list])
+    #     for datetime in date_list:
+    df = df.drop(index=[row for row in df.index if df.loc[row, 'Datetime'] not in dts])
+    #     display(df)
 
     df["Prev_Interval_Status"] = df["Interval Status"].shift(+1)
     df["Next_Interval_Status"] = df["Interval Status"].shift(-1)
     df['Flag_1'] = np.where((df['Interval Status'] == "REST-S") & (df['Prev_Interval_Status'] != "REST-S"), "Slept", "")
     df['Flag_2'] = np.where((df['Interval Status'] == "REST-S") & (df['Next_Interval_Status'] != "REST-S"), "Woke", "")
+    #     print(df.to_string())
+    # print(df)
 
     df_x0_list = df
     df_x0_list = df_x0_list.drop(index=[row for row in df_x0_list.index if "Slept" != df_x0_list.loc[row, 'Flag_1']])
+    print(df_x0_list)
     df_x1_list = df
     df_x1_list = df_x1_list.drop(index=[row for row in df_x1_list.index if "Woke" != df_x1_list.loc[row, 'Flag_2']])
+    print(df_x1_list)
 
     x0 = []
+    # for index, row in df_x0_list.iterrows():
+    #     if df_x0_list['Date'].eq(df_x0_list['Date'].shift(-1)):
+    #     x0 = []
     x0 = df_x0_list['Datetime'].tolist()
-    x0.pop()
+    #     x0.pop()
+    print(x0)
     x1 = []
     x1 = df_x1_list['Datetime'].tolist()
-    x1.pop()
+    #     x1.pop()
+    print(x1)
+
+    x_list = [list(item) for item in zip(x0, x1)]
+    print(x_list)
+
+    # Manipulate x_list
+    x_list_fixed = []
+    for sublist in x_list:
+        help_list = []
+        for item in sublist:
+            new_format_x0 = item.replace("/", "-")
+            date_object = datetime.strptime(new_format_x0, '%d-%m-%Y %H:%M:%S')
+            date_string = date_object.strftime('%Y-%m-%d %H:%M:%S')
+            help_list.append(date_string)
+        x_list_fixed.append(help_list)
+    print(x_list_fixed)
 
     # Manipulate x0_list
     x0_list = []
@@ -355,7 +523,6 @@ async def return_final_daily_activity_activity_status_area(workflow_id: str,
         date_object = datetime.strptime(new_format_x0, '%d-%m-%Y %H:%M:%S')
         date_string = date_object.strftime('%Y-%m-%d %H:%M:%S')
         x0_list.append(date_string)
-    # print(x0_list)
 
     # Manipulate x1_list
     x1_list = []
@@ -366,36 +533,79 @@ async def return_final_daily_activity_activity_status_area(workflow_id: str,
         x1_list.append(date_string)
     # print(x1_list)
 
-    for i in range(len(datetime_list)-1):
-        fig = make_subplots(rows=i+1, cols=1,
+    for i in range(len(datetime_list) - 1):
+        fig = make_subplots(rows=i + 1, cols=1,
                             # shared_yaxes=True,
                             vertical_spacing=0.05,
                             subplot_titles=("Day 1", "Day 2", "Day 3", "Day 4", "Day 5", "Day 6"))
-    # fig = make_subplots(rows=7, cols=1,
-    #                     # shared_xaxes=True,
-    #                     vertical_spacing=0.1,
-    #                     subplot_titles=("Day 1", "Day 2", "Day 3", "Day 4", "Day 5", "Day 6"))
-    for i in datetime_list[:-1]:
+
+    raw_start_time = 0
+
+    for sublist in x_list_fixed:
         raw = pyActigraphy.io.read_raw_rpx(
-            '/neurodesktop-storage/runtime_config/workflow_3fa85f64-5717-4562-b3fc-2c963f66afa6/run_3fa85f64-5717-4562-b3fc-2c963f66afa6/step_3fa85f64-5717-4562-b3fc-2c963f66afa6/0345-024_18_07_2022_13_00_00_New_Analysis.csv',
-            start_time=i,
+            path_to_storage + '/output/' + 'NewAnalysisCopy.csv',
+            start_time=datetime_list[raw_start_time],
             period='1 day',
             language='ENG_UK'
         )
-        raw.create_inactivity_mask(duration='2h00min')
-        fig.add_scatter(x=raw.data.index.astype(str), y=raw.data, mode='lines', line=dict(width=2, color=cols[0]), name='Visualisation', row=day_count, col=1)
-        fig.add_vline(x=x0_list[x0_count], row=day_count, col=1)
-        fig.add_vline(x=x1_list[x1_count], row=day_count, col=1)
-        fig.add_vrect(x0=x0_list[x0_count], x1=x1_list[x1_count],
-                      annotation_text="REST Period", annotation_position="top left",
-                      fillcolor="green", opacity=0.25, line_width=0, row=day_count, col=1)
-        x0_count = x0_count + 1
-        x1_count = x1_count + 1
-        # fig.add_scatter(x=raw.mask.index.astype(str), y=raw.mask, yaxis='y2',mode='lines', line=dict(width=2, color=cols[1]), name='Inactivity Mask', row=day_count, col=1)
-        fig.update_layout(title='Activity Visualisation', width=800, height=1400,
-                          dragmode='select',
-                          activeselection=dict(fillcolor='yellow'))
-        day_count = day_count + 1
+        for item in sublist:
+            first_date = sublist[0][:10]
+            second_date = sublist[1][:10]
+        if (first_date == second_date):
+            print("yes")
+            fig.add_scatter(x=raw.data.index.astype(str), y=raw.data, mode='lines', line=dict(width=2, color=cols[0]),
+                            name='Visualisation', row=day_count, col=1)
+            fig.add_vline(x=sublist[0], row=day_count, col=1)
+            fig.add_vline(x=sublist[1], row=day_count, col=1)
+            fig.add_vrect(x0=sublist[0], x1=sublist[1],
+                          annotation_text="REST Period", annotation_position="top left",
+                          fillcolor="green", opacity=0.25, line_width=0, row=day_count, col=1)
+            x0_count = x0_count + 1
+            x1_count = x1_count + 1
+            # fig.add_scatter(x=raw.mask.index.astype(str), y=raw.mask, yaxis='y2',mode='lines', line=dict(width=2, color=cols[1]), name='Inactivity Mask', row=day_count, col=1)
+            fig.update_layout(title='Activity Visualisation', width=800, height=1400,
+                              dragmode='select',
+                              activeselection=dict(fillcolor='yellow'))
+        else:
+            print("no")
+            fig.add_scatter(x=raw.data.index.astype(str), y=raw.data, mode='lines', line=dict(width=2, color=cols[0]),
+                            name='Visualisation', row=day_count, col=1)
+            fig.add_vline(x=sublist[0], row=day_count, col=1)
+            fig.add_vline(x=sublist[1], row=day_count, col=1)
+            fig.add_vrect(x0=sublist[0], x1=sublist[1],
+                          annotation_text="REST Period", annotation_position="top left",
+                          fillcolor="green", opacity=0.25, line_width=0, row=day_count, col=1)
+            x0_count = x0_count + 1
+            x1_count = x1_count + 1
+            # fig.add_scatter(x=raw.mask.index.astype(str), y=raw.mask, yaxis='y2',mode='lines', line=dict(width=2, color=cols[1]), name='Inactivity Mask', row=day_count, col=1)
+            fig.update_layout(title='Activity Visualisation', width=800, height=1400,
+                              dragmode='select',
+                              activeselection=dict(fillcolor='yellow'))
+            day_count = day_count + 1
+            raw_start_time = raw_start_time + 1
+
+    # for i in datetime_list[:-2]:
+    #     raw = pyActigraphy.io.read_raw_rpx(
+    #         'copy.csv',
+    #         start_time=i,
+    #         period='1 day',
+    #         language='ENG_UK'
+    #     )
+    #     # raw.create_inactivity_mask(duration='2h00min')
+    #     fig.add_scatter(x=raw.data.index.astype(str), y=raw.data, mode='lines', line=dict(width=2, color=cols[0]),
+    #                     name='Visualisation', row=day_count, col=1)
+    #     fig.add_vline(x=x0_list[x0_count], row=day_count, col=1)
+    #     fig.add_vline(x=x1_list[x1_count], row=day_count, col=1)
+    #     fig.add_vrect(x0=x0_list[x0_count], x1=x1_list[x1_count],
+    #                   annotation_text="REST Period", annotation_position="top left",
+    #                   fillcolor="green", opacity=0.25, line_width=0, row=day_count, col=1)
+    #     x0_count = x0_count + 1
+    #     x1_count = x1_count + 1
+    #     # fig.add_scatter(x=raw.mask.index.astype(str), y=raw.mask, yaxis='y2',mode='lines', line=dict(width=2, color=cols[1]), name='Inactivity Mask', row=day_count, col=1)
+    #     fig.update_layout(title='Activity Visualisation', width=800, height=1400,
+    #                       dragmode='select',
+    #                       activeselection=dict(fillcolor='yellow'))
+    #     day_count = day_count + 1
 
     # fig.show()
     # print(datetime_list)
@@ -405,10 +615,12 @@ async def return_final_daily_activity_activity_status_area(workflow_id: str,
 @router.get("/return_initial_dataset", tags=["actigraphy_analysis"])
 async def return_initial_dataset(workflow_id: str,
                                  run_id: str,
-                                 step_id: str):
+                                 step_id: str,
+                                 dataset: str):
     # Import dataset as pd dataframe excluding the first 150 rows
     json_dataframe = ''
-    df = pd.read_csv('/neurodesktop-storage/runtime_config/workflow_3fa85f64-5717-4562-b3fc-2c963f66afa6/run_3fa85f64-5717-4562-b3fc-2c963f66afa6/step_3fa85f64-5717-4562-b3fc-2c963f66afa6/0345-024_18_07_2022_13_00_00_New_Analysis.csv', skiprows=150)
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    df = pd.read_csv(path_to_storage + '/' + dataset, skiprows=150)
     df.drop(df.columns[[12]], axis=1, inplace=True)
     # df = df.set_index('Line')
     df_updated = df.head(100)
@@ -419,7 +631,9 @@ async def return_initial_dataset(workflow_id: str,
 @router.get("/return_final_dataset", tags=["actigraphy_analysis"])
 async def return_final_dataset(workflow_id: str,
                                  run_id: str,
-                                 step_id: str):
+                                 step_id: str,
+                               dataset: str):
+    # path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
     df = pd.read_excel(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + 'new_dataset.xlsx')
     # df.reset_index(inplace=True)
     # print(df)
@@ -431,10 +645,12 @@ async def return_final_dataset(workflow_id: str,
 async def change_activity_status(workflow_id: str,
                                 run_id: str,
                                 step_id: str,
+                                dataset: str,
                                 activity_status: str,
                                 start_date: str,
                                 end_date: str):
-    raw = pyActigraphy.io.read_raw_rpx('/neurodesktop-storage/runtime_config/workflow_3fa85f64-5717-4562-b3fc-2c963f66afa6/run_3fa85f64-5717-4562-b3fc-2c963f66afa6/step_3fa85f64-5717-4562-b3fc-2c963f66afa6/0345-024_18_07_2022_13_00_00_New_Analysis.csv')
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    raw = pyActigraphy.io.read_raw_rpx(path_to_storage + '/' + dataset)
 
     # Convert the dates from string to datetime to change their format
     # Date and time in format "YYYY/MM/DD hh:mm:ss"
@@ -451,8 +667,19 @@ async def change_activity_status(workflow_id: str,
     start_date_final = start_date_dt.strftime("%d/%m/%Y %H:%M:%S")
     end_date_final = end_date_dt.strftime("%d/%m/%Y %H:%M:%S")
 
+    # Make a copy of the dataset which we will use to make our changes
+    file_exists = path_to_storage + '/output/' + 'NewAnalysisCopy.csv'
+    isExisting = os.path.exists(file_exists)
+    # print(isExisting)
+    if (isExisting == False):
+        source = path_to_storage + '/' + dataset
+        target = path_to_storage + '/output/' + 'NewAnalysisCopy.csv'
+        shutil.copyfile(source, target)
+    else:
+        print("The file already exists!")
+    # print(isExisting)
     # Import dataset as pd dataframe excluding the first 150 rows
-    df = pd.read_csv('/neurodesktop-storage/runtime_config/workflow_3fa85f64-5717-4562-b3fc-2c963f66afa6/run_3fa85f64-5717-4562-b3fc-2c963f66afa6/step_3fa85f64-5717-4562-b3fc-2c963f66afa6/0345-024_18_07_2022_13_00_00_New_Analysis.csv', skiprows=150)
+    df = pd.read_csv(path_to_storage + '/output/' + 'NewAnalysisCopy.csv', skiprows=150)
 
     # Using DataFrame.apply() and lambda function to join the date and time columns to create a Datetime
     df["Datetime"] = df[["Date", "Time"]].apply(lambda x: " ".join(x), axis=1)
@@ -467,23 +694,25 @@ async def change_activity_status(workflow_id: str,
     df.drop(df.columns[[12, 13]], axis=1, inplace=True)
     df = df.set_index('Line')
     df.to_excel(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + 'new_dataset.xlsx')
-    #change_final_csv()
+    change_final_csv(workflow_id, run_id, step_id)
 
-@router.get("/change_final_csv", tags=["actigraphy_analysis_assessment_algorithm"])
-async def change_final_csv(workflow_id: str,
+# @router.get("/change_final_csv", tags=["actigraphy_analysis_assessment_algorithm"])
+def change_final_csv(workflow_id: str,
                                 run_id: str,
                                 step_id: str):
     subject_properties = pd.DataFrame(columns=['Field', 'Value'])
     found = False
     count = 1
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
     df = pd.read_excel(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + 'new_dataset.xlsx')
     df = df.astype(str)
     # df.set_index('Line', inplace=True)
     print('"' + '","'.join(df.loc[0, :].values.flatten().tolist()) + '"')
-    with open("/neurodesktop-storage/runtime_config/workflow_3fa85f64-5717-4562-b3fc-2c963f66afa6/run_3fa85f64-5717-4562-b3fc-2c963f66afa6/step_3fa85f64-5717-4562-b3fc-2c963f66afa6/copy.csv", 'r') as f:
+    # save the original file in the same path + output and use that one in the line below
+    with open(path_to_storage + '/output/' + 'NewAnalysisCopy.csv', 'r') as f:
         get_all = f.readlines()
 
-    with open("/neurodesktop-storage/runtime_config/workflow_3fa85f64-5717-4562-b3fc-2c963f66afa6/run_3fa85f64-5717-4562-b3fc-2c963f66afa6/step_3fa85f64-5717-4562-b3fc-2c963f66afa6/copy.csv", 'w') as f:
+    with open(path_to_storage + '/output/' + 'NewAnalysisCopy.csv', 'w') as f:
         list_count = 0
         for i, line in enumerate(get_all, 1):
             if i >= 153:
@@ -538,14 +767,21 @@ async def return_weekly_activity(workflow_id: str,
 
 @router.get("/return_functional_linear_modelling", tags=["actigraphy_analysis"])
 async def return_functional_linear_modelling(workflow_id: str,
-                                 run_id: str,
-                                 step_id: str):
+                                             run_id: str,
+                                             step_id: str,
+                                             dataset: str):
+    # Define path
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
     # Fourier basis expansion (Single)
-    raw = pyActigraphy.io.read_raw_rpx(
-        '/neurodesktop-storage/runtime_config/workflow_3fa85f64-5717-4562-b3fc-2c963f66afa6/run_3fa85f64-5717-4562-b3fc-2c963f66afa6/step_3fa85f64-5717-4562-b3fc-2c963f66afa6/0345-024_18_07_2022_13_00_00_New_Analysis.csv',
-        start_time='2022-07-18 12:00:00',
-        period='7 days'
-    )
+    try:
+        raw = pyActigraphy.io.read_raw_rpx(
+            path_to_storage + '/' + dataset,
+            start_time='2022-07-18 12:00:00',
+            period='7 days'
+        )
+    except Exception as e:
+        print(e)
+        return JSONResponse(status_code=500)
     # create objects for layout and traces
     # layout = go.Layout(autosize=False, width=850, height=600, title="", xaxis=dict(title=""), shapes=[],
     #                    showlegend=True)
@@ -582,29 +818,67 @@ async def return_functional_linear_modelling(workflow_id: str,
     graphJSON = plotly.io.to_json(fig, pretty=True)
     return {"flm_figure": graphJSON}
 
-    # # Fourier basis expansion (Multi)
-    # reader = pyActigraphy.io.read_raw('/neurodesktop-storage/runtime_config/workflow_3fa85f64-5717-4562-b3fc-2c963f66afa6/run_3fa85f64-5717-4562-b3fc-2c963f66afa6/step_3fa85f64-5717-4562-b3fc-2c963f66afa6/0345-024_18_07_2022_13_00_00_New_Analysis.csv', 'RPX', n_jobs=10, prefer='threads', verbose=10)
-    # # Define a FLM Object that can be (re-)used to fit the data
-    # flm_fourier = FLM(basis='fourier', sampling_freq='10min', max_order=10)
-    # # Fit all the recordings contained in the "reader":
-    # flm_fourier.fit_reader(reader, verbose_fit=False, n_jobs=2, prefer='threads', verbose_parallel=10)
-    # y_est_group_fourier = flm_fourier.evaluate_reader(reader, r=10, n_jobs=2, prefer='threads', verbose_parallel=10)
-    # daily_avg = raw.average_daily_activity(binarize=False, freq='10min')
-    # # create objects for layout and traces
+
+@router.get("/return_multi_functional_linear_modelling", tags=["actigraphy_analysis"])
+async def return_multi_functional_linear_modelling(workflow_id: str,
+                                             run_id: str,
+                                             step_id: str,
+                                             multiple_datasets: str):
+    # Define path
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    raw = pyActigraphy.io.read_raw_rpx(
+        path_to_storage + '/' + multiple_datasets,
+        start_time='2022-07-18 12:00:00',
+        period='7 days'
+    )
+    # Fourier basis expansion (Multi)
+    reader = pyActigraphy.io.read_raw(path_to_storage + multiple_datasets + '_example_*.csv', 'RPX', n_jobs=10, prefer='threads', verbose=10)
+    # Define a FLM Object that can be (re-)used to fit the data
+    flm_fourier = FLM(basis='fourier', sampling_freq='10min', max_order=10)
+    # Fit all the recordings contained in the "reader":
+    flm_fourier.fit_reader(reader, verbose_fit=True, n_jobs=2, prefer='threads', verbose_parallel=10)
+
+    y_est_group_fourier = flm_fourier.evaluate_reader(reader, r=10, n_jobs=2, prefer='threads', verbose_parallel=10)
+    print(y_est_group_fourier.items())
+    daily_avg = raw.average_daily_activity(binarize=False, freq='10min')
+    # create objects for layout and traces
     # multi_layout = go.Layout(autosize=False, width=850, height=600, title="", xaxis=dict(title=""), shapes=[],
     #                    showlegend=True)
-    # multi_fig = go.Figure(data=[go.Scatter(x=daily_avg.index.astype(str),y=v,name=k) for k,v in y_est_group_fourier.items()],layout=multi_layout)
+    # set x-axis labels and their corresponding data values
+    labels = ['00:00', '06:00', '12:00', '18:00']
+    tickvals = ['00:00:00', '06:00:00', '12:00:00', '18:00:00']
+
+    layout = go.Layout(
+        autosize=False, width=900, height=600,
+        title="Daily profile",
+        xaxis=dict(
+            title="Time of day (HH:MM)",
+            ticktext=labels,
+            tickvals=tickvals),
+        yaxis=dict(title="Counts (a.u)"),
+        shapes=[], showlegend=True)
+    multi_fig = go.Figure(data=[go.Scatter(x=daily_avg.index.astype(str),y=v,name=k) for k,v in y_est_group_fourier.items()],layout=layout)
     # multi_fig.show()
+    graphJSON = plotly.io.to_json(multi_fig, pretty=True)
+    return {"multi_flm_figure": graphJSON}
 
 @router.get("/return_singular_spectrum_analysis", tags=["actigraphy_analysis"])
 async def return_singular_spectrum_analysis(workflow_id: str,
                                  run_id: str,
-                                 step_id: str):
-    raw = pyActigraphy.io.read_raw_rpx(
-        '/neurodesktop-storage/runtime_config/workflow_3fa85f64-5717-4562-b3fc-2c963f66afa6/run_3fa85f64-5717-4562-b3fc-2c963f66afa6/step_3fa85f64-5717-4562-b3fc-2c963f66afa6/0345-024_18_07_2022_13_00_00_New_Analysis.csv',
-        start_time='2022-07-18 12:00:00',
-        period='7 days'
-    )
+                                 step_id: str,
+                                 dataset: str):
+    # Define path
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    # Fourier basis expansion (Single)
+    try:
+        raw = pyActigraphy.io.read_raw_rpx(
+            path_to_storage + '/' + dataset,
+            start_time='2022-07-18 12:00:00',
+            period='7 days'
+        )
+    except Exception as e:
+        print(e)
+        return JSONResponse(status_code=500)
 
     # Scree diagram
     mySSA = SSA(raw.data, window_length='24h')
@@ -671,12 +945,20 @@ async def return_singular_spectrum_analysis(workflow_id: str,
 @router.get("/return_detrended_fluctuation_analysis", tags=["actigraphy_analysis"])
 async def return_detrended_fluctuation_analysis(workflow_id: str,
                                  run_id: str,
-                                 step_id: str):
-    raw = pyActigraphy.io.read_raw_rpx(
-        '/neurodesktop-storage/runtime_config/workflow_3fa85f64-5717-4562-b3fc-2c963f66afa6/run_3fa85f64-5717-4562-b3fc-2c963f66afa6/step_3fa85f64-5717-4562-b3fc-2c963f66afa6/0345-024_18_07_2022_13_00_00_New_Analysis.csv',
-        start_time='2022-07-18 12:00:00',
-        period='7 days'
-    )
+                                 step_id: str,
+                                 dataset: str):
+    # Define path
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    # Fourier basis expansion (Single)
+    try:
+        raw = pyActigraphy.io.read_raw_rpx(
+            path_to_storage + '/' + dataset,
+            start_time='2022-07-18 12:00:00',
+            period='7 days'
+        )
+    except Exception as e:
+        print(e)
+        return JSONResponse(status_code=500)
 
     # Signal detrending and integration (1st step)
     profile = Fractal.profile(raw.data.values)
@@ -756,9 +1038,11 @@ async def return_inactivity_mask_visualisation(workflow_id: str,
                                                 step_id: str,
                                                 run_id: str,
                                                 inactivity_masking_period_hour: str,
-                                                inactivity_masking_period_minutes: str):
+                                                inactivity_masking_period_minutes: str,
+                                               dataset: str):
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
     raw = pyActigraphy.io.read_raw_rpx(
-        '/neurodesktop-storage/runtime_config/workflow_3fa85f64-5717-4562-b3fc-2c963f66afa6/run_3fa85f64-5717-4562-b3fc-2c963f66afa6/step_3fa85f64-5717-4562-b3fc-2c963f66afa6/0345-024_18_07_2022_13_00_00_New_Analysis.csv'
+        path_to_storage + '/' + dataset
     )
     print(inactivity_masking_period_hour, inactivity_masking_period_minutes)
     my_duration = inactivity_masking_period_hour + 'h' + inactivity_masking_period_minutes + 'min'
@@ -787,13 +1071,24 @@ async def return_add_mask_period(workflow_id: str,
                                 step_id: str,
                                 run_id: str,
                                  mask_period_start: str,
-                                 mask_period_end: str):
-    original = r'/neurodesktop-storage/runtime_config/workflow_3fa85f64-5717-4562-b3fc-2c963f66afa6/run_3fa85f64-5717-4562-b3fc-2c963f66afa6/step_3fa85f64-5717-4562-b3fc-2c963f66afa6/0345-024_18_07_2022_13_00_00_New_Analysis.csv'
-    target = r'/neurodesktop-storage/runtime_config/workflow_3fa85f64-5717-4562-b3fc-2c963f66afa6/run_3fa85f64-5717-4562-b3fc-2c963f66afa6/step_3fa85f64-5717-4562-b3fc-2c963f66afa6/copy.csv'
+                                 mask_period_end: str,
+                                 dataset: str):
+    original = r'example_data/actigraph/0345-024_18_07_2022_13_00_00_New_Analysis.csv'
+    target = r'example_data/actigraph/dataset_copy.csv'
     shutil.copyfile(original, target)
 
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    file_exists = path_to_storage + '/output/' + 'AddMaskPeriodCopy.csv'
+    isExisting = os.path.exists(file_exists)
+    # print(isExisting)
+    if (isExisting == False):
+        source = path_to_storage + '/' + dataset
+        target = path_to_storage + '/output/' + 'AddMaskPeriodCopy.csv'
+        shutil.copyfile(source, target)
+    else:
+        print("The file already exists!")
     raw = pyActigraphy.io.read_raw_rpx(
-        '/neurodesktop-storage/runtime_config/workflow_3fa85f64-5717-4562-b3fc-2c963f66afa6/run_3fa85f64-5717-4562-b3fc-2c963f66afa6/step_3fa85f64-5717-4562-b3fc-2c963f66afa6/copy.csv'
+        path_to_storage + '/output/' + 'AddMaskPeriodCopy.csv'
     )
     # Create inactivity mask
     raw.add_mask_period(start=mask_period_start, stop=mask_period_end)
