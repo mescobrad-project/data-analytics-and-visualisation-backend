@@ -8,6 +8,7 @@ WORKDIR /data-analytics-and-visualisation-backend
 COPY ../../requirements.txt .
 RUN pip3 install --no-cache-dir --upgrade pip
 RUN pip3 install --no-cache-dir --upgrade numpy==1.22.4
+RUN #pip3 install --no-cache-dir --upgrade numpy==1.21.6
 RUN pip3 install --no-cache-dir --upgrade scipy==1.7.3
 RUN pip3 install --no-cache-dir --upgrade Cython==0.29.32
 RUN pip3 install --no-cache-dir --upgrade scikit-learn==1.0.1 --no-build-isolation

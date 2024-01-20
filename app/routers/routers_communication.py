@@ -529,7 +529,7 @@ async def function_save_data(
             for file in files_to_upload:
                 out_filename = path_to_storage + '/output/' + file
                 upload_object(bucket_name="common", object_name='workflows/'+ workflow_id+'/'+ run_id+'/'+
-                                                              step_id + '/' + file, file=out_filename)
+                                                              step_id+'/' + file, file=out_filename)
             return JSONResponse(content='info.json file has been successfully uploaded to the DataLake', status_code=200)
         except Exception as e:
             print(e)
