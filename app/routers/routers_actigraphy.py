@@ -35,6 +35,39 @@ from app.utils.utils_general import get_local_storage_path
 
 router = APIRouter()
 
+@router.get("/return_dates", tags=["actigraphy_analysis"])
+async def return_dates(workflow_id: str,
+                      run_id: str,
+                      step_id: str,
+                      dataset: str):
+    # Import dataset as pd dataframe excluding the first 150 rows
+    json_dataframe = ''
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    df = pd.read_csv(path_to_storage + '/' + dataset, skiprows=150)
+    df.drop(df.columns[[12]], axis=1, inplace=True)
+    df["DateTime"] = df[["Date", "Time"]].agg(" ".join, axis=1)
+    mylist = df['DateTime'].tolist()
+    new_list = []
+    numbers_list = []
+
+    for item in mylist:
+        if item[:2] not in numbers_list:
+            new_list.append(item[:10])
+            numbers_list.append(item[:2])
+
+    # Convert a String to a Date in Python
+    # Date and time in format "YYYY/MM/DD hh:mm:ss"
+    format_string = "%d/%m/%Y"
+
+    final_dates_list = []
+
+    for item in new_list:
+        # Convert start date string to date using strptime
+        datetime_date = datetime.strptime(item, format_string).date()
+        final_dates_list.append(str(datetime_date).replace("-", "/") + str(" 12:00:00"))
+
+    return{'dates': list(final_dates_list)}
+
 @router.get("/return_cole_kripke", tags=["actigraphy_analysis_assessment_algorithm"])
 async def return_cole_kripke(workflow_id: str,
                              run_id: str,
@@ -62,6 +95,7 @@ async def return_cole_kripke(workflow_id: str,
 async def return_daily_activity(workflow_id: str,
                                  run_id: str,
                                  step_id: str,
+                                 dataset: str,
                                  algorithm: str,
                                  start_date: str,
                                  end_date: str):
@@ -79,9 +113,10 @@ async def return_daily_activity(workflow_id: str,
     for i in range(0, (end_date_dt - start_date_dt).days + 1):
         datetime_list.append(str(start_date_dt + timedelta(days=i)) + str(" 12:00:00"))  # <-- here
     day_count = 1
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
     for i in datetime_list[:-1]:
         raw = pyActigraphy.io.read_raw_rpx(
-            'example_data/actigraph/0345-024_18_07_2022_13_00_00_New_Analysis.csv',
+            path_to_storage + '/' + dataset,
             start_time=i,
             period='1 day',
             language='ENG_UK'
@@ -189,6 +224,7 @@ def datetime_range(start, end, delta):
 async def return_daily_activity_activity_status_area(workflow_id: str,
                                                      run_id: str,
                                                      step_id: str,
+                                                     dataset: str,
                                                      start_date: str,
                                                      end_date: str):
     # Convert a String to a Date in Python
@@ -234,7 +270,9 @@ async def return_daily_activity_activity_status_area(workflow_id: str,
                           timedelta(seconds=15))]
     #     print(dts)
 
-    df = pd.read_csv('example_data/actigraph/0345-024_18_07_2022_13_00_00_New_Analysis.csv', skiprows=150)
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+
+    df = pd.read_csv(path_to_storage + '/' + dataset, skiprows=150)
     df["Datetime"] = df[["Date", "Time"]].apply(lambda x: " ".join(x), axis=1)
     df.drop(df.columns[[12]], axis=1, inplace=True)
     #     for datetime in date_list:
@@ -309,7 +347,7 @@ async def return_daily_activity_activity_status_area(workflow_id: str,
 
     for sublist in x_list_fixed:
         raw = pyActigraphy.io.read_raw_rpx(
-            'example_data/actigraph/0345-024_18_07_2022_13_00_00_New_Analysis.csv',
+            path_to_storage + '/' + dataset,
             start_time=datetime_list[raw_start_time],
             period='1 day',
             language='ENG_UK'
@@ -427,7 +465,9 @@ async def return_final_daily_activity_activity_status_area(workflow_id: str,
                           timedelta(seconds=15))]
     #     print(dts)
 
-    df = pd.read_csv('example_data/actigraph/copy.csv', skiprows=150)
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+
+    df = pd.read_csv(path_to_storage + '/output/' + 'NewAnalysisCopy.csv', skiprows=150)
     df["Datetime"] = df[["Date", "Time"]].apply(lambda x: " ".join(x), axis=1)
     df.drop(df.columns[[12]], axis=1, inplace=True)
     #     for datetime in date_list:
@@ -502,7 +542,7 @@ async def return_final_daily_activity_activity_status_area(workflow_id: str,
 
     for sublist in x_list_fixed:
         raw = pyActigraphy.io.read_raw_rpx(
-            'example_data/actigraph/copy.csv',
+            path_to_storage + '/output/' + 'NewAnalysisCopy.csv',
             start_time=datetime_list[raw_start_time],
             period='1 day',
             language='ENG_UK'
@@ -574,10 +614,12 @@ async def return_final_daily_activity_activity_status_area(workflow_id: str,
 @router.get("/return_initial_dataset", tags=["actigraphy_analysis"])
 async def return_initial_dataset(workflow_id: str,
                                  run_id: str,
-                                 step_id: str):
+                                 step_id: str,
+                                 dataset: str):
     # Import dataset as pd dataframe excluding the first 150 rows
     json_dataframe = ''
-    df = pd.read_csv('example_data/actigraph/0345-024_18_07_2022_13_00_00_New_Analysis.csv', skiprows=150)
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    df = pd.read_csv(path_to_storage + '/' + dataset, skiprows=150)
     df.drop(df.columns[[12]], axis=1, inplace=True)
     # df = df.set_index('Line')
     df_updated = df.head(100)
@@ -588,7 +630,9 @@ async def return_initial_dataset(workflow_id: str,
 @router.get("/return_final_dataset", tags=["actigraphy_analysis"])
 async def return_final_dataset(workflow_id: str,
                                  run_id: str,
-                                 step_id: str):
+                                 step_id: str,
+                               dataset: str):
+    # path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
     df = pd.read_excel(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + 'new_dataset.xlsx')
     # df.reset_index(inplace=True)
     # print(df)
@@ -600,10 +644,12 @@ async def return_final_dataset(workflow_id: str,
 async def change_activity_status(workflow_id: str,
                                 run_id: str,
                                 step_id: str,
+                                dataset: str,
                                 activity_status: str,
                                 start_date: str,
                                 end_date: str):
-    raw = pyActigraphy.io.read_raw_rpx('example_data/actigraph/0345-024_18_07_2022_13_00_00_New_Analysis.csv')
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    raw = pyActigraphy.io.read_raw_rpx(path_to_storage + '/' + dataset)
 
     # Convert the dates from string to datetime to change their format
     # Date and time in format "YYYY/MM/DD hh:mm:ss"
@@ -620,8 +666,19 @@ async def change_activity_status(workflow_id: str,
     start_date_final = start_date_dt.strftime("%d/%m/%Y %H:%M:%S")
     end_date_final = end_date_dt.strftime("%d/%m/%Y %H:%M:%S")
 
+    # Make a copy of the dataset which we will use to make our changes
+    file_exists = path_to_storage + '/output/' + 'NewAnalysisCopy.csv'
+    isExisting = os.path.exists(file_exists)
+    # print(isExisting)
+    if (isExisting == False):
+        source = path_to_storage + '/' + dataset
+        target = path_to_storage + '/output/' + 'NewAnalysisCopy.csv'
+        shutil.copyfile(source, target)
+    else:
+        print("The file already exists!")
+    # print(isExisting)
     # Import dataset as pd dataframe excluding the first 150 rows
-    df = pd.read_csv('example_data/actigraph/0345-024_18_07_2022_13_00_00_New_Analysis.csv', skiprows=150)
+    df = pd.read_csv(path_to_storage + '/output/' + 'NewAnalysisCopy.csv', skiprows=150)
 
     # Using DataFrame.apply() and lambda function to join the date and time columns to create a Datetime
     df["Datetime"] = df[["Date", "Time"]].apply(lambda x: " ".join(x), axis=1)
@@ -645,14 +702,16 @@ def change_final_csv(workflow_id: str,
     subject_properties = pd.DataFrame(columns=['Field', 'Value'])
     found = False
     count = 1
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
     df = pd.read_excel(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + 'new_dataset.xlsx')
     df = df.astype(str)
     # df.set_index('Line', inplace=True)
     print('"' + '","'.join(df.loc[0, :].values.flatten().tolist()) + '"')
-    with open("example_data/actigraph/copy.csv", 'r') as f:
+    # save the original file in the same path + output and use that one in the line below
+    with open(path_to_storage + '/output/' + 'NewAnalysisCopy.csv', 'r') as f:
         get_all = f.readlines()
 
-    with open("example_data/actigraph/copy.csv", 'w') as f:
+    with open(path_to_storage + '/output/' + 'NewAnalysisCopy.csv', 'w') as f:
         list_count = 0
         for i, line in enumerate(get_all, 1):
             if i >= 153:
@@ -662,48 +721,6 @@ def change_final_csv(workflow_id: str,
             else:
                 f.writelines(line)
 
-@router.get("/return_weekly_activity", tags=["actigraphy_analysis"])
-async def return_weekly_activity(workflow_id: str,
-                                 run_id: str,
-                                 step_id: str,
-                                 start_date: str,
-                                 end_date: str):
-    # Convert a String to a Date in Python
-    # Date and time in format "YYYY/MM/DD hh:mm:ss"
-    format_string = "%Y/%m/%d %H:%M:%S"
-
-    # Convert start date string to date using strptime
-    start_date_dt = datetime.strptime(start_date, format_string).date()
-    # Convert end date string to date using strptime
-    end_date_dt = datetime.strptime(end_date, format_string).date()
-
-    datetime_list = []
-    for i in range(0, (end_date_dt - start_date_dt).days + 1):
-        datetime_list.append(  str(start_date_dt + timedelta(days=i)) + str(" 12:00:00")  ) #<-- here
-    day_count = 1
-    for i in datetime_list:
-        raw = pyActigraphy.io.read_raw_rpx(
-            'example_data/actigraph/0345-024_18_07_2022_13_00_00_New_Analysis.csv',
-            start_time=i,
-            period='1 day',
-            language='ENG_UK'
-        )
-        layout = go.Layout(
-            title="Actigraphy data weekly activity day " + str(day_count),
-            xaxis=dict(title="Date time"),
-            yaxis=dict(title="Counts/period"),
-            showlegend=False
-        )
-        output = go.Figure(data=[go.Scatter(x=raw.data.index.astype(str), y=raw.data)], layout=layout)
-        # output.write_image("/output/actigraphy_visualisation.svg")
-        # export as static image
-        # pio.write_image(output, "C://neurodesktop-storage//runtime_config//workflow_1//run_1//step_1//output//" + str(day_count) + "actigraphy_visualisation.png")
-        pio.write_image(output, get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + str(
-            day_count) + '_actigraphy_visualisation.png')
-        day_count = day_count + 1
-        # return output
-        #output.show()
-
 
 @router.get("/return_functional_linear_modelling", tags=["actigraphy_analysis"])
 async def return_functional_linear_modelling(workflow_id: str,
@@ -711,13 +728,17 @@ async def return_functional_linear_modelling(workflow_id: str,
                                              step_id: str,
                                              dataset: str):
     # Define path
-    fpath = 'example_data/actigraph/'
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
     # Fourier basis expansion (Single)
-    raw = pyActigraphy.io.read_raw_rpx(
-        fpath + dataset + '.csv',
-        start_time='2022-07-18 12:00:00',
-        period='7 days'
-    )
+    try:
+        raw = pyActigraphy.io.read_raw_rpx(
+            path_to_storage + '/' + dataset,
+            start_time='2022-07-18 12:00:00',
+            period='7 days'
+        )
+    except Exception as e:
+        print(e)
+        return JSONResponse(status_code=500)
     # create objects for layout and traces
     # layout = go.Layout(autosize=False, width=850, height=600, title="", xaxis=dict(title=""), shapes=[],
     #                    showlegend=True)
@@ -761,14 +782,14 @@ async def return_multi_functional_linear_modelling(workflow_id: str,
                                              step_id: str,
                                              multiple_datasets: str):
     # Define path
-    fpath = 'example_data/actigraph/'
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
     raw = pyActigraphy.io.read_raw_rpx(
-        fpath + multiple_datasets + '.csv',
+        path_to_storage + '/' + multiple_datasets,
         start_time='2022-07-18 12:00:00',
         period='7 days'
     )
     # Fourier basis expansion (Multi)
-    reader = pyActigraphy.io.read_raw(fpath + multiple_datasets + '_example_*.csv', 'RPX', n_jobs=10, prefer='threads', verbose=10)
+    reader = pyActigraphy.io.read_raw(path_to_storage + multiple_datasets + '_example_*.csv', 'RPX', n_jobs=10, prefer='threads', verbose=10)
     # Define a FLM Object that can be (re-)used to fit the data
     flm_fourier = FLM(basis='fourier', sampling_freq='10min', max_order=10)
     # Fit all the recordings contained in the "reader":
@@ -803,15 +824,18 @@ async def return_singular_spectrum_analysis(workflow_id: str,
                                  run_id: str,
                                  step_id: str,
                                  dataset: str):
-
     # Define path
-    fpath = 'example_data/actigraph/'
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
     # Fourier basis expansion (Single)
-    raw = pyActigraphy.io.read_raw_rpx(
-        fpath + dataset + '.csv',
-        start_time='2022-07-18 12:00:00',
-        period='7 days'
-    )
+    try:
+        raw = pyActigraphy.io.read_raw_rpx(
+            path_to_storage + '/' + dataset,
+            start_time='2022-07-18 12:00:00',
+            period='7 days'
+        )
+    except Exception as e:
+        print(e)
+        return JSONResponse(status_code=500)
 
     # Scree diagram
     mySSA = SSA(raw.data, window_length='24h')
@@ -880,15 +904,18 @@ async def return_detrended_fluctuation_analysis(workflow_id: str,
                                  run_id: str,
                                  step_id: str,
                                  dataset: str):
-
     # Define path
-    fpath = 'example_data/actigraph/'
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
     # Fourier basis expansion (Single)
-    raw = pyActigraphy.io.read_raw_rpx(
-        fpath + dataset + '.csv',
-        start_time='2022-07-18 12:00:00',
-        period='7 days'
-    )
+    try:
+        raw = pyActigraphy.io.read_raw_rpx(
+            path_to_storage + '/' + dataset,
+            start_time='2022-07-18 12:00:00',
+            period='7 days'
+        )
+    except Exception as e:
+        print(e)
+        return JSONResponse(status_code=500)
 
     # Signal detrending and integration (1st step)
     profile = Fractal.profile(raw.data.values)
@@ -968,9 +995,11 @@ async def return_inactivity_mask_visualisation(workflow_id: str,
                                                 step_id: str,
                                                 run_id: str,
                                                 inactivity_masking_period_hour: str,
-                                                inactivity_masking_period_minutes: str):
+                                                inactivity_masking_period_minutes: str,
+                                               dataset: str):
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
     raw = pyActigraphy.io.read_raw_rpx(
-        'example_data/actigraph/0345-024_18_07_2022_13_00_00_New_Analysis.csv'
+        path_to_storage + '/' + dataset
     )
     print(inactivity_masking_period_hour, inactivity_masking_period_minutes)
     my_duration = inactivity_masking_period_hour + 'h' + inactivity_masking_period_minutes + 'min'
@@ -999,13 +1028,24 @@ async def return_add_mask_period(workflow_id: str,
                                 step_id: str,
                                 run_id: str,
                                  mask_period_start: str,
-                                 mask_period_end: str):
+                                 mask_period_end: str,
+                                 dataset: str):
     original = r'example_data/actigraph/0345-024_18_07_2022_13_00_00_New_Analysis.csv'
     target = r'example_data/actigraph/dataset_copy.csv'
     shutil.copyfile(original, target)
 
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    file_exists = path_to_storage + '/output/' + 'AddMaskPeriodCopy.csv'
+    isExisting = os.path.exists(file_exists)
+    # print(isExisting)
+    if (isExisting == False):
+        source = path_to_storage + '/' + dataset
+        target = path_to_storage + '/output/' + 'AddMaskPeriodCopy.csv'
+        shutil.copyfile(source, target)
+    else:
+        print("The file already exists!")
     raw = pyActigraphy.io.read_raw_rpx(
-        'example_data/actigraph/dataset_copy.csv'
+        path_to_storage + '/output/' + 'AddMaskPeriodCopy.csv'
     )
     # Create inactivity mask
     raw.add_mask_period(start=mask_period_start, stop=mask_period_end)
