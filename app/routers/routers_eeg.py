@@ -2145,7 +2145,7 @@ async def save_annotation_to_file(
 
 
 # TODO remove current user form param and ge from file
-@router.get("save_annotation_to_file", tags=["mne_open_eeg"])
+@router.get("/mne/open/eeg", tags=["mne_open_eeg"])
 # Validation is done inline in the input of the function
 # Slices are send in a single string and then de
 async def mne_open_eeg(workflow_id: str,
@@ -2204,7 +2204,7 @@ async def mne_open_eeg(workflow_id: str,
     # channel.send("nohup /usr/bin/code -n /home/user/neurodesktop-storage/created_1.ipynb --extensions-dir=/opt/vscode-extensions --disable-workspace-trust &\n")
 
 
-@router.get("/mne/open/eeg", tags=["mne_open_eeg"])
+@router.get("/mne/open/mne", tags=["mne_open_eeg"])
 # Validation is done inline in the input of the function
 # Slices are send in a single string and then de
 async def mne_open_mne(workflow_id: str, step_id: str, run_id: str, current_user: str | None = None) -> dict:
