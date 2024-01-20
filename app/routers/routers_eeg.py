@@ -2204,7 +2204,7 @@ async def mne_open_eeg(workflow_id: str,
     # channel.send("nohup /usr/bin/code -n /home/user/neurodesktop-storage/created_1.ipynb --extensions-dir=/opt/vscode-extensions --disable-workspace-trust &\n")
 
 
-@router.get("/mne/open/mne", tags=["mne_open_eeg"])
+@router.get("/mne/open/eeg", tags=["mne_open_eeg"])
 # Validation is done inline in the input of the function
 # Slices are send in a single string and then de
 async def mne_open_mne(workflow_id: str, step_id: str, run_id: str, current_user: str | None = None) -> dict:
@@ -5185,10 +5185,10 @@ async def group_sleep_analysis_sensitivity_add_subject_add_channels_final(
     #     list_second_hypnos.append(np.squeeze(df.to_numpy()))
 
     for group_name, group_data in group_hypno_list.items():
-        print("GROUP DATA  TO APPEND HYPNO LIST++++++++++++++++++++++++++++++++++++++++++++++++++++++")
-        print(type(group_data))
-        print(group_data)
-        print(group_data[0])
+        # print("GROUP DATA  TO APPEND HYPNO LIST++++++++++++++++++++++++++++++++++++++++++++++++++++++")
+        # print(type(group_data))
+        # print(group_data)
+        # print(group_data[0])
         # save and print hypnogram
         for it,group_channel_data in enumerate(group_data):
             yasa.plot_hypnogram(group_channel_data)
