@@ -1494,7 +1494,8 @@ async def kmeans_clustering(workflow_id: str,
         kmeans = KMeans(n_clusters=n_clusters, random_state=0).fit(dataset)
         df = pd.DataFrame(kmeans.cluster_centers_, columns=dataset.columns)
         print(kmeans.cluster_centers_)
-        dataset_new= dataset.insert(loc=0,column="Component", value=kmeans.labels_)
+        dataset_new = dataset
+        dataset_new.insert(loc=0,column="Component", value=kmeans.labels_)
         print("dataset_new")
         print(dataset_new)
         print(df)
