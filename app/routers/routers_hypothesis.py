@@ -6534,11 +6534,43 @@ async def Dataframe_preparation(workflow_id: str,
                 raise Exception(str(variable) + '- The selected variable cannot be found in the dataset.')
         print(method)
         print(variables)
+
         x = DataframeImputation(data,variables,method)
         if type(x) == str:
             test_status= 'Failed to impute values'
             raise Exception (x)
-        return JSONResponse(content={'status': 'Success', 'newdataFrame': x.to_json(orient='records')},
+        x.to_csv(path_to_storage + '/output/imputed_dataset.csv', index=False)
+
+        df = pd.DataFrame(x.describe())
+        df.insert(0, 'Index', df.index)
+        df1 = pd.DataFrame()
+        df1['Non Null Count'] = x.notna().sum()
+        df1['Dtype'] = x.dtypes
+        dfinfo = df1.T
+        dfinfo['Index'] = dfinfo.index
+        df = pd.concat([df, dfinfo], ignore_index=True)
+        print(df)
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            # Load existing data into a dict.
+            file_data = json.load(f)
+            # Join new data
+            new_data = {
+                    "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                    "workflow_id": workflow_id,
+                    "run_id": run_id,
+                    "step_id": step_id,
+                    "test_name": method,
+                    "test_params": variables
+            }
+            file_data['results'] = new_data
+            file_data['Output_datasets'] = [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
+                                             step_id + '/imputed_dataset.svg'}]
+            # Set file's current position at offset.
+            f.seek(0)
+            # convert back to json.
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+        return JSONResponse(content={'status': 'Success', 'newdataFrame': df.to_json(orient='records', default_handler=str)},
                             status_code=200)
     except Exception as e:
         print(e)
