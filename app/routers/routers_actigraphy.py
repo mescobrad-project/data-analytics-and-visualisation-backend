@@ -468,7 +468,7 @@ async def return_final_daily_activity_activity_status_area(workflow_id: str,
 
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
 
-    df = pd.read_csv(path_to_storage + '/output/' + 'NewAnalysisCopy.csv', skiprows=150)
+    df = pd.read_csv(path_to_storage + '/' + '0345-024_18_07_2022_13_00_00_New_Analysis.csv', skiprows=150)
     df["Datetime"] = df[["Date", "Time"]].apply(lambda x: " ".join(x), axis=1)
     df.drop(df.columns[[12]], axis=1, inplace=True)
     #     for datetime in date_list:
@@ -543,7 +543,7 @@ async def return_final_daily_activity_activity_status_area(workflow_id: str,
 
     for sublist in x_list_fixed:
         raw = pyActigraphy.io.read_raw_rpx(
-            path_to_storage + '/output/' + 'NewAnalysisCopy.csv',
+            path_to_storage + '/' + '0345-024_18_07_2022_13_00_00_New_Analysis.csv',
             start_time=datetime_list[raw_start_time],
             period='1 day',
             language='ENG_UK'
@@ -668,18 +668,18 @@ async def change_activity_status(workflow_id: str,
     end_date_final = end_date_dt.strftime("%d/%m/%Y %H:%M:%S")
 
     # Make a copy of the dataset which we will use to make our changes
-    file_exists = path_to_storage + '/output/' + 'NewAnalysisCopy.csv'
-    isExisting = os.path.exists(file_exists)
-    # print(isExisting)
-    if (isExisting == False):
-        source = path_to_storage + '/' + dataset
-        target = path_to_storage + '/output/' + 'NewAnalysisCopy.csv'
-        shutil.copyfile(source, target)
-    else:
-        print("The file already exists!")
+    # file_exists = path_to_storage + '/output/' + 'NewAnalysisCopy.csv'
+    # isExisting = os.path.exists(file_exists)
+    # # print(isExisting)
+    # if (isExisting == False):
+    #     source = path_to_storage + '/' + dataset
+    #     target = path_to_storage + '/output/' + 'NewAnalysisCopy.csv'
+    #     shutil.copyfile(source, target)
+    # else:
+    #     print("The file already exists!")
     # print(isExisting)
     # Import dataset as pd dataframe excluding the first 150 rows
-    df = pd.read_csv(path_to_storage + '/output/' + 'NewAnalysisCopy.csv', skiprows=150)
+    df = pd.read_csv(path_to_storage + '/' + dataset, skiprows=150)
 
     # Using DataFrame.apply() and lambda function to join the date and time columns to create a Datetime
     df["Datetime"] = df[["Date", "Time"]].apply(lambda x: " ".join(x), axis=1)
@@ -709,10 +709,10 @@ def change_final_csv(workflow_id: str,
     # df.set_index('Line', inplace=True)
     print('"' + '","'.join(df.loc[0, :].values.flatten().tolist()) + '"')
     # save the original file in the same path + output and use that one in the line below
-    with open(path_to_storage + '/output/' + 'NewAnalysisCopy.csv', 'r') as f:
+    with open(path_to_storage + '/' + '0345-024_18_07_2022_13_00_00_New_Analysis.csv', 'r') as f:
         get_all = f.readlines()
 
-    with open(path_to_storage + '/output/' + 'NewAnalysisCopy.csv', 'w') as f:
+    with open(path_to_storage + '/' + '0345-024_18_07_2022_13_00_00_New_Analysis.csv', 'w') as f:
         list_count = 0
         for i, line in enumerate(get_all, 1):
             if i >= 153:
