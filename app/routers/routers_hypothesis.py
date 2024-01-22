@@ -1494,6 +1494,8 @@ async def kmeans_clustering(workflow_id: str,
         kmeans = KMeans(n_clusters=n_clusters, random_state=0).fit(dataset)
         df = pd.DataFrame(kmeans.cluster_centers_, columns=dataset.columns)
         print(kmeans.cluster_centers_)
+        dataset_new= dataset.insert(loc=0,column="Component", value=kmeans.labels_)
+        pd.DataFrame(data=dataset_new).to_csv(path_to_storage+'/output/new_dataset.csv',index=False)
         to_return={'cluster_centers': df.to_json(orient='records'), 'sum_squared_dist' : kmeans.inertia_,
                    'iterations_No': kmeans.n_iter_}
                 # 'labels': kmeans.labels_.tolist(),
@@ -1514,7 +1516,8 @@ async def kmeans_clustering(workflow_id: str,
                     "test_results": to_return
             }
             file_data['results'] = new_data
-            file_data['Output_datasets'] = []
+            file_data['Output_datasets'] = [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id + '/new_dataset.csv'}]
             # Set file's current position at offset.
             f.seek(0)
             # convert back to json.
