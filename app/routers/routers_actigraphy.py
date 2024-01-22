@@ -266,7 +266,7 @@ async def return_daily_activity_activity_status_area(workflow_id: str,
     # print(start)
     # print(end)
 
-    dts = [dt.strftime('%d/%m/%Y %#H:%M:%S') for dt in
+    dts = [dt.strftime('%d/%m/%Y %-H:%M:%S') for dt in
            datetime_range(start, end,
                           timedelta(seconds=15))]
     #     print(dts)
@@ -461,7 +461,7 @@ async def return_final_daily_activity_activity_status_area(workflow_id: str,
     # print(start)
     # print(end)
 
-    dts = [dt.strftime('%d/%m/%Y %#H:%M:%S') for dt in
+    dts = [dt.strftime('%d/%m/%Y %-H:%M:%S') for dt in
            datetime_range(start, end,
                           timedelta(seconds=15))]
     #     print(dts)
