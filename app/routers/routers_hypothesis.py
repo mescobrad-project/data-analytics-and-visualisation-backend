@@ -1497,6 +1497,8 @@ async def kmeans_clustering(workflow_id: str,
         dataset_new= dataset.insert(loc=0,column="Component", value=kmeans.labels_)
         print("dataset_new")
         print(dataset_new)
+        print(df)
+        print(dataset)
         print(kmeans.labels_)
         pd.DataFrame(data=dataset_new,columns=dataset.columns).to_csv(path_to_storage+'/output/new_dataset.csv',index=False)
         to_return={'cluster_centers': df.to_json(orient='records'), 'sum_squared_dist' : kmeans.inertia_,
