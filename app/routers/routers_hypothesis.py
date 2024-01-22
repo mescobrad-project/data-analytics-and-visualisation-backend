@@ -170,8 +170,8 @@ async def save_hypothesis_output(item: FunctionOutputItem) -> dict:
         files_to_upload = [f for f in os.listdir(path_to_storage + '/output') if isfile(join(path_to_storage + '/output', f))]
         for file in files_to_upload:
             out_filename = path_to_storage + '/output/' + file
-            upload_object(bucket_name="demo", object_name='expertsystem/workflow/'+ item.workflow_id+'/'+ item.run_id+'/'+
-                                                          item.step_id+'/analysis_output/' + file, file=out_filename)
+            upload_object(bucket_name="demo", object_name='workflows/'+ item.workflow_id+'/'+ item.run_id+'/'+
+                                                          item.step_id+ file, file=out_filename)
         return JSONResponse(content='info.json file has been successfully uploaded to the DataLake', status_code=200)
     except Exception as e:
         print(e)
@@ -378,14 +378,14 @@ async def normal_tests(workflow_id: str, step_id: str, run_id: str,
                 'last_5': results_to_send['last_5']
             },
             'Output_datasets': [],
-            'Saved_plots': [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
-                                             step_id + '/analysis_output/BoxPlot.svg'},
-                                    {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
-                                             step_id + '/analysis_output/PPlot.svg'},
-                                    {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
-                                             step_id + '/analysis_output/HistogramPlot.svg'},
-                                    {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
-                                             step_id + '/analysis_output/QQPlot.svg'}
+            'Saved_plots': [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
+                                             step_id + 'BoxPlot.svg'},
+                                    {"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
+                                             step_id + '/PPlot.svg'},
+                                    {"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
+                                             step_id + '/HistogramPlot.svg'},
+                                    {"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
+                                             step_id + '/QQPlot.svg'}
                                     ]
         }
 
@@ -543,18 +543,18 @@ async def transform_data(workflow_id: str,
                 'top_5': results_to_send['top_5'],
                 'last_5': results_to_send['last_5']
             },
-            'Output_datasets': [{"file": 'expertsystem/workflow/'+ workflow_id+'/'+ run_id+'/'+
-                                         step_id+'/analysis_output' + '/new_dataset.csv'}],
-            'Saved_plots': [{"file": 'expertsystem/workflow/'+ workflow_id+'/'+ run_id+'/'+
-                                         step_id+'/analysis_output/BoxPlot.svg'},
-                            {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
-                                     step_id + '/analysis_output/PPlot.svg'},
-                            {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
-                                     step_id + '/analysis_output/HistogramPlot.svg'},
-                            {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
-                                     step_id + '/analysis_output/QQPlot.svg'},
-                            {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
-                                     step_id + '/analysis_output/Scatter_Two_Variables.svg'},
+            'Output_datasets': [{"file": 'workflows/'+ workflow_id+'/'+ run_id+'/'+
+                                         step_id+'/new_dataset.csv'}],
+            'Saved_plots': [{"file": 'workflows/'+ workflow_id+'/'+ run_id+'/'+
+                                         step_id+'/BoxPlot.svg'},
+                            {"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
+                                     step_id + '/PPlot.svg'},
+                            {"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
+                                     step_id + '/HistogramPlot.svg'},
+                            {"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
+                                     step_id + '/QQPlot.svg'},
+                            {"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
+                                     step_id + '/Scatter_Two_Variables.svg'},
                             ]
         }
         with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
@@ -685,16 +685,16 @@ async def point_biserial_correlation(workflow_id: str, step_id: str, run_id: str
                     "test_params": {'Binary variable': str(column_1),
                                     'Variable': str(column_2)},
                     "test_results": data_to_return,
-                    "Output_datasets":[{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
-                                                step_id + '/analysis_output' + '/new_dataset.csv'}],
-                    "Saved_plots": [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
-                                             step_id + '/analysis_output/BoxPlot.svg'},
-                                    {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
-                                             step_id + '/analysis_output/HistogramPlot_GroupA.svg'},
-                                    {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
-                                             step_id + '/analysis_output/HistogramPlot_GroupB.svg'},
-                                    {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
-                                             step_id + '/analysis_output/Scatter_Two_Variables.svg'}]
+                    "Output_datasets":[{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
+                                                step_id + '/new_dataset.csv'}],
+                    "Saved_plots": [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
+                                             step_id + '/BoxPlot.svg'},
+                                    {"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
+                                             step_id + '/HistogramPlot_GroupA.svg'},
+                                    {"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
+                                             step_id + '/HistogramPlot_GroupB.svg'},
+                                    {"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
+                                             step_id + '/Scatter_Two_Variables.svg'}]
                     }
                 file_data['results'] |= new_data
                 f.seek(0)
@@ -859,8 +859,8 @@ async def transform_data_anova(
             },
             "test_results": {
             },
-            "Output_datasets":[{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
-                                                    step_id + '/analysis_output' + '/new_dataset.csv'}],
+            "Output_datasets":[{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
+                                                    step_id + '/new_dataset.csv'}],
             'Saved_plots': []
         }
 
@@ -1090,8 +1090,8 @@ async def p_value_correction(workflow_id: str,
                     "test_results": ''
             }
             file_data['results'] = new_data
-            file_data['Output_datasets'] = [{"file": 'expertsystem/workflow/'+ workflow_id+'/'+ run_id+'/'+
-                                         step_id+'/analysis_output' + '/new_dataset.csv'}]
+            file_data['Output_datasets'] = [{"file": 'workflows/'+ workflow_id+'/'+ run_id+'/'+
+                                         step_id+'/new_dataset.csv'}]
             # Set file's current position at offset.
             f.seek(0)
             # convert back to json.
@@ -1414,11 +1414,11 @@ async def principal_component_analysis(workflow_id: str,
                                     'singular_values': singular_values.to_dict(),
                                     'principal_axes': principal_axes.to_dict()}}
             file_data['results'] = new_data
-            file_data['Output_datasets'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
-                                                     step_id + '/analysis_output' + '/principalComponents_Df.csv'}
+            file_data['Output_datasets'] = [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id + '/principalComponents_Df.csv'}
                                             ]
-            file_data['Saved_plots'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
-                                                 step_id + '/analysis_output/PCA.svg'}]
+            file_data['Saved_plots'] = [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
+                                                 step_id + '/PCA.svg'}]
             # Set file's current position at offset.
             f.seek(0)
             # convert back to json.
@@ -1668,8 +1668,8 @@ async def elastic_net(workflow_id: str,
                                  'dataframe': df.to_dict()}
             }
             file_data['results'] = new_data
-            file_data['Output_datasets'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
-                                                     step_id + '/analysis_output' + '/elastic_preds.csv'}]
+            file_data['Output_datasets'] = [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id + '/elastic_preds.csv'}]
             # Set file's current position at offset.
             f.seek(0)
             # convert back to json.
@@ -1793,8 +1793,8 @@ async def lasso(workflow_id: str,
                     'dataframe': df.to_dict()}
             }
             file_data['results'] = new_data
-            file_data['Output_datasets'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
-                                                     step_id + '/analysis_output' + '/lasso_preds.csv'}]
+            file_data['Output_datasets'] = [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id + '/lasso_preds.csv'}]
             # Set file's current position at offset.
             f.seek(0)
             # convert back to json.
@@ -1922,8 +1922,8 @@ async def ridge(workflow_id: str,
                                  'dataframe': df.to_dict()}
             }
             file_data['results'] = new_data
-            file_data['Output_datasets'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
-                                                     step_id + '/analysis_output' + '/ridge_preds.csv'}]
+            file_data['Output_datasets'] = [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id + '/ridge_preds.csv'}]
             # Set file's current position at offset.
             f.seek(0)
             # convert back to json.
@@ -2230,8 +2230,8 @@ async def sgd_regressor(workflow_id: str,
                                  'dataframe': df.to_dict()}
             }
             file_data['results'] = new_data
-            file_data['Output_datasets'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
-                                                     step_id + '/analysis_output' + '/sgd_preds.csv'}]
+            file_data['Output_datasets'] = [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id + '/sgd_preds.csv'}]
             # Set file's current position at offset.
             f.seek(0)
             # convert back to json.
@@ -2359,8 +2359,8 @@ async def huber_regressor(workflow_id: str,
                                  'dataframe': df.to_dict()}
             }
             file_data['results'] = new_data
-            file_data['Output_datasets'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
-                                                     step_id + '/analysis_output' + '/huber_preds.csv'}]
+            file_data['Output_datasets'] = [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id + '/huber_preds.csv'}]
             # Set file's current position at offset.
             f.seek(0)
             # convert back to json.
@@ -2486,8 +2486,8 @@ async def linear_svr_regressor(workflow_id: str,
                                  'dataframe': df.to_dict()}
             }
             file_data['results'] = new_data
-            file_data['Output_datasets'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
-                                                     step_id + '/analysis_output' + '/linearsvr_preds.csv'}]
+            file_data['Output_datasets'] = [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id + '/linearsvr_preds.csv'}]
             # Set file's current position at offset.
             f.seek(0)
             # convert back to json.
@@ -2588,8 +2588,8 @@ async def linear_svc_regressor(workflow_id: str,
                 "test_results": {}
             }
             file_data['results'] = new_data
-            file_data['Output_datasets'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
-                                                     step_id + '/analysis_output' + '/linearsvc.csv'}]
+            file_data['Output_datasets'] = [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id + '/linearsvc.csv'}]
             # Set file's current position at offset.
             f.seek(0)
             # convert back to json.
@@ -2866,8 +2866,8 @@ async def poisson_regression(workflow_id: str,
                                  'dataframe': df.to_dict()}
             }
             file_data['results'] = new_data
-            file_data['Output_datasets'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
-                                                     step_id + '/analysis_output' + '/poisson_preds.csv'}]
+            file_data['Output_datasets'] = [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id + '/poisson_preds.csv'}]
             # Set file's current position at offset.
             f.seek(0)
             # convert back to json.
@@ -4607,8 +4607,8 @@ async def linear_regression_statsmodels(workflow_id: str, step_id: str, run_id: 
                                     goldfeld_test.loc['ordering used in the alternative'][0]}
             }
             file_data['results'] = new_data
-            file_data['Output_datasets'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
-                                                     step_id + '/analysis_output' + '/influence_points.csv'}]
+            file_data['Output_datasets'] = [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id + '/influence_points.csv'}]
             # Set file's current position at offset.
             f.seek(0)
             # convert back to json.
