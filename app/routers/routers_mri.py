@@ -303,13 +303,22 @@ async def return_free_surfer_samseg(workflow_id: str,
                                    run_id: str,
                                    step_id: str,
                                    input_file_name: str,
+                                   lession: str,
+                                   lession_mask_pattern_file: str,
+                                   lession_mask_pattern_flair: str,
+                                   threshold: str,
                                    input_flair_file_name: str | None = None,
-                                    # input_slices: str,
-                                    ) -> dict:
+                                 # input_slices: str,
+                                   ) -> dict:
+
     # Retrieve the paths file from the local storage
     path_to_storage = get_local_neurodesk_storage_path(workflow_id, run_id, step_id)
     path_to_file = get_local_storage_path(workflow_id, run_id, step_id)
     # name_of_file = get_single_file_from_local_temp_storage(workflow_id, run_id, step_id)
+
+    if input_flair_file_name == "None":
+        input_flair_file_name = None
+    lession = (lession == "true")
 
     # Connect to neurodesktop through ssh
     ssh = paramiko.SSHClient()
@@ -375,12 +384,17 @@ async def return_free_surfer_samseg(workflow_id: str,
 
     print("nohup run_samseg" + " --input " + input_file_name + " -o ./output/samseg_output > ./output/samseg_log.txtr &\n")
 
+    command = f"nohup run_samseg --input {input_file_name}"
+
     if input_flair_file_name is None:
-        channel.send(
-            "nohup run_samseg" + " --input " + input_file_name + " -o ./output/samseg_output > ./output/samseg_log.txtr &\n")
-    else:
-        channel.send(
-            "nohup run_samseg" + " --input " + input_file_name + " " + input_flair_file_name + " -o ./output/samseg_output > ./output/samseg_log.txtr &\n")
+        command += f" {input_flair_file_name} --pallidum-separate"
+
+    if lession:
+        command += f" --lesion --lesion-mask-pattern {lession_mask_pattern_file} {lession_mask_pattern_flair} --threshold {threshold}"
+
+    command += " -o ./output/samseg_output > ./output/samseg_log.txtr &\n"
+
+    channel.send(command)
 
     # # If everything ok return Sucess
     to_return = "Success"
