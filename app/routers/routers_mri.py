@@ -816,6 +816,7 @@ async def reconall_stats_to_trino(workflow_id: str,
                                 step_id: str,
                                 run_id: str,
                                 patient_id: str) -> str:
+    # TODO Change auth methods or create a super function for upload to trino
     try:
         #patient id psakse an ginetai apo nifti
         #connect to trino
@@ -905,11 +906,14 @@ async def reconall_stats_to_trino(workflow_id: str,
 async def reconall_files_to_local(workflow_id: str,
                                 step_id: str,
                                 run_id: str) -> str :
+    # TODO Change this function and put functionality in create step, must check if function is recon_all_results and download them from there
+    # Or vhange so select works with any file
     try:
         path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
         if not os.path.exists(path_to_storage + "/output/ucl_test"):
             create_local_step(workflow_id=workflow_id, step_id=step_id, run_id=run_id, files_to_download=[{'bucket' : 'saved', 'file' :
                 'expertsystem/workflow/'+ workflow_id+'/'+ run_id+'/'+ step_id+'/output/ucl_test.zip', 'group_name': ''}])
+
             shutil.unpack_archive(path_to_storage + "/ucl_test.zip", path_to_storage)
             os.remove(path_to_storage + "/ucl_test.zip")
         return{'ok'}
