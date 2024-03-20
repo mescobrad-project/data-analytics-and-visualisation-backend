@@ -17,7 +17,8 @@ from fastapi.responses import JSONResponse
 from os.path import isfile, join
 import shutil
 import tempfile
-from app.utils.utils_general import create_local_step
+from app.utils.utils_general import create_local_step, get_all_files_from_local_temp_storage, \
+    get_single_nii_file_from_local_temp_storage
 from sqlalchemy.sql import text
 
 from app.utils.utils_general import validate_and_convert_peaks, validate_and_convert_power_spectral_density, \
@@ -62,6 +63,45 @@ async def list_mri_slices() -> dict:
     for it in range(1, 1000):
         to_send_slices.append("I" + str(it))
     return {'slices': to_send_slices}
+
+
+@router.get("/list_nii_files")
+async def list_nii_files(workflow_id: str, step_id: str, run_id: str):
+    """ This functions list all nii files in the working directory"""
+    # Get list of files from the local storage
+    try:
+        list_of_files = get_all_files_from_local_temp_storage(workflow_id, run_id, step_id)
+    except Exception as e:
+        print(e)
+        print("Error : Failed to retrieve file names")
+        return []
+
+    #     Remove not nii files
+    for file in list_of_files:
+        if not file.endswith(".nii"):
+            list_of_files.remove(file)
+
+    return {'files': list_of_files}
+
+
+@router.get("/list_ita_files")
+async def list_ita_files(workflow_id: str, step_id: str, run_id: str):
+    """ This functions list all ita files in the working directory"""
+    # Get list of files from the local storage
+    try:
+        list_of_files = get_all_files_from_local_temp_storage(workflow_id, run_id, step_id)
+    except Exception as e:
+        print(e)
+        print("Error : Failed to retrieve file names")
+        return []
+
+    #     Remove not ita files
+    for file in list_of_files:
+        if not file.endswith(".Ita"):
+            print("Removing file: ", file)
+            list_of_files.remove(file)
+
+    return {'files': list_of_files}
 
 
 @router.get("/freesurfer/status/", tags=["list_freesurfer_status"])
@@ -109,13 +149,13 @@ async def return_free_surfer_recon(workflow_id: str,
                                    run_id: str,
                                    step_id: str,
                                    # input_test_name: str,
-                                   # input_file: str,
+                                   file_name: str,
                                    ) -> dict:
     # Retrieve the paths file from the local storage
     # path_to_storage = NeurodesktopStorageLocation + '/runtime_config/workflow_' + str(workflow_id) + '/run_' + str(run_id) + '/step_' + str(step_id)
     path_to_storage = get_local_neurodesk_storage_path(workflow_id, run_id, step_id)
     path_to_file = get_local_storage_path(workflow_id, run_id, step_id)
-    name_of_file = get_single_file_from_local_temp_storage(workflow_id, run_id, step_id)
+    # name_of_file = get_single_file_from_local_temp_storage(workflow_id, run_id, step_id)
 
     # Connect to neurodesktop through ssh
     ssh = paramiko.SSHClient()
@@ -129,19 +169,17 @@ async def return_free_surfer_recon(workflow_id: str,
 
     display_id = get_neurodesk_display_id()
     channel.send("export DISPLAY=" + display_id + "\n")
-    channel.send("cd /home/user/\n")
-    channel.send("rm .license\n")
-
     channel.send("cd /neurocommand/local/bin/\n")
     channel.send("./freesurfer-7_1_1.sh\n")
+    channel.send("rm ~/.license\n")
     channel.send("echo \"mkontoulis@epu.ntua.gr\n")
     channel.send("60631\n")
     channel.send(" *CctUNyzfwSSs\n")
-    channel.send(" FSNy4xe75KyK.\" >> ~/.license\n")
+    channel.send(" FSNy4xe75KyK.\n")
+    channel.send(" D4GXfOXX8hArD8mYfI4OhNCQ8Gb00sflXj1yH6NEFxk=\" >> ~/.license\n")
     channel.send("export FS_LICENSE=~/.license\n")
-    channel.send("ls > ls1.txt\n")
-    channel.send("sudo chmod -R a+rwx /home/user/neurodesktop-storage\n")
     # channel.send("mkdir /neurodesktop-storage/freesurfer-output\n")
+    # channel.send("mkdir /neurodesktop-storage/freesurfer-output/test1\n")
     channel.send("source /opt/freesurfer-7.1.1/SetUpFreeSurfer.sh\n")
     channel.send("export SUBJECTS_DIR=/home/user" + path_to_file + "/output\n")
     # channel.send("export SUBJECTS_DIR=/neurodesktop-storage/freesurfer-output\n")
@@ -161,17 +199,25 @@ async def return_free_surfer_recon(workflow_id: str,
     #
     # channel.send("nohup freeview -v '/home/user" + path_to_file + "/" + name_of_file + "' &\n" )
 
-    channel.send("cd " + path_to_file + "\n")
+    channel.send("cd /home/user" + path_to_file + "/\n")
     # channel.send(
     #     "sudo chmod a+rw /home/user/neurodesktop-storage/runtime_config/workflow_" + workflow_id + "/run_" + run_id + "/step_" + step_id + "/neurodesk_interim_storage\n")
     channel.send(
-        "nohup recon-all -subject " + name_of_file + " -i ./" + name_of_file + " -all > ./output/recon_log.txtr &\n")
+        "sudo chmod 777 /home/user/neurodesktop-storage/runtime_config/workflow_" + workflow_id + "/run_" + run_id + "/step_" + step_id + "\n")
 
+    channel.send(
+        "sudo chmod 777 /home/user/neurodesktop-storage/runtime_config/workflow_" + workflow_id + "/run_" + run_id + "/step_" + step_id + "/neurodesk_interim_storage\n")
 
-    print("path_to_storage")
-    print(path_to_storage)
+    channel.send(
+        "sudo chmod 777 /home/user/neurodesktop-storage/runtime_config/workflow_" + workflow_id + "/run_" + run_id + "/step_" + step_id + "/output\n")
+
+    channel.send("sudo mkdir -m777 ./output/samseg_output > mkdir.txt\n")
+
+    channel.send(
+        "nohup recon-all -subject " + file_name + " -i ./" + file_name + " -all > ./output/recon_log.txtr &\n")
+
     print("Name of file")
-    print(name_of_file)
+    print(file_name)
     print("all")
     # # CONNECT THROUGH SSH TO DOCKER WITH FREESURFER
     # ssh = paramiko.SSHClient()
@@ -221,6 +267,18 @@ async def return_free_surfer_samseg_log(workflow_id: str,
 
     return False
 
+@router.get("/free_surfer/log/vol2vol", tags=["return_free_surfer_samseg"])
+async def return_free_surfer_log_vol2vol_coreg(workflow_id: str,
+                                   run_id: str,
+                                   step_id: str,
+                                   output_file: str,
+                                   ) -> dict:
+    """Check if vol2vol or coreg has finished by checking if the output file exists"""
+    path_to_output = os.path.join( get_local_storage_path(workflow_id, run_id, step_id), output_file)
+    if os.path.exists(path_to_output):
+        return True
+    else:
+        return False
 
 @router.get("free_surfer/recon/check", tags=["return_free_surfer_recon"])
 # Validation is done inline in the input of the function
@@ -244,13 +302,23 @@ async def return_free_surfer_recon_check(input_test_name_check: str) -> dict:
 async def return_free_surfer_samseg(workflow_id: str,
                                    run_id: str,
                                    step_id: str,
-                                    # input_test_name: str,
-                                    # input_slices: str,
-                                    ) -> dict:
+                                   input_file_name: str,
+                                   lession: str,
+                                   lession_mask_pattern_file: str,
+                                   lession_mask_pattern_flair: str,
+                                   threshold: str,
+                                   input_flair_file_name: str | None = None,
+                                 # input_slices: str,
+                                   ) -> dict:
+
     # Retrieve the paths file from the local storage
     path_to_storage = get_local_neurodesk_storage_path(workflow_id, run_id, step_id)
     path_to_file = get_local_storage_path(workflow_id, run_id, step_id)
-    name_of_file = get_single_file_from_local_temp_storage(workflow_id, run_id, step_id)
+    # name_of_file = get_single_file_from_local_temp_storage(workflow_id, run_id, step_id)
+
+    if input_flair_file_name == "None":
+        input_flair_file_name = None
+    lession = (lession == "true")
 
     # Connect to neurodesktop through ssh
     ssh = paramiko.SSHClient()
@@ -264,19 +332,17 @@ async def return_free_surfer_samseg(workflow_id: str,
 
     display_id = get_neurodesk_display_id()
     channel.send("export DISPLAY=" + display_id + "\n")
-    channel.send("cd /home/user/\n")
-    channel.send("rm .license\n")
-
     channel.send("cd /neurocommand/local/bin/\n")
     channel.send("./freesurfer-7_1_1.sh\n")
+    channel.send("rm ~/.license\n")
     channel.send("echo \"mkontoulis@epu.ntua.gr\n")
     channel.send("60631\n")
     channel.send(" *CctUNyzfwSSs\n")
-    channel.send(" FSNy4xe75KyK.\" >> ~/.license\n")
+    channel.send(" FSNy4xe75KyK.\n")
+    channel.send(" D4GXfOXX8hArD8mYfI4OhNCQ8Gb00sflXj1yH6NEFxk=\" >> ~/.license\n")
     channel.send("export FS_LICENSE=~/.license\n")
-    channel.send("ls > ls1.txt\n")
-    channel.send("sudo chmod -R a+rwx /home/user/neurodesktop-storage\n")
     # channel.send("mkdir /neurodesktop-storage/freesurfer-output\n")
+    # channel.send("mkdir /neurodesktop-storage/freesurfer-output/test1\n")
     channel.send("source /opt/freesurfer-7.1.1/SetUpFreeSurfer.sh\n")
     channel.send("export SUBJECTS_DIR=/home/user" + path_to_file + "/output\n")
     # channel.send("export SUBJECTS_DIR=/neurodesktop-storage/freesurfer-output\n")
@@ -296,22 +362,40 @@ async def return_free_surfer_samseg(workflow_id: str,
     #
     # channel.send("nohup freeview -v '/home/user" + path_to_file + "/" + name_of_file + "' &\n" )
 
-    channel.send("cd " + path_to_file + "\n")
+    # Move to working folder
+    channel.send("cd /home/user" + path_to_file + "/\n")
+    # channel.send("mkdir ./output/samseg_output\n")
+
+    # Give permissions in working folder
+    channel.send(
+        "sudo chmod 777 /home/user/neurodesktop-storage/runtime_config/workflow_" + workflow_id + "/run_" + run_id + "/step_" + step_id + "\n")
 
     channel.send(
-        "nohup run_samseg" + " --input " + name_of_file + " -o ./output/samseg_output > ./output/samseg_log.txtr &\n")
+        "sudo chmod 777 /home/user/neurodesktop-storage/runtime_config/workflow_" + workflow_id + "/run_" + run_id + "/step_" + step_id + "/neurodesk_interim_storage\n")
 
-    # # CONNECT THROUGH SSH TO DOCKER WITH FREESURFER
-    # ssh = paramiko.SSHClient()
-    # ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    # ssh.connect("free-surfer", 22, username ="root" , password="freesurferpwd")
-    #
-    #
-    # # Start recon COMMAND
-    # ssh.exec_command("ls > ls.txt")
-    # # ssh.exec_command("recon-all -subject subjectname -i /path/to/input_volume -T2 /path/to/T2_volume -T2pial -all")
-    # # Redirect output to log.txt in output folder that has been created
-    #
+    channel.send(
+        "sudo chmod 777 /home/user/neurodesktop-storage/runtime_config/workflow_" + workflow_id + "/run_" + run_id + "/step_" + step_id + "/output\n")
+
+    # channel.send(
+    #     "sudo chmod 777 /home/user/neurodesktop-storage/runtime_config/workflow_" + workflow_id + "/run_" + run_id + "/step_" + step_id + "/output/samseg_output\n")
+
+    channel.send("sudo mkdir -m777 ./output/samseg_output > mkdir.txt\n")
+
+
+    print("nohup run_samseg" + " --input " + input_file_name + " -o ./output/samseg_output > ./output/samseg_log.txtr &\n")
+
+    command = f"nohup run_samseg --input {input_file_name}"
+
+    if input_flair_file_name is None:
+        command += f" {input_flair_file_name} --pallidum-separate"
+
+    if lession:
+        command += f" --lesion --lesion-mask-pattern {lession_mask_pattern_file} {lession_mask_pattern_flair} --threshold {threshold}"
+
+    command += " -o ./output/samseg_output > ./output/samseg_log.txtr &\n"
+
+    channel.send(command)
+
     # # If everything ok return Sucess
     to_return = "Success"
     return to_return
@@ -368,7 +452,8 @@ async def return_free_view(input_test_name: str, input_slices: str,
 async def return_free_view_simple( workflow_id: str,
                                   step_id: str,
                                   run_id: str,
-                                  file_to_open: str | None = None) -> dict:
+                                  file_to_open: str | None = None,
+                                  file_to_open_2: str | None = None) -> dict:
     # CONNECT THROUGH SSH TO DOCKER WITH FREESURFER
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -403,17 +488,159 @@ async def return_free_view_simple( workflow_id: str,
 
     # Get file name to open with EDFBrowser
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
-    name_of_file = get_single_file_from_local_temp_storage(workflow_id, run_id, step_id)
-    file_full_path = path_to_storage + "/" + name_of_file
+    name_of_file = get_single_nii_file_from_local_temp_storage(workflow_id, run_id, step_id)
+    # file_full_path = path_to_storage + "/" + name_of_file
 
+    channel.send("cd " + path_to_storage + "\n")
+
+    # If no specific file name is provided open the first nii file in the folder
+    if file_to_open is None:
+        channel.send("nohup freeview -v" + name_of_file + " &\n")
+    else:
+        if(file_to_open_2 is not None):
+            channel.send("nohup freeview -v " + file_to_open + " " + file_to_open_2 + " &\n")
+        else:
+            channel.send("nohup freeview -v " + file_to_open + " &\n")
     # channel.send("nohup freeview -v &\n")
-    channel.send("nohup freeview -v '/home/user" + file_full_path + "' &\n")
+    # channel.send("nohup freeview -v '/home/user" + file_full_path + "' &\n")
 
     # If everything ok return Success
     to_return = "Success"
     return to_return
 
-# TODO freesuerfer/recon/
+
+@router.get("/free_surfer/coreg/", tags=["return_free_view"])
+# Validation is done inline in the input of the function
+# Slices are send in a single string and then de
+async def return_free_surfer_coreg( workflow_id: str,
+                                  step_id: str,
+                                  run_id: str,
+                                  ref_file_name: str,
+                                  flair_file_name: str,
+                                  ) -> dict:
+    # CONNECT THROUGH SSH TO DOCKER WITH FREESURFER
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect("neurodesktop", 22, username="user", password="password")
+
+    channel = ssh.invoke_shell()
+    response = channel.recv(9999)
+    print(channel)
+    print(channel.send_ready())
+    display_id = get_neurodesk_display_id()
+    channel.send("export DISPLAY=" + display_id + "\n")
+    # channel.send("nohup firefox &\n")
+
+
+    channel.send("cd /neurocommand/local/bin/\n")
+    channel.send("./freesurfer-7_1_1.sh\n")
+    channel.send("rm ~/.license\n")
+    channel.send("echo \"mkontoulis@epu.ntua.gr\n")
+    channel.send("60631\n")
+    channel.send(" *CctUNyzfwSSs\n")
+    channel.send(" FSNy4xe75KyK.\n")
+    channel.send(" D4GXfOXX8hArD8mYfI4OhNCQ8Gb00sflXj1yH6NEFxk=\" >> ~/.license\n")
+    channel.send("export FS_LICENSE=~/.license\n")
+    # channel.send("mkdir /neurodesktop-storage/freesurfer-output\n")
+    # channel.send("mkdir /neurodesktop-storage/freesurfer-output/test1\n")
+    channel.send("source /opt/freesurfer-7.1.1/SetUpFreeSurfer.sh\n")
+    # channel.send("export SUBJECTS_DIR=/home/user/neurodesktop-storage/runtime_config/workflow_" + workflow_id + "/run_" + run_id + "/step_" + step_id + "\n")
+
+
+    # # Give permissions in working folder
+    # channel.send(
+    #     "sudo chmod 777 /home/user/neurodesktop-storage/runtime_config/workflow_" + workflow_id + "/run_" + run_id + "/step_" + step_id + "/neurodesk_interim_storage\n")
+    #
+    channel.send(
+        "sudo chmod 777 /home/user/neurodesktop-storage/runtime_config/workflow_" + workflow_id + "/run_" + run_id + "/step_" + step_id + "\n")
+
+
+    # Get file name to open with EDFBrowser
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    # name_of_file = get_single_file_from_local_temp_storage(workflow_id, run_id, step_id)
+    # reg_file_path = path_to_storage + "/" + reg_file_name
+    # flair_file_path = path_to_storage + "/" + flair_file_name
+
+    # Move to path
+    # channel.send("ls > ls131231124124.txt\n")
+    print("cd /home/user" + path_to_storage + "/\n")
+    channel.send("cd /home/user" + path_to_storage + "/\n")
+    # channel.send("sudo chmod 777 ./output/\n")
+    channel.send("ls > ls1123.txt\n")
+    # The created file has name "flairToT1_" + ref_file_name to keep track of it
+    # print("nohup mri_coreg --mov "+ flair_file_name + " --ref " + ref_file_name + " --reg flairToT1_" + ref_file_name[:-4] + ".lta > logs_coreg.txt &\n")
+    channel.send("nohup mri_coreg --mov " + flair_file_name + " --ref " + ref_file_name + " --reg flairToT1_" + ref_file_name[:-4] + ".lta > ./logs_coreg.txt &\n")
+
+    # If everything ok return Success
+    to_return = "Success"
+    return to_return
+
+
+@router.get("/free_surfer/vol2vol/", tags=["return_free_view"])
+# Validation is done inline in the input of the function
+# Slices are send in a single string and then de
+async def return_free_surfer_vol2vol( workflow_id: str,
+                                  step_id: str,
+                                  run_id: str,
+                                  ref_file_name: str,
+                                  flair_file_name: str,
+                                  target_file_name: str,
+                                  ) -> dict:
+    # CONNECT THROUGH SSH TO DOCKER WITH FREESURFER
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect("neurodesktop", 22, username="user", password="password")
+
+    channel = ssh.invoke_shell()
+    response = channel.recv(9999)
+    print(channel)
+    print(channel.send_ready())
+    display_id = get_neurodesk_display_id()
+    channel.send("export DISPLAY=" + display_id + "\n")
+    # channel.send("nohup firefox &\n")
+
+    channel.send("cd /neurocommand/local/bin/\n")
+    channel.send("./freesurfer-7_1_1.sh\n")
+    channel.send("rm ~/.license\n")
+    channel.send("echo \"mkontoulis@epu.ntua.gr\n")
+    channel.send("60631\n")
+    channel.send(" *CctUNyzfwSSs\n")
+    channel.send(" FSNy4xe75KyK.\n")
+    channel.send(" D4GXfOXX8hArD8mYfI4OhNCQ8Gb00sflXj1yH6NEFxk=\" >> ~/.license\n")
+    channel.send("export FS_LICENSE=~/.license\n")
+    channel.send("mkdir /neurodesktop-storage/freesurfer-output\n")
+    channel.send("mkdir /neurodesktop-storage/freesurfer-output/test1\n")
+    channel.send("source /opt/freesurfer-7.1.1/SetUpFreeSurfer.sh\n")
+    channel.send("export SUBJECTS_DIR=/neurodesktop-storage/freesurfer-output\n")
+
+    # Give permissions in working folder
+    channel.send(
+        "sudo chmod 777 /home/user/neurodesktop-storage/runtime_config/workflow_" + workflow_id + "/run_" + run_id + "/step_" + step_id + "/neurodesk_interim_storage\n")
+
+    channel.send(
+        "sudo chmod 777 /home/user/neurodesktop-storage/runtime_config/workflow_" + workflow_id + "/run_" + run_id + "/step_" + step_id + "\n")
+
+    # Get file name to open with EDFBrowser
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+
+    # name_of_file = get_single_file_from_local_temp_storage(workflow_id, run_id, step_id)
+    flair_file_path = path_to_storage + "/" + flair_file_name
+    target_file_path = path_to_storage + "/" + flair_file_name
+
+    channel.send("cd /home/user" + path_to_storage + "/\n")
+
+    # Output file has name "flair_reg_" + flair_file_name to keep track of it
+    # Name of reg file is derived automatically from the name of the reference file as produced in the previous step
+    # print("nohup mri_vol2vol --mov " + flair_file_name + " --reg flairToT1_" + ref_file_name[:-4] + ".lta --o flair_reg_" + ref_file_name + " --targ " + target_file_name + " &\n")
+    channel.send("nohup mri_vol2vol --mov " + flair_file_name + " --reg flairToT1_" + ref_file_name[:-4] + ".lta --o flair_reg_" +  ref_file_name + " --targ " + target_file_name + " > ./log_vol2.txt &\n")
+
+    # If everything ok return Success
+    to_return = "Success"
+    return to_return
+
+
+
+
 @router.get("/free_surfer/", tags=["return_free_surfer"])
 # Validation is done inline in the input of the function
 # If file input is niifty the input_file parameter should contain the name and path of the file
@@ -538,15 +765,15 @@ async def return_reconall_stats_table(workflow_id: str,
     path_to_folder = get_local_storage_path(workflow_id, run_id, step_id)
     if "*" in file_name:
         path_to_file = os.path.join(path_to_folder, "output", "ucl_test", "stats", "l" + file_name[1:])
-        stats_dict = load_stats_measurements_table(path_to_file, 0)
+        stats_dict = load_stats_measurements_table(path_to_file, 0, False)
         print(stats_dict["table"])
         path_to_file = os.path.join(path_to_folder, "output", "ucl_test", "stats", "r" + file_name[1:])
-        right = load_stats_measurements_table(path_to_file, len(stats_dict["table"]))["table"]
+        right = load_stats_measurements_table(path_to_file, len(stats_dict["table"]), False)["table"]
         stats_dict["table"] = pd.concat([stats_dict["table"], right])
         print(stats_dict["table"])
     else:
         path_to_file = os.path.join(path_to_folder, "output", "ucl_test", "stats", file_name)
-        stats_dict = load_stats_measurements_table(path_to_file, 0)
+        stats_dict = load_stats_measurements_table(path_to_file, 0, False)
 
     stats_dict["table"] = stats_dict["table"].to_dict('records')
     return stats_dict

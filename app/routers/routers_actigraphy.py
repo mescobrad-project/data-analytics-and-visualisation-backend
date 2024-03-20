@@ -76,7 +76,7 @@ async def return_dates(workflow_id: str,
 async def return_cole_kripke(workflow_id: str,
                              run_id: str,
                              step_id: str):
-    raw = pyActigraphy.io.read_raw_rpx('example_data/actigraph/0345-024_18_07_2022_13_00_00_New_Analysis.csv',
+    raw = pyActigraphy.io.read_raw_rpx('/neurodesktop-storage/runtime_config/workflow_3fa85f64-5717-4562-b3fc-2c963f66afa6/run_3fa85f64-5717-4562-b3fc-2c963f66afa6/step_3fa85f64-5717-4562-b3fc-2c963f66afa6/0345-024_18_07_2022_13_00_00_New_Analysis.csv',
                                        start_time='2022-07-18 12:00:00',
                                        period='1 day',
                                        language='ENG_UK'
@@ -234,7 +234,8 @@ async def return_daily_activity_activity_status_area(workflow_id: str,
     # Convert a String to a Date in Python
     # Date and time in format "YYYY/MM/DD hh:mm:ss"
     format_string = "%Y/%m/%d %H:%M:%S"
-
+    print(start_date)
+    print(end_date)
     # Convert start date string to date using strptime
     start_date_dt = datetime.strptime(start_date, format_string).date()
     # Convert end date string to date using strptime
@@ -760,6 +761,48 @@ async def save_csv_as_edf(workflow_id: str,
     fname = path_to_storage + '/output/' + 'dataset.edf'
     mne.export.export_raw(fname, raw, overwrite=True)
     # raw.export(fname, overwrite=True, verbose=True)
+@router.get("/return_weekly_activity", tags=["actigraphy_analysis"])
+async def return_weekly_activity(workflow_id: str,
+                                 run_id: str,
+                                 step_id: str,
+                                 start_date: str,
+                                 end_date: str):
+    # Convert a String to a Date in Python
+    # Date and time in format "YYYY/MM/DD hh:mm:ss"
+    format_string = "%Y/%m/%d %H:%M:%S"
+
+    # Convert start date string to date using strptime
+    start_date_dt = datetime.strptime(start_date, format_string).date()
+    # Convert end date string to date using strptime
+    end_date_dt = datetime.strptime(end_date, format_string).date()
+
+    datetime_list = []
+    for i in range(0, (end_date_dt - start_date_dt).days + 1):
+        datetime_list.append(  str(start_date_dt + timedelta(days=i)) + str(" 12:00:00")  ) #<-- here
+    day_count = 1
+    for i in datetime_list:
+        raw = pyActigraphy.io.read_raw_rpx(
+            '/neurodesktop-storage/runtime_config/workflow_3fa85f64-5717-4562-b3fc-2c963f66afa6/run_3fa85f64-5717-4562-b3fc-2c963f66afa6/step_3fa85f64-5717-4562-b3fc-2c963f66afa6/0345-024_18_07_2022_13_00_00_New_Analysis.csv',
+            start_time=i,
+            period='1 day',
+            language='ENG_UK'
+        )
+        layout = go.Layout(
+            title="Actigraphy data weekly activity day " + str(day_count),
+            xaxis=dict(title="Date time"),
+            yaxis=dict(title="Counts/period"),
+            showlegend=False
+        )
+        output = go.Figure(data=[go.Scatter(x=raw.data.index.astype(str), y=raw.data)], layout=layout)
+        # output.write_image("/output/actigraphy_visualisation.svg")
+        # export as static image
+        # pio.write_image(output, "C://neurodesktop-storage//runtime_config//workflow_1//run_1//step_1//output//" + str(day_count) + "actigraphy_visualisation.png")
+        pio.write_image(output, get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + str(
+            day_count) + '_actigraphy_visualisation.png')
+        day_count = day_count + 1
+        # return output
+        #output.show()
+
 
 @router.get("/return_functional_linear_modelling", tags=["actigraphy_analysis"])
 async def return_functional_linear_modelling(workflow_id: str,
@@ -1124,7 +1167,7 @@ async def actigraphymetrics(workflow_id: str,
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
     try:
         test_status = 'Unable to retrieve actigraphy file.'
-        # raw = pyActigraphy.io.read_raw_rpx('example_data/actigraph/0345-024_18_07_2022_13_00_00_New_Analysis.csv')
+        # raw = pyActigraphy.io.read_raw_rpx('/neurodesktop-storage/runtime_config/workflow_3fa85f64-5717-4562-b3fc-2c963f66afa6/run_3fa85f64-5717-4562-b3fc-2c963f66afa6/step_3fa85f64-5717-4562-b3fc-2c963f66afa6/0345-024_18_07_2022_13_00_00_New_Analysis.csv')
         raw = pyActigraphy.io.read_raw_rpx(path_to_storage + "/" + file)
         test_status = 'Unable to compute metrics.'
 
@@ -1249,7 +1292,7 @@ async def cosinoranalysis(workflow_id: str,
     try:
         test_status = 'Unable to retrieve actigraphy file.'
         # TODO : file or files?
-        # raw = pyActigraphy.io.read_raw_rpx('example_data/actigraph/0345-024_18_07_2022_13_00_00_New_Analysis.csv')
+        # raw = pyActigraphy.io.read_raw_rpx('/neurodesktop-storage/runtime_config/workflow_3fa85f64-5717-4562-b3fc-2c963f66afa6/run_3fa85f64-5717-4562-b3fc-2c963f66afa6/step_3fa85f64-5717-4562-b3fc-2c963f66afa6/0345-024_18_07_2022_13_00_00_New_Analysis.csv')
         raw = pyActigraphy.io.read_raw_rpx(path_to_storage + "/" + file)
         test_status = 'Unable to set cosinor values.'
         json_response = json.loads(cosinor_parameters)
@@ -1269,8 +1312,11 @@ async def cosinoranalysis(workflow_id: str,
         # cosinor_obj.fit_initial_params.pretty_print()
         test_status = 'Unable to load Cosinor initial values.'
         data = CosinorParameters.get_values(cosinor_obj)
-        test_status = 'Unable to execute Cosinor fit.'
-        results = cosinor_obj.fit(raw, verbose=True)
+        test_status = 'Unable to get Cosinor values.'
+        print(raw.data.index)
+        print(data)
+        results = cosinor_obj.fit(raw.data, verbose=True)
+        print(results)
         test_status = 'Unable to plot Cosinor fit.'
         fig = go.Figure(go.Scatter(x=raw.data.index.astype(str), y=raw.data))
         fig.write_image(path_to_storage + "/output/cosinor.svg", format="svg")
@@ -1282,7 +1328,7 @@ async def cosinoranalysis(workflow_id: str,
                 "workflow_id": workflow_id,
                 "run_id": run_id,
                 "step_id": step_id,
-                "test_name": 'Kaplan Meier Fitter',
+                "test_name": 'Cosinor fit',
                 "test_params": {
                     'file': file,
                     'cosinor_parameters': data
