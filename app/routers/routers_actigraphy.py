@@ -2,6 +2,8 @@ import csv
 import inspect
 from time import strftime
 import json
+
+import mne
 import numpy as np
 from fastapi import Query, APIRouter
 import pyActigraphy
@@ -25,6 +27,8 @@ import pandas
 import plotly.graph_objs as go
 import plotly.io as pio
 from plotly.subplots import make_subplots
+
+from app.utils.utils_eeg import load_file_from_local_or_interim_edfbrowser_storage
 from app.utils.utils_general import get_local_storage_path, get_single_file_from_local_temp_storage, load_data_from_csv, \
     load_file_csv_direct
 
@@ -136,7 +140,7 @@ async def return_daily_activity(workflow_id: str,
             fig.add_scatter(x=raw.data.index.astype(str), y=raw.data, mode='markers', name='Visualisation', row=1, col=1)
             fig.add_scatter(x=CK.index.astype(str), y=CK, mode='lines', name='Cole/Kripke Assessment', row=2, col=1)
             output = go.Figure(data=[go.Scatter(x=raw.data.index.astype(str), y=raw.data, mode='markers')], layout=layout)
-            fig.update_layout(title='Cole/Kripke Rest/Activity detection day ' + str(day_count), width=800, height=800, dragmode='select',
+            fig.update_layout(title='Cole/Kripke Rest/Activity detection day ' + str(day_count), width=800, height=600, dragmode='select',
                               activeselection=dict(fillcolor='yellow'))
             graphJSON = plotly.io.to_json(fig, pretty=True)
             graph_JSON_list.append(plotly.io.to_json(fig, pretty=True))
@@ -157,7 +161,7 @@ async def return_daily_activity(workflow_id: str,
             fig.add_scatter(x=sadeh.index.astype(str), y=sadeh, mode='lines', name='Sadeh Assessment', row=2, col=1)
             fig.add_scatter(x=scripps.index.astype(str), y=scripps, mode='lines', name='Scripps Assessment', row=2, col=1)
             output = go.Figure(data=[go.Scatter(x=raw.data.index.astype(str), y=raw.data, mode='markers')], layout=layout)
-            fig.update_layout(title='Sadeh/Scripp Rest/Activity detection day ' + str(day_count), width=800, height=800, dragmode='select',
+            fig.update_layout(title='Sadeh/Scripp Rest/Activity detection day ' + str(day_count), width=800, height=600, dragmode='select',
                               activeselection=dict(fillcolor='yellow'))
             graphJSON = plotly.io.to_json(fig, pretty=True)
             graph_JSON_list.append(plotly.io.to_json(fig, pretty=True))
@@ -176,7 +180,7 @@ async def return_daily_activity(workflow_id: str,
             fig.add_scatter(x=raw.data.index.astype(str), y=raw.data, mode='markers', name='Visualisation', row=1, col=1)
             fig.add_scatter(x=oakley.index.astype(str), y=oakley, mode='lines', name='Oakley (thr: medium)', row=2, col=1)
             fig.add_scatter(x=oakley_auto.index.astype(str), y=oakley_auto, mode='lines', name='Oakley (thr: automatic)', row=2, col=1)
-            fig.update_layout(title='Oakley Rest/Activity detection day ' + str(day_count), width=800, height=800, dragmode='select',
+            fig.update_layout(title='Oakley Rest/Activity detection day ' + str(day_count), width=800, height=600, dragmode='select',
                               activeselection=dict(fillcolor='yellow'))
             graphJSON = plotly.io.to_json(fig, pretty=True)
             graph_JSON_list.append(plotly.io.to_json(fig, pretty=True))
@@ -200,7 +204,7 @@ async def return_daily_activity(workflow_id: str,
                             row=2, col=1)
             fig.add_scatter(x=crespo_zeta.index.astype(str), y=crespo_zeta, mode='lines', name='Crespo (Automatic)',
                             row=2, col=1)
-            fig.update_layout(title='Oakley Rest/Activity detection day ' + str(day_count), width=800, height=800, dragmode='select',
+            fig.update_layout(title='Oakley Rest/Activity detection day ' + str(day_count), width=800, height=600, dragmode='select',
                               activeselection=dict(fillcolor='yellow'))
             graph_JSON_list.append(plotly.io.to_json(fig, pretty=True))
             # graphJSON = graphJSON + plotly.io.to_json(fig, pretty=True)
@@ -387,32 +391,6 @@ async def return_daily_activity_activity_status_area(workflow_id: str,
                               activeselection=dict(fillcolor='yellow'))
             day_count = day_count + 1
             raw_start_time = raw_start_time + 1
-
-    # for i in datetime_list[:-2]:
-    #     raw = pyActigraphy.io.read_raw_rpx(
-    #         'copy.csv',
-    #         start_time=i,
-    #         period='1 day',
-    #         language='ENG_UK'
-    #     )
-    #     # raw.create_inactivity_mask(duration='2h00min')
-    #     fig.add_scatter(x=raw.data.index.astype(str), y=raw.data, mode='lines', line=dict(width=2, color=cols[0]),
-    #                     name='Visualisation', row=day_count, col=1)
-    #     fig.add_vline(x=x0_list[x0_count], row=day_count, col=1)
-    #     fig.add_vline(x=x1_list[x1_count], row=day_count, col=1)
-    #     fig.add_vrect(x0=x0_list[x0_count], x1=x1_list[x1_count],
-    #                   annotation_text="REST Period", annotation_position="top left",
-    #                   fillcolor="green", opacity=0.25, line_width=0, row=day_count, col=1)
-    #     x0_count = x0_count + 1
-    #     x1_count = x1_count + 1
-    #     # fig.add_scatter(x=raw.mask.index.astype(str), y=raw.mask, yaxis='y2',mode='lines', line=dict(width=2, color=cols[1]), name='Inactivity Mask', row=day_count, col=1)
-    #     fig.update_layout(title='Activity Visualisation', width=800, height=1400,
-    #                       dragmode='select',
-    #                       activeselection=dict(fillcolor='yellow'))
-    #     day_count = day_count + 1
-
-    # fig.show()
-    # print(datetime_list)
     graphJSON = plotly.io.to_json(fig, pretty=True)
     return {"visualisation_figure": graphJSON}
 
@@ -582,32 +560,6 @@ async def return_final_daily_activity_activity_status_area(workflow_id: str,
                               activeselection=dict(fillcolor='yellow'))
             day_count = day_count + 1
             raw_start_time = raw_start_time + 1
-
-    # for i in datetime_list[:-2]:
-    #     raw = pyActigraphy.io.read_raw_rpx(
-    #         'copy.csv',
-    #         start_time=i,
-    #         period='1 day',
-    #         language='ENG_UK'
-    #     )
-    #     # raw.create_inactivity_mask(duration='2h00min')
-    #     fig.add_scatter(x=raw.data.index.astype(str), y=raw.data, mode='lines', line=dict(width=2, color=cols[0]),
-    #                     name='Visualisation', row=day_count, col=1)
-    #     fig.add_vline(x=x0_list[x0_count], row=day_count, col=1)
-    #     fig.add_vline(x=x1_list[x1_count], row=day_count, col=1)
-    #     fig.add_vrect(x0=x0_list[x0_count], x1=x1_list[x1_count],
-    #                   annotation_text="REST Period", annotation_position="top left",
-    #                   fillcolor="green", opacity=0.25, line_width=0, row=day_count, col=1)
-    #     x0_count = x0_count + 1
-    #     x1_count = x1_count + 1
-    #     # fig.add_scatter(x=raw.mask.index.astype(str), y=raw.mask, yaxis='y2',mode='lines', line=dict(width=2, color=cols[1]), name='Inactivity Mask', row=day_count, col=1)
-    #     fig.update_layout(title='Activity Visualisation', width=800, height=1400,
-    #                       dragmode='select',
-    #                       activeselection=dict(fillcolor='yellow'))
-    #     day_count = day_count + 1
-
-    # fig.show()
-    # print(datetime_list)
     graphJSON = plotly.io.to_json(fig, pretty=True)
     return {"visualisation_figure_final": graphJSON}
 
@@ -721,6 +673,93 @@ def change_final_csv(workflow_id: str,
             else:
                 f.writelines(line)
 
+@router.get("/save_csv_as_edf", tags=["actigraphy_analysis"])
+async def save_csv_as_edf(workflow_id: str,
+                          run_id: str,
+                          step_id: str):
+    # data = load_file_from_local_or_interim_edfbrowser_storage(False, workflow_id, run_id, step_id)
+    #
+    # raw_data = data.get_data(return_times=True)
+    # # print(raw_data)
+    # print(raw_data[0])
+    # print(len(raw_data[0][0]))
+    # print('===========================================================')
+    # print(raw_data[1])
+    # print(len(raw_data[1]))
+    # info = data.info
+    # channels = data.ch_names
+    # return
+
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    df = pd.read_csv(path_to_storage + '/output/' + 'NewAnalysisCopy.csv', skiprows=150)
+    mid_df = df[["Date", "Time", "Activity", "White Light", "Red Light", "Green Light", "Blue Light"]]
+    mid_df['Datetime'] = mid_df['Date'] + ' ' + mid_df['Time']
+    final_df = mid_df.drop(['Date', 'Time'], axis=1)
+
+    # convert to datetime using pd.to_datetime
+    final_df['Datetime'] = pd.to_datetime(final_df['Datetime'])
+    # convert the datetime column to a pandas datetime object
+    final_df['Datetime'] = final_df[['Datetime']].apply(lambda x: x[0].timestamp(), axis=1).astype(int)
+    # drop the first row
+    final_df = final_df.iloc[1:, :]
+    # print(final_df)
+
+    # Repalce NaN with zero on all columns
+    final_df = final_df.fillna(0)
+
+    # Applying the method
+    check_nan = final_df.isnull().values.any()
+
+    # printing the result
+    # print(check_nan)
+    # print(final_df)
+    # print('=========================================')
+
+    # convert the Datetime column to numpy array
+    timestamp_array = final_df['Datetime'].to_numpy()
+
+    # convert the rest of the columns to another numpy array
+    data_array = final_df[['Activity', 'White Light', 'Red Light', 'Green Light', 'Blue Light']].to_numpy()
+
+    # transpose both of them
+    timestamp_array_transposed = np.transpose(timestamp_array)
+    time_final = timestamp_array_transposed.tolist()
+    data_array_transposed = np.transpose(data_array)
+    data_final = data_array_transposed.tolist()
+    # print(data_final)
+    new_data_final = []
+
+    # "copy" the data 15 times so that we don't have to change the frequency to 1/15 from 1
+    for channel in data_final:
+        temp_channel = []
+        for entry in channel:
+            i = 0
+            while i <= 14:
+                temp_channel.append(entry)
+                i = i + 1
+        new_data_final.append(temp_channel)
+    data_final = new_data_final
+    # print(data_final)
+    # print(data_array_transposed)
+
+    # create the variables needed for the mne library
+    ch_names = ["Activity", "White Light", "Red Light", "Green Light", "Blue Light"]
+    sfreq = 1
+
+    # Create the info structure needed by MNE
+    info = mne.create_info(ch_names, sfreq, ch_types='misc')
+    print(info)
+    # create the final 2d array to push it to the mne RawArray function
+    data = np.array(data_final, dtype=object)
+
+    # Finally, create the Raw object
+    raw = mne.io.RawArray(data, info, verbose=True)
+
+    # check their output
+    # export as edf file and save it in the output folder
+    fname = path_to_storage + '/output/' + 'dataset.edf'
+    mne.export.export_raw(fname, raw, overwrite=True)
+    # raw.export(fname, overwrite=True, verbose=True)
 
 @router.get("/return_functional_linear_modelling", tags=["actigraphy_analysis"])
 async def return_functional_linear_modelling(workflow_id: str,
