@@ -8,6 +8,7 @@ from os.path import isfile, join
 
 import requests
 from fastapi import APIRouter, Request
+from keycloak import KeycloakOpenID
 from pydantic import BaseModel
 from fastapi.responses import RedirectResponse
 from starlette.responses import JSONResponse
@@ -31,6 +32,17 @@ NeurodesktopStorageLocation = os.environ.get('NeurodesktopStorageLocation') if o
 
 FrontendAddress = os.environ.get('FrontendAddress') if os.environ.get(
     'FrontendAddress') else "http://localhost:3005"
+
+TRINO_HOST="https://trino.mescobrad.digital-enabler.eng.it"
+TRINO_PORT="443"
+TRINO_SCHEME="https"
+keycloak_url = "https://idm.digital-enabler.eng.it/auth/realms/mescobrad/protocol/openid-connect/token"
+
+keycloak_openid = KeycloakOpenID(server_url="https://idm.digital-enabler.eng.it/auth/",
+                                 client_id="home-app",
+                                 realm_name="mescobrad",
+                                 client_secret_key="")
+
 
 ExistingFunctions = [
     # EEG

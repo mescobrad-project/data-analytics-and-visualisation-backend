@@ -15,6 +15,7 @@ import mpld3
 import numpy as np
 from fastapi.responses import JSONResponse
 from os.path import isfile, join
+from keycloak import KeycloakOpenID
 import shutil
 import tempfile
 from app.utils.utils_general import create_local_step, get_all_files_from_local_temp_storage, \
@@ -45,6 +46,8 @@ from sqlalchemy import create_engine
 
 
 router = APIRouter()
+
+
 
 class FunctionOutputItem(BaseModel):
     """
