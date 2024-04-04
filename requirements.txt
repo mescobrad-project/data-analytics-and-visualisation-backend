@@ -29,6 +29,7 @@ lightgbm==3.3.5
 minio==7.1.12
 mne-qt-browser==0.4.0
 mpld3==0.5.7
+nibabel==5.2.1
 numpydoc==1.5.0
 paramiko==2.11.0
 pexpect==4.8.0
@@ -60,6 +61,7 @@ sqlalchemy==1.4.46
 tables==3.8.0
 textdistance==4.5.0
 three-merge==0.1.1
+torch==2.2.2
 trino==0.326.0
 uri-template==1.2.0
 uvicorn==0.17.5

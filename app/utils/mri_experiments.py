@@ -3,10 +3,10 @@ from datetime import datetime
 import argparse
 import torch
 
-from participants import get_participants
-from conv3D import Conv3D_large, Conv3D_small
-from mri_dataloaders import train_eval_dataloaders
-from training import train_eval_model
+from app.utils.participants import get_participants
+from app.utils.conv3D import Conv3D_large, Conv3D_small
+from app.utils.mri_dataloaders import train_eval_dataloaders
+from app.utils.training import train_eval_model
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Run experiment with 3D Convolutional Neural Networks.")

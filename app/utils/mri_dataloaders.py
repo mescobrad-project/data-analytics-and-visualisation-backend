@@ -1,7 +1,7 @@
 import os
 import torch
 from torch.utils.data import DataLoader, RandomSampler
-from mri_generator import MRI_Generator
+from app.utils.mri_generator import MRI_Generator
 
 def train_eval_dataloaders(data_path,
                            dataset_train,

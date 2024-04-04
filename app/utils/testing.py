@@ -2,7 +2,7 @@ import numpy as np
 import torch
 from sklearn import metrics
 import nibabel as nib
-from mri_dataloaders import test_dataloader
+from app.utils.mri_dataloaders import test_dataloader
 
 
 def mri_prediction(model_path, mri_path):

@@ -4,17 +4,18 @@ router = APIRouter()
 
 @router.get("/ai_experiment")
 async def ai_experiment(
-       iterations : int | 5,
-       participants_path: str ,
-       data_path: str,
-       model_type: str |"small",
-       batch_size: int | 16,
-       eval_size: int| 8,
-       lr: float| 0.001,
-       patience: int| 3,
-       workflow_id: str,
-       step_id: str,
-       run_id: str) -> dict:
+        workflow_id: str,
+        step_id: str,
+        run_id: str,
+        participants_path: str ,
+        data_path: str,
+        iterations : int = 5,
+        model_type: str = "small",
+        batch_size: int = 16,
+        eval_size: int = 8,
+        lr: float = 0.001,
+        patience: int = 3,
+       ) -> dict:
 
     results= run_experiment(iterations,
                    participants_path,
