@@ -280,6 +280,19 @@ async def return_free_surfer_log_vol2vol_coreg(workflow_id: str,
     else:
         return False
 
+@router.get("/free_surfer/log/synthseg", tags=["return_free_surfer_log_synthseg"])
+async def return_free_surfer_log_synthseg(workflow_id: str,
+                                   run_id: str,
+                                   step_id: str,
+                                   output_file: str,
+                                   ) -> dict:
+    """Check if synthseg has finished by checking if the output file exists"""
+    path_to_output = os.path.join( get_local_storage_path(workflow_id, run_id, step_id), output_file)
+    if os.path.exists(path_to_output):
+        return True
+    else:
+        return False
+
 @router.get("free_surfer/recon/check", tags=["return_free_surfer_recon"])
 # Validation is done inline in the input of the function
 # Check status of freesurfer function run
@@ -295,6 +308,116 @@ async def return_free_surfer_recon_check(input_test_name_check: str) -> dict:
     to_return = "Logs"
     return {'status': to_return}
 
+@router.get("/free_surfer/synthseg", tags=["return_free_surfer_synthseg"])
+# Validation is done inline in the input of the function
+# Slices are send in a single string and then de
+async def run_synthseg(workflow_id: str,
+                        run_id: str,
+                        step_id: str,
+                        input_file_name: str,
+                        parc: str,
+                        robust: str,
+                        fast: str,
+                        vol_save: str,
+                        qc_save: str,
+                        post_save: str,
+                        resample_save: str) -> dict:
+
+    # Retrieve the paths file from the local storage
+    # path_to_storage = NeurodesktopStorageLocation + '/runtime_config/workflow_' + str(workflow_id) + '/run_' + str(run_id) + '/step_' + str(step_id)
+    path_to_storage = get_local_neurodesk_storage_path(workflow_id, run_id, step_id)
+    path_to_file = get_local_storage_path(workflow_id, run_id, step_id)
+    # name_of_file = get_single_file_from_local_temp_storage(workflow_id, run_id, step_id)
+
+    parc = (parc == "true")
+    robust = (robust == "true")
+    fast = (fast == "true")
+    vol_save = (vol_save == "true")
+    qc_save = (qc_save == "true")
+    post_save = (post_save == "true")
+    resample_save = (resample_save == "true")
+    # Connect to neurodesktop through ssh
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect("neurodesktop", 22, username="user", password="password")
+
+    channel = ssh.invoke_shell()
+    response = channel.recv(9999)
+    print(channel)
+    print(channel.send_ready())
+
+    display_id = get_neurodesk_display_id()
+    channel.send("export DISPLAY=" + display_id + "\n")
+    channel.send("cd /neurocommand/local/bin/\n")
+    channel.send("./freesurfer-7_1_1.sh\n")
+    channel.send("rm ~/.license\n")
+    channel.send("echo \"mkontoulis@epu.ntua.gr\n")
+    channel.send("60631\n")
+    channel.send(" *CctUNyzfwSSs\n")
+    channel.send(" FSNy4xe75KyK.\n")
+    channel.send(" D4GXfOXX8hArD8mYfI4OhNCQ8Gb00sflXj1yH6NEFxk=\" >> ~/.license\n")
+    channel.send("export FS_LICENSE=~/.license\n")
+    # channel.send("mkdir /neurodesktop-storage/freesurfer-output\n")
+    # channel.send("mkdir /neurodesktop-storage/freesurfer-output/test1\n")
+    channel.send("source /opt/freesurfer-7.1.1/SetUpFreeSurfer.sh\n")
+    channel.send("export SUBJECTS_DIR=/home/user" + path_to_file + "/output\n")
+    # channel.send("export SUBJECTS_DIR=/neurodesktop-storage/freesurfer-output\n")
+    #
+    # channel.send("export SUBJECTS_DIR=/home/user" + path_to_storage + "/output\n")
+    # channel.send("export SUBJECTS_DIR=" + path_to_storage + "\n")
+    # channel.send("export SUBJECTS_DIR=/neurodesktop-storage/freesurfer-output" + "\n")
+    # channel.send("cd /neurodesktop-storage/freesurfer-output-2\n")
+    # channel.send("cd " + path_to_file + "\n")
+    # channel.send("ls > ls1.txt\n")
+
+    # Get file name to open with EDFBrowser
+    # path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    # name_of_file = get_single_file_from_local_temp_storage(workflow_id, run_id, step_id)
+    # file_full_path = path_to_storage + "/" + name_of_file
+    # channel.send("nohup freeview -v '/home/user" + file_full_path + "' &\n")
+    #
+    # channel.send("nohup freeview -v '/home/user" + path_to_file + "/" + name_of_file + "' &\n" )
+
+    channel.send("cd /home/user" + path_to_file + "/\n")
+    # channel.send(
+    #     "sudo chmod a+rw /home/user/neurodesktop-storage/runtime_config/workflow_" + workflow_id + "/run_" + run_id + "/step_" + step_id + "/neurodesk_interim_storage\n")
+    channel.send(
+        "sudo chmod 777 /home/user/neurodesktop-storage/runtime_config/workflow_" + workflow_id + "/run_" + run_id + "/step_" + step_id + "\n")
+
+    channel.send(
+        "sudo chmod 777 /home/user/neurodesktop-storage/runtime_config/workflow_" + workflow_id + "/run_" + run_id + "/step_" + step_id + "/neurodesk_interim_storage\n")
+
+    channel.send(
+        "sudo chmod 777 /home/user/neurodesktop-storage/runtime_config/workflow_" + workflow_id + "/run_" + run_id + "/step_" + step_id + "/output\n")
+
+    channel.send("sudo mkdir -m777 ./output/samseg_output > mkdir.txt\n")
+    input_file_name_name = input_file_name.split(".")[0]
+
+
+    synthseg_cmd = f"mri_synthseg --i {input_file_name} --o converted_nii_{input_file_name}"
+
+    if parc:
+        synthseg_cmd += " --parc"
+    if robust:
+        synthseg_cmd += " --robust"
+    if fast:
+        synthseg_cmd += " --fast"
+
+    if vol_save:
+        synthseg_cmd += f" --vol vol_{input_file_name_name}.csv"
+    if qc_save:
+        synthseg_cmd += f" --qc qc_{input_file_name_name}.csv"
+    if post_save:
+        synthseg_cmd += f" --post post_{input_file_name}"
+    if resample_save:
+        synthseg_cmd += f" --resample resample_{input_file_name}"
+
+    # Finalize the command with nohup, output redirection, and background execution
+    synthseg_cmd = f"nohup {synthseg_cmd} > ./output/synthseg_log.txtr &\n"
+    print(synthseg_cmd)
+    channel.send(synthseg_cmd)
+    to_return = "Success"
+    return to_return
 
 @router.get("/free_surfer/samseg", tags=["return_free_samseg"])
 # Validation is done inline in the input of the function
@@ -821,6 +944,8 @@ async def reconall_stats_to_trino(workflow_id: str,
         #connect to trino
         TRINO__USR = "mescobrad-dwh-user"
         TRINO__PSW = "dwhouse"
+
+
 
         engine = create_engine(
             f"trino://{TRINO__USR}@trino.mescobrad.digital-enabler.eng.it:443/postgresql",
