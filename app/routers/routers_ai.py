@@ -25,6 +25,6 @@ async def ai_experiment(
                    eval_size,
                    lr,
                    patience)
-    return true
+    return {"results": results}
     # files = get_files_for_slowwaves_spindle(workflow_id, run_id, step_id)
     # path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)

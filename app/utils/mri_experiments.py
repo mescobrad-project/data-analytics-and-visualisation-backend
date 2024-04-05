@@ -50,9 +50,9 @@ def run_experiment(iterations,
         #torch.save(trained_model.state_dict(), '../saved_models/' + f'{type(model).__name__}_experiment{i+1}.pth') 
 
         # θελουμε και testing εδω?        
-    
-        print()
+    return True
+        # print()
 
-if __name__ == "__main__":
-    args = parse_arguments()
-    run_experiment(args.iterations, args.participants_path, args.data_path, args.model_type, args.batch_size, args.eval_size, args.lr, args.patience)
+# if __name__ == "__main__":
+#     args = parse_arguments()
+#     run_experiment(args.iterations, args.participants_path, args.data_path, args.model_type, args.batch_size, args.eval_size, args.lr, args.patience)
