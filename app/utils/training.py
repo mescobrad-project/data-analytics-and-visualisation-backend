@@ -6,7 +6,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 def train_model(train_dataloader, model, optimizer):
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print("Using device: ", device, flush=True)
+    # print("Using device: ", device, flush=True)
     model.to(device)
     model.train()
     
