@@ -54,6 +54,13 @@ services:
     networks:
       - mri-freesurfer-network
       - analytics-network
+    deploy:
+      resources:
+        reservations:
+          devices:
+             - driver: nvidia
+               count: all
+               capabilities: [ gpu ]
 
 networks:
   analytics-network:
