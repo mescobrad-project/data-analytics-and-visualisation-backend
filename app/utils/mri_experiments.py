@@ -38,7 +38,7 @@ def run_experiment(iterations,
     os.makedirs(NeurodesktopStorageLocation + f'model_data/saved_models_{timestamp}/') #For value exist_ok=True leaves directory unaltered.
     
     for i in range(iterations):
-        print(" ----- Currently on iteration no. {} ----- ".format(i+1))
+        print(" ----- Currently on iteration no. {} ----- ".format(i+1), flush=True)
         
         dataset_train, dataset_test = get_participants(participants_path)
         train_dataloader, eval_dataloader = train_eval_dataloaders(data_path, dataset_train, eval_size, batch_size)
