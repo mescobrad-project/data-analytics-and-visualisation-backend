@@ -35,7 +35,7 @@ def run_experiment(iterations,
     assert model_type in ['large', 'small']
     
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
-    os.makedirs(NeurodesktopStorageLocation + f'model_data/saved_models_{timestamp}/') #For value exist_ok=True leaves directory unaltered.
+    os.makedirs(NeurodesktopStorageLocation + f'/model_data/saved_models_{timestamp}/') #For value exist_ok=True leaves directory unaltered.
     
     for i in range(iterations):
         print(" ----- Currently on iteration no. {} ----- ".format(i+1), flush=True)
