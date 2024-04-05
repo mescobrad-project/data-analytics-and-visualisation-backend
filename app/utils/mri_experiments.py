@@ -8,6 +8,9 @@ from app.utils.conv3D import Conv3D_large, Conv3D_small
 from app.utils.mri_dataloaders import train_eval_dataloaders
 from app.utils.training import train_eval_model
 
+NeurodesktopStorageLocation = os.environ.get('NeurodesktopStorageLocation') if os.environ.get(
+    'NeurodesktopStorageLocation') else "/neurodesktop-storage"
+
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Run experiment with 3D Convolutional Neural Networks.")
     parser.add_argument("--iterations", type=int, default=5, help="Number of iterations to run the experiment.")
@@ -46,7 +49,7 @@ def run_experiment(iterations,
             model = Conv3D_small()
         
         trained_model = train_eval_model(train_dataloader, eval_dataloader, model, lr, patience)
-        torch.save(trained_model, f'model_data/saved_models_{timestamp}/' + f'{type(model).__name__}_experiment{i+1}.pth')
+        torch.save(trained_model, NeurodesktopStorageLocation + f'model_data/saved_models_{timestamp}/' + f'{type(model).__name__}_experiment{i+1}.pth')
         #torch.save(trained_model.state_dict(), '../saved_models/' + f'{type(model).__name__}_experiment{i+1}.pth') 
 
         # θελουμε και testing εδω?        
