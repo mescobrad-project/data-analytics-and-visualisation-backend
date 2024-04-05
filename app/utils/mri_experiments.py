@@ -49,7 +49,7 @@ def run_experiment(iterations,
             model = Conv3D_small()
         
         trained_model = train_eval_model(train_dataloader, eval_dataloader, model, lr, patience)
-        torch.save(trained_model, NeurodesktopStorageLocation + f'model_data/saved_models_{timestamp}/' + f'{type(model).__name__}_experiment{i+1}.pth')
+        torch.save(trained_model, NeurodesktopStorageLocation + f'/model_data/saved_models_{timestamp}/' + f'{type(model).__name__}_experiment{i+1}.pth')
         #torch.save(trained_model.state_dict(), '../saved_models/' + f'{type(model).__name__}_experiment{i+1}.pth') 
 
         # θελουμε και testing εδω?        
