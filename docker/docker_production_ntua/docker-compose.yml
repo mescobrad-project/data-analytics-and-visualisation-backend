@@ -48,7 +48,7 @@ services:
     volumes:
       - '/home/gpu/mescobrad/neurodesktop-storage:/neurodesktop-storage'
     ports:
-      - "127.0.0.1:7000:8000"
+      - "7000:8000"
     depends_on:
       - neurodesktop
     networks:
