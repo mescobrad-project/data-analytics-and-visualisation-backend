@@ -2,7 +2,8 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 
 def get_participants(participants_path):
-    # print("Getting participants...", flush=True)
+
+    print('get participants started')
     # all participants dataframe
     df = pd.read_csv(participants_path, sep='\t')
 
@@ -23,3 +24,4 @@ def get_participants(participants_path):
 
     # print("GetParticipants is finished" , flush=True)
     return dataset_train, dataset_test
+
