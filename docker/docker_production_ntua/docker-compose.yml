@@ -1,22 +1,22 @@
 version: '3.7'
 
 services:
-#  nginx:
-#    build:
-#      context: "../nginx/"
-#      dockerfile: ./Dockerfile
-#    ports:
-#      - 85:80
-#      - 470:443
-#      - 472:444
-#      - 471:445
-#      - 473:446
-#      - 474:447
-#    depends_on:
-#      - analytics-backend
-#    networks:
-#      - mri-freesurfer-network
-#      - analytics-network
+  nginx:
+    build:
+      context: "../nginx/"
+      dockerfile: ./Dockerfile
+    ports:
+      - 85:80
+      - 470:443
+      - 472:444
+      - 471:445
+      - 473:446
+      - 474:447
+    depends_on:
+      - analytics-backend
+    networks:
+      - mri-freesurfer-network
+      - analytics-network
 
   neurodesktop:
     privileged: true
@@ -28,7 +28,7 @@ services:
       - neurodesk-volume:/MES-CoBraD Input
       - '/home/ntua/neurodesktop-storage:/neurodesktop-storage'
     ports:
-      - '127.0.0.1:8081:8080'
+      - '8081:8080'
     networks:
       - mri-freesurfer-network
     shm_size: 1gb
