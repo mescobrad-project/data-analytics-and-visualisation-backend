@@ -22,4 +22,6 @@ def get_participants(participants_path):
     dataset_train = dataset_train.sample(frac=1).reset_index(drop = True)
     dataset_test = dataset_test.sample(frac=1).reset_index(drop = True)
 
+    # print("GetParticipants is finished" , flush=True)
     return dataset_train, dataset_test
+
