@@ -15,7 +15,6 @@ def lrp_explanation(model_path,
                     mri_slice,
                     output_file_path,
                     label=None,
-                    fig=None, ax=None,
                     vmin=90, vmax=99.9):
   
     model = torch.load(model_path)
@@ -64,8 +63,7 @@ def lrp_explanation(model_path,
     assert 0<=mri_slice and mri_slice<=shape[2]
     z_idx=mri_slice
 
-    if fig is None or ax is None:
-        fig, ax = plt.subplots(1, figsize=(12, 12))
+    fig, ax = plt.subplots(1, figsize=(12, 12))
     
     cmap = mcolors.LinearSegmentedColormap.from_list(name='alphared',
                                                   colors=[(1, 0, 0, 0),
