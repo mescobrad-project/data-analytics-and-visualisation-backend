@@ -1,5 +1,6 @@
 # @title mri_explanations.py
 
+import numpy as np
 from copy import deepcopy
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
@@ -15,7 +16,7 @@ def lrp_explanation(model_path,
                     output_file_path,
                     label=None,
                     fig=None, ax=None,
-                    vmin=90, vmax=99.9, set_nan=True):
+                    vmin=90, vmax=99.9):
   
     model = torch.load(model_path)
 
@@ -70,9 +71,8 @@ def lrp_explanation(model_path,
                                                   colors=[(1, 0, 0, 0),
                                                          "darkred", "red", "darkorange", "orange", "yellow"], N=5000)
 
-    if brain_img is not None:
-        brain_img = tensor_mri[0,0,:,:,:].permute(1, 2, 0)
-        ax.imshow(brain_img[x_idx, y_idx, z_idx].T, cmap="Greys")
+    brain_img = tensor_mri[0,0,:,:,:].permute(1, 2, 0)
+    ax.imshow(brain_img[x_idx, y_idx, z_idx].T, cmap="Greys")
 
     vmin_val, vmax_val = np.percentile(ref_scale, vmin), np.percentile(ref_scale, vmax)
     img = heatmap[0,0,:,:,:].permute(1, 2, 0)
