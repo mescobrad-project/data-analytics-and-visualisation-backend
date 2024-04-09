@@ -3,7 +3,6 @@ from sklearn.model_selection import train_test_split
 
 def get_participants(participants_path):
 
-    print('get participants started')
     # all participants dataframe
     df = pd.read_csv(participants_path, sep='\t')
 

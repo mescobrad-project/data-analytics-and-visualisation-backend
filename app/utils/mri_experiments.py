@@ -7,21 +7,10 @@ from app.utils.participants import get_participants
 from app.utils.conv3D import Conv3D_large, Conv3D_small
 from app.utils.mri_dataloaders import train_eval_dataloaders
 from app.utils.training import train_eval_model
+from app.utils.testing import test_on_multiple_mris
 
 NeurodesktopStorageLocation = os.environ.get('NeurodesktopStorageLocation') if os.environ.get(
     'NeurodesktopStorageLocation') else "/neurodesktop-storage"
-
-def parse_arguments():
-    parser = argparse.ArgumentParser(description="Run experiment with 3D Convolutional Neural Networks.")
-    parser.add_argument("--iterations", type=int, default=5, help="Number of iterations to run the experiment.")
-    parser.add_argument("--participants_path", type=str, help="Path to participants data.")
-    parser.add_argument("--data_path", type=str, help="Path to the main data directory.")
-    parser.add_argument("--model_type", type=str, default="small", choices=["large", "small"], help="Type of Conv3D model to use (large or small).")
-    parser.add_argument("--batch_size", type=int, default=16, help="Batch size for training.")
-    parser.add_argument("--eval_size", type=int, default=8, help="No of participants for evaluation.")
-    parser.add_argument("--lr", type=float, default=0.001, help="Learning rate for training.")
-    parser.add_argument("--patience", type=int, default=3, help="Patience for early stopping during training.")
-    return parser.parse_args()
 
 def run_experiment(iterations, 
                    participants_path, 
@@ -35,7 +24,8 @@ def run_experiment(iterations,
     assert model_type in ['large', 'small']
     
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
-    os.makedirs(NeurodesktopStorageLocation + f'/model_data/saved_models_{timestamp}/') #For value exist_ok=True leaves directory unaltered.
+    exp_dir = NeurodesktopStorageLocation + f'/model_data/saved_models_{timestamp}/'
+    os.makedirs(exp_dir)
     
     for i in range(iterations):
         print(" ----- Currently on iteration no. {} ----- ".format(i+1), flush=True)
@@ -47,12 +37,27 @@ def run_experiment(iterations,
             model = Conv3D_large()
         else:
             model = Conv3D_small()
-        
+
+        #training
         trained_model = train_eval_model(train_dataloader, eval_dataloader, model, lr, patience)
-        torch.save(trained_model, NeurodesktopStorageLocation + f'/model_data/saved_models_{timestamp}/' + f'{type(model).__name__}_experiment{i+1}.pth')
+        torch.save(trained_model, exp_dir + f'{type(model).__name__}_experiment{i+1}.pth')
         #torch.save(trained_model.state_dict(), '../saved_models/' + f'{type(model).__name__}_experiment{i+1}.pth') 
 
-        # θελουμε και testing εδω?        
+        #testing
+        acc, prec, rec, specif, f1, auc = test_on_multiple_mris(exp_dir + f'{type(model).__name__}_experiment{i+1}.pth',
+                                                                data_path,
+                                                                dataset_test,
+                                                                1)
+        # Save metrics to a text file
+        with open(exp_dir + f'test_metrics_experiment{i + 1}.txt','w') as f:
+            f.write(f'No. of test data: {len(dataset_test)}\n')
+            f.write(f'Accuracy: {acc}\n')
+            f.write(f'Precision: {prec}\n')
+            f.write(f'Recall: {rec}\n')
+            f.write(f'Specificity: {specif}\n')
+            f.write(f'F1-Score: {f1}\n')
+            f.write(f'AUC: {auc}\n')
+
     return True
         # print()
 
