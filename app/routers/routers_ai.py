@@ -36,21 +36,19 @@ async def explanation_experiment(
         workflow_id: str,
         step_id: str,
         run_id: str,
-        model_path: str ,
+        model_path: str,
         mri_path: str,
-        mri_slice : str,
+        mri_slice: str,
         output_file_path: str,
         vmin: int = 90,
         vmax: int = 99.9,
-        set_nan: bool = True,
-        patience: int = 3,
+        label: str | None = None,
        ) -> dict:
     results = lrp_explanation(
                         model_path,
                         mri_path,
                         mri_slice,
                         output_file_path,
-                        label=None,
-                        fig=None, ax=None,
-                        vmin=90, vmax=99.9, set_nan=set_nan)
+                        label= label,
+                        vmin=vmin, vmax=vmax)
     return {"results": results}
