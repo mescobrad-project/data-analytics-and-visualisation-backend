@@ -3,6 +3,7 @@
 from copy import deepcopy
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
+import numpy as np
 import torch
 import nibabel as nib
 
