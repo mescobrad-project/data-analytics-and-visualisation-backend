@@ -13,7 +13,7 @@ def train_model(train_dataloader, model, optimizer):
     train_losses = []
 
     for step, batch in enumerate(train_dataloader):
-        print("Starting step number: ", str(step))
+        #print("Starting step number: ", str(step))
         batch = tuple(t.to(device) for t in batch)
         mri, labels_binary = batch
         optimizer.zero_grad()
