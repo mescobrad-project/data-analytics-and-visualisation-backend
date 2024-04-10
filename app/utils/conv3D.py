@@ -53,4 +53,5 @@ class Conv3D(nn.Module):
             loss_fn = nn.CrossEntropyLoss()
             loss = loss_fn(logits, labels)
 
-        return loss, logits if labels is not None else logits
+        #return loss, logits if labels is not None else logits
+        return (loss, logits) if labels is not None else (None, logits)
