@@ -5607,6 +5607,7 @@ async def compute_granger_analysis(workflow_id: str,
 async def compute_one_way_welch_anova(workflow_id: str,
                                       step_id: str,
                                       run_id: str,
+                                      file:str,
                                       dv: str,
                                       between: str):
 
@@ -5615,12 +5616,9 @@ async def compute_one_way_welch_anova(workflow_id: str,
     # Load Datasets
     try:
         test_status = 'Dataset is not defined'
-        selected_datasource, dv = dv.split("--")
-        between = between.split("--")[1]
+        selected_datasource=file
         test_status = 'Unable to retrieve datasets'
-        # We expect only one here
         df_data = load_data_from_csv(path_to_storage + "/" + selected_datasource)
-
         test_status = 'Unable to compute Welch Anova test for the selected columns.'
         df = pingouin.welch_anova(data=df_data, dv=dv, between=between)
         print(df)
