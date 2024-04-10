@@ -8,7 +8,7 @@ import numpy as np
 import torch
 import nibabel as nib
 
-from lrp_investigator import InnvestigateModel
+from app.utils.lrp_investigator import InnvestigateModel
 
 def lrp_explanation(model_path,
                     mri_path,

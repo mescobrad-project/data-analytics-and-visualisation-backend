@@ -3,8 +3,8 @@
 import torch
 import numpy as np
 
-from lrp_inverter_util import RelevancePropagator
-from lrp_utils import pprint, Flatten
+from app.utils.lrp_inverter_util import RelevancePropagator
+from app.utils.lrp_utils import pprint, Flatten
 
 class InnvestigateModel(torch.nn.Module):
     """

@@ -3,7 +3,7 @@
 import torch
 import numpy as np
 import torch.nn.functional as F
-from lrp_utils import pprint, Flatten
+from app.utils.lrp_utils import pprint, Flatten
 
 def module_tracker(fwd_hook_func):
     """
