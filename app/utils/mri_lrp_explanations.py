@@ -33,7 +33,10 @@ def lrp_explanation(model_path,
     tensor_mri = tensor_mri.to(device)
     model = model.to(device)
 
-    _, logits = model(tensor_mri)
+    if label:
+        _, logits = model(tensor_mri)
+    else:
+        logits = model(tensor_mri)
 
     classes = ['FCD', 'HC']
 
