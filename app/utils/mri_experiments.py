@@ -29,7 +29,7 @@ def run_experiment(iterations,
         dataset_train, dataset_test = get_participants(participants_path)
         train_dataloader, eval_dataloader = train_eval_dataloaders(data_path, dataset_train, eval_size, batch_size)
 
-        model = Conv3D
+        model = Conv3D()
 
         #training
         trained_model = train_eval_model(train_dataloader, eval_dataloader, model, lr, patience)

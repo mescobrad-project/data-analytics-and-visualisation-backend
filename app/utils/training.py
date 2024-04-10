@@ -54,9 +54,13 @@ def evaluate_model(eval_dataloader, model):
 
     return valid_loss, eval_targets, eval_predictions
 
-def train_eval_model(train_dataloader, eval_dataloader, model, lr, patience):
+def train_eval_model(train_dataloader,
+                     eval_dataloader,
+                     model,
+                     lr,
+                     patience):
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr) #is it ok to initialize only once? must be; make sure this code is runable
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     scheduler = ReduceLROnPlateau(optimizer, mode='min', patience=2)
 
     # for early stopping
