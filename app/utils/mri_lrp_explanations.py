@@ -33,19 +33,16 @@ def lrp_explanation(model_path,
     tensor_mri = tensor_mri.to(device)
     model = model.to(device)
 
-    if label:
-        _, logits = model(tensor_mri)
-    else:
-        logits = model(tensor_mri)
-
     classes = ['FCD', 'HC']
 
     if label is None:
-        target = classes[int(torch.argmax(logits[0]))]
+        logits = model(tensor_mri)
+        target = classes[int(torch.argmax(logits))]
         print(f'No label is provided. Target at class {target}.')
     else:
+        _, logits = model(tensor_mri)
         target = classes[int(label)]
-        if int(label) == int(torch.argmax(logits[0])):
+        if int(label) == int(torch.argmax(logits)):
             print(f'Correct prediction. Target at class {target}.')
         else:
             print(f'Wrong prediction. Target at class {target}.')

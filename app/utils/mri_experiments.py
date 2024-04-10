@@ -4,7 +4,7 @@ import argparse
 import torch
 
 from app.utils.participants import get_participants
-from app.utils.conv3D import Conv3D_large, Conv3D_small
+from app.utils.conv3D import Conv3D
 from app.utils.mri_dataloaders import train_eval_dataloaders
 from app.utils.training import train_eval_model
 from app.utils.testing import test_on_multiple_mris
@@ -15,14 +15,10 @@ NeurodesktopStorageLocation = os.environ.get('NeurodesktopStorageLocation') if o
 def run_experiment(iterations, 
                    participants_path, 
                    data_path, 
-                   model_type, 
-                   batch_size, 
+                   batch_size,
                    eval_size, 
                    lr, 
                    patience):
-    
-    assert model_type in ['large', 'small']
-    
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
     exp_dir = NeurodesktopStorageLocation + f'/model_data/saved_models_{timestamp}/'
     os.makedirs(exp_dir)
@@ -32,11 +28,8 @@ def run_experiment(iterations,
         
         dataset_train, dataset_test = get_participants(participants_path)
         train_dataloader, eval_dataloader = train_eval_dataloaders(data_path, dataset_train, eval_size, batch_size)
-        
-        if model_type == 'large':
-            model = Conv3D_large()
-        else:
-            model = Conv3D_small()
+
+        model = Conv3D
 
         #training
         trained_model = train_eval_model(train_dataloader, eval_dataloader, model, lr, patience)

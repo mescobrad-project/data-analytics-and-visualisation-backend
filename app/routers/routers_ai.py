@@ -12,7 +12,6 @@ async def ai_experiment(
         participants_path: str ,
         data_path: str,
         iterations : int = 5,
-        model_type: str = "small",
         batch_size: int = 16,
         eval_size: int = 8,
         lr: float = 0.001,
@@ -22,7 +21,6 @@ async def ai_experiment(
     results= run_experiment(iterations,
                    participants_path,
                    data_path,
-                   model_type,
                    batch_size,
                    eval_size,
                    lr,
@@ -49,6 +47,6 @@ async def explanation_experiment(
                         mri_path,
                         mri_slice,
                         output_file_path,
-                        label= label,
+                        label=label,
                         vmin=vmin, vmax=vmax)
     return {"results": results}
