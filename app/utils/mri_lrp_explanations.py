@@ -37,7 +37,8 @@ def lrp_explanation(model_path,
 
     if label is None:
         logits = model(tensor_mri)
-        target = classes[int(torch.argmax(logits[0]))]
+        print(logits)
+        target = classes[int(torch.argmax(logits))]
         print(f'No label is provided. Target at class {target}.')
     else:
         _, logits = model(tensor_mri)
