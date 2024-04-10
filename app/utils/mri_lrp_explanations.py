@@ -41,11 +41,11 @@ def lrp_explanation(model_path,
     classes = ['FCD', 'HC']
 
     if label is None:
-        target = classes[int(torch.argmax(logits))]
+        target = classes[int(torch.argmax(logits[0]))]
         print(f'No label is provided. Target at class {target}.')
     else:
         target = classes[int(label)]
-        if int(label) == int(torch.argmax(logits)):
+        if int(label) == int(torch.argmax(logits[0])):
             print(f'Correct prediction. Target at class {target}.')
         else:
             print(f'Wrong prediction. Target at class {target}.')
