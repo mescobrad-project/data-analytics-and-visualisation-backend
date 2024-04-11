@@ -1,13 +1,14 @@
+import os
 import torch
 import numpy as np
 import nibabel as nib
 import torch.nn as nn
 from PIL import Image
 
-
 def visualize_grad_cam(model_path,
                        mri_path,
-                       heatmap_path):
+                       heatmap_path,
+                       heatmap_name):
     
     model = torch.load(model_path)
 
@@ -25,7 +26,7 @@ def visualize_grad_cam(model_path,
     #save heatmap as a png file in the heatmap_path
     heatmap = np.uint8(255 * heatmap)  # Convert to uint8 for saving as an image
     heatmap_img = Image.fromarray(heatmap, 'L')  # Create PIL image
-    heatmap_img.save(heatmap_path)  # Save the image
+    heatmap_img.save(os.path.join(heatmap_path, heatmap_name))
 
     return True
 
@@ -35,15 +36,15 @@ def grad_cam_heatmap(model,
     model.eval()
 
     # Forward pass
-    logits = model(input_tensor)
+    output = model(input_tensor) #output = None, logits
     
-    if logits[1][0] > logits[1][1]:
+    if output[1][0] > output[1][1]:
         target = torch.tensor([[1, 0]])
     else:
         target = torch.tensor([[0, 1]])
 
     loss_fn = nn.CrossEntropyLoss()
-    loss = loss_fn(logits[1], target)
+    loss = loss_fn(output[1], target)
 
     # Backward pass
     model.zero_grad()
