@@ -5,7 +5,9 @@ import nibabel as nib
 from app.utils.mri_dataloaders import test_dataloader
 
 
-def mri_prediction(model_path, mri_path):
+def mri_prediction(model_path,
+                   mri_path,
+                   output_path):
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -13,10 +15,12 @@ def mri_prediction(model_path, mri_path):
     model.eval()
 
     nparray = nib.load(mri_path).get_fdata()
-    tarray = torch.from_numpy(nparray).unsqueeze(0).unsqueeze(0).to(device)
-    #tarray.shape is torch.Size([1, 1, 157, 256, 256])
+    tarray = torch.from_numpy(nparray).unsqueeze(0).unsqueeze(0).to(device) #tarray.shape is torch.Size([1, 1, 157, 256, 256])
 
     pred = model(tarray)[1]
+
+    with open(output_path + f'prediction_for_{mri_path}.txt', 'w') as f:
+        f.write(f'The predicted class for the test point located at {mri_path} is {int(torch.argmax(pred))}\n')
 
     return pred, torch.argmax(pred)
 
@@ -38,8 +42,8 @@ def test_on_multiple_mris(model_path,
     test_targets = []
 
     dataloader = test_dataloader(data_path,
-                                dataset_test,
-                                batch_size)
+                                 dataset_test,
+                                 batch_size)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
