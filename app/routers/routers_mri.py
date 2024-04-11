@@ -170,7 +170,7 @@ async def return_free_surfer_recon(workflow_id: str,
     display_id = get_neurodesk_display_id()
     channel.send("export DISPLAY=" + display_id + "\n")
     channel.send("cd /neurocommand/local/bin/\n")
-    channel.send("./freesurfer-7_1_1.sh\n")
+    channel.send("./freesurfer-7.3.2.sh\n")
     channel.send("rm ~/.license\n")
     channel.send("echo \"mkontoulis@epu.ntua.gr\n")
     channel.send("60631\n")
@@ -180,7 +180,7 @@ async def return_free_surfer_recon(workflow_id: str,
     channel.send("export FS_LICENSE=~/.license\n")
     # channel.send("mkdir /neurodesktop-storage/freesurfer-output\n")
     # channel.send("mkdir /neurodesktop-storage/freesurfer-output/test1\n")
-    channel.send("source /opt/freesurfer-7.1.1/SetUpFreeSurfer.sh\n")
+    channel.send("source /opt/freesurfer-7.3.2/SetUpFreeSurfer.sh\n")
     channel.send("export SUBJECTS_DIR=/home/user" + path_to_file + "/output\n")
     # channel.send("export SUBJECTS_DIR=/neurodesktop-storage/freesurfer-output\n")
     #
@@ -349,7 +349,7 @@ async def run_synthseg(workflow_id: str,
     display_id = get_neurodesk_display_id()
     channel.send("export DISPLAY=" + display_id + "\n")
     channel.send("cd /neurocommand/local/bin/\n")
-    channel.send("./freesurfer-7_1_1.sh\n")
+    channel.send("./freesurfer-7.3.2.sh\n")
     channel.send("rm ~/.license\n")
     channel.send("echo \"mkontoulis@epu.ntua.gr\n")
     channel.send("60631\n")
@@ -359,7 +359,7 @@ async def run_synthseg(workflow_id: str,
     channel.send("export FS_LICENSE=~/.license\n")
     # channel.send("mkdir /neurodesktop-storage/freesurfer-output\n")
     # channel.send("mkdir /neurodesktop-storage/freesurfer-output/test1\n")
-    channel.send("source /opt/freesurfer-7.1.1/SetUpFreeSurfer.sh\n")
+    channel.send("source /opt/freesurfer-7.3.2/SetUpFreeSurfer.sh\n")
     channel.send("export SUBJECTS_DIR=/home/user" + path_to_file + "/output\n")
     # channel.send("export SUBJECTS_DIR=/neurodesktop-storage/freesurfer-output\n")
     #
@@ -456,7 +456,7 @@ async def return_free_surfer_samseg(workflow_id: str,
     display_id = get_neurodesk_display_id()
     channel.send("export DISPLAY=" + display_id + "\n")
     channel.send("cd /neurocommand/local/bin/\n")
-    channel.send("./freesurfer-7_1_1.sh\n")
+    channel.send("./freesurfer-7.3.2.sh\n")
     channel.send("rm ~/.license\n")
     channel.send("echo \"mkontoulis@epu.ntua.gr\n")
     channel.send("60631\n")
@@ -466,7 +466,7 @@ async def return_free_surfer_samseg(workflow_id: str,
     channel.send("export FS_LICENSE=~/.license\n")
     # channel.send("mkdir /neurodesktop-storage/freesurfer-output\n")
     # channel.send("mkdir /neurodesktop-storage/freesurfer-output/test1\n")
-    channel.send("source /opt/freesurfer-7.1.1/SetUpFreeSurfer.sh\n")
+    channel.send("source /opt/freesurfer-7.3.2/SetUpFreeSurfer.sh\n")
     channel.send("export SUBJECTS_DIR=/home/user" + path_to_file + "/output\n")
     # channel.send("export SUBJECTS_DIR=/neurodesktop-storage/freesurfer-output\n")
     #
@@ -549,7 +549,7 @@ async def return_free_view(input_test_name: str, input_slices: str,
     # channel.send("nohup firefox &\n")
     channel.send("ls > ls.txt\n")
     channel.send("cd /neurocommand/local/bin/\n")
-    channel.send("./freesurfer-7_1_1.sh\n")
+    channel.send("./freesurfer-7.3.2.sh\n")
     channel.send("echo \"mkontoulis @ epu.ntua.gr\n")
     channel.send("60631\n")
     channel.send(" *CctUNyzfwSSs\n")
@@ -557,7 +557,7 @@ async def return_free_view(input_test_name: str, input_slices: str,
     channel.send("export FS_LICENSE=~/.license\n")
     channel.send("mkdir /neurodesktop-storage/freesurfer-output\n")
     channel.send("mkdir /neurodesktop-storage/freesurfer-output/test2\n")
-    channel.send("source /opt/freesurfer-7.1.1/SetUpFreeSurfer.sh\n")
+    channel.send("source /opt/freesurfer-7.3.2/SetUpFreeSurfer.sh\n")
     channel.send("export SUBJECTS_DIR=/neurodesktop-storage/freesurfer-output\n")
     # channel.send("nohup freeview &\n")
     channel.send("mkdir neurodesktop-storage/screenshots\n")
@@ -594,7 +594,7 @@ async def return_free_view_simple( workflow_id: str,
 
     channel.send("ls > ls1.txt\n")
     channel.send("cd /neurocommand/local/bin/\n")
-    channel.send("./freesurfer-7_1_1.sh\n")
+    channel.send("./freesurfer-7.3.2.sh\n")
     channel.send("echo \"mkontoulis @ epu.ntua.gr\n")
     channel.send("60631\n")
     channel.send(" *CctUNyzfwSSs\n")
@@ -602,7 +602,7 @@ async def return_free_view_simple( workflow_id: str,
     channel.send("export FS_LICENSE=~/.license\n")
     channel.send("mkdir /neurodesktop-storage/freesurfer-output\n")
     channel.send("mkdir /neurodesktop-storage/freesurfer-output/test1\n")
-    channel.send("source /opt/freesurfer-7.1.1/SetUpFreeSurfer.sh\n")
+    channel.send("source /opt/freesurfer-7.3.2/SetUpFreeSurfer.sh\n")
     channel.send("export SUBJECTS_DIR=/neurodesktop-storage/freesurfer-output\n")
 
     # Give permissions in working folder
@@ -656,7 +656,7 @@ async def return_free_surfer_coreg( workflow_id: str,
 
 
     channel.send("cd /neurocommand/local/bin/\n")
-    channel.send("./freesurfer-7_1_1.sh\n")
+    channel.send("./freesurfer-7.3.2.sh\n")
     channel.send("rm ~/.license\n")
     channel.send("echo \"mkontoulis@epu.ntua.gr\n")
     channel.send("60631\n")
@@ -666,7 +666,7 @@ async def return_free_surfer_coreg( workflow_id: str,
     channel.send("export FS_LICENSE=~/.license\n")
     # channel.send("mkdir /neurodesktop-storage/freesurfer-output\n")
     # channel.send("mkdir /neurodesktop-storage/freesurfer-output/test1\n")
-    channel.send("source /opt/freesurfer-7.1.1/SetUpFreeSurfer.sh\n")
+    channel.send("source /opt/freesurfer-7.3.2/SetUpFreeSurfer.sh\n")
     # channel.send("export SUBJECTS_DIR=/home/user/neurodesktop-storage/runtime_config/workflow_" + workflow_id + "/run_" + run_id + "/step_" + step_id + "\n")
 
 
@@ -723,7 +723,7 @@ async def return_free_surfer_vol2vol( workflow_id: str,
     # channel.send("nohup firefox &\n")
 
     channel.send("cd /neurocommand/local/bin/\n")
-    channel.send("./freesurfer-7_1_1.sh\n")
+    channel.send("./freesurfer-7.3.2.sh\n")
     channel.send("rm ~/.license\n")
     channel.send("echo \"mkontoulis@epu.ntua.gr\n")
     channel.send("60631\n")
@@ -733,7 +733,7 @@ async def return_free_surfer_vol2vol( workflow_id: str,
     channel.send("export FS_LICENSE=~/.license\n")
     channel.send("mkdir /neurodesktop-storage/freesurfer-output\n")
     channel.send("mkdir /neurodesktop-storage/freesurfer-output/test1\n")
-    channel.send("source /opt/freesurfer-7.1.1/SetUpFreeSurfer.sh\n")
+    channel.send("source /opt/freesurfer-7.3.2/SetUpFreeSurfer.sh\n")
     channel.send("export SUBJECTS_DIR=/neurodesktop-storage/freesurfer-output\n")
 
     # Give permissions in working folder
@@ -784,14 +784,14 @@ async def return_free_surfer(input_test_name: str, input_file: str,
     channel.send("export DISPLAY=" + display_id + "\n")
     channel.send("ls > ls2.txt\n")
     channel.send("cd /neurocommand/local/bin/\n")
-    channel.send("./freesurfer-7_1_1.sh\n")
+    channel.send("./freesurfer-7.3.2.sh\n")
     channel.send("echo \"mkontoulis @ epu.ntua.gr\n")
     channel.send("60631\n")
     channel.send(" *CctUNyzfwSSs\n")
     channel.send(" FSNy4xe75KyK.\" >> ~/.license\n")
     channel.send("export FS_LICENSE=~/.license\n")
     channel.send("mkdir /neurodesktop-storage/freesurfer-output\n")
-    channel.send("source /opt/freesurfer-7.1.1/SetUpFreeSurfer.sh\n")
+    channel.send("source /opt/freesurfer-7.3.2/SetUpFreeSurfer.sh\n")
     channel.send("export SUBJECTS_DIR=/neurodesktop-storage/freesurfer-output\n")
     channel.send("cd /neurodesktop-storage/freesurfer-output\n")
     channel.send("nohup recon-all -subject " + input_test_name + " -i " + input_file + " -all > freesurfer_log.txtr &\n")
@@ -799,36 +799,36 @@ async def return_free_surfer(input_test_name: str, input_file: str,
     # Start recon COMMAND
     # ssh.exec_command("ls > ls.txt")
     # ssh.exec_command("cd /neurocommand/local/bin/")
-    # ssh.exec_command("./freesurfer-7_1_1.sh")
+    # ssh.exec_command("./freesurfer-7.3.2.sh")
     # ssh.exec_command("echo \"mkontoulis @ epu.ntua.gr")
     # ssh.exec_command("60631")
     # ssh.exec_command(" *CctUNyzfwSSs")
     # ssh.exec_command(" FSNy4xe75KyK.\" >> ~/.license")
     # ssh.exec_command("export FS_LICENSE=~/.license")
     # ssh.exec_command("mkdir /neurodesktop-storage/freesurfer-output")
-    # ssh.exec_command("source /opt/freesurfer-7.1.1/SetUpFreeSurfer.sh")
+    # ssh.exec_command("source /opt/freesurfer-7.3.2/SetUpFreeSurfer.sh")
     # ssh.exec_command("export SUBJECTS_DIR=/neurodesktop-storage/freesurfer-output")
     # channel.send("mkdir /neurodesktop-storage/freesurfer-output\n")
 
     # channel.send("cd /neurocommand/local/bin/" + ";"
-    #                  + "./freesurfer-7_1_1.sh" + ";"
+    #                  + "./freesurfer-7.3.2.sh" + ";"
     #                  + "echo \"mkontoulis @ epu.ntua.gr" + ";"
     #                  + "60631" + ";"
     #                  + " *CctUNyzfwSSs" + ";"
     #                  + " FSNy4xe75KyK.\" >> ~/.license" + ";"
     #                  + "mkdir /neurodesktop-storage/freesurfer-output" + ";"
-    #                  + "source /opt/freesurfer-7.1.1/SetUpFreeSurfer.sh" + ";"
+    #                  + "source /opt/freesurfer-7.3.2/SetUpFreeSurfer.sh" + ";"
     #                  + "freeview\n")
 
 
     # ssh.exec_command("cd /neurocommand/local/bin/" + ";"
-    #                  + "./freesurfer-7_1_1.sh" + ";"
+    #                  + "./freesurfer-7.3.2.sh" + ";"
     #                  + "echo \"mkontoulis @ epu.ntua.gr" + ";"
     #                  + "60631" + ";"
     #                  + " *CctUNyzfwSSs" + ";"
     #                  + " FSNy4xe75KyK.\" >> ~/.license" + ";"
     #                  + "mkdir /neurodesktop-storage/freesurfer-output" + ";"
-    #                  + "source /opt/freesurfer-7.1.1/SetUpFreeSurfer.sh" + ";"
+    #                  + "source /opt/freesurfer-7.3.2/SetUpFreeSurfer.sh" + ";"
     #                  + "freeview"
     #                  )
     # ssh.exec_command("recon-all -subject " + input_test_name + " -i " + input_slices + " -all")
