@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Request
 from app.utils.mri_experiments import run_experiment
-from app.utils.mri_lrp_explanations import lrp_explanation
+from app.utils.mri_grad_cam import visualize_grad_cam
 
 router = APIRouter()
 
@@ -29,24 +29,17 @@ async def ai_experiment(
     # files = get_files_for_slowwaves_spindle(workflow_id, run_id, step_id)
     # path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
 
-@router.get("/explanation_experiment")
-async def explanation_experiment(
+@router.get("/grad_cam_explanation_experiment")
+async def grad_cam_explanation_experiment(
         workflow_id: str,
         step_id: str,
         run_id: str,
         model_path: str,
         mri_path: str,
-        mri_slice: str,
-        output_file_path: str,
-        vmin: int = 90,
-        vmax: float = 99.9,
-        label: str | None = None,
+        heatmap_path: str,
        ) -> dict:
-    results = lrp_explanation(
-                        model_path,
-                        mri_path,
-                        mri_slice,
-                        output_file_path,
-                        label=label,
-                        vmin=vmin, vmax=vmax)
+    results = visualize_grad_cam(model_path,
+                                 mri_path,
+                                 heatmap_path)
     return {"results": results}
+

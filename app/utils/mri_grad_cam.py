@@ -27,6 +27,7 @@ def visualize_grad_cam(model_path,
     heatmap_img = Image.fromarray(heatmap, 'L')  # Create PIL image
     heatmap_img.save(heatmap_path)  # Save the image
 
+    return True
 
 def grad_cam_heatmap(model, 
                      input_tensor):
@@ -48,7 +49,7 @@ def grad_cam_heatmap(model,
     model.zero_grad()
     loss.backward(retain_graph=True)
 
-    # Get the gradients of the output with respect to the model's feature maps
+    # Get the gradients of the output with respect to the last conv layer (conv-batchnorm-relu-maxpool)
     gradients = model.group5[0].weight.grad
     pooled_gradients = torch.mean(gradients, dim=(2, 3, 4))  # Average pooling over spatial dimensions
 
