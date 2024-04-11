@@ -26,7 +26,7 @@ def visualize_grad_cam(model_path,
     #save heatmap as a png file in the heatmap_path
     heatmap = np.uint8(255 * heatmap)  # Convert to uint8 for saving as an image
     heatmap_img = Image.fromarray(heatmap, 'L')  # Create PIL image
-    heatmap_img.save(os.path.join(heatmap_path, heatmap_name))
+    heatmap_img.save(os.path.join(heatmap_path, heatmap_name)) #name should be .png str
 
     return True
 
