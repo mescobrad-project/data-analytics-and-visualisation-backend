@@ -2,6 +2,8 @@ import torch
 import numpy as np
 import nibabel as nib
 import torch.nn as nn
+from PIL import Image
+
 
 def visualize_grad_cam(model_path,
                        mri_path,
