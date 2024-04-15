@@ -77,7 +77,7 @@ def visualize_ig(model_path,
                    interpolation="gaussian",
                    alpha=1)
     print('mri plotted')
-    plt.savefig(os.path.join(heatmap_path, heatmap_name+' overlay'))
+    plt.savefig(os.path.join(heatmap_path, heatmap_name+'overlay.jpg'))
     print('figure saved')
 
     plt.show()
