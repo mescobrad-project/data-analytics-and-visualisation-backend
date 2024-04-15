@@ -13,6 +13,10 @@ def visualize_ig(model_path,
                  heatmap_name,
                  slice):
 
+    assert(os.path.exists(model_path))
+    assert (os.path.exists(mri_path))
+    assert (os.path.exists(heatmap_path))
+
     model = torch.load(model_path)
 
     nii_img = nib.load(mri_path)
@@ -26,7 +30,7 @@ def visualize_ig(model_path,
     model = model.to(device)
 
     def wrapped_model(inp1):
-        return model(inp1)[0]
+        return model(inp1)[1]
 
     ig = IntegratedGradients(wrapped_model)
 
