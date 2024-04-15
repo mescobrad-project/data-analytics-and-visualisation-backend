@@ -44,18 +44,22 @@ def visualize_ig(model_path,
                                                      n_steps=4,
                                                      target=target_class,
                                                      return_convergence_delta=True)
-    print(attributions.shape)
+    print('attributions', attributions.shape)
 
     heatmap = attributions.cpu().squeeze().squeeze().permute(1, 2, 0).numpy()
+    print('heatmap', heatmap.shape)
 
     min_val = heatmap.min()
     max_val = heatmap.max()
 
     normalized_heatmap = (heatmap - min_val) / (max_val - min_val)
+    print('normalized_heatmap', normalized_heatmap.shape)
 
     heatmap_img = Image.fromarray((normalized_heatmap * 255).astype(np.uint8))
+    print('Image.fromarray works')
 
     heatmap_img.save(os.path.join(heatmap_path, heatmap_name))
+    print('heatmap saved')
 
     # should include overlap here as well
 
@@ -65,12 +69,16 @@ def visualize_ig(model_path,
                                                              "darkred", "red", "darkorange", "orange", "yellow"],
                                                      N=5000)
     ax.imshow(normalized_heatmap[slice, :, :], cmap="Greys")
+    print('normalized_heatmap plotted')
     mri_array = tensor_mri.cpu().squeeze().squeeze().permute(1, 2, 0).numpy()
     im = ax.imshow(mri_array[256, 256, slice],
                    cmap=cmap,
                    interpolation="gaussian",
                    alpha=1)
+    print('mri plotted')
     plt.savefig(heatmap_path)
+    print('figure saved')
+
     plt.show()
 
     return True
