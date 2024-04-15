@@ -19,11 +19,11 @@ def visualize_ig(model_path,
 
     model = torch.load(model_path)
 
-    nii_img = nib.load(mri_path)
+    nii_img = nib.load(mri_path) #3-dim mri
     mri = nii_img.get_fdata()
     tensor_mri = torch.from_numpy(mri)
     tensor_mri = torch.unsqueeze(tensor_mri, 0)
-    tensor_mri = torch.unsqueeze(tensor_mri, 0)
+    tensor_mri = torch.unsqueeze(tensor_mri, 0) #5-dim torch Tensor [1,1,160,256,256] (verified)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     tensor_mri = tensor_mri.to(device)
@@ -35,31 +35,26 @@ def visualize_ig(model_path,
     ig = IntegratedGradients(wrapped_model)
 
     output = model(tensor_mri)
-    target_class = int(torch.argmax(output[1])) #this should be int 0 or 1
+    target_class = int(torch.argmax(output[1])) #int: this should be int 0 or 1 (verified)
 
-    print(tensor_mri.shape)
-    print(target_class)
     attributions, approximation_error = ig.attribute(tensor_mri,
                                                      method='gausslegendre',
                                                      n_steps=4,
                                                      target=target_class,
                                                      return_convergence_delta=True)
-    print('attributions', attributions.shape)
+    #print('attributions', attributions.shape) #5-dim torch Tensor [1,1,160,256,256] (verified)
 
-    heatmap = attributions.cpu().squeeze().squeeze().permute(1, 2, 0).numpy()
-    print('heatmap', heatmap.shape)
+    heatmap = attributions.cpu().squeeze().squeeze().permute(1, 2, 0).numpy() #[256, 256, 160] numpy array (verified)
 
     min_val = heatmap.min()
     max_val = heatmap.max()
 
-    normalized_heatmap = (heatmap - min_val) / (max_val - min_val)
-    print('normalized_heatmap', normalized_heatmap.shape)
+    normalized_heatmap = (heatmap - min_val) / (max_val - min_val) #[256, 256, 160] numpy array (verified)
 
-    #heatmap_img = Image.fromarray((normalized_heatmap[:, :, slice] * 255).astype(np.uint8))
     heatmap_img = normalized_heatmap[:, :, slice]
-    #heatmap_img.save(os.path.join(heatmap_path, heatmap_name))
-
-    # should include overlap here as well
+    #save the heatmap
+    #to_save = Image.fromarray((heatmap_img * 255).astype(np.uint8))
+    #to_save.save(os.path.join(heatmap_path, 'heatmap'))
 
     fig, ax = plt.subplots(1, figsize=(6, 6))
 
@@ -68,19 +63,16 @@ def visualize_ig(model_path,
                                                      N=5000)
 
     mri_array = tensor_mri.cpu().squeeze().squeeze().permute(1, 2, 0).numpy()
-    print(mri_array.shape)
+    print(mri_array.shape) # [160, 256, 256] torch Tensor (to verify)
 
     ax.imshow(mri_array[slice, :, :], cmap="Greys")
-    print('mri plotted')
 
     im = ax.imshow(heatmap_img,
                    cmap=cmap,
                    interpolation="gaussian",
                    alpha=1)
-    print('heatmap plotted')
 
-    plt.savefig(os.path.join(heatmap_path, heatmap_name+'overlay.jpg'))
-    print('figure saved')
+    plt.savefig(os.path.join(heatmap_path, heatmap_name))
 
     plt.show()
 
