@@ -54,10 +54,12 @@ async def ig_explanation_experiment(
         model_path: str,
         mri_path: str,
         heatmap_path: str,
-        heatmap_name: str
+        heatmap_name: str,
+        slice: int
        ) -> dict:
     results = visualize_ig(model_path,
                            mri_path,
                            heatmap_path,
-                           heatmap_name)
+                           heatmap_name,
+                           slice)
     return {"results": results}

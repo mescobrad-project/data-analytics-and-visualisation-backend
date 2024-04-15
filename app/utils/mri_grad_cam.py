@@ -28,6 +28,8 @@ def visualize_grad_cam(model_path,
     heatmap_img = Image.fromarray(heatmap, 'L')  # Create PIL image
     heatmap_img.save(os.path.join(heatmap_path, heatmap_name)) #name should be .png str
 
+    #should include overlap here as well
+
     return True
 
 def grad_cam_heatmap(model, 

@@ -4,12 +4,14 @@ import torch
 import nibabel as nib
 from captum.attr import IntegratedGradients
 from PIL import Image
-
+import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
 
 def visualize_ig(model_path,
                  mri_path,
                  heatmap_path,
-                 heatmap_name):
+                 heatmap_name,
+                 slice):
 
     model = torch.load(model_path)
 
@@ -47,5 +49,20 @@ def visualize_ig(model_path,
     heatmap_img = Image.fromarray((normalized_heatmap * 255).astype(np.uint8))
 
     heatmap_img.save(os.path.join(heatmap_path, heatmap_name))
+
+    # should include overlap here as well
+    fig, ax = plt.subplots(1, figsize=(6, 6))
+    cmap = mcolors.LinearSegmentedColormap.from_list(name='alphared',
+                                                     colors=[(1, 0, 0, 0),
+                                                             "darkred", "red", "darkorange", "orange", "yellow"],
+                                                     N=5000)
+    ax.imshow(normalized_heatmap[slice, :, :], cmap="Greys")
+    mri_array = tensor_mri.squeeze().squeeze().permute(1, 2, 0).numpy()
+    im = ax.imshow(mri_array[256, 256, slice],
+                   cmap=cmap,
+                   interpolation="gaussian",
+                   alpha=1)
+    plt.savefig(heatmap_path)
+    plt.show()
 
     return True
