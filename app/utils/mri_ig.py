@@ -55,7 +55,7 @@ def visualize_ig(model_path,
     normalized_heatmap = (heatmap - min_val) / (max_val - min_val)
     print('normalized_heatmap', normalized_heatmap.shape)
 
-    heatmap_img = Image.fromarray((normalized_heatmap * 255).astype(np.uint8))
+    heatmap_img = Image.fromarray((normalized_heatmap[:, :, slice] * 255).astype(np.uint8))
     print('Image.fromarray works')
 
     heatmap_img.save(os.path.join(heatmap_path, heatmap_name))
@@ -68,7 +68,8 @@ def visualize_ig(model_path,
                                                      colors=[(1, 0, 0, 0),
                                                              "darkred", "red", "darkorange", "orange", "yellow"],
                                                      N=5000)
-    ax.imshow(normalized_heatmap[slice, :, :], cmap="Greys")
+    #ax.imshow(normalized_heatmap[slice, :, :], cmap="Greys")
+    ax.imshow(heatmap_img, cmap='Greys')
     print('normalized_heatmap plotted')
     mri_array = tensor_mri.cpu().squeeze().squeeze().permute(1, 2, 0).numpy()
     im = ax.imshow(mri_array[256, 256, slice],
