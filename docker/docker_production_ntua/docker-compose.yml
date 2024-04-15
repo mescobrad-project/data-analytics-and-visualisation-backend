@@ -18,20 +18,20 @@ services:
       - mri-freesurfer-network
       - analytics-network
 
-  neurodesktop:
-    privileged: true
-    container_name: neurodesktop
-    build:
-      context: "../docker_neurodesk/docker_neurodesk_production"
-      dockerfile: Dockerfile
-    volumes:
-      - neurodesk-volume:/MES-CoBraD Input
-      - '/home/ntua/neurodesktop-storage:/neurodesktop-storage'
-    ports:
-      - '8081:8080'
-    networks:
-      - mri-freesurfer-network
-    shm_size: 1gb
+#  neurodesktop:
+#    privileged: true
+#    container_name: neurodesktop
+#    build:
+#      context: "../docker_neurodesk/docker_neurodesk_production"
+#      dockerfile: Dockerfile
+#    volumes:
+#      - neurodesk-volume:/MES-CoBraD Input
+#      - '/home/ntua/neurodesktop-storage:/neurodesktop-storage'
+#    ports:
+#      - '8081:8080'
+#    networks:
+#      - mri-freesurfer-network
+#    shm_size: 1gb
 
   analytics-backend:
     build:
@@ -49,8 +49,8 @@ services:
       - '/home/gpu/mescobrad/neurodesktop-storage:/neurodesktop-storage'
     ports:
       - "7000:8000"
-    depends_on:
-      - neurodesktop
+ #   depends_on:
+ #     - neurodesktop
     networks:
       - mri-freesurfer-network
       - analytics-network
