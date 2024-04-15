@@ -46,7 +46,7 @@ def visualize_ig(model_path,
                                                      return_convergence_delta=True)
     print(attributions.shape)
 
-    heatmap = attributions.squeeze().squeeze().permute(1, 2, 0).numpy()
+    heatmap = attributions.cpu().squeeze().squeeze().permute(1, 2, 0).numpy()
 
     min_val = heatmap.min()
     max_val = heatmap.max()
@@ -65,7 +65,7 @@ def visualize_ig(model_path,
                                                              "darkred", "red", "darkorange", "orange", "yellow"],
                                                      N=5000)
     ax.imshow(normalized_heatmap[slice, :, :], cmap="Greys")
-    mri_array = tensor_mri.squeeze().squeeze().permute(1, 2, 0).numpy()
+    mri_array = tensor_mri.cpu().squeeze().squeeze().permute(1, 2, 0).numpy()
     im = ax.imshow(mri_array[256, 256, slice],
                    cmap=cmap,
                    interpolation="gaussian",
