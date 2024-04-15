@@ -57,8 +57,7 @@ def visualize_ig(model_path,
 
     #heatmap_img = Image.fromarray((normalized_heatmap[:, :, slice] * 255).astype(np.uint8))
     heatmap_img = normalized_heatmap[:, :, slice]
-    heatmap_img.save(os.path.join(heatmap_path, heatmap_name))
-    print('heatmap saved')
+    #heatmap_img.save(os.path.join(heatmap_path, heatmap_name))
 
     # should include overlap here as well
 
