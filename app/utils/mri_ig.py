@@ -72,7 +72,7 @@ def visualize_ig(model_path,
     ax.imshow(heatmap_img, cmap='Greys')
     print('normalized_heatmap plotted')
     mri_array = tensor_mri.cpu().squeeze().squeeze().permute(1, 2, 0).numpy()
-    im = ax.imshow(mri_array[256, 256, slice],
+    im = ax.imshow(mri_array[:, :, slice],
                    cmap=cmap,
                    interpolation="gaussian",
                    alpha=1)
