@@ -68,15 +68,15 @@ def visualize_ig(model_path,
                                                      colors=[(1, 0, 0, 0),
                                                              "darkred", "red", "darkorange", "orange", "yellow"],
                                                      N=5000)
-    #ax.imshow(normalized_heatmap[slice, :, :], cmap="Greys")
-    ax.imshow(heatmap_img, cmap='Greys')
-    print('normalized_heatmap plotted')
     mri_array = tensor_mri.cpu().squeeze().squeeze().permute(1, 2, 0).numpy()
-    im = ax.imshow(mri_array[:, :, slice],
+    ax.imshow(mri_array[slice, :, :], cmap="Greys")
+    print('mri plotted')
+    #below must be wrong
+    im = ax.imshow(heatmap_img,
                    cmap=cmap,
                    interpolation="gaussian",
                    alpha=1)
-    print('mri plotted')
+    print('heatmap plotted')
     plt.savefig(os.path.join(heatmap_path, heatmap_name+'overlay.jpg'))
     print('figure saved')
 
