@@ -33,6 +33,8 @@ def visualize_ig(model_path,
     output = model(tensor_mri)
     target_class = int(torch.argmax(output[1])) #this should be int 0 or 1
 
+    print(tensor_mri.shape)
+    print(target_class)
     attributions, approximation_error = ig.attribute(tensor_mri,
                                                      method='gausslegendre',
                                                      n_steps=4,
@@ -44,6 +46,7 @@ def visualize_ig(model_path,
 
     min_val = heatmap.min()
     max_val = heatmap.max()
+
     normalized_heatmap = (heatmap - min_val) / (max_val - min_val)
 
     heatmap_img = Image.fromarray((normalized_heatmap * 255).astype(np.uint8))
@@ -51,6 +54,7 @@ def visualize_ig(model_path,
     heatmap_img.save(os.path.join(heatmap_path, heatmap_name))
 
     # should include overlap here as well
+
     fig, ax = plt.subplots(1, figsize=(6, 6))
     cmap = mcolors.LinearSegmentedColormap.from_list(name='alphared',
                                                      colors=[(1, 0, 0, 0),
