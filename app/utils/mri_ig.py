@@ -55,28 +55,31 @@ def visualize_ig(model_path,
     normalized_heatmap = (heatmap - min_val) / (max_val - min_val)
     print('normalized_heatmap', normalized_heatmap.shape)
 
-    heatmap_img = Image.fromarray((normalized_heatmap[:, :, slice] * 255).astype(np.uint8))
-    print('Image.fromarray works')
-
+    #heatmap_img = Image.fromarray((normalized_heatmap[:, :, slice] * 255).astype(np.uint8))
+    heatmap_img = normalized_heatmap[:, :, slice]
     heatmap_img.save(os.path.join(heatmap_path, heatmap_name))
     print('heatmap saved')
 
     # should include overlap here as well
 
     fig, ax = plt.subplots(1, figsize=(6, 6))
+
     cmap = mcolors.LinearSegmentedColormap.from_list(name='alphared',
-                                                     colors=[(1, 0, 0, 0),
-                                                             "darkred", "red", "darkorange", "orange", "yellow"],
+                                                     colors=[(1, 0, 0, 0), "darkred", "red", "darkorange", "orange", "yellow"],
                                                      N=5000)
+
     mri_array = tensor_mri.cpu().squeeze().squeeze().permute(1, 2, 0).numpy()
+    print(mri_array.shape)
+
     ax.imshow(mri_array[slice, :, :], cmap="Greys")
     print('mri plotted')
-    #below must be wrong
+
     im = ax.imshow(heatmap_img,
                    cmap=cmap,
                    interpolation="gaussian",
                    alpha=1)
     print('heatmap plotted')
+
     plt.savefig(os.path.join(heatmap_path, heatmap_name+'overlay.jpg'))
     print('figure saved')
 
