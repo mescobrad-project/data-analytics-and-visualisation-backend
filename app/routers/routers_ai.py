@@ -17,8 +17,7 @@ async def ai_experiment(
         eval_size: int = 8,
         lr: float = 0.001,
         patience: int = 3,
-        scheduler_step_size: int = 3,
-        scheduler_gamma: float = 0.2
+        scheduler_patience: int = 3,
        ) -> dict:
 
     results= run_experiment(iterations,
@@ -28,8 +27,7 @@ async def ai_experiment(
                    eval_size,
                    lr,
                    patience,
-                   scheduler_step_size,
-                   scheduler_gamma
+                   scheduler_patience
                    )
     return {"results": results}
     # files = get_files_for_slowwaves_spindle(workflow_id, run_id, step_id)

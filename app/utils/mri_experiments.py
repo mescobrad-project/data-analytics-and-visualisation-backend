@@ -19,8 +19,7 @@ def run_experiment(iterations,
                    eval_size, 
                    lr, 
                    patience,
-                   scheduler_step_size,
-                   scheduler_gamma
+                   scheduler_patience
                    ):
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
     exp_dir = NeurodesktopStorageLocation + f'/model_data/saved_models_{timestamp}/'
@@ -40,8 +39,7 @@ def run_experiment(iterations,
                                          model,
                                          lr,
                                          patience,
-                                         scheduler_step_size,
-                                         scheduler_gamma)
+                                         scheduler_patience)
         torch.save(trained_model, exp_dir + f'{type(model).__name__}_experiment{i+1}.pth')
         #torch.save(trained_model.state_dict(), '../saved_models/' + f'{type(model).__name__}_experiment{i+1}.pth') 
 
