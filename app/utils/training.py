@@ -61,7 +61,7 @@ def train_eval_model(train_dataloader,
                      patience):
 
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-    scheduler = ReduceLROnPlateau(optimizer, mode='min', patience=2)
+    scheduler = ReduceLROnPlateau(optimizer, mode='min', patience=3)
 
     # for early stopping
     threshold = 10e+5

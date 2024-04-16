@@ -64,13 +64,13 @@ def visualize_ig(model_path,
                                                      N=5000)
 
     mri_array = tensor_mri.cpu().squeeze().squeeze().permute(1, 2, 0).numpy()
-    print(mri_array.shape) # [160, 256, 256] torch Tensor (to verify)
+    print(mri_array.shape) # [256, 256, 160] torch Tensor (to verify)
 
     #pickle
     with open(os.path.join(heatmap_path, 'mri_and_heatmap.pickle'), 'wb') as f:
-        pickle.dump([mri_array, normalized_heatmap, heatmap_img], f)
+        pickle.dump([mri_array, heatmap, normalized_heatmap], f)
 
-    ax.imshow(mri_array[slice, :, :], cmap="Greys")
+    ax.imshow(mri_array[:, :, slice], cmap="Greys")
     im = ax.imshow(heatmap_img, cmap=cmap, interpolation="gaussian", alpha=1)
     plt.savefig(os.path.join(heatmap_path, heatmap_name))
     plt.show()
