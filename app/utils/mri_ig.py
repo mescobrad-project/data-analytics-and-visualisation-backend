@@ -40,7 +40,7 @@ def visualize_ig(model_path,
 
     attributions, approximation_error = ig.attribute(tensor_mri,
                                                      method='gausslegendre',
-                                                     n_steps=100,
+                                                     n_steps=20,
                                                      target=target_class,
                                                      return_convergence_delta=True)
     #print('attributions', attributions.shape) #5-dim torch Tensor [1,1,160,256,256] (verified)
