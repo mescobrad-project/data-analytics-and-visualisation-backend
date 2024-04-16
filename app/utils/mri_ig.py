@@ -6,6 +6,7 @@ from captum.attr import IntegratedGradients
 from PIL import Image
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
+import pickle
 
 def visualize_ig(model_path,
                  mri_path,
@@ -65,15 +66,13 @@ def visualize_ig(model_path,
     mri_array = tensor_mri.cpu().squeeze().squeeze().permute(1, 2, 0).numpy()
     print(mri_array.shape) # [160, 256, 256] torch Tensor (to verify)
 
+    #pickle
+    with open(os.path.join(heatmap_path, 'mri_and_heatmap.pickle'), 'wb') as f:
+        pickle.dump([mri_array, normalized_heatmap, heatmap_img], f)
+
     ax.imshow(mri_array[slice, :, :], cmap="Greys")
-
-    im = ax.imshow(heatmap_img,
-                   cmap=cmap,
-                   interpolation="gaussian",
-                   alpha=1)
-
+    im = ax.imshow(heatmap_img, cmap=cmap, interpolation="gaussian", alpha=1)
     plt.savefig(os.path.join(heatmap_path, heatmap_name))
-
     plt.show()
 
     return True
