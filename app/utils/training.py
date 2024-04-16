@@ -58,7 +58,7 @@ def train_eval_model(train_dataloader,
                      eval_dataloader,
                      model,
                      lr,
-                     patience,
+                     es_patience,
                      scheduler_patience):
 
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
@@ -93,9 +93,9 @@ def train_eval_model(train_dataloader,
         else:
             patience_counter += 1
         
-        if patience_counter == patience:
-            es_epoch = max(epoch + 1 - patience, 1)
-            print(f'Early Stopping checkpoint at epoch {es_epoch}. Patience value was {patience}.', flush=True)
+        if patience_counter == es_patience:
+            es_epoch = max(epoch + 1 - es_patience, 1)
+            print(f'Early Stopping checkpoint at epoch {es_epoch}. Patience value was {es_patience}.', flush=True)
             print('Train-Eval stage complete!', flush=True)
             
             for epoch in range(es_epoch):

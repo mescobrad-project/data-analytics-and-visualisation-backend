@@ -18,7 +18,7 @@ def run_experiment(iterations,
                    batch_size,
                    eval_size, 
                    lr, 
-                   patience,
+                   es_patience,
                    scheduler_patience
                    ):
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
@@ -38,7 +38,7 @@ def run_experiment(iterations,
                                          eval_dataloader,
                                          model,
                                          lr,
-                                         patience,
+                                         es_patience,
                                          scheduler_patience)
         torch.save(trained_model, exp_dir + f'{type(model).__name__}_experiment{i+1}.pth')
         #torch.save(trained_model.state_dict(), '../saved_models/' + f'{type(model).__name__}_experiment{i+1}.pth') 

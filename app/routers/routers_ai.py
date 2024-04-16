@@ -10,13 +10,13 @@ async def ai_experiment(
         workflow_id: str,
         step_id: str,
         run_id: str,
-        participants_path: str ,
+        participants_path: str,
         data_path: str,
         iterations : int = 5,
-        batch_size: int = 16,
-        eval_size: int = 8,
+        batch_size: int = 4,
+        eval_size: int = 30,
         lr: float = 0.001,
-        patience: int = 3,
+        es_patience: int = 3,
         scheduler_patience: int = 3,
        ) -> dict:
 
@@ -26,7 +26,7 @@ async def ai_experiment(
                    batch_size,
                    eval_size,
                    lr,
-                   patience,
+                   es_patience,
                    scheduler_patience
                    )
     return {"results": results}
