@@ -59,11 +59,12 @@ def train_eval_model(train_dataloader,
                      model,
                      lr,
                      es_patience,
-                     scheduler_patience):
+                     scheduler_step_size,
+                     scheduler_gamma):
 
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-    scheduler = ReduceLROnPlateau(optimizer, mode='min', patience=scheduler_patience)
-    #scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=scheduler_step_size, gamma=scheduler_gamma)
+    #scheduler = ReduceLROnPlateau(optimizer, mode='min', patience=scheduler_patience)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=scheduler_step_size, gamma=scheduler_gamma)
 
     # for early stopping
     threshold = 10e+5
@@ -79,7 +80,7 @@ def train_eval_model(train_dataloader,
 
         # Validation phase
         valid_loss, eval_targets, eval_predictions = evaluate_model(eval_dataloader, model)
-        scheduler.step(valid_loss)
+        scheduler.step()#scheduler.step(valid_loss)
         dev_f1 = metrics.f1_score(eval_targets, eval_predictions, zero_division=1)
         dev_acc = metrics.accuracy_score(eval_targets, eval_predictions)
 
