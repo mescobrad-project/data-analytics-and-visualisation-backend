@@ -18,7 +18,7 @@ async def ai_experiment(
         lr: float = 0.001,
         es_patience: int = 3,
         scheduler_step_size: int = 3,
-        scheduler_gamma: float = 0.2
+        scheduler_gamma: float = 0.75
        ) -> dict:
 
     results= run_experiment(iterations,
