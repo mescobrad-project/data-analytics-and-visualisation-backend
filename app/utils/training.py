@@ -79,7 +79,7 @@ def train_eval_model(train_dataloader,
 
         # Validation phase
         valid_loss, eval_targets, eval_predictions = evaluate_model(eval_dataloader, model)
-        scheduler.step()
+        scheduler.step(valid_loss)
         dev_f1 = metrics.f1_score(eval_targets, eval_predictions, zero_division=1)
         dev_acc = metrics.accuracy_score(eval_targets, eval_predictions)
 
