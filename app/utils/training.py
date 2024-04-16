@@ -58,11 +58,13 @@ def train_eval_model(train_dataloader,
                      eval_dataloader,
                      model,
                      lr,
-                     patience):
+                     patience,
+                     scheduler_step_size,
+                     scheduler_gamma):
 
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     #scheduler = ReduceLROnPlateau(optimizer, mode='min', patience=3)
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=2, gamma=0.1)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=scheduler_step_size, gamma=scheduler_gamma)
 
     # for early stopping
     threshold = 10e+5
@@ -74,6 +76,7 @@ def train_eval_model(train_dataloader,
 
         # Training phase
         train_loss = train_model(train_dataloader, model, optimizer)
+        current_lr = optimizer.param_groups[0]['lr']
 
         # Validation phase
         valid_loss, eval_targets, eval_predictions = evaluate_model(eval_dataloader, model)
@@ -81,7 +84,7 @@ def train_eval_model(train_dataloader,
         dev_f1 = metrics.f1_score(eval_targets, eval_predictions, zero_division=1)
         dev_acc = metrics.accuracy_score(eval_targets, eval_predictions)
 
-        print(f'epoch {epoch+1} - train loss {train_loss:.3f} - val loss {valid_loss:.3f} - val f1 {dev_f1:.3f} - val acc {dev_acc:.3f}', flush=True)
+        print(f'epoch {epoch+1} - train loss {train_loss:.3f} - val loss {valid_loss:.3f} - val f1 {dev_f1:.3f} - val acc {dev_acc:.3f} - lr {current_lr:.5f}', flush=True)
 
         # Early Stopping
         if round(valid_loss, 3) < threshold: #improvement
