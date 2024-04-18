@@ -18,7 +18,10 @@ def run_experiment(iterations,
                    batch_size,
                    eval_size, 
                    lr, 
-                   patience):
+                   es_patience,
+                   scheduler_step_size,
+                   scheduler_gamma
+                   ):
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
     exp_dir = NeurodesktopStorageLocation + f'/model_data/saved_models_{timestamp}/'
     os.makedirs(exp_dir)
@@ -32,7 +35,13 @@ def run_experiment(iterations,
         model = Conv3D()
 
         #training
-        trained_model = train_eval_model(train_dataloader, eval_dataloader, model, lr, patience)
+        trained_model = train_eval_model(train_dataloader,
+                                         eval_dataloader,
+                                         model,
+                                         lr,
+                                         es_patience,
+                                         scheduler_step_size,
+                                         scheduler_gamma)
         torch.save(trained_model, exp_dir + f'{type(model).__name__}_experiment{i+1}.pth')
         #torch.save(trained_model.state_dict(), '../saved_models/' + f'{type(model).__name__}_experiment{i+1}.pth') 
 

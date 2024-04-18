@@ -1,82 +1,67 @@
 import os
-import torch
 import numpy as np
-import nibabel as nib
+import torch
 import torch.nn as nn
-from PIL import Image
+import nibabel as nib
+#from PIL import Image
+import matplotlib.pyplot as plt
+#import matplotlib.colors as mcolors
+#import pickle
+from pytorch_grad_cam import GradCAM
+
+# source is my 17.4(1) ntbk (xai, GD)
+class Conv3DWrapper(nn.Module):
+    def __init__(self, external_model):
+        super(Conv3DWrapper, self).__init__()
+        self.conv3d_model = external_model
+    def forward(self, x):
+        _, logits = self.conv3d_model(x)
+        return logits
 
 def visualize_grad_cam(model_path,
                        mri_path,
                        heatmap_path,
-                       heatmap_name):
-    
-    model = torch.load(model_path)
+                       heatmap_name,
+                       slice,
+                       alpha):
 
-    nii_img = nib.load(mri_path)
+    assert (os.path.exists(model_path))
+    assert (os.path.exists(mri_path))
+    assert (os.path.exists(heatmap_path))
+
+    model = torch.load(model_path)
+    model.eval()
+
+    nii_img = nib.load(mri_path)  # 3-dim mri
     mri = nii_img.get_fdata()
-    tensor_mri = torch.tensor(mri)
-    
+    tensor_mri = torch.from_numpy(mri)  # [160, 256, 256]
+    tensor_mri = torch.unsqueeze(tensor_mri, 0)
+    tensor_mri = torch.unsqueeze(tensor_mri, 0)  # 5-dim torch Tensor [1,1,160,256,256] (verified)
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     tensor_mri = tensor_mri.to(device)
     model = model.to(device)
-    
-    heatmap = grad_cam_heatmap(model, 
-                               tensor_mri.unsqueeze(0).unsqueeze(0))
+    wrapper_model = Conv3DWrapper(model)
 
-    #save heatmap as a png file in the heatmap_path
-    heatmap = np.uint8(255 * heatmap)  # Convert to uint8 for saving as an image
-    heatmap_img = Image.fromarray(heatmap, 'L')  # Create PIL image
-    heatmap_img.save(os.path.join(heatmap_path, heatmap_name)) #name should be .png str
+    cam_instance = GradCAM(model=wrapper_model,
+                           target_layers=[wrapper_model.conv3d_model.group5[0]])
+    pixel_attributions = cam_instance(input_tensor=tensor_mri)[0, :,
+                         :]  # for top predicted class - [256, 256, 160] numpy
+
+    fig, ax = plt.subplots(1, figsize=(6, 6))
+
+    # cmap = mcolors.LinearSegmentedColormap.from_list(name='alphared', colors=[(1, 0, 0, 0), "darkred", "red", "darkorange", "orange", "yellow"], N=5000)
+
+    mri_array = tensor_mri.cpu().squeeze().squeeze().permute(1, 2, 0).numpy()
+
+    # pickle
+    # with open(os.path.join(heatmap_path, 'mri_and_heatmap.pickle'), 'wb') as f:
+    #    pickle.dump([mri_array, heatmap], f)
+
+    ax.imshow(mri_array[:, :, slice], cmap="Greys")
+    # im = ax.imshow(pixel_attributions[:, :, slice], cmap=cmap, interpolation="gaussian", alpha=1)
+    im = ax.imshow(pixel_attributions[:, :, slice], interpolation="gaussian", alpha=alpha)
+    plt.savefig(os.path.join(heatmap_path, heatmap_name))
+    plt.show()
 
     return True
-
-def grad_cam_heatmap(model, 
-                     input_tensor):
-
-    model.eval()
-
-    # Forward pass
-    output = model(input_tensor) #output = None, logits
-    
-    if output[1][0] > output[1][1]:
-        target = torch.tensor([[1, 0]])
-    else:
-        target = torch.tensor([[0, 1]])
-
-    loss_fn = nn.CrossEntropyLoss()
-    loss = loss_fn(output[1], target)
-
-    # Backward pass
-    model.zero_grad()
-    loss.backward(retain_graph=True)
-
-    # Get the gradients of the output with respect to the last conv layer (conv-batchnorm-relu-maxpool)
-    gradients = model.group5[0].weight.grad
-    pooled_gradients = torch.mean(gradients, dim=(2, 3, 4))  # Average pooling over spatial dimensions
-
-    # Get the activations of the last convolutional layer
-    activations = model.group1[0](input_tensor.float())  # Assuming the last convolutional layer is model.group1[0]
-    activations = activations.detach()
-
-    # Weight the channels by their importance in the gradient
-    for i in range(pooled_gradients.shape[0]):
-        activations[:, i, :, :, :] *= pooled_gradients[i, :].unsqueeze(0).unsqueeze(0).unsqueeze(0)
-
-    # Average the channels of the activations
-    heatmap = torch.mean(activations, dim=1).squeeze()
-
-    # ReLU on the heatmap
-    heatmap = torch.relu(heatmap)
-
-    # Normalize the heatmap
-    heatmap /= torch.max(heatmap)
-
-    # Resize heatmap to the size of the input image
-    heatmap = torch.nn.functional.interpolate(heatmap.unsqueeze(0).unsqueeze(0),
-                                               size=(input_tensor.shape[2], input_tensor.shape[3], input_tensor.shape[4]),
-                                               mode='trilinear', align_corners=False).squeeze()
-
-    # Convert heatmap to numpy array
-    heatmap = heatmap.detach().cpu().numpy()
-
-    return heatmap
