@@ -36,7 +36,7 @@ services:
   analytics-backend:
     build:
       context: "../../"
-      dockerfile: ./docker/docker_production/Dockerfile
+      dockerfile: ./docker/docker_production_ntua/Dockerfile
     hostname: analytics_backend
     container_name: analytics_backend
     restart: always
