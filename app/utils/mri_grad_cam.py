@@ -35,6 +35,7 @@ def visualize_grad_cam(model_path,
     nii_img = nib.load(mri_path)  # 3-dim mri
     mri = nii_img.get_fdata()
     tensor_mri = torch.from_numpy(mri)  # [160, 256, 256]
+    print('mri shape', tensor_mri.shape)
     tensor_mri = torch.unsqueeze(tensor_mri, 0)
     tensor_mri = torch.unsqueeze(tensor_mri, 0)  # 5-dim torch Tensor [1,1,160,256,256] (verified)
 
@@ -45,8 +46,8 @@ def visualize_grad_cam(model_path,
 
     cam_instance = GradCAM(model=wrapper_model,
                            target_layers=[wrapper_model.conv3d_model.group5[0]])
-    pixel_attributions = cam_instance(input_tensor=tensor_mri)[0, :,
-                         :]  # for top predicted class - [256, 256, 160] numpy
+    pixel_attributions = cam_instance(input_tensor=tensor_mri)[0, :, :]  # for top predicted class - [256, 256, 160] numpy
+    print('pixel attributions', pixel_attributions.shape)
 
     fig, ax = plt.subplots(1, figsize=(6, 6))
 
