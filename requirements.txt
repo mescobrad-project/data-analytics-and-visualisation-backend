@@ -2,7 +2,7 @@ atomicwrites==1.4.1
 autopep8==1.6.0
 binaryornot==0.4.4
 black==23.1.0
-#captum==0.7.0
+captum==0.7.0
 cloudpickle==2.2.1
 contourpy==1.0.6
 edflib-python==1.0.6
