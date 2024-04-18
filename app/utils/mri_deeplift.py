@@ -8,6 +8,14 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 import pickle
 
+class Conv3DWrapper(nn.Module):
+    def __init__(self, external_model):
+        super(Conv3DWrapper, self).__init__()
+        self.conv3d_model = external_model
+    def forward(self, x):
+        _, logits = self.conv3d_model(x)
+        return logits
+
 def visualize_dl(model_path,
                  mri_path,
                  heatmap_path,
@@ -29,20 +37,21 @@ def visualize_dl(model_path,
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     tensor_mri = tensor_mri.to(device)
-    model = model.to(device)
+    #model = model.to(device)
 
-    def wrapped_model(inp1):
-        return model(inp1)[1]
-
+    wrapped_model = Conv3DWrapper(model)
+    wrapped_model.to(device)
     dl = DeepLift(wrapped_model)
 
     output = model(tensor_mri)
     target_class = int(torch.argmax(output[1])) #int: this should be int 0 or 1 (verified)
 
-    attributions = dl.attribute(tensor_mri, target=target_class)
-    #print('attributions', attributions.shape) #5-dim torch Tensor [1,1,160,256,256] (verified)
+    attributions = dl.attribute(tensor_mri,
+                                target=target_class)
+    print('attributions calculated! shape is', attributions.shape) #5-dim torch Tensor [1,1,160,256,256] (verified)
 
     heatmap = attributions.cpu().squeeze().squeeze().permute(1, 2, 0).numpy() #[256, 256, 160] numpy array (verified)
+    print('heatmap calculated! shape is ', heatmap.shape)
 
     fig, ax = plt.subplots(1, figsize=(6, 6))
 
