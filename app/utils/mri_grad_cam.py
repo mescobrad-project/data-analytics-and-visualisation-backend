@@ -38,6 +38,7 @@ def visualize_grad_cam(model_path,
     print('mri shape', tensor_mri.shape)
     tensor_mri = torch.unsqueeze(tensor_mri, 0)
     tensor_mri = torch.unsqueeze(tensor_mri, 0)  # 5-dim torch Tensor [1,1,160,256,256] (verified)
+    print('mri shape', tensor_mri.shape)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     tensor_mri = tensor_mri.to(device)

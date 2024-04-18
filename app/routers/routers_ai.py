@@ -2,6 +2,7 @@ from fastapi import APIRouter, Request
 from app.utils.mri_experiments import run_experiment
 from app.utils.mri_grad_cam import visualize_grad_cam
 from app.utils.mri_ig import visualize_ig
+from app.utils.mri_deeplift import visualize_dl
 
 router = APIRouter()
 
@@ -71,4 +72,25 @@ async def ig_explanation_experiment(
                            heatmap_path,
                            heatmap_name,
                            slice)
+    return {"results": results}
+
+
+@router.get("/dl_explanation_experiment")
+async def dl_explanation_experiment(
+        workflow_id: str,
+        step_id: str,
+        run_id: str,
+        model_path: str,
+        mri_path: str,
+        heatmap_path: str,
+        heatmap_name: str,
+        slice: int,
+        alpha: float
+       ) -> dict:
+    results = visualize_dl(model_path,
+                           mri_path,
+                           heatmap_path,
+                           heatmap_name,
+                           slice,
+                           alpha)
     return {"results": results}
