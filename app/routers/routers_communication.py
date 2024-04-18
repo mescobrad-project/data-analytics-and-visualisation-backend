@@ -593,6 +593,19 @@ async def save_token(
         token: ModelTokenConfig,
         request: Request
 ) -> JSONResponse:
+    keycloak_openid = KeycloakOpenID(server_url="https://idm.digital-enabler.eng.it/auth/",
+                                     client_id="home-app",
+                                     realm_name="mescobrad",
+                                     client_secret_key=""
+                                     )
+    print(token.token)
+    try:
+        # token = keycloak_openid.token("mkontoulis@epu.ntua.gr", "Mkontoulis12345", grant_type='password')
+        userinfo = keycloak_openid.userinfo(token.token)
+    except Exception as e:
+        print("An error occurred:", e)
+        return JSONResponse(status_code=400)
+    print(userinfo)
     request.session["secret_key"] = token.token
     # TODO CHECK IF TOKEN IS VALID BEFORE SAVING AND SEND 200
     return JSONResponse(status_code=200)
