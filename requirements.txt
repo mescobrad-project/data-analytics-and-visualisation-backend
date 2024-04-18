@@ -17,6 +17,7 @@ guidata==2.3.1
 httptools==0.3.0
 httpx==0.24.1
 intervaltree==3.1.0
+itsdangerous==2.2.0
 isoduration==20.11.0
 jellyfish==0.9.0
 jinja2-time==0.2.0
