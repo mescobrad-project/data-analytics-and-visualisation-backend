@@ -39,7 +39,7 @@ def visualize_dl(model_path,
     output = model(tensor_mri)
     target_class = int(torch.argmax(output[1])) #int: this should be int 0 or 1 (verified)
 
-    attributions = dl.attribute(tensor_mri, target=0)
+    attributions = dl.attribute(tensor_mri, target=target_class)
     #print('attributions', attributions.shape) #5-dim torch Tensor [1,1,160,256,256] (verified)
 
     heatmap = attributions.cpu().squeeze().squeeze().permute(1, 2, 0).numpy() #[256, 256, 160] numpy array (verified)
