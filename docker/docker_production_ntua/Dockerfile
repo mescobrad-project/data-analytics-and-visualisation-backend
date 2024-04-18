@@ -6,6 +6,7 @@ WORKDIR /data-analytics-and-visualisation-backend
 
 # install Project requirements
 COPY ../../requirements.txt .
+RUN yum -y install mesa-libGL
 RUN pip3 install --no-cache-dir --upgrade pip
 RUN pip3 install --no-cache-dir --upgrade numpy==1.22.4
 RUN #pip3 install --no-cache-dir --upgrade numpy==1.21.6
