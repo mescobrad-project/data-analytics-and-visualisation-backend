@@ -38,6 +38,7 @@ def visualize_ig(model_path,
     output = model(tensor_mri)
     target_class = int(torch.argmax(output[1])) #int: this should be int 0 or 1 (verified)
 
+    #δεν τρεχει στη gpu με 10 steps! με 4 δε δινει καλο heatmap
     attributions, approximation_error = ig.attribute(tensor_mri,
                                                      method='gausslegendre',
                                                      n_steps=10,
