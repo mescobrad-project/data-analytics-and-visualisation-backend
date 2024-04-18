@@ -5,8 +5,8 @@ from app.utils.mri_ig import visualize_ig
 
 router = APIRouter()
 
-@router.get("/ai_experiment")
-async def ai_experiment(
+@router.get("/ai_mri_experiment")
+async def ai_mri_experiment(
         workflow_id: str,
         step_id: str,
         run_id: str,
@@ -21,7 +21,7 @@ async def ai_experiment(
         scheduler_gamma: float = 0.75
        ) -> dict:
 
-    results= run_experiment(iterations,
+    results = run_experiment(iterations,
                    participants_path,
                    data_path,
                    batch_size,
@@ -43,12 +43,16 @@ async def grad_cam_explanation_experiment(
         model_path: str,
         mri_path: str,
         heatmap_path: str,
-        heatmap_name: str
+        heatmap_name: str,
+        slice: int,
+        alpha: float
        ) -> dict:
     results = visualize_grad_cam(model_path,
                                  mri_path,
                                  heatmap_path,
-                                 heatmap_name)
+                                 heatmap_name,
+                                 slice,
+                                 alpha)
     return {"results": results}
 
 @router.get("/ig_explanation_experiment")
