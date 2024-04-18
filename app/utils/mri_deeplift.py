@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import torch
+import torch.nn as nn
 import nibabel as nib
 from captum.attr import DeepLift
 from PIL import Image
