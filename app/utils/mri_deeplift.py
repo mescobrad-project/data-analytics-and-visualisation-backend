@@ -37,23 +37,29 @@ def visualize_dl(model_path,
     tensor_mri = torch.unsqueeze(tensor_mri, 0) #5-dim torch Tensor [1,1,160,256,256] (verified)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print('device', device)
     tensor_mri = tensor_mri.to(device)
+    print('tensor_mri', tensor_mri.shape)
     #model = model.to(device)
 
     wrapped_model = Conv3DWrapper(model)
     wrapped_model.to(device)
+    print(wrapped_model)
+
     dl = DeepLift(wrapped_model)
 
     output = model(tensor_mri)
     target_class = int(torch.argmax(output[1])) #int: this should be int 0 or 1 (verified)
+    print('target class', target_class)
 
     attributions = dl.attribute(tensor_mri,
                                 target=target_class)
     print('attributions calculated! shape is', attributions.shape) #5-dim torch Tensor [1,1,160,256,256] (verified)
 
     heatmap = attributions.cpu().squeeze().squeeze().permute(1, 2, 0).numpy() #[256, 256, 160] numpy array (verified)
-    print('heatmap calculated! shape is ', heatmap.shape)
+    print('heatmap calculated! shape is', heatmap.shape)
 
+    print('--- plot starts here! ---')
     fig, ax = plt.subplots(1, figsize=(6, 6))
 
     #cmap = mcolors.LinearSegmentedColormap.from_list(name='alphared',
@@ -61,7 +67,7 @@ def visualize_dl(model_path,
     #                                                 N=5000)
 
     mri_array = tensor_mri.cpu().squeeze().squeeze().permute(1, 2, 0).numpy()
-    print(mri_array.shape) #[256, 256, 160] torch Tensor (to verify)
+    print('mri_array for plot', mri_array.shape) #[256, 256, 160] torch Tensor (to verify)
 
     #pickle
     #with open(os.path.join(heatmap_path, 'mri_and_heatmap.pickle'), 'wb') as f:
