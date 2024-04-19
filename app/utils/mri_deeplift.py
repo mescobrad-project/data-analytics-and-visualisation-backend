@@ -61,7 +61,7 @@ def visualize_dl(model_path,
 
     #--plot
     #heatmap = attributions.cpu().squeeze().squeeze().permute(1, 2, 0).numpy() #[256, 256, 160] numpy array (verified)
-    attributions = attributions.cpu().squeeze().squeeze().permute(1, 2, 0).numpy()  # [256, 256, 160] numpy array (verified)
+    attributions = attributions.detach().cpu().squeeze().squeeze().permute(1, 2, 0).numpy()  # [256, 256, 160] numpy array (verified)
     print('squeezed attributions calculated! shape is', attributions.shape)
 
     print('--- plot starts here! ---')
@@ -72,7 +72,7 @@ def visualize_dl(model_path,
     #                                                 N=5000)
 
     #mri_array = tensor_mri.cpu().squeeze().squeeze().permute(1, 2, 0).numpy()
-    tensor_mri = tensor_mri.cpu().squeeze().squeeze().permute(1, 2, 0).numpy()
+    tensor_mri = tensor_mri.detach().cpu().squeeze().squeeze().permute(1, 2, 0).numpy()
     print('squeezed tensor_mri for plot', tensor_mri.shape) #[256, 256, 160] torch Tensor (to verify)
 
     #pickle
