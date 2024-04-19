@@ -33,7 +33,6 @@ def visualize_dl(model_path,
     wrapped_model = Conv3DWrapper(model)
 
     #--load mri
-    #nii_img = nib.load(mri_path) #3-dim mri
     mri = nib.load(mri_path).get_fdata()
     tensor_mri = torch.from_numpy(mri)
     tensor_mri = tensor_mri.unsqueeze(0).unsqueeze(0) #5-dim torch Tensor [1,1,160,256,256] (verified)
@@ -60,28 +59,18 @@ def visualize_dl(model_path,
     print('Max GPU Memory Allocated:', torch.cuda.max_memory_allocated(device))
 
     #--plot
-    #heatmap = attributions.cpu().squeeze().squeeze().permute(1, 2, 0).numpy() #[256, 256, 160] numpy array (verified)
     attributions = attributions.detach().cpu().squeeze().squeeze().permute(1, 2, 0).numpy()  # [256, 256, 160] numpy array (verified)
-    print('squeezed attributions calculated! shape is', attributions.shape)
+    tensor_mri = tensor_mri.detach().cpu().squeeze().squeeze().permute(1, 2, 0).numpy()
+    with open(os.path.join(heatmap_path, 'mri_and_heatmap.pickle'), 'wb') as f:pickle.dump([tensor_mri, attributions], f)
 
-    print('--- plot starts here! ---')
     fig, ax = plt.subplots(1, figsize=(6, 6))
 
-    #cmap = mcolors.LinearSegmentedColormap.from_list(name='alphared',
-    #                                                 colors=[(1, 0, 0, 0), "darkred", "red", "darkorange", "orange", "yellow"],
-    #                                                 N=5000)
-
-    #mri_array = tensor_mri.cpu().squeeze().squeeze().permute(1, 2, 0).numpy()
-    tensor_mri = tensor_mri.detach().cpu().squeeze().squeeze().permute(1, 2, 0).numpy()
-    print('squeezed tensor_mri for plot', tensor_mri.shape) #[256, 256, 160] torch Tensor (to verify)
-
-    #pickle
-    #with open(os.path.join(heatmap_path, 'mri_and_heatmap.pickle'), 'wb') as f:
-    #    pickle.dump([mri_array, heatmap], f)
+    cmap = mcolors.LinearSegmentedColormap.from_list(name='alphared',
+                                                     colors=[(1, 0, 0, 0), "darkred", "red", "darkorange", "orange", "yellow"],
+                                                     N=5000)
 
     ax.imshow(tensor_mri[:, :, slice], cmap="Greys")
-    #im = ax.imshow(heatmap[:, :, slice], cmap=cmap, interpolation="gaussian", alpha=1)
-    im = ax.imshow(attributions[:, :, slice], alpha=alpha)
+    im = ax.imshow(attributions[:, :, slice], cmap=cmap, interpolation="gaussian", alpha=alpha)
     plt.savefig(os.path.join(heatmap_path, heatmap_name))
     plt.show()
 
