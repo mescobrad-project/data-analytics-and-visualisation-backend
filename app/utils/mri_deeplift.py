@@ -36,7 +36,7 @@ def visualize_dl(model_path,
     #nii_img = nib.load(mri_path) #3-dim mri
     mri = nib.load(mri_path).get_fdata()
     tensor_mri = torch.from_numpy(mri)
-    tensor_mri = tensor_mri.unsqueeze(tensor_mri, 0).unsqueeze(tensor_mri, 0) #5-dim torch Tensor [1,1,160,256,256] (verified)
+    tensor_mri = tensor_mri.unsqueeze(0).unsqueeze(0) #5-dim torch Tensor [1,1,160,256,256] (verified)
 
     #--send to device
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
