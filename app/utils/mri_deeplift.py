@@ -54,13 +54,10 @@ def visualize_dl(model_path,
     dl = DeepLift(wrapped_model)
     target_class = int(torch.argmax(model(tensor_mri)[1])) #int: this should be int 0 or 1 (verified)
     print('target class (model prediction): ', target_class)
-
     # Track GPU memory usage
     print('Initial GPU Memory Allocated:', torch.cuda.memory_allocated(device)) #almost 11.72GB
     #print('GPU Summary:', torch.cuda.memory_summary())
-
     attributions = dl.attribute(tensor_mri, target=target_class)
-
     print('Attributions calculated! Shape:', attributions.shape)
     print('Final GPU Memory Allocated:', torch.cuda.memory_allocated(device))
     print('Max GPU Memory Allocated:', torch.cuda.max_memory_allocated(device))
@@ -68,9 +65,10 @@ def visualize_dl(model_path,
     #--plot
     attributions = attributions.detach().cpu().squeeze().squeeze().permute(1, 2, 0).numpy()  # [256, 256, 160] numpy array (verified)
     tensor_mri = tensor_mri.detach().cpu().squeeze().squeeze().permute(1, 2, 0).numpy()
-    #with open(os.path.join(heatmap_path, 'mri_and_heatmap.pickle'), 'wb') as f: pickle.dump([tensor_mri, attributions], f)
+    #with open(os.path.join(heatmap_path, 'mri_and_heatmap.pickle'), 'wb') as f:
+    #     pickle.dump([tensor_mri, attributions], f)
 
-    fig, ax = plt.subplots(1, 3, figsize=(18, 6))
+    fig, ax = plt.subplots(1, 2, figsize=(12, 6))
 
     # Plot MRI
     ax[0].imshow(normalize(tensor_mri[:, :, slice]))
@@ -79,14 +77,6 @@ def visualize_dl(model_path,
     # Plot attributions
     ax[1].imshow(normalize(attributions[:, :, slice]))
     ax[1].set_title('Attributions slice {}'.format(slice))
-
-    # Plot overlay
-    cmap = mcolors.LinearSegmentedColormap.from_list(name='alphared',
-                                                     colors=[(1, 0, 0, 0), "darkred", "red", "darkorange", "orange", "yellow"],
-                                                     N=5000)
-    ax[2].imshow(normalize(tensor_mri[:, :, slice]), cmap="Greys")
-    im = ax[2].imshow(normalize(attributions[:, :, slice]), cmap=cmap, interpolation="gaussian", alpha=alpha)
-    ax[2].set_title('Overlay')
 
     # Save and show the plot
     plt.savefig(os.path.join(heatmap_path, heatmap_name))
