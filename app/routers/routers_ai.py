@@ -87,15 +87,13 @@ async def dl_explanation_experiment(
         mri_path: str,
         heatmap_path: str,
         heatmap_name: str,
-        slice: int,
-        alpha: float
+        slice: int
        ) -> dict:
     results = visualize_dl(model_path,
                            mri_path,
                            heatmap_path,
                            heatmap_name,
-                           slice,
-                           alpha)
+                           slice)
     return {"results": results}
 
 @router.get("/ggc_explanation_experiment")
@@ -107,13 +105,11 @@ async def ggc_explanation_experiment(
         mri_path: str,
         heatmap_path: str,
         heatmap_name: str,
-        slice: int,
-        alpha: float
+        slice: int
        ) -> dict:
     results = visualize_ggc(model_path,
                            mri_path,
                            heatmap_path,
                            heatmap_name,
-                           slice,
-                           alpha)
+                           slice)
     return {"results": results}

@@ -28,8 +28,7 @@ def visualize_ggc(model_path,
                  mri_path,
                  heatmap_path,
                  heatmap_name,
-                 slice,
-                 alpha):
+                 slice):
 
     assert(os.path.exists(model_path))
     assert (os.path.exists(mri_path))
@@ -71,14 +70,14 @@ def visualize_ggc(model_path,
     fig, ax = plt.subplots(1, 2, figsize=(12, 6))
 
     # Plot MRI
-    ax[0].imshow(normalize(tensor_mri[:, :, slice]), cmap='Greys')
+    img1 = ax[0].imshow(normalize(tensor_mri[:, :, slice]), cmap='Greys')
     ax[0].set_title('MRI slice {}'.format(slice))
-    ax[0].colorbar()
+    fig.colorbar(img1, ax=ax[0])
 
     # Plot attributions
-    ax[1].imshow(normalize(attributions[:, :, slice]), cmap='plasma')
+    img2 = ax[1].imshow(normalize(attributions[:, :, slice]), cmap='plasma')
     ax[1].set_title('Attributions slice {}'.format(slice))
-    ax[1].colorbar()
+    fig.colorbar(img2, ax=ax[1])
 
     # Save and show the plot
     plt.savefig(os.path.join(heatmap_path, heatmap_name))
