@@ -70,7 +70,7 @@ def visualize_dl(model_path,
     tensor_mri = tensor_mri.detach().cpu().squeeze().squeeze().permute(1, 2, 0).numpy()
     #with open(os.path.join(heatmap_path, 'mri_and_heatmap.pickle'), 'wb') as f: pickle.dump([tensor_mri, attributions], f)
 
-    fig, ax = plt.subplots(1, figsize=(18, 6))
+    fig, ax = plt.subplots(1, 3, figsize=(18, 6))
 
     # Plot MRI
     ax[0].imshow(normalize(tensor_mri[:, :, slice]))
