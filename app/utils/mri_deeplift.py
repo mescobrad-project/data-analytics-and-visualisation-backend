@@ -42,6 +42,7 @@ def visualize_dl(model_path,
     #--send to device
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print('device', device)
+    print(torch.cuda.get_device_name(0))
     tensor_mri = tensor_mri.to(device)
     wrapped_model.to(device)
     print('tensor_mri', tensor_mri.shape)
