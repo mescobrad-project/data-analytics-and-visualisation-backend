@@ -41,15 +41,10 @@ def visualize_dl(model_path,
 
     #--send to device
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print('device', device)
     print(torch.cuda.get_device_name(0))
     tensor_mri = tensor_mri.to(device)
     wrapped_model.to(device)
-    print('tensor_mri', tensor_mri.shape)
 
-    return model_path, mri_path, heatmap_path, heatmap_name, slice, alpha
-
-'''
     #--deeplift
     dl = DeepLift(wrapped_model)
     output = model(tensor_mri)
@@ -68,6 +63,9 @@ def visualize_dl(model_path,
     print('Final GPU Memory Allocated:', final_memory)
     print('Max GPU Memory Allocated:', max_memory)
 
+    return True
+
+'''
     #--plot
     heatmap = attributions.cpu().squeeze().squeeze().permute(1, 2, 0).numpy() #[256, 256, 160] numpy array (verified)
     print('heatmap calculated! shape is', heatmap.shape)
