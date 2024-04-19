@@ -39,21 +39,11 @@ def visualize_dl(model_path,
     tensor_mri = torch.unsqueeze(tensor_mri, 0)
     tensor_mri = torch.unsqueeze(tensor_mri, 0) #5-dim torch Tensor [1,1,160,256,256] (verified)
 
-    print(model_path,
-                 mri_path,
-                 heatmap_path,
-                 heatmap_name,
-                 slice,
-                 alpha)
+    print(model_path, mri_path, heatmap_path, heatmap_name, slice, alpha)
 
-    return model_path,
-                 mri_path,
-                 heatmap_path,
-                 heatmap_name,
-                 slice,
-                 alpha
+    return model_path, mri_path, heatmap_path, heatmap_name, slice, alpha
 
-    '''
+'''
     #--send to device
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print('device', device)
@@ -106,3 +96,4 @@ def visualize_dl(model_path,
     plt.show()
 
     return True
+'''
