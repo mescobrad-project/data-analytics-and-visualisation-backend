@@ -59,12 +59,10 @@ def visualize_dl(model_path,
     print('Final GPU Memory Allocated:', torch.cuda.memory_allocated(device))
     print('Max GPU Memory Allocated:', torch.cuda.max_memory_allocated(device))
 
-    return True
-
-'''
     #--plot
-    heatmap = attributions.cpu().squeeze().squeeze().permute(1, 2, 0).numpy() #[256, 256, 160] numpy array (verified)
-    print('heatmap calculated! shape is', heatmap.shape)
+    #heatmap = attributions.cpu().squeeze().squeeze().permute(1, 2, 0).numpy() #[256, 256, 160] numpy array (verified)
+    attributions = attributions.cpu().squeeze().squeeze().permute(1, 2, 0).numpy()  # [256, 256, 160] numpy array (verified)
+    print('squeezed attributions calculated! shape is', attributions.shape)
 
     print('--- plot starts here! ---')
     fig, ax = plt.subplots(1, figsize=(6, 6))
@@ -73,18 +71,18 @@ def visualize_dl(model_path,
     #                                                 colors=[(1, 0, 0, 0), "darkred", "red", "darkorange", "orange", "yellow"],
     #                                                 N=5000)
 
-    mri_array = tensor_mri.cpu().squeeze().squeeze().permute(1, 2, 0).numpy()
-    print('mri_array for plot', mri_array.shape) #[256, 256, 160] torch Tensor (to verify)
+    #mri_array = tensor_mri.cpu().squeeze().squeeze().permute(1, 2, 0).numpy()
+    tensor_mri = tensor_mri.cpu().squeeze().squeeze().permute(1, 2, 0).numpy()
+    print('squeezed tensor_mri for plot', tensor_mri.shape) #[256, 256, 160] torch Tensor (to verify)
 
     #pickle
     #with open(os.path.join(heatmap_path, 'mri_and_heatmap.pickle'), 'wb') as f:
     #    pickle.dump([mri_array, heatmap], f)
 
-    ax.imshow(mri_array[:, :, slice], cmap="Greys")
+    ax.imshow(tensor_mri[:, :, slice], cmap="Greys")
     #im = ax.imshow(heatmap[:, :, slice], cmap=cmap, interpolation="gaussian", alpha=1)
-    im = ax.imshow(heatmap[:, :, slice], alpha=alpha)
+    im = ax.imshow(attributions[:, :, slice], alpha=alpha)
     plt.savefig(os.path.join(heatmap_path, heatmap_name))
     plt.show()
 
     return True
-'''
