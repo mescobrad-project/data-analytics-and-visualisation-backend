@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Request
 from app.utils.mri_experiments import run_experiment
-from app.utils.mri_grad_cam import visualize_grad_cam
 from app.utils.mri_ig import visualize_ig
 from app.utils.mri_deeplift import visualize_dl
 from app.utils.mri_ggc import visualize_ggc
@@ -68,13 +67,15 @@ async def ig_explanation_experiment(
         mri_path: str,
         heatmap_path: str,
         heatmap_name: str,
-        slice: int
+        slice: int,
+        n_steps: int
        ) -> dict:
     results = visualize_ig(model_path,
                            mri_path,
                            heatmap_path,
                            heatmap_name,
-                           slice)
+                           slice,
+                           n_steps)
     return {"results": results}
 
 
@@ -87,15 +88,13 @@ async def dl_explanation_experiment(
         mri_path: str,
         heatmap_path: str,
         heatmap_name: str,
-        slice: int,
-        alpha: float
+        slice: int
        ) -> dict:
     results = visualize_dl(model_path,
                            mri_path,
                            heatmap_path,
                            heatmap_name,
-                           slice,
-                           alpha)
+                           slice)
     return {"results": results}
 
 @router.get("/ggc_explanation_experiment")
@@ -107,13 +106,11 @@ async def ggc_explanation_experiment(
         mri_path: str,
         heatmap_path: str,
         heatmap_name: str,
-        slice: int,
-        alpha: float
+        slice: int
        ) -> dict:
     results = visualize_ggc(model_path,
-                           mri_path,
-                           heatmap_path,
-                           heatmap_name,
-                           slice,
-                           alpha)
+                            mri_path,
+                            heatmap_path,
+                            heatmap_name,
+                            slice)
     return {"results": results}
