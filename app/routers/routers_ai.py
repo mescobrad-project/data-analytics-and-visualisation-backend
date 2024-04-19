@@ -36,6 +36,7 @@ async def ai_mri_experiment(
     # files = get_files_for_slowwaves_spindle(workflow_id, run_id, step_id)
     # path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
 
+'''
 @router.get("/grad_cam_explanation_experiment")
 async def grad_cam_explanation_experiment(
         workflow_id: str,
@@ -55,6 +56,7 @@ async def grad_cam_explanation_experiment(
                                  slice,
                                  alpha)
     return {"results": results}
+'''
 
 @router.get("/ig_explanation_experiment")
 async def ig_explanation_experiment(
@@ -88,6 +90,26 @@ async def dl_explanation_experiment(
         alpha: float
        ) -> dict:
     results = visualize_dl(model_path,
+                           mri_path,
+                           heatmap_path,
+                           heatmap_name,
+                           slice,
+                           alpha)
+    return {"results": results}
+
+@router.get("/ggc_explanation_experiment")
+async def ggc_explanation_experiment(
+        workflow_id: str,
+        step_id: str,
+        run_id: str,
+        model_path: str,
+        mri_path: str,
+        heatmap_path: str,
+        heatmap_name: str,
+        slice: int,
+        alpha: float
+       ) -> dict:
+    results = visualize_ggc(model_path,
                            mri_path,
                            heatmap_path,
                            heatmap_name,

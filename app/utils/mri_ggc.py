@@ -3,7 +3,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import nibabel as nib
-from captum.attr import DeepLift
+from captum.attr import GuidedGradCam
 from PIL import Image
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
@@ -24,7 +24,7 @@ def normalize(input):
     normalized = (input - min) / (max - min)
     return normalized
 
-def visualize_dl(model_path,
+def visualize_ggc(model_path,
                  mri_path,
                  heatmap_path,
                  heatmap_name,
@@ -50,8 +50,8 @@ def visualize_dl(model_path,
     tensor_mri = tensor_mri.to(device)
     wrapped_model.to(device)
 
-    #--deeplift
-    dl = DeepLift(wrapped_model)
+    #--GGC
+    ggc = GuidedGradCam(wrapped_model, layer=wrapped_model.conv3d_model.group5)
     target_class = int(torch.argmax(model(tensor_mri)[1])) #int: this should be int 0 or 1 (verified)
     print('target class (model prediction): ', target_class)
 
@@ -59,7 +59,7 @@ def visualize_dl(model_path,
     print('Initial GPU Memory Allocated:', torch.cuda.memory_allocated(device)) #almost 11.72GB
     #print('GPU Summary:', torch.cuda.memory_summary())
 
-    attributions = dl.attribute(tensor_mri, target=target_class)
+    attributions = ggc.attribute(tensor_mri, target=target_class)
 
     print('Attributions calculated! Shape:', attributions.shape)
     print('Final GPU Memory Allocated:', torch.cuda.memory_allocated(device))
