@@ -24,9 +24,9 @@ class MRI_Generator(Dataset):
         path_participant = self.data_path + participant + '/anat/'
         s = [f for f in os.listdir(path_participant) if f.endswith('FLAIR.nii.gz')]
         path_new = path_participant + s[0]
-        a = nib.load(path_new)
-        a = a.get_fdata() #numpy.ndarray
-        resized_map = torch.from_numpy(a) #torch array
+        #a = nib.load(path_new)
+        #a = nib.load(path_new).get_fdata() #numpy.ndarray
+        resized_map = torch.from_numpy(nib.load(path_new).get_fdata()) #torch array
 
         labels_binary = self.dataset_binary_labels[idx]
 

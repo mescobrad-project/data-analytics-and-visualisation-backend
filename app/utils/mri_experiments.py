@@ -22,6 +22,7 @@ def run_experiment(iterations,
                    scheduler_step_size,
                    scheduler_gamma
                    ):
+
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
     exp_dir = NeurodesktopStorageLocation + f'/model_data/saved_models_{timestamp}/'
     os.makedirs(exp_dir)
