@@ -80,7 +80,7 @@ def visualize_ig(model_path,
     fig.colorbar(img1, ax=ax[0])
 
     # Plot attributions
-    img2 = ax[1].imshow(normalize(attributions[:, :, slice]), cmap='BuGn')
+    img2 = ax[1].imshow(normalize(attributions[:, :, slice]), cmap='viridis')
     ax[1].set_title('Attributions slice {}'.format(slice))
     fig.colorbar(img2, ax=ax[1])
 
