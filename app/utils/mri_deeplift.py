@@ -28,7 +28,8 @@ def visualize_dl(model_path,
                  mri_path,
                  heatmap_path,
                  heatmap_name,
-                 slice):
+                 slice,
+                 alpha):
 
     assert(os.path.exists(model_path))
     assert (os.path.exists(mri_path))
