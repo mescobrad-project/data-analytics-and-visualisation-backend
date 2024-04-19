@@ -3,6 +3,7 @@ from app.utils.mri_experiments import run_experiment
 from app.utils.mri_grad_cam import visualize_grad_cam
 from app.utils.mri_ig import visualize_ig
 from app.utils.mri_deeplift import visualize_dl
+from app.utils.mri_ggc import visualize_ggc
 
 router = APIRouter()
 
