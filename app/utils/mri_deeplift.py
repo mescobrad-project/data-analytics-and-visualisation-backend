@@ -68,17 +68,16 @@ def visualize_dl(model_path,
     #--plot
     attributions = attributions.detach().cpu().squeeze().squeeze().permute(1, 2, 0).numpy()  # [256, 256, 160] numpy array (verified)
     tensor_mri = tensor_mri.detach().cpu().squeeze().squeeze().permute(1, 2, 0).numpy()
-    with open(os.path.join(heatmap_path, 'mri_and_heatmap.pickle'), 'wb') as f:
-        pickle.dump([tensor_mri, attributions], f)
+    #with open(os.path.join(heatmap_path, 'mri_and_heatmap.pickle'), 'wb') as f: pickle.dump([tensor_mri, attributions], f)
 
     fig, ax = plt.subplots(1, figsize=(18, 6))
 
     # Plot MRI
-    ax[0].imshow(normalize(tensor_mri[:, :, slice])
+    ax[0].imshow(normalize(tensor_mri[:, :, slice]))
     ax[0].set_title('MRI slice {}'.format(slice))
 
     # Plot attributions
-    ax[1].imshow(normalize(attributions[:, :, slice])
+    ax[1].imshow(normalize(attributions[:, :, slice]))
     ax[1].set_title('Attributions slice {}, cmap=cmap')
 
     # Plot overlay
