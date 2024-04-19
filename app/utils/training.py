@@ -13,8 +13,9 @@ def train_model(train_dataloader, model, optimizer):
     train_losses = []
 
     for step, batch in enumerate(train_dataloader):
-        batch = tuple(t.to(device) for t in batch)
+        #batch = tuple(t.to(device) for t in batch)
         mri, labels_binary = batch
+        mri, labels_binary = mri.to(device), labels_binary.to(device)
         optimizer.zero_grad()
         outputs = model(x=mri, labels=labels_binary)
         loss = outputs[0]
@@ -36,8 +37,9 @@ def evaluate_model(eval_dataloader, model):
     eval_targets = []
 
     for batch in eval_dataloader:
-        batch = tuple(t.to(device) for t in batch)
+        #batch = tuple(t.to(device) for t in batch)
         mri, labels_binary = batch
+        mri, labels_binary = mri.to(device), labels_binary.to(device)
         with torch.no_grad():
             outputs = model(x=mri, labels=labels_binary)
             loss, logits = outputs[0], outputs[1]
@@ -98,12 +100,14 @@ def train_eval_model(train_dataloader,
             es_epoch = max(epoch + 1 - es_patience, 1)
             print(f'Early Stopping checkpoint at epoch {es_epoch}. Patience value was {es_patience}.', flush=True)
             print('Train-Eval stage complete!', flush=True)
-            
+
+            '''
             for epoch in range(es_epoch):
                 # Train the best_model on the validation data as well
                 optimizer = torch.optim.Adam(best_model.parameters(), lr=lr) # leave lr value as the original one?
                 train_model(eval_dataloader, best_model, optimizer)
             print('Training on eval data complete!', flush=True)
+            '''
                 
             break
 
