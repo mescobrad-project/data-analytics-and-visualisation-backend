@@ -71,11 +71,11 @@ def visualize_ggc(model_path,
     fig, ax = plt.subplots(1, 2, figsize=(12, 6))
 
     # Plot MRI
-    ax[0].imshow(normalize(tensor_mri[:, :, slice]))
+    ax[0].imshow(normalize(tensor_mri[:, :, slice]), cmap='Greys')
     ax[0].set_title('MRI slice {}'.format(slice))
 
     # Plot attributions
-    ax[1].imshow(normalize(attributions[:, :, slice]))
+    ax[1].imshow(normalize(attributions[:, :, slice]), cmap='plasma')
     ax[1].set_title('Attributions slice {}'.format(slice))
 
     # Save and show the plot
