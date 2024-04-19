@@ -23,17 +23,20 @@ def train_eval_dataloaders(data_path,
     X_train = X_train_[:-eval_size]
     y_train_binary = labels_binary_train[:-eval_size]
 
-    y_train_binary = torch.LongTensor(y_train_binary)
-    y_eval_binary = torch.LongTensor(y_eval_binary)
+    del X_train_
+    del labels_binary_train
 
-    train_data = MRI_Generator(X_train, y_train_binary, data_path)
-    eval_data = MRI_Generator(X_eval, y_eval_binary, data_path)
+    #y_train_binary = torch.LongTensor(y_train_binary)
+    #y_eval_binary = torch.LongTensor(y_eval_binary)
 
-    train_sampler = RandomSampler(train_data)
-    dev_sampler = RandomSampler(eval_data)
+    train_data = MRI_Generator(X_train, torch.LongTensor(y_train_binary), data_path)
+    eval_data = MRI_Generator(X_eval, torch.LongTensor(y_eval_binary), data_path)
 
-    train_dataloader = DataLoader(train_data, sampler=train_sampler, batch_size=batch_size) #batch_size=1 old value
-    eval_dataloader = DataLoader(eval_data, sampler=dev_sampler, batch_size=batch_size)
+    #train_sampler = RandomSampler(train_data)
+    #dev_sampler = RandomSampler(eval_data)
+
+    train_dataloader = DataLoader(train_data, sampler=RandomSampler(train_data), batch_size=batch_size) #batch_size=1 old value
+    eval_dataloader = DataLoader(eval_data, sampler=RandomSampler(eval_data), batch_size=batch_size)
     #print('points in the dataloaders ', len(train_dataloader.dataset), len(eval_dataloader.dataset))
 
     return train_dataloader, eval_dataloader
@@ -46,9 +49,9 @@ def test_dataloader(data_path,
     test_participants = dataset_test[dataset_test['participant_id'].isin(participants)] #filtered rows
     X_test = test_participants['participant_id'].values
     labels_binary_test = test_participants['label'].values
-    y_test_binary = torch.LongTensor(labels_binary_test)
-    test_data = MRI_Generator(X_test, y_test_binary, data_path)
-    test_sampler = RandomSampler(test_data)
-    test_dataloader = DataLoader(test_data, sampler=test_sampler, batch_size=batch_size)
+    #y_test_binary = torch.LongTensor(labels_binary_test)
+    test_data = MRI_Generator(X_test, torch.LongTensor(labels_binary_test), data_path)
+    #test_sampler = RandomSampler(test_data)
+    test_dataloader = DataLoader(test_data, sampler=RandomSampler(test_data), batch_size=batch_size)
     
     return test_dataloader
