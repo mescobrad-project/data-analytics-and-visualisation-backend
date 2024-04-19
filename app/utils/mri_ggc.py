@@ -73,10 +73,12 @@ def visualize_ggc(model_path,
     # Plot MRI
     ax[0].imshow(normalize(tensor_mri[:, :, slice]), cmap='Greys')
     ax[0].set_title('MRI slice {}'.format(slice))
+    ax[0].colorbar()
 
     # Plot attributions
     ax[1].imshow(normalize(attributions[:, :, slice]), cmap='plasma')
     ax[1].set_title('Attributions slice {}'.format(slice))
+    ax[1].colorbar()
 
     # Save and show the plot
     plt.savefig(os.path.join(heatmap_path, heatmap_name))
