@@ -33,11 +33,10 @@ def visualize_dl(model_path,
     wrapped_model = Conv3DWrapper(model)
 
     #--load mri
-    nii_img = nib.load(mri_path) #3-dim mri
-    mri = nii_img.get_fdata()
+    #nii_img = nib.load(mri_path) #3-dim mri
+    mri = nib.load(mri_path).get_fdata()
     tensor_mri = torch.from_numpy(mri)
-    tensor_mri = torch.unsqueeze(tensor_mri, 0)
-    tensor_mri = torch.unsqueeze(tensor_mri, 0) #5-dim torch Tensor [1,1,160,256,256] (verified)
+    tensor_mri = tensor_mri.unsqueeze(tensor_mri, 0).unsqueeze(tensor_mri, 0) #5-dim torch Tensor [1,1,160,256,256] (verified)
 
     #--send to device
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -47,21 +46,18 @@ def visualize_dl(model_path,
 
     #--deeplift
     dl = DeepLift(wrapped_model)
-    output = model(tensor_mri)
-    target_class = int(torch.argmax(output[1])) #int: this should be int 0 or 1 (verified)
+    target_class = int(torch.argmax(model(tensor_mri)[1])) #int: this should be int 0 or 1 (verified)
     print('target class', target_class)
 
     # Track GPU memory usage
-    initial_memory = torch.cuda.memory_allocated(device)
-    print('Initial GPU Memory Allocated:', initial_memory)
+    print('Initial GPU Memory Allocated:', torch.cuda.memory_allocated(device)) #almost 11.72GB
+    print('GPU Summary:', torch.cuda.memory_summary())
 
     attributions = dl.attribute(tensor_mri, target=target_class)
 
-    final_memory = torch.cuda.memory_allocated(device)
-    max_memory = torch.cuda.max_memory_allocated(device)
     print('Attributions calculated! Shape:', attributions.shape)
-    print('Final GPU Memory Allocated:', final_memory)
-    print('Max GPU Memory Allocated:', max_memory)
+    print('Final GPU Memory Allocated:', torch.cuda.memory_allocated(device))
+    print('Max GPU Memory Allocated:', torch.cuda.max_memory_allocated(device))
 
     return True
 
