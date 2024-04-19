@@ -37,6 +37,11 @@ class Conv3D(nn.Module):
             nn.BatchNorm3d(512),
             nn.ReLU(),
             nn.MaxPool3d(kernel_size=(1, 2, 2), stride=(2, 2, 2), padding=(0, 1, 1)))
+        self.group6 = nn.Sequential(
+            nn.Conv3d(512, 512, kernel_size=3, padding=1),
+            nn.BatchNorm3d(512),
+            nn.ReLU(),
+            nn.MaxPool3d(kernel_size=(2, 2, 2), stride=(2, 2, 2)))
 
     def forward(self, x, labels=None):
 
@@ -44,8 +49,9 @@ class Conv3D(nn.Module):
         out = self.group2(out)
         out = self.group3(out)
         out = self.group4(out)
-        x = self.group5(out)
-        y = torch.mean(x.view(x.size(0), x.size(1), -1), dim=2)
+        out = self.group5(out)
+        out = self.group6(out)
+        y = torch.mean(out.view(out.size(0), out.size(1), -1), dim=2)
         logits = self.classifier(y)
 
         loss = None
