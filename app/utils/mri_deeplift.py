@@ -17,6 +17,13 @@ class Conv3DWrapper(nn.Module):
         _, logits = self.conv3d_model(x)
         return logits
 
+def normalize(input):
+    # input can be 2-dim or 3-dim
+    min = input.min()
+    max = input.max()
+    normalized = (input - min) / (max - min)
+    return normalized
+
 def visualize_dl(model_path,
                  mri_path,
                  heatmap_path,
@@ -46,11 +53,11 @@ def visualize_dl(model_path,
     #--deeplift
     dl = DeepLift(wrapped_model)
     target_class = int(torch.argmax(model(tensor_mri)[1])) #int: this should be int 0 or 1 (verified)
-    print('target class', target_class)
+    print('target class (model prediction): ', target_class)
 
     # Track GPU memory usage
     print('Initial GPU Memory Allocated:', torch.cuda.memory_allocated(device)) #almost 11.72GB
-    print('GPU Summary:', torch.cuda.memory_summary())
+    #print('GPU Summary:', torch.cuda.memory_summary())
 
     attributions = dl.attribute(tensor_mri, target=target_class)
 
@@ -61,16 +68,28 @@ def visualize_dl(model_path,
     #--plot
     attributions = attributions.detach().cpu().squeeze().squeeze().permute(1, 2, 0).numpy()  # [256, 256, 160] numpy array (verified)
     tensor_mri = tensor_mri.detach().cpu().squeeze().squeeze().permute(1, 2, 0).numpy()
-    with open(os.path.join(heatmap_path, 'mri_and_heatmap.pickle'), 'wb') as f:pickle.dump([tensor_mri, attributions], f)
+    with open(os.path.join(heatmap_path, 'mri_and_heatmap.pickle'), 'wb') as f:
+        pickle.dump([tensor_mri, attributions], f)
 
-    fig, ax = plt.subplots(1, figsize=(6, 6))
+    fig, ax = plt.subplots(1, figsize=(18, 6))
 
+    # Plot MRI
+    ax[0].imshow(normalize(tensor_mri[:, :, slice])
+    ax[0].set_title('MRI slice {}'.format(slice))
+
+    # Plot attributions
+    ax[1].imshow(normalize(attributions[:, :, slice])
+    ax[1].set_title('Attributions slice {}, cmap=cmap')
+
+    # Plot overlay
     cmap = mcolors.LinearSegmentedColormap.from_list(name='alphared',
                                                      colors=[(1, 0, 0, 0), "darkred", "red", "darkorange", "orange", "yellow"],
                                                      N=5000)
+    ax[2].imshow(normalize(tensor_mri[:, :, slice]), cmap="Greys")
+    im = ax[2].imshow(normalize(attributions[:, :, slice]), cmap=cmap, interpolation="gaussian", alpha=alpha)
+    ax[2].set_title('Overlay')
 
-    ax.imshow(tensor_mri[:, :, slice], cmap="Greys")
-    im = ax.imshow(attributions[:, :, slice], cmap=cmap, interpolation="gaussian", alpha=alpha)
+    # Save and show the plot
     plt.savefig(os.path.join(heatmap_path, heatmap_name))
     plt.show()
 
