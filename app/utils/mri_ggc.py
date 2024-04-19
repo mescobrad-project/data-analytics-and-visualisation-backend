@@ -68,7 +68,8 @@ def visualize_ggc(model_path,
     #--plot
     attributions = attributions.detach().cpu().squeeze().squeeze().permute(1, 2, 0).numpy()  # [256, 256, 160] numpy array (verified)
     tensor_mri = tensor_mri.detach().cpu().squeeze().squeeze().permute(1, 2, 0).numpy()
-    #with open(os.path.join(heatmap_path, 'mri_and_heatmap.pickle'), 'wb') as f: pickle.dump([tensor_mri, attributions], f)
+    with open(os.path.join(heatmap_path, 'mri_and_heatmap.pickle'), 'wb') as f:
+        pickle.dump([tensor_mri, attributions], f)
 
     fig, ax = plt.subplots(1, 3, figsize=(18, 6))
 
