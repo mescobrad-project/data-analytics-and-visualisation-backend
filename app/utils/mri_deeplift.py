@@ -31,7 +31,6 @@ def visualize_dl(model_path,
     #--load model
     model = torch.load(model_path)
     wrapped_model = Conv3DWrapper(model)
-    print(wrapped_model)
 
     #--load mri
     nii_img = nib.load(mri_path) #3-dim mri
@@ -39,20 +38,17 @@ def visualize_dl(model_path,
     tensor_mri = torch.from_numpy(mri)
     tensor_mri = torch.unsqueeze(tensor_mri, 0)
     tensor_mri = torch.unsqueeze(tensor_mri, 0) #5-dim torch Tensor [1,1,160,256,256] (verified)
-    print('tensor_mri.shape')
 
-    return model_path, mri_path, heatmap_path, heatmap_name, slice, alpha
-
-'''
     #--send to device
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print('device', device)
     tensor_mri = tensor_mri.to(device)
-    print('tensor_mri', tensor_mri.shape)
-    #model = model.to(device)
     wrapped_model.to(device)
-    print(wrapped_model)
+    print('tensor_mri', tensor_mri.shape)
 
+    return model_path, mri_path, heatmap_path, heatmap_name, slice, alpha
+
+'''
     #--deeplift
     dl = DeepLift(wrapped_model)
     output = model(tensor_mri)
