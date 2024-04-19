@@ -20,15 +20,15 @@ class MRI_Generator(Dataset):
 
     def __getitem__(self,idx): #to access mris via index
 
-        participant = self.dataset[idx]
-        path_participant = self.data_path + participant + '/anat/'
+        #participant = self.dataset[idx]
+        path_participant = self.data_path + self.dataset[idx] + '/anat/'
         s = [f for f in os.listdir(path_participant) if f.endswith('FLAIR.nii.gz')]
-        path_new = path_participant + s[0]
+        #path_new = path_participant + s[0]
         #a = nib.load(path_new)
         #a = nib.load(path_new).get_fdata() #numpy.ndarray
-        resized_map = torch.from_numpy(nib.load(path_new).get_fdata()) #torch array
+        resized_map = torch.from_numpy(nib.load(path_participant + s[0]).get_fdata()) #torch array
 
-        labels_binary = self.dataset_binary_labels[idx]
+        #labels_binary = self.dataset_binary_labels[idx]
 
         #return the mri as torch array and its label
-        return torch.unsqueeze(resized_map, 0), torch.from_numpy(np.array(labels_binary))
+        return torch.unsqueeze(resized_map, 0), torch.from_numpy(np.array(self.dataset_binary_labels[idx]))

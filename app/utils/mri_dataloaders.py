@@ -15,16 +15,16 @@ def train_eval_dataloaders(data_path,
 
     training_participants = dataset_train[dataset_train['participant_id'].isin(participants)] #filtered rows
 
-    X_train_ = training_participants['participant_id'].values #ids
-    labels_binary_train = training_participants['label'].values #labels
+    #X_train_ = training_participants['participant_id'].values #ids
+    #labels_binary_train = training_participants['label'].values #labels
     
-    X_eval = X_train_[-eval_size:]
-    y_eval_binary = labels_binary_train[-eval_size:]
-    X_train = X_train_[:-eval_size]
-    y_train_binary = labels_binary_train[:-eval_size]
+    X_eval = training_participants['participant_id'].values[-eval_size:]
+    y_eval_binary = training_participants['label'].values[-eval_size:]
+    X_train = training_participants['participant_id'].values[:-eval_size]
+    y_train_binary = training_participants['label'].values[:-eval_size]
 
-    del X_train_
-    del labels_binary_train
+    #del X_train_
+    #del labels_binary_train
 
     #y_train_binary = torch.LongTensor(y_train_binary)
     #y_eval_binary = torch.LongTensor(y_eval_binary)
