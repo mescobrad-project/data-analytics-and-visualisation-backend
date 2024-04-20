@@ -80,15 +80,14 @@ def visualize_dl(model_path,
     fig.colorbar(img2, ax=ax[1])
 
     # Plot overlay
-    img3 = ax[2].imshow(normalize(tensor_mri[:, :, slice]), cmap='Greys')
+    ax[2].imshow(normalize(tensor_mri[:, :, slice]), cmap='Greys')
     cmap = mcolors.LinearSegmentedColormap.from_list(name='blues',
                                                      colors=[(1, 0, 0, 0), "blue", "blue", "blue", "blue", "blue"],
                                                      N=5000)
-    # np.where: slight adjustment to drop values close to 0, as they create fuzzy and confusing regions on the mri slice
-    img4 = ax[2].imshow(np.where(normalize(attributions[:, :, slice]) > 0.1, normalize(attributions[:, :, slice]), 0),
-                        cmap=cmap,
-                        alpha=0.9,
-                        interpolation='gaussian')
+    # np.where: slight adjustment to drop low impprtance values, as they create fuzzy and confusing regions on the mri slice
+    ax[2].imshow(np.where(normalize(attributions[:, :, slice]) > 0.5, normalize(attributions[:, :, slice]), 0),
+                 cmap=cmap,
+                 interpolation='gaussian')
     ax[2].set_title('MRI(Greyscale) vs Attributions(Blue) Overlay - Slice {}'.format(slice))
 
     # Save and show the plot
