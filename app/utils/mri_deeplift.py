@@ -61,23 +61,35 @@ def visualize_dl(model_path,
     print('Final GPU Memory Allocated:', torch.cuda.memory_allocated(device))
     print('Max GPU Memory Allocated:', torch.cuda.max_memory_allocated(device))
 
-    #--plot
+    #--plots
     attributions = attributions.detach().cpu().squeeze().squeeze().permute(1, 2, 0).numpy()  # [256, 256, 160] numpy array (verified)
     tensor_mri = tensor_mri.detach().cpu().squeeze().squeeze().permute(1, 2, 0).numpy()
     #with open(os.path.join(heatmap_path, 'mri_and_heatmap.pickle'), 'wb') as f:
     #     pickle.dump([tensor_mri, atsutributions], f)
 
-    fig, ax = plt.subplots(1, 2, figsize=(12, 6))
+    fig, ax = plt.subplots(1, 3, figsize=(21, 7))
 
     # Plot MRI
     img1 = ax[0].imshow(normalize(tensor_mri[:, :, slice]), cmap='Greys')
-    ax[0].set_title('MRI slice {}'.format(slice))
+    ax[0].set_title('MRI - Slice {}'.format(slice))
     fig.colorbar(img1, ax=ax[0])
 
     # Plot attributions
     img2 = ax[1].imshow(normalize(attributions[:, :, slice]), cmap='viridis')
-    ax[1].set_title('Attributions slice {}'.format(slice))
+    ax[1].set_title('Deeplift Attributions - Slice {}'.format(slice))
     fig.colorbar(img2, ax=ax[1])
+
+    # Plot overlay
+    img3 = ax[2].imshow(normalize(tensor_mri[:, :, slice]), cmap='Greys')
+    cmap = mcolors.LinearSegmentedColormap.from_list(name='blues',
+                                                     colors=[(1, 0, 0, 0), "blue", "blue", "blue", "blue", "blue"],
+                                                     N=5000)
+    # np.where: slight adjustment to drop values close to 0, as they create fuzzy and confusing regions on the mri slice
+    img4 = ax[2].imshow(np.where(normalize(attributions[:, :, slice]) > 0.1, normalize(attributions[:, :, slice]), 0),
+                        cmap=cmap,
+                        alpha=0.9,
+                        interpolation='gaussian')
+    ax[2].set_title('MRI(Greyscale) vs Attributions(Blue) Overlay - Slice {}'.format(slice))
 
     # Save and show the plot
     plt.savefig(os.path.join(heatmap_path, heatmap_name))
