@@ -50,7 +50,7 @@ def visualize_ggc(model_path,
     wrapped_model.to(device)
 
     #--GGC
-    ggc = GuidedGradCam(wrapped_model, layer=wrapped_model.conv3d_model.group5)
+    ggc = GuidedGradCam(wrapped_model, layer=wrapped_model.conv3d_model.group6)
     target_class = int(torch.argmax(model(tensor_mri)[1])) #int: this should be int 0 or 1 (verified)
     print('target class (model prediction): ', target_class)
     # Track GPU memory usage
