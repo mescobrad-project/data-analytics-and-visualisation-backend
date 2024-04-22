@@ -173,7 +173,7 @@ async def return_free_surfer_recon(workflow_id: str,
     display_id = get_neurodesk_display_id()
     channel.send("export DISPLAY=" + display_id + "\n")
     channel.send("cd /neurocommand/local/bin/\n")
-    channel.send("./freesurfer-7_1_1.sh\n")
+    channel.send("./freesurfer-7.3.2.sh\n")
     channel.send("rm ~/.license\n")
     channel.send("echo \"mkontoulis@epu.ntua.gr\n")
     channel.send("60631\n")
@@ -183,7 +183,7 @@ async def return_free_surfer_recon(workflow_id: str,
     channel.send("export FS_LICENSE=~/.license\n")
     # channel.send("mkdir /neurodesktop-storage/freesurfer-output\n")
     # channel.send("mkdir /neurodesktop-storage/freesurfer-output/test1\n")
-    channel.send("source /opt/freesurfer-7.1.1/SetUpFreeSurfer.sh\n")
+    channel.send("source /opt/freesurfer-7.3.2/SetUpFreeSurfer.sh\n")
     channel.send("export SUBJECTS_DIR=/home/user" + path_to_file + "/output\n")
     # channel.send("export SUBJECTS_DIR=/neurodesktop-storage/freesurfer-output\n")
     #
@@ -283,6 +283,19 @@ async def return_free_surfer_log_vol2vol_coreg(workflow_id: str,
     else:
         return False
 
+@router.get("/free_surfer/log/synthseg", tags=["return_free_surfer_log_synthseg"])
+async def return_free_surfer_log_synthseg(workflow_id: str,
+                                   run_id: str,
+                                   step_id: str,
+                                   output_file: str,
+                                   ) -> dict:
+    """Check if synthseg has finished by checking if the output file exists"""
+    path_to_output = os.path.join( get_local_storage_path(workflow_id, run_id, step_id), output_file)
+    if os.path.exists(path_to_output):
+        return True
+    else:
+        return False
+
 @router.get("free_surfer/recon/check", tags=["return_free_surfer_recon"])
 # Validation is done inline in the input of the function
 # Check status of freesurfer function run
@@ -298,6 +311,116 @@ async def return_free_surfer_recon_check(input_test_name_check: str) -> dict:
     to_return = "Logs"
     return {'status': to_return}
 
+@router.get("/free_surfer/synthseg", tags=["return_free_surfer_synthseg"])
+# Validation is done inline in the input of the function
+# Slices are send in a single string and then de
+async def run_synthseg(workflow_id: str,
+                        run_id: str,
+                        step_id: str,
+                        input_file_name: str,
+                        parc: str,
+                        robust: str,
+                        fast: str,
+                        vol_save: str,
+                        qc_save: str,
+                        post_save: str,
+                        resample_save: str) -> dict:
+
+    # Retrieve the paths file from the local storage
+    # path_to_storage = NeurodesktopStorageLocation + '/runtime_config/workflow_' + str(workflow_id) + '/run_' + str(run_id) + '/step_' + str(step_id)
+    path_to_storage = get_local_neurodesk_storage_path(workflow_id, run_id, step_id)
+    path_to_file = get_local_storage_path(workflow_id, run_id, step_id)
+    # name_of_file = get_single_file_from_local_temp_storage(workflow_id, run_id, step_id)
+
+    parc = (parc == "true")
+    robust = (robust == "true")
+    fast = (fast == "true")
+    vol_save = (vol_save == "true")
+    qc_save = (qc_save == "true")
+    post_save = (post_save == "true")
+    resample_save = (resample_save == "true")
+    # Connect to neurodesktop through ssh
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect("neurodesktop", 22, username="user", password="password")
+
+    channel = ssh.invoke_shell()
+    response = channel.recv(9999)
+    print(channel)
+    print(channel.send_ready())
+
+    display_id = get_neurodesk_display_id()
+    channel.send("export DISPLAY=" + display_id + "\n")
+    channel.send("cd /neurocommand/local/bin/\n")
+    channel.send("./freesurfer-7.3.2.sh\n")
+    channel.send("rm ~/.license\n")
+    channel.send("echo \"mkontoulis@epu.ntua.gr\n")
+    channel.send("60631\n")
+    channel.send(" *CctUNyzfwSSs\n")
+    channel.send(" FSNy4xe75KyK.\n")
+    channel.send(" D4GXfOXX8hArD8mYfI4OhNCQ8Gb00sflXj1yH6NEFxk=\" >> ~/.license\n")
+    channel.send("export FS_LICENSE=~/.license\n")
+    # channel.send("mkdir /neurodesktop-storage/freesurfer-output\n")
+    # channel.send("mkdir /neurodesktop-storage/freesurfer-output/test1\n")
+    channel.send("source /opt/freesurfer-7.3.2/SetUpFreeSurfer.sh\n")
+    channel.send("export SUBJECTS_DIR=/home/user" + path_to_file + "/output\n")
+    # channel.send("export SUBJECTS_DIR=/neurodesktop-storage/freesurfer-output\n")
+    #
+    # channel.send("export SUBJECTS_DIR=/home/user" + path_to_storage + "/output\n")
+    # channel.send("export SUBJECTS_DIR=" + path_to_storage + "\n")
+    # channel.send("export SUBJECTS_DIR=/neurodesktop-storage/freesurfer-output" + "\n")
+    # channel.send("cd /neurodesktop-storage/freesurfer-output-2\n")
+    # channel.send("cd " + path_to_file + "\n")
+    # channel.send("ls > ls1.txt\n")
+
+    # Get file name to open with EDFBrowser
+    # path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    # name_of_file = get_single_file_from_local_temp_storage(workflow_id, run_id, step_id)
+    # file_full_path = path_to_storage + "/" + name_of_file
+    # channel.send("nohup freeview -v '/home/user" + file_full_path + "' &\n")
+    #
+    # channel.send("nohup freeview -v '/home/user" + path_to_file + "/" + name_of_file + "' &\n" )
+
+    channel.send("cd /home/user" + path_to_file + "/\n")
+    # channel.send(
+    #     "sudo chmod a+rw /home/user/neurodesktop-storage/runtime_config/workflow_" + workflow_id + "/run_" + run_id + "/step_" + step_id + "/neurodesk_interim_storage\n")
+    channel.send(
+        "sudo chmod 777 /home/user/neurodesktop-storage/runtime_config/workflow_" + workflow_id + "/run_" + run_id + "/step_" + step_id + "\n")
+
+    channel.send(
+        "sudo chmod 777 /home/user/neurodesktop-storage/runtime_config/workflow_" + workflow_id + "/run_" + run_id + "/step_" + step_id + "/neurodesk_interim_storage\n")
+
+    channel.send(
+        "sudo chmod 777 /home/user/neurodesktop-storage/runtime_config/workflow_" + workflow_id + "/run_" + run_id + "/step_" + step_id + "/output\n")
+
+    channel.send("sudo mkdir -m777 ./output/samseg_output > mkdir.txt\n")
+    input_file_name_name = input_file_name.split(".")[0]
+
+
+    synthseg_cmd = f"mri_synthseg --i {input_file_name} --o converted_nii_{input_file_name}"
+
+    if parc:
+        synthseg_cmd += " --parc"
+    if robust:
+        synthseg_cmd += " --robust"
+    if fast:
+        synthseg_cmd += " --fast"
+
+    if vol_save:
+        synthseg_cmd += f" --vol vol_{input_file_name_name}.csv"
+    if qc_save:
+        synthseg_cmd += f" --qc qc_{input_file_name_name}.csv"
+    if post_save:
+        synthseg_cmd += f" --post post_{input_file_name}"
+    if resample_save:
+        synthseg_cmd += f" --resample resample_{input_file_name}"
+
+    # Finalize the command with nohup, output redirection, and background execution
+    synthseg_cmd = f"nohup {synthseg_cmd} > ./output/synthseg_log.txtr &\n"
+    print(synthseg_cmd)
+    channel.send(synthseg_cmd)
+    to_return = "Success"
+    return to_return
 
 @router.get("/free_surfer/samseg", tags=["return_free_samseg"])
 # Validation is done inline in the input of the function
@@ -336,7 +459,7 @@ async def return_free_surfer_samseg(workflow_id: str,
     display_id = get_neurodesk_display_id()
     channel.send("export DISPLAY=" + display_id + "\n")
     channel.send("cd /neurocommand/local/bin/\n")
-    channel.send("./freesurfer-7_1_1.sh\n")
+    channel.send("./freesurfer-7.3.2.sh\n")
     channel.send("rm ~/.license\n")
     channel.send("echo \"mkontoulis@epu.ntua.gr\n")
     channel.send("60631\n")
@@ -346,7 +469,7 @@ async def return_free_surfer_samseg(workflow_id: str,
     channel.send("export FS_LICENSE=~/.license\n")
     # channel.send("mkdir /neurodesktop-storage/freesurfer-output\n")
     # channel.send("mkdir /neurodesktop-storage/freesurfer-output/test1\n")
-    channel.send("source /opt/freesurfer-7.1.1/SetUpFreeSurfer.sh\n")
+    channel.send("source /opt/freesurfer-7.3.2/SetUpFreeSurfer.sh\n")
     channel.send("export SUBJECTS_DIR=/home/user" + path_to_file + "/output\n")
     # channel.send("export SUBJECTS_DIR=/neurodesktop-storage/freesurfer-output\n")
     #
@@ -429,7 +552,7 @@ async def return_free_view(input_test_name: str, input_slices: str,
     # channel.send("nohup firefox &\n")
     channel.send("ls > ls.txt\n")
     channel.send("cd /neurocommand/local/bin/\n")
-    channel.send("./freesurfer-7_1_1.sh\n")
+    channel.send("./freesurfer-7.3.2.sh\n")
     channel.send("echo \"mkontoulis @ epu.ntua.gr\n")
     channel.send("60631\n")
     channel.send(" *CctUNyzfwSSs\n")
@@ -437,7 +560,7 @@ async def return_free_view(input_test_name: str, input_slices: str,
     channel.send("export FS_LICENSE=~/.license\n")
     channel.send("mkdir /neurodesktop-storage/freesurfer-output\n")
     channel.send("mkdir /neurodesktop-storage/freesurfer-output/test2\n")
-    channel.send("source /opt/freesurfer-7.1.1/SetUpFreeSurfer.sh\n")
+    channel.send("source /opt/freesurfer-7.3.2/SetUpFreeSurfer.sh\n")
     channel.send("export SUBJECTS_DIR=/neurodesktop-storage/freesurfer-output\n")
     # channel.send("nohup freeview &\n")
     channel.send("mkdir neurodesktop-storage/screenshots\n")
@@ -474,7 +597,7 @@ async def return_free_view_simple( workflow_id: str,
 
     channel.send("ls > ls1.txt\n")
     channel.send("cd /neurocommand/local/bin/\n")
-    channel.send("./freesurfer-7_1_1.sh\n")
+    channel.send("./freesurfer-7.3.2.sh\n")
     channel.send("echo \"mkontoulis @ epu.ntua.gr\n")
     channel.send("60631\n")
     channel.send(" *CctUNyzfwSSs\n")
@@ -482,7 +605,7 @@ async def return_free_view_simple( workflow_id: str,
     channel.send("export FS_LICENSE=~/.license\n")
     channel.send("mkdir /neurodesktop-storage/freesurfer-output\n")
     channel.send("mkdir /neurodesktop-storage/freesurfer-output/test1\n")
-    channel.send("source /opt/freesurfer-7.1.1/SetUpFreeSurfer.sh\n")
+    channel.send("source /opt/freesurfer-7.3.2/SetUpFreeSurfer.sh\n")
     channel.send("export SUBJECTS_DIR=/neurodesktop-storage/freesurfer-output\n")
 
     # Give permissions in working folder
@@ -536,7 +659,7 @@ async def return_free_surfer_coreg( workflow_id: str,
 
 
     channel.send("cd /neurocommand/local/bin/\n")
-    channel.send("./freesurfer-7_1_1.sh\n")
+    channel.send("./freesurfer-7.3.2.sh\n")
     channel.send("rm ~/.license\n")
     channel.send("echo \"mkontoulis@epu.ntua.gr\n")
     channel.send("60631\n")
@@ -546,7 +669,7 @@ async def return_free_surfer_coreg( workflow_id: str,
     channel.send("export FS_LICENSE=~/.license\n")
     # channel.send("mkdir /neurodesktop-storage/freesurfer-output\n")
     # channel.send("mkdir /neurodesktop-storage/freesurfer-output/test1\n")
-    channel.send("source /opt/freesurfer-7.1.1/SetUpFreeSurfer.sh\n")
+    channel.send("source /opt/freesurfer-7.3.2/SetUpFreeSurfer.sh\n")
     # channel.send("export SUBJECTS_DIR=/home/user/neurodesktop-storage/runtime_config/workflow_" + workflow_id + "/run_" + run_id + "/step_" + step_id + "\n")
 
 
@@ -603,7 +726,7 @@ async def return_free_surfer_vol2vol( workflow_id: str,
     # channel.send("nohup firefox &\n")
 
     channel.send("cd /neurocommand/local/bin/\n")
-    channel.send("./freesurfer-7_1_1.sh\n")
+    channel.send("./freesurfer-7.3.2.sh\n")
     channel.send("rm ~/.license\n")
     channel.send("echo \"mkontoulis@epu.ntua.gr\n")
     channel.send("60631\n")
@@ -613,7 +736,7 @@ async def return_free_surfer_vol2vol( workflow_id: str,
     channel.send("export FS_LICENSE=~/.license\n")
     channel.send("mkdir /neurodesktop-storage/freesurfer-output\n")
     channel.send("mkdir /neurodesktop-storage/freesurfer-output/test1\n")
-    channel.send("source /opt/freesurfer-7.1.1/SetUpFreeSurfer.sh\n")
+    channel.send("source /opt/freesurfer-7.3.2/SetUpFreeSurfer.sh\n")
     channel.send("export SUBJECTS_DIR=/neurodesktop-storage/freesurfer-output\n")
 
     # Give permissions in working folder
@@ -664,14 +787,14 @@ async def return_free_surfer(input_test_name: str, input_file: str,
     channel.send("export DISPLAY=" + display_id + "\n")
     channel.send("ls > ls2.txt\n")
     channel.send("cd /neurocommand/local/bin/\n")
-    channel.send("./freesurfer-7_1_1.sh\n")
+    channel.send("./freesurfer-7.3.2.sh\n")
     channel.send("echo \"mkontoulis @ epu.ntua.gr\n")
     channel.send("60631\n")
     channel.send(" *CctUNyzfwSSs\n")
     channel.send(" FSNy4xe75KyK.\" >> ~/.license\n")
     channel.send("export FS_LICENSE=~/.license\n")
     channel.send("mkdir /neurodesktop-storage/freesurfer-output\n")
-    channel.send("source /opt/freesurfer-7.1.1/SetUpFreeSurfer.sh\n")
+    channel.send("source /opt/freesurfer-7.3.2/SetUpFreeSurfer.sh\n")
     channel.send("export SUBJECTS_DIR=/neurodesktop-storage/freesurfer-output\n")
     channel.send("cd /neurodesktop-storage/freesurfer-output\n")
     channel.send("nohup recon-all -subject " + input_test_name + " -i " + input_file + " -all > freesurfer_log.txtr &\n")
@@ -679,36 +802,36 @@ async def return_free_surfer(input_test_name: str, input_file: str,
     # Start recon COMMAND
     # ssh.exec_command("ls > ls.txt")
     # ssh.exec_command("cd /neurocommand/local/bin/")
-    # ssh.exec_command("./freesurfer-7_1_1.sh")
+    # ssh.exec_command("./freesurfer-7.3.2.sh")
     # ssh.exec_command("echo \"mkontoulis @ epu.ntua.gr")
     # ssh.exec_command("60631")
     # ssh.exec_command(" *CctUNyzfwSSs")
     # ssh.exec_command(" FSNy4xe75KyK.\" >> ~/.license")
     # ssh.exec_command("export FS_LICENSE=~/.license")
     # ssh.exec_command("mkdir /neurodesktop-storage/freesurfer-output")
-    # ssh.exec_command("source /opt/freesurfer-7.1.1/SetUpFreeSurfer.sh")
+    # ssh.exec_command("source /opt/freesurfer-7.3.2/SetUpFreeSurfer.sh")
     # ssh.exec_command("export SUBJECTS_DIR=/neurodesktop-storage/freesurfer-output")
     # channel.send("mkdir /neurodesktop-storage/freesurfer-output\n")
 
     # channel.send("cd /neurocommand/local/bin/" + ";"
-    #                  + "./freesurfer-7_1_1.sh" + ";"
+    #                  + "./freesurfer-7.3.2.sh" + ";"
     #                  + "echo \"mkontoulis @ epu.ntua.gr" + ";"
     #                  + "60631" + ";"
     #                  + " *CctUNyzfwSSs" + ";"
     #                  + " FSNy4xe75KyK.\" >> ~/.license" + ";"
     #                  + "mkdir /neurodesktop-storage/freesurfer-output" + ";"
-    #                  + "source /opt/freesurfer-7.1.1/SetUpFreeSurfer.sh" + ";"
+    #                  + "source /opt/freesurfer-7.3.2/SetUpFreeSurfer.sh" + ";"
     #                  + "freeview\n")
 
 
     # ssh.exec_command("cd /neurocommand/local/bin/" + ";"
-    #                  + "./freesurfer-7_1_1.sh" + ";"
+    #                  + "./freesurfer-7.3.2.sh" + ";"
     #                  + "echo \"mkontoulis @ epu.ntua.gr" + ";"
     #                  + "60631" + ";"
     #                  + " *CctUNyzfwSSs" + ";"
     #                  + " FSNy4xe75KyK.\" >> ~/.license" + ";"
     #                  + "mkdir /neurodesktop-storage/freesurfer-output" + ";"
-    #                  + "source /opt/freesurfer-7.1.1/SetUpFreeSurfer.sh" + ";"
+    #                  + "source /opt/freesurfer-7.3.2/SetUpFreeSurfer.sh" + ";"
     #                  + "freeview"
     #                  )
     # ssh.exec_command("recon-all -subject " + input_test_name + " -i " + input_slices + " -all")
@@ -818,16 +941,20 @@ async def reconall_files_to_datalake(workflow_id: str,
 async def reconall_stats_to_trino(workflow_id: str,
                                 step_id: str,
                                 run_id: str,
-                                patient_id: str) -> str:
+                                reconall_source_file: str,
+                                schema: str,
+                                folder_name: str) -> str:
+
     # TODO Change auth methods or create a super function for upload to trino
     try:
-        #patient id psakse an ginetai apo nifti
         #connect to trino
         TRINO__USR = "mescobrad-dwh-user"
         TRINO__PSW = "dwhouse"
 
+
+
         engine = create_engine(
-            f"trino://{TRINO__USR}@trino.mescobrad.digital-enabler.eng.it:443/postgresql",
+            f"trino://{TRINO__USR}@trino.mescobrad.digital-enabler.eng.it:443/iceberg",
             connect_args={
                 "auth": BasicAuthentication(TRINO__USR, TRINO__PSW),
                 "http_scheme": "https",
@@ -836,16 +963,19 @@ async def reconall_stats_to_trino(workflow_id: str,
 
         conn = engine.connect()
 
-        # Check if patient is already on trino
-        id_list = conn.execute("\
-                       SELECT DISTINCT patient_id FROM postgresql.public.reconall_mri_tabular_stats")
-
-        for id in id_list:
-            if id[0] == patient_id:
-                return JSONResponse(content="This patient's stats are already on trino", status_code=200)
+        counter = 0.0
+        conn.execute(f"CREATE SCHEMA IF NOT EXISTS iceberg.{schema} WITH (location = 's3a://dwh-test/')")
+        if [elem for elem in conn.execute(f"SHOW TABLES FROM iceberg.{schema} LIKE 'reconall_mri_tabular_stats_test'")] != []:
+            # Check if workflow_id, run_id, step_id, reconall_source_file is already on trino (reconall_mri_tabular_stats_test)
+            id_list = conn.execute(f'\
+                       SELECT DISTINCT workflow_id, run_id, step_id, reconall_source_file, counter FROM iceberg.{schema}.reconall_mri_tabular_stats_test')
+            # id_list = [[0]]
+            for id in id_list:
+                if id[0] == workflow_id and id[1] == run_id and id[2] == step_id and id[3] == reconall_source_file:
+                    counter = max(float(id[4]) + 1, counter)
 
         path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
-        path_to_stats = os.path.join(path_to_storage, "output", "ucl_test", "stats")
+        path_to_stats = os.path.join(path_to_storage, "output", folder_name, "stats")
         first = True
 
         #for all files with tabular data
@@ -859,7 +989,11 @@ async def reconall_stats_to_trino(workflow_id: str,
                 stats_dict["table"] = stats_dict["table"].drop(columns={"Hemisphere", "id"}, errors="ignore")
                 df = pd.melt(stats_dict["table"], id_vars=['StructName'], var_name='variable_name', value_name='variable_value')
                 df["source"] = filename
-                df["patient_id"] = patient_id
+                df["workflow_id"] = workflow_id
+                df["run_id"] = run_id
+                df["step_id"] = step_id
+                df["counter"] = counter
+                df["reconall_source_file"] = reconall_source_file
                 df = df.rename(columns={"StructName": "rowid"})
 
                 #concatenate to res
@@ -870,9 +1004,22 @@ async def reconall_stats_to_trino(workflow_id: str,
                     res = pd.concat([res, df], ignore_index=True)
 
         #append to trino table
-        res.to_sql(name='reconall_mri_tabular_stats', schema='public', con=conn, if_exists='append',
+        df.to_sql(name='reconall_mri_tabular_stats_test', schema=schema, con=conn, if_exists='append',
                  index=False, method='multi')
 
+
+        # Delete all old data with the same workflow_id, etc.
+        conn.execute(f"\
+        DELETE FROM iceberg.{schema}.reconall_mri_tabular_stats_test WHERE workflow_id = '{workflow_id}' AND run_id = '{run_id}' AND step_id = '{step_id}' AND reconall_source_file = '{reconall_source_file}' AND counter < {counter}")
+
+        counter = 0.0
+        if [elem for elem in conn.execute(f"SHOW TABLES FROM iceberg.{schema} LIKE 'reconall_mri_measurement_stats_test'")] != []:
+            id_list = conn.execute(f"\
+                       SELECT DISTINCT workflow_id, run_id, step_id, reconall_source_file, counter FROM iceberg.{schema}.reconall_mri_measurement_stats_test")
+            # id_list = [[0]]
+            for id in id_list:
+                if id[0] == workflow_id and id[1] == run_id and id[2] == step_id and id[3] == reconall_source_file:
+                    counter = max(float(id[4]) + 1, counter)
         #for all files with measurement data
         first = True
         for filename in os.listdir(path_to_stats):
@@ -884,8 +1031,13 @@ async def reconall_stats_to_trino(workflow_id: str,
                 stats_dict["dataframe"] = stats_dict["dataframe"].drop(columns={"Hemisphere"}, errors="ignore")
 
                 #change to trino format
-                stats_dict["dataframe"]["patient_id"] = patient_id
-                df = pd.melt(stats_dict["dataframe"], id_vars=['patient_id'], var_name='variable_name', value_name='variable_value')
+                stats_dict["dataframe"]["workflow_id"] = workflow_id
+                stats_dict["dataframe"]["run_id"] = run_id
+                stats_dict["dataframe"]["step_id"] = step_id
+                stats_dict["dataframe"]["counter"] = counter
+                stats_dict["dataframe"]["reconall_source_file"] = reconall_source_file
+
+                df = pd.melt(stats_dict["dataframe"], id_vars=["workflow_id", "run_id", "step_id", "reconall_source_file", "counter"], var_name='variable_name', value_name='variable_value')
                 df["source"] = filename
                 #df = df.rename(columns={"StructName": "rowid"}) rowid or patient id ?
 
@@ -895,10 +1047,86 @@ async def reconall_stats_to_trino(workflow_id: str,
                     first = False
                 else:
                     res = pd.concat([res, df], ignore_index=True)
+
         #append to trino table
-        res.to_sql(name='reconall_mri_measurement_stats', schema='public', con=conn, if_exists='append',
+        res.to_sql(name='reconall_mri_measurement_stats_test', schema=schema, con=conn, if_exists='append',
                   index=False, method='multi')
 
+        conn.execute(f"\
+        DELETE FROM iceberg.{schema}.reconall_mri_measurement_stats_test WHERE workflow_id = '{workflow_id}' AND run_id = '{run_id}' AND step_id = '{step_id}' AND reconall_source_file = '{reconall_source_file}' AND counter < {counter}")
+        return JSONResponse(content='Stats have been successfully uploaded to Trino', status_code=200)
+    except Exception as e:
+        print(e)
+        traceback.print_exc()
+        return JSONResponse(content='Error in uploading stats to Trino',status_code=501)
+
+
+@router.put("/samseg_stats_to_trino")
+#All samseg stats to trino both tabular and measurements
+async def samseg_stats_to_trino(workflow_id: str,
+                                step_id: str,
+                                run_id: str,
+                                samseg_source_file: str,
+                                schema: str) -> str:
+    try:
+        #patient id psakse an ginetai apo nifti
+        #connect to trino
+        TRINO__USR = "mescobrad-dwh-user"
+        TRINO__PSW = "dwhouse"
+
+
+
+        engine = create_engine(
+            f"trino://{TRINO__USR}@trino.mescobrad.digital-enabler.eng.it:443/iceberg",
+            connect_args={
+                "auth": BasicAuthentication(TRINO__USR, TRINO__PSW),
+                "http_scheme": "https",
+            }
+        )
+
+        conn = engine.connect()
+        #TODO Check location
+        conn.execute(f"CREATE SCHEMA IF NOT EXISTS iceberg.{schema} WITH (location = 's3a://dwh-test/')")
+        counter = 0.0
+        if [elem for elem in conn.execute(f"SHOW TABLES FROM iceberg.{schema} LIKE 'samseg_stats_test'")] != []:
+            id_list = conn.execute(f'\
+                       SELECT DISTINCT workflow_id, run_id, step_id, samseg_source_file, counter FROM iceberg.{schema}.samseg_stats_test')
+            # id_list = [[0]]
+            for id in id_list:
+                if id[0] == workflow_id and id[1] == run_id and id[2] == step_id and id[3] == samseg_source_file:
+                    counter = max(float(id[4]) + 1, counter)
+
+        path_to_file = get_local_storage_path(workflow_id, run_id, step_id)
+        path_to_file = os.path.join(path_to_file, "output", "samseg_output", "samseg.stats")
+
+        with open(path_to_file, newline="") as csvfile:
+            if not os.path.isfile(path_to_file):
+                return []
+            reader = csv.reader(csvfile, delimiter=',')
+            results_array = []
+            i = 0
+            for row in reader:
+                i += 1
+                temp_to_append = {
+                    "rowid": i,
+                    "measure": row[0].strip("# Measure "),
+                    "value": row[1],
+                    "unit": row[2]
+                }
+                results_array.append(temp_to_append)
+
+        df = pd.DataFrame.from_records(results_array)
+        df["workflow_id"] = workflow_id
+        df["run_id"] = run_id
+        df["step_id"] = step_id
+        df["counter"] = counter
+        df["samseg_source_file"] = samseg_source_file
+
+        df.to_sql(name='samseg_stats_test', schema=schema, con=conn, if_exists='append',
+                  index=False, method='multi')
+
+        conn.execute(f"\
+        DELETE FROM iceberg.{schema}.samseg_stats_test WHERE workflow_id = '{workflow_id}' AND run_id = '{run_id}' AND step_id = '{step_id}' AND samseg_source_file = '{samseg_source_file}' AND counter < {counter}")
         return JSONResponse(content='Stats have been successfully uploaded to Trino', status_code=200)
     except Exception as e:
         print(e)
