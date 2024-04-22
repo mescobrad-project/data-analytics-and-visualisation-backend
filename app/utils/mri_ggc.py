@@ -6,7 +6,7 @@ import nibabel as nib
 from captum.attr import GuidedGradCam
 from PIL import Image
 import matplotlib.pyplot as plt
-import matplotlib.colors as mcolors
+from matplotlib.colors import LinearSegmentedColormap
 import pickle
 
 class Conv3DWrapper(nn.Module):
@@ -75,7 +75,9 @@ def visualize_ggc(model_path,
     fig.colorbar(img1, ax=ax[0])
 
     # Plot attributions
-    img2 = ax[1].imshow(normalize(attributions[:, :, slice]), cmap='viridis')
+    img2 = ax[1].imshow(normalize(attributions[:, :, slice]),
+                        cmap=LinearSegmentedColormap.from_list(name='yellow_to_blue',
+                                                               colors=[(1, 1, 0), (0, 0, 1)]))
     ax[1].set_title('GuidedGradCAM Attributions - Slice {}'.format(slice))
     fig.colorbar(img2, ax=ax[1])
 
