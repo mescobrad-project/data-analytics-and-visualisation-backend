@@ -83,14 +83,13 @@ def visualize_ggc(model_path,
 
     # Plot overlay
     ax[2].imshow(normalize(tensor_mri[:, :, slice]), cmap='Greys')
-    cmap = mcolors.LinearSegmentedColormap.from_list(name='blues',
-                                                     colors=[(1, 0, 0, 0), "blue", "blue", "blue", "blue", "blue"],
-                                                     N=5000)
     #slight adjustment to drop low importance values, as they create fuzzy and confusing regions on the mri slice
     sorted_values = np.sort(normalize(attributions[:, :, slice].flatten()))[::-1]
     threshold = sorted_values[int(tensor_mri.shape[0] * tensor_mri.shape[1] * 0.01)-1] # 1% of total slice pixels
     ax[2].imshow(np.where(normalize(attributions[:, :, slice]) > threshold, normalize(attributions[:, :, slice]), 0),
-                 cmap=cmap,
+                 cmap=LinearSegmentedColormap.from_list(name='blues',
+                                                        colors=[(1, 0, 0, 0), "blue", "blue", "blue", "blue", "blue"],
+                                                        N=5000),
                  interpolation='gaussian')
     ax[2].set_title('MRI(Greyscale) vs Attributions(Blue) Overlay - Slice {}'.format(slice))
 
