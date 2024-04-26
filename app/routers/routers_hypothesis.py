@@ -4861,7 +4861,6 @@ async def covariance(workflow_id: str,
             sns.heatmap(df, annot=True, fmt='.3g', xticklabels=dataset.columns,
                         yticklabels=dataset.columns, cmap='YlGnBu')
             if os.path.exists(path_to_storage + "/output/Cov.svg"):
-                print('file exists')
                 os.remove(path_to_storage + "/output/Cov.svg")
             plt.savefig(path_to_storage + "/output/Cov.svg", format="svg")
             df.insert(loc=0, column='Cov matrix', value=dataset.columns)
