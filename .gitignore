@@ -285,6 +285,7 @@ dist
 
 /anvizenv
 /example_data/NIA test.edf
+/example_data/MRIs_Epilepsy/*
 /annotation_test.csv
 /.idea/vcs.xml
 /.idea/inspectionProfiles/profiles_settings.xml
