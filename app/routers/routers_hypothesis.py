@@ -4834,10 +4834,10 @@ async def correlation(workflow_id: str,
 async def covariance(workflow_id: str,
                      step_id: str,
                      run_id: str,
+                     file:str,
                      ddof : int | None = Query(default=0),
                      independent_variables: list[str] | None = Query(default=None)):
 
-    # dataset = load_file_csv_direct(workflow_id, run_id, step_id)
     df = pd.DataFrame()
     dfv = pd.DataFrame()
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
@@ -4845,23 +4845,28 @@ async def covariance(workflow_id: str,
     # Load Datasets
     try:
         test_status = 'Dataset is not defined'
-        dfv['variables'] = independent_variables
-        dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
-
-        selected_datasources = pd.unique(dfv['Datasource'])
+        if file is None:
+            test_status = 'Dataset is not defined'
+            raise Exception
         test_status = 'Unable to retrieve datasets'
-        dataset = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
-        # Keep requested Columns
-        selected_columns = pd.unique(dfv['Variable'])
+        dataset = load_data_from_csv(path_to_storage + "/" + file)
         for columns in dataset.columns:
-            if columns not in selected_columns:
+            if columns not in independent_variables:
                 dataset = dataset.drop(str(columns), axis=1)
         test_status = 'Unable to compute the Covariance matrix for the selected columns'
         res = statisticsCov(dataset, ddof)
-        if len(res) >= 1:
+        if res != ():
             df = pd.DataFrame(res, columns=dataset.columns)
+            fig, ax = plt.subplots()
+            sns.heatmap(df, annot=True, fmt='.3g', xticklabels=dataset.columns,
+                        yticklabels=dataset.columns, cmap='YlGnBu')
+            if os.path.exists(path_to_storage + "/output/Cov.svg"):
+                print('file exists')
+                os.remove(path_to_storage + "/output/Cov.svg")
+            plt.savefig(path_to_storage + "/output/Cov.svg", format="svg")
+            df.insert(loc=0, column='Cov matrix', value=dataset.columns)
         else:
-            df = ["N/A"]
+            df = pd.DataFrame(['NaN'])
         test_status = 'Unable to create info.json file'
         with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
             # Load existing data into a dict.
@@ -4878,6 +4883,8 @@ async def covariance(workflow_id: str,
             }
             file_data['results'] = new_data
             file_data['Output_datasets'] = []
+            file_data['Saved_plots'] = [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
+                                                 step_id + '/Cov.svg'}]
             # Set file's current position at offset.
             f.seek(0)
             # convert back to json.
