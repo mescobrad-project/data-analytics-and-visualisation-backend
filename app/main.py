@@ -5,7 +5,9 @@ import socket
 import paramiko
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.sessions import SessionMiddleware
 from .routers import routers_eeg, routers_mri, routers_datalake, routers_hypothesis,  routers_communication, routers_actigraphy, routers_ai
+
 from starlette.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -189,8 +191,12 @@ app.add_middleware(
     allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"]
+    allow_headers=["*"],
+
 )
+
+app.add_middleware(SessionMiddleware, secret_key="random-string")
+
 NeurodesktopStorageLocation = os.environ.get('NeurodesktopStorageLocation') if os.environ.get(
     'NeurodesktopStorageLocation') else "/neurodesktop-storage"
 
