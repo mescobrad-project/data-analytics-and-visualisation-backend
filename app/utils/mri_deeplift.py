@@ -65,7 +65,7 @@ def visualize_dl(model_path,
     attributions = attributions.detach().cpu().squeeze().squeeze().permute(1, 2, 0).numpy()  # [256, 256, 160] numpy array (verified)
     tensor_mri = tensor_mri.detach().cpu().squeeze().squeeze().permute(1, 2, 0).numpy()
 
-    fig, ax = plt.subplots(1, 3, figsize=(14, 7))
+    fig, ax = plt.subplots(1, 2, figsize=(14, 7))
 
     # Plot MRI
     img1 = ax[0].imshow(normalize(tensor_mri[:, :, slice]), cmap='Greys')
@@ -92,7 +92,7 @@ def visualize_dl(model_path,
                                                         colors=[(1, 0, 0, 0), "blue", "blue", "blue", "blue", "blue"],
                                                         N=5000),
                  interpolation='gaussian')
-    ax[1].set_title('MRI(Grey) vs DeepLift Attributions(Blue) Overlay\n\u0332' + ' - Slice {}'.format(slice), pad=20)
+    ax[1].set_title('MRI(Grey) vs DeepLift Attributions(Blue) Overlay\n' + ' - Slice {}'.format(slice))
 
     # Save and show the plot
     plt.savefig(os.path.join(heatmap_path, heatmap_name))
