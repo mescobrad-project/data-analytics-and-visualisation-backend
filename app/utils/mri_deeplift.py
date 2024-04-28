@@ -51,8 +51,8 @@ def visualize_dl(model_path,
 
     #--deeplift
     dl = DeepLift(wrapped_model)
-    target_class = int(torch.argmax(model(tensor_mri)[1])) #int: this should be int 0 or 1 (verified)
-    print('target class (model prediction): ', target_class)
+    target_class = int(torch.argmax(model(tensor_mri)[1])) #int: this should be int 0 for epilepsy (fcd) or 1 for non-epilepsy (hc)
+    #print('target class (model prediction): ', target_class)
     # Track GPU memory usage
     print('Initial GPU Memory Allocated:', torch.cuda.memory_allocated(device)) #almost 11.72GB
     #print('GPU Summary:', torch.cuda.memory_summary())
@@ -64,34 +64,35 @@ def visualize_dl(model_path,
     #--plots
     attributions = attributions.detach().cpu().squeeze().squeeze().permute(1, 2, 0).numpy()  # [256, 256, 160] numpy array (verified)
     tensor_mri = tensor_mri.detach().cpu().squeeze().squeeze().permute(1, 2, 0).numpy()
-    #with open(os.path.join(heatmap_path, 'mri_and_heatmap.pickle'), 'wb') as f:
-    #     pickle.dump([tensor_mri, atsutributions], f)
 
-    fig, ax = plt.subplots(1, 3, figsize=(21, 7))
+    fig, ax = plt.subplots(1, 3, figsize=(14, 7))
 
     # Plot MRI
     img1 = ax[0].imshow(normalize(tensor_mri[:, :, slice]), cmap='Greys')
-    ax[0].set_title('MRI - Slice {}'.format(slice))
+    if target_class == 0:
+        ax[0].set_title('Epileptic MRI - Slice {}'.format(slice))
+    else:
+        ax[0].set_title('Non-Epileptic MRI - Slice {}'.format(slice))
     fig.colorbar(img1, ax=ax[0])
 
     # Plot attributions
-    img2 = ax[1].imshow(normalize(attributions[:, :, slice]),
-                        cmap=LinearSegmentedColormap.from_list(name='yellow_to_blue',
-                                                               colors=[(1, 1, 0), (0, 0, 1)]))
-    ax[1].set_title('Deeplift Attributions - Slice {}'.format(slice))
-    fig.colorbar(img2, ax=ax[1])
+    #img2 = ax[1].imshow(normalize(attributions[:, :, slice]),
+    #                    cmap=LinearSegmentedColormap.from_list(name='yellow_to_blue',
+    #                                                           colors=[(1, 1, 0), (0, 0, 1)]))
+    #ax[1].set_title('Deeplift Attributions - Slice {}'.format(slice))
+    #fig.colorbar(img2, ax=ax[1])
 
     # Plot overlay
-    ax[2].imshow(normalize(tensor_mri[:, :, slice]), cmap='Greys')
+    ax[1].imshow(normalize(tensor_mri[:, :, slice]), cmap='Greys')
     #slight adjustment to drop low importance values, as they create fuzzy and confusing regions on the mri slice
     sorted_values = np.sort(normalize(attributions[:, :, slice].flatten()))[::-1]
     threshold = sorted_values[int(tensor_mri.shape[0] * tensor_mri.shape[1] * 0.01)-1] # 1% of total slice pixels
-    ax[2].imshow(np.where(normalize(attributions[:, :, slice]) > threshold, normalize(attributions[:, :, slice]), 0),
+    ax[1].imshow(np.where(normalize(attributions[:, :, slice]) > threshold, normalize(attributions[:, :, slice]), 0),
                  cmap=LinearSegmentedColormap.from_list(name='blues',
                                                         colors=[(1, 0, 0, 0), "blue", "blue", "blue", "blue", "blue"],
                                                         N=5000),
                  interpolation='gaussian')
-    ax[2].set_title('MRI(Greyscale) vs Attributions(Blue) Overlay - Slice {}'.format(slice))
+    ax[1].set_title('MRI(Grey) vs DeepLift Attributions(Blue) Overlay\n\u0332' + ' - Slice {}'.format(slice), pad=20)
 
     # Save and show the plot
     plt.savefig(os.path.join(heatmap_path, heatmap_name))
