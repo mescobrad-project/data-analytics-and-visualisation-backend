@@ -1,6 +1,7 @@
 # DO NOT AUTO FORMAT THIS FILE THE STRINGS ADDED TO MNE NOTEBOOKS ARE TAB AND SPACE SENSITIVE
 import json
 import time
+from datetime import datetime
 from os.path import isfile, join
 
 import nbformat as nbf
@@ -473,6 +474,8 @@ def write_function_data_to_config_file(parameter_data: dict | list, result_data:
      if parameter_data or result_data is a list then each entry represents a different iteration (only in functions where
      it's applicable to do multiple iterations with different data in the same run)
       and each entry in the list should contain one dict as described above
+
+      THIS FUNCTIONS IS DEFUNCT!!
      """
 
     # Record misc information about the run
@@ -493,7 +496,43 @@ def write_function_data_to_config_file(parameter_data: dict | list, result_data:
     else:
         return "error: parameter_data and result_data type should the same"
 
+def create_info_json(workflow_id, run_id, step_id, test_name, test_params, test_results, output_datasets, saved_plots):
+    """ This functions should be called from a backend function and is used to create the appropriate info json file
+        The format of the expected variables is the following
+        test_params = { "parameter_name" : parameter_value}
+        test_results = {"test_results": test_results} But only if applicable
+        output_datasets = ["filename1", "filename2", "filename3"]
+        saved_plots = ["filename1", "filename2", "filename3"]
+    """
+    # Create list for output datasets and saved plots
+    output_datasets_to_add = []
 
+    for output_dataset_name in output_datasets:
+        output_datasets_to_add.append( {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                 step_id + '/analysis_output/' + output_dataset_name})
 
+    output_saved_plots_to_add= []
 
+    for saved_plot_name in saved_plots:
+        output_saved_plots_to_add.append({"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                               step_id + '/analysis_output/' + saved_plot_name})
+    new_data = {
+        "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+        "workflow_id": workflow_id,
+        "run_id": run_id,
+        "step_id": step_id,
+        "test_name": test_name,
+        "test_params": test_params,
+        "test_results": test_results,
+        'Output_datasets': output_datasets_to_add,
+        'Saved_plots': output_saved_plots_to_add
+    }
 
+    print(new_data)
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+        file_data = json.load(f)
+        file_data['results'] |= new_data
+        f.seek(0)
+        json.dump(file_data, f, indent=4)
+        f.truncate()
