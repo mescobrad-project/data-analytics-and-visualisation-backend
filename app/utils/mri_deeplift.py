@@ -54,7 +54,7 @@ def visualize_dl(model_path,
 
     #--PREDICTION
     prob = torch.max(model(tensor_mri)[1])
-    print(prob)
+    print(model(tensor_mri)[1])
     prob = round(prob.item(), 2)
     target_class = int(torch.argmax(model(tensor_mri)[1])) #int: this should be int 0 for epilepsy (fcd) or 1 for non-epilepsy (hc)
     if target_class == 0:
