@@ -37,22 +37,22 @@ def visualize_dl(model_path,
 
     assert axis in ['sagittal', 'frontal', 'axial']
 
-    #--load model
+    #--MODEL
     model = torch.load(model_path)
     wrapped_model = Conv3DWrapper(model)
 
-    #--load mri
+    #--MRI
     mri = nib.load(mri_path).get_fdata()
     tensor_mri = torch.from_numpy(mri)
     tensor_mri = tensor_mri.unsqueeze(0).unsqueeze(0) #5-dim torch Tensor [1,1,160,256,256] (verified)
 
-    #--send to device
+    #--DEVICE
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(torch.cuda.get_device_name(0))
     tensor_mri = tensor_mri.to(device)
     wrapped_model.to(device)
 
-    #--prediction
+    #--PREDICTION
     prob = torch.max(model(tensor_mri)[1])
     prob = round(prob.item(), 2)
     target_class = int(torch.argmax(model(tensor_mri)[1])) #int: this should be int 0 for epilepsy (fcd) or 1 for non-epilepsy (hc)
@@ -61,7 +61,7 @@ def visualize_dl(model_path,
     elif target_class == 1:
         group = 'Non-Epilepsy' #(hc)
 
-    #--deeplift
+    #--DEEPLIFT
     dl = DeepLift(wrapped_model)
     #print('target class (model prediction): ', target_class)
     # Track GPU memory usage
@@ -72,7 +72,7 @@ def visualize_dl(model_path,
     #print('Final GPU Memory Allocated:', torch.cuda.memory_allocated(device))
     #print('Max GPU Memory Allocated:', torch.cuda.max_memory_allocated(device))
 
-    #--plots - all are [spatial_x, spatial_y, height_volume] in the plot section
+    #--PLOTS - all are [spatial_x, spatial_y, height_volume] in the plot section
     attributions = attributions.detach().cpu().squeeze().squeeze().permute(1, 2, 0).numpy()  # [256, 256, 160] numpy array (verified)
     tensor_mri = tensor_mri.detach().cpu().squeeze().squeeze().permute(1, 2, 0).numpy()
 
