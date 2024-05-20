@@ -21,7 +21,7 @@ def mri_prediction(model_path,
         group = 'Epilepsy (fcd)'
     elif label == 1:
         group = 'Non-Epilepsy (hc)'
-    max_prob = torch.max(probs)
+    max_prob = torch.max(probs) #this is wrong - fix this!!
     print(f'Model prediction: {group} with probability {round(max_prob.item(), 2)}')
 
     # with open(output_path + f'prediction_for_{mri_path}.txt', 'w') as f:

@@ -8,6 +8,8 @@ from PIL import Image
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
 import pickle
+import torch.nn.functional as F
+
 
 class Conv3DWrapper(nn.Module):
     def __init__(self, external_model):
@@ -53,22 +55,19 @@ def visualize_dl(model_path,
     wrapped_model.to(device)
 
     #--PREDICTION
-    prob = torch.max(model(tensor_mri)[1])
-    print(model(tensor_mri)[1])
-    prob = round(prob.item(), 2)
-    target_class = int(torch.argmax(model(tensor_mri)[1])) #int: this should be int 0 for epilepsy (fcd) or 1 for non-epilepsy (hc)
-    if target_class == 0:
+    probs = F.softmax(model(tensor_mri)[1], dim=1)
+    top_prob, top_class = torch.max(probs, dim=1)
+    if top_class == 0:
         group = 'Epilepsy' #(fcd)
-    elif target_class == 1:
+    elif top_class == 1:
         group = 'Non-Epilepsy' #(hc)
 
     #--DEEPLIFT
     dl = DeepLift(wrapped_model)
-    #print('target class (model prediction): ', target_class)
     # Track GPU memory usage
     #print('Initial GPU Memory Allocated:', torch.cuda.memory_allocated(device)) #almost 11.72GB
     #print('GPU Summary:', torch.cuda.memory_summary())
-    attributions = dl.attribute(tensor_mri, target=target_class)
+    attributions = dl.attribute(tensor_mri, target=top_class)
     #print('Attributions calculated! Shape:', attributions.shape)
     #print('Final GPU Memory Allocated:', torch.cuda.memory_allocated(device))
     #print('Max GPU Memory Allocated:', torch.cuda.max_memory_allocated(device))
@@ -81,7 +80,7 @@ def visualize_dl(model_path,
 
     # Plot MRI
     #img1 = ax[0].imshow(normalize(tensor_mri[:, :, slice]), cmap='Greys')
-    #if target_class == 0:
+    #if top_class == 0:
     #    ax[0].set_title('Epileptic MRI - Slice {}'.format(slice))
     #else:
     #    ax[0].set_title('Non-Epileptic MRI - Slice {}'.format(slice))
@@ -119,7 +118,7 @@ def visualize_dl(model_path,
                      cmap=cmap,
                      interpolation='gaussian')
 
-    ax.set_title(f'Pred: {group} (prob: {prob})\n' + 'MRI(Grey) vs DeepLift Attributions(Blue) Overlay\n' + f' - {axis} slice {slice}')
+    ax.set_title(f'Pred: {group} (prob: {top_prob})\n' + 'MRI(Grey) vs DeepLift Attributions(Blue) Overlay\n' + f' - {axis} slice {slice}')
 
     # Save and show the plot
     plt.savefig(os.path.join(heatmap_path, heatmap_name))
