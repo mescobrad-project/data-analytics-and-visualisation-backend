@@ -11,7 +11,6 @@ async def ai_mri_experiment(
         workflow_id: str,
         step_id: str,
         run_id: str,
-        participants_path: str,
         data_path: str,
         csv_path: str,
         iterations : int = 5,
