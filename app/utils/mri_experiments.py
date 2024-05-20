@@ -11,9 +11,9 @@ from app.utils.training import train_eval_model
 NeurodesktopStorageLocation = os.environ.get('NeurodesktopStorageLocation') if os.environ.get(
     'NeurodesktopStorageLocation') else "/neurodesktop-storage"
 
-def run_experiment(iterations, 
-                   data_path,
+def run_experiment(data_path,
                    csv_path,
+                   iterations,
                    lr,
                    es_patience,
                    scheduler_step_size,
