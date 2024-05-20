@@ -61,8 +61,8 @@ def run_experiment(data_path,
 
         # Save hyperparams to a text file
         with open(exp_dir + f'hyperparams_experiment{i + 1}.txt','w') as f:
-            f.write(f'batch_size: {batch_size}\n')
-            f.write(f'eval_size: {eval_size}\n')
+            #f.write(f'batch_size: {batch_size}\n')
+            #f.write(f'eval_size: {eval_size}\n')
             f.write(f'lr: {lr}\n')
             f.write(f'es_patience: {es_patience}\n')
             f.write(f'scheduler_step_size: {scheduler_step_size}\n')
