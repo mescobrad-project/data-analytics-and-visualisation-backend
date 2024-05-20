@@ -34,6 +34,7 @@ def visualize_dl(model_path,
     assert(os.path.exists(model_path))
     assert (os.path.exists(mri_path))
     assert (os.path.exists(heatmap_path))
+
     assert axis in ['sagittal', 'frontal', 'axial']
 
     #--load model
