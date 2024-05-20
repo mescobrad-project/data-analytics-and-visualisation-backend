@@ -52,30 +52,38 @@ def visualize_dl(model_path,
     tensor_mri = tensor_mri.to(device)
     wrapped_model.to(device)
 
+    #--prediction
+    prob = torch.max(model(tensor_mri)[1])
+    prob = round(prob.item(), 2)
+    target_class = int(torch.argmax(model(tensor_mri)[1])) #int: this should be int 0 for epilepsy (fcd) or 1 for non-epilepsy (hc)
+    if target_class == 0:
+        group = 'Epilepsy' #(fcd)
+    elif target_class == 1:
+        group = 'Non-Epilepsy' #(hc)
+
     #--deeplift
     dl = DeepLift(wrapped_model)
-    target_class = int(torch.argmax(model(tensor_mri)[1])) #int: this should be int 0 for epilepsy (fcd) or 1 for non-epilepsy (hc)
     #print('target class (model prediction): ', target_class)
     # Track GPU memory usage
-    print('Initial GPU Memory Allocated:', torch.cuda.memory_allocated(device)) #almost 11.72GB
+    #print('Initial GPU Memory Allocated:', torch.cuda.memory_allocated(device)) #almost 11.72GB
     #print('GPU Summary:', torch.cuda.memory_summary())
     attributions = dl.attribute(tensor_mri, target=target_class)
-    print('Attributions calculated! Shape:', attributions.shape)
-    print('Final GPU Memory Allocated:', torch.cuda.memory_allocated(device))
-    print('Max GPU Memory Allocated:', torch.cuda.max_memory_allocated(device))
+    #print('Attributions calculated! Shape:', attributions.shape)
+    #print('Final GPU Memory Allocated:', torch.cuda.memory_allocated(device))
+    #print('Max GPU Memory Allocated:', torch.cuda.max_memory_allocated(device))
 
     #--plots - all are [spatial_x, spatial_y, height_volume] in the plot section
     attributions = attributions.detach().cpu().squeeze().squeeze().permute(1, 2, 0).numpy()  # [256, 256, 160] numpy array (verified)
     tensor_mri = tensor_mri.detach().cpu().squeeze().squeeze().permute(1, 2, 0).numpy()
 
-    fig, ax = plt.subplots(1, 2, figsize=(14, 7))
+    fig, ax = plt.subplots(1, 1, figsize=(8, 8))
 
     # Plot MRI
-    img1 = ax[0].imshow(normalize(tensor_mri[:, :, slice]), cmap='Greys')
-    if target_class == 0:
-        ax[0].set_title('Epileptic MRI - Slice {}'.format(slice))
-    else:
-        ax[0].set_title('Non-Epileptic MRI - Slice {}'.format(slice))
+    #img1 = ax[0].imshow(normalize(tensor_mri[:, :, slice]), cmap='Greys')
+    #if target_class == 0:
+    #    ax[0].set_title('Epileptic MRI - Slice {}'.format(slice))
+    #else:
+    #    ax[0].set_title('Non-Epileptic MRI - Slice {}'.format(slice))
     #fig.colorbar(img1, ax=ax[0])
 
     # Plot attributions
@@ -87,29 +95,30 @@ def visualize_dl(model_path,
 
     # Plot overlay
     cmap = LinearSegmentedColormap.from_list(name='blues', colors=[(1, 0, 0, 0), "blue", "blue", "blue", "blue", "blue"], N=5000)
+
     if axis == 'sagittal':
-        ax[1].imshow(normalize(tensor_mri[:, :, slice]), cmap='Greys')
+        ax[0].imshow(normalize(tensor_mri[:, :, slice]), cmap='Greys')
         sorted_values = np.sort(normalize(attributions[:, :, slice].flatten()))[::-1]
         threshold = sorted_values[int(tensor_mri.shape[0] * tensor_mri.shape[1] * 0.01)-1] # 1% of total slice pixels
-        ax[1].imshow(np.where(normalize(attributions[:, :, slice]) > threshold, normalize(attributions[:, :, slice]), 0),
+        ax[0].imshow(np.where(normalize(attributions[:, :, slice]) > threshold, normalize(attributions[:, :, slice]), 0),
                      cmap=cmap,
                      interpolation='gaussian')
     elif axis == 'frontal':
-        ax[1].imshow(normalize(tensor_mri[:, slice, :]), cmap='Greys')
+        ax[0].imshow(normalize(tensor_mri[:, slice, :]), cmap='Greys')
         sorted_values = np.sort(normalize(attributions[:, slice, :].flatten()))[::-1]
         threshold = sorted_values[int(tensor_mri.shape[0] * tensor_mri.shape[1] * 0.01)-1] # 1% of total slice pixels
-        ax[1].imshow(np.where(normalize(attributions[:, slice, :]) > threshold, normalize(attributions[:, slice, :]), 0),
+        ax[0].imshow(np.where(normalize(attributions[:, slice, :]) > threshold, normalize(attributions[:, slice, :]), 0),
                      cmap=cmap,
                      interpolation='gaussian')
     elif axis == 'axial':
-        ax[1].imshow(normalize(tensor_mri[slice, :, :]), cmap='Greys')
+        ax[0].imshow(normalize(tensor_mri[slice, :, :]), cmap='Greys')
         sorted_values = np.sort(normalize(attributions[slice, :, :].flatten()))[::-1]
         threshold = sorted_values[int(tensor_mri.shape[0] * tensor_mri.shape[1] * 0.01)-1] # 1% of total slice pixels
-        ax[1].imshow(np.where(normalize(attributions[slice, :, :]) > threshold, normalize(attributions[slice, :, :]), 0),
+        ax[0].imshow(np.where(normalize(attributions[slice, :, :]) > threshold, normalize(attributions[slice, :, :]), 0),
                      cmap=cmap,
                      interpolation='gaussian')
 
-    ax[1].set_title(f'MRI(Grey) vs DeepLift Attributions(Blue) Overlay\n' + ' - {axis} slice {slice}')
+    ax[0].set_title(f'Pred: {group} (prob: {prob})\n' + 'MRI(Grey) vs DeepLift Attributions(Blue) Overlay\n' + f' - {axis} slice {slice}')
 
     # Save and show the plot
     plt.savefig(os.path.join(heatmap_path, heatmap_name))
