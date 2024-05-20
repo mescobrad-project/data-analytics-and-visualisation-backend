@@ -55,8 +55,8 @@ def visualize_dl(model_path,
     wrapped_model.to(device)
 
     #--PREDICTION
-    probs = F.softmax(model(tensor_mri)[1], dim=1)
-    top_prob, top_class = torch.max(probs, dim=1)
+    #prob_distribution = F.softmax(model(tensor_mri)[1]
+    top_prob, top_class = torch.max(F.softmax(model(tensor_mri)[1], dim=1), dim=1)
     if top_class == 0:
         group = 'Epilepsy' #(fcd)
     elif top_class == 1:
@@ -94,28 +94,26 @@ def visualize_dl(model_path,
     #fig.colorbar(img2, ax=ax[1])
 
     # Plot overlay
-    cmap = LinearSegmentedColormap.from_list(name='blues', colors=[(1, 0, 0, 0), "blue", "blue", "blue", "blue", "blue"], N=5000)
-
     if axis == 'sagittal':
         ax.imshow(normalize(tensor_mri[:, :, slice]), cmap='Greys')
         sorted_values = np.sort(normalize(attributions[:, :, slice].flatten()))[::-1]
         threshold = sorted_values[int(tensor_mri.shape[0] * tensor_mri.shape[1] * 0.01)-1] # 1% of total slice pixels
         ax.imshow(np.where(normalize(attributions[:, :, slice]) > threshold, normalize(attributions[:, :, slice]), 0),
-                     cmap=cmap,
+                     cmap=LinearSegmentedColormap.from_list(name='blues', colors=[(1, 0, 0, 0), "blue", "blue", "blue", "blue", "blue"], N=5000),
                      interpolation='gaussian')
     elif axis == 'frontal':
         ax.imshow(normalize(tensor_mri[:, slice, :]), cmap='Greys')
         sorted_values = np.sort(normalize(attributions[:, slice, :].flatten()))[::-1]
         threshold = sorted_values[int(tensor_mri.shape[0] * tensor_mri.shape[1] * 0.01)-1] # 1% of total slice pixels
         ax.imshow(np.where(normalize(attributions[:, slice, :]) > threshold, normalize(attributions[:, slice, :]), 0),
-                     cmap=cmap,
+                     cmap=LinearSegmentedColormap.from_list(name='blues', colors=[(1, 0, 0, 0), "blue", "blue", "blue", "blue", "blue"], N=5000),
                      interpolation='gaussian')
     elif axis == 'axial':
         ax.imshow(normalize(tensor_mri[slice, :, :]), cmap='Greys')
         sorted_values = np.sort(normalize(attributions[slice, :, :].flatten()))[::-1]
         threshold = sorted_values[int(tensor_mri.shape[0] * tensor_mri.shape[1] * 0.01)-1] # 1% of total slice pixels
         ax.imshow(np.where(normalize(attributions[slice, :, :]) > threshold, normalize(attributions[slice, :, :]), 0),
-                     cmap=cmap,
+                     cmap=LinearSegmentedColormap.from_list(name='blues', colors=[(1, 0, 0, 0), "blue", "blue", "blue", "blue", "blue"], N=5000),
                      interpolation='gaussian')
 
     ax.set_title(f'Pred: {group} (prob: {top_prob})\n' + 'MRI(Grey) vs DeepLift Attributions(Blue) Overlay\n' + f' - {axis} slice {slice}')
