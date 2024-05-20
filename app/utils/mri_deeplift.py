@@ -97,28 +97,28 @@ def visualize_dl(model_path,
     cmap = LinearSegmentedColormap.from_list(name='blues', colors=[(1, 0, 0, 0), "blue", "blue", "blue", "blue", "blue"], N=5000)
 
     if axis == 'sagittal':
-        ax[0].imshow(normalize(tensor_mri[:, :, slice]), cmap='Greys')
+        ax.imshow(normalize(tensor_mri[:, :, slice]), cmap='Greys')
         sorted_values = np.sort(normalize(attributions[:, :, slice].flatten()))[::-1]
         threshold = sorted_values[int(tensor_mri.shape[0] * tensor_mri.shape[1] * 0.01)-1] # 1% of total slice pixels
-        ax[0].imshow(np.where(normalize(attributions[:, :, slice]) > threshold, normalize(attributions[:, :, slice]), 0),
+        ax.imshow(np.where(normalize(attributions[:, :, slice]) > threshold, normalize(attributions[:, :, slice]), 0),
                      cmap=cmap,
                      interpolation='gaussian')
     elif axis == 'frontal':
-        ax[0].imshow(normalize(tensor_mri[:, slice, :]), cmap='Greys')
+        ax.imshow(normalize(tensor_mri[:, slice, :]), cmap='Greys')
         sorted_values = np.sort(normalize(attributions[:, slice, :].flatten()))[::-1]
         threshold = sorted_values[int(tensor_mri.shape[0] * tensor_mri.shape[1] * 0.01)-1] # 1% of total slice pixels
-        ax[0].imshow(np.where(normalize(attributions[:, slice, :]) > threshold, normalize(attributions[:, slice, :]), 0),
+        ax.imshow(np.where(normalize(attributions[:, slice, :]) > threshold, normalize(attributions[:, slice, :]), 0),
                      cmap=cmap,
                      interpolation='gaussian')
     elif axis == 'axial':
-        ax[0].imshow(normalize(tensor_mri[slice, :, :]), cmap='Greys')
+        ax.imshow(normalize(tensor_mri[slice, :, :]), cmap='Greys')
         sorted_values = np.sort(normalize(attributions[slice, :, :].flatten()))[::-1]
         threshold = sorted_values[int(tensor_mri.shape[0] * tensor_mri.shape[1] * 0.01)-1] # 1% of total slice pixels
-        ax[0].imshow(np.where(normalize(attributions[slice, :, :]) > threshold, normalize(attributions[slice, :, :]), 0),
+        ax.imshow(np.where(normalize(attributions[slice, :, :]) > threshold, normalize(attributions[slice, :, :]), 0),
                      cmap=cmap,
                      interpolation='gaussian')
 
-    ax[0].set_title(f'Pred: {group} (prob: {prob})\n' + 'MRI(Grey) vs DeepLift Attributions(Blue) Overlay\n' + f' - {axis} slice {slice}')
+    ax.set_title(f'Pred: {group} (prob: {prob})\n' + 'MRI(Grey) vs DeepLift Attributions(Blue) Overlay\n' + f' - {axis} slice {slice}')
 
     # Save and show the plot
     plt.savefig(os.path.join(heatmap_path, heatmap_name))
