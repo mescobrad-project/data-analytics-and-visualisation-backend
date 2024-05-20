@@ -28,11 +28,13 @@ def visualize_dl(model_path,
                  mri_path,
                  heatmap_path,
                  heatmap_name,
+                 axis,
                  slice):
 
     assert(os.path.exists(model_path))
     assert (os.path.exists(mri_path))
     assert (os.path.exists(heatmap_path))
+    assert axis in ['sagittal', 'frontal', 'axial']
 
     #--load model
     model = torch.load(model_path)
@@ -61,7 +63,7 @@ def visualize_dl(model_path,
     print('Final GPU Memory Allocated:', torch.cuda.memory_allocated(device))
     print('Max GPU Memory Allocated:', torch.cuda.max_memory_allocated(device))
 
-    #--plots
+    #--plots - all are [spatial_x, spatial_y, height_volume] in the plot section
     attributions = attributions.detach().cpu().squeeze().squeeze().permute(1, 2, 0).numpy()  # [256, 256, 160] numpy array (verified)
     tensor_mri = tensor_mri.detach().cpu().squeeze().squeeze().permute(1, 2, 0).numpy()
 
@@ -73,7 +75,7 @@ def visualize_dl(model_path,
         ax[0].set_title('Epileptic MRI - Slice {}'.format(slice))
     else:
         ax[0].set_title('Non-Epileptic MRI - Slice {}'.format(slice))
-    fig.colorbar(img1, ax=ax[0])
+    #fig.colorbar(img1, ax=ax[0])
 
     # Plot attributions
     #img2 = ax[1].imshow(normalize(attributions[:, :, slice]),
@@ -83,16 +85,30 @@ def visualize_dl(model_path,
     #fig.colorbar(img2, ax=ax[1])
 
     # Plot overlay
-    ax[1].imshow(normalize(tensor_mri[:, :, slice]), cmap='Greys')
-    #slight adjustment to drop low importance values, as they create fuzzy and confusing regions on the mri slice
-    sorted_values = np.sort(normalize(attributions[:, :, slice].flatten()))[::-1]
-    threshold = sorted_values[int(tensor_mri.shape[0] * tensor_mri.shape[1] * 0.01)-1] # 1% of total slice pixels
-    ax[1].imshow(np.where(normalize(attributions[:, :, slice]) > threshold, normalize(attributions[:, :, slice]), 0),
-                 cmap=LinearSegmentedColormap.from_list(name='blues',
-                                                        colors=[(1, 0, 0, 0), "blue", "blue", "blue", "blue", "blue"],
-                                                        N=5000),
-                 interpolation='gaussian')
-    ax[1].set_title('MRI(Grey) vs DeepLift Attributions(Blue) Overlay\n' + ' - Slice {}'.format(slice))
+    cmap = LinearSegmentedColormap.from_list(name='blues', colors=[(1, 0, 0, 0), "blue", "blue", "blue", "blue", "blue"], N=5000)
+    if axis == 'sagittal':
+        ax[1].imshow(normalize(tensor_mri[:, :, slice]), cmap='Greys')
+        sorted_values = np.sort(normalize(attributions[:, :, slice].flatten()))[::-1]
+        threshold = sorted_values[int(tensor_mri.shape[0] * tensor_mri.shape[1] * 0.01)-1] # 1% of total slice pixels
+        ax[1].imshow(np.where(normalize(attributions[:, :, slice]) > threshold, normalize(attributions[:, :, slice]), 0),
+                     cmap=cmap,
+                     interpolation='gaussian')
+    elif axis == 'frontal':
+        ax[1].imshow(normalize(tensor_mri[:, slice, :]), cmap='Greys')
+        sorted_values = np.sort(normalize(attributions[:, slice, :].flatten()))[::-1]
+        threshold = sorted_values[int(tensor_mri.shape[0] * tensor_mri.shape[1] * 0.01)-1] # 1% of total slice pixels
+        ax[1].imshow(np.where(normalize(attributions[:, slice, :]) > threshold, normalize(attributions[:, slice, :]), 0),
+                     cmap=cmap,
+                     interpolation='gaussian')
+    elif axis == 'axial':
+        ax[1].imshow(normalize(tensor_mri[slice, :, :]), cmap='Greys')
+        sorted_values = np.sort(normalize(attributions[slice, :, :].flatten()))[::-1]
+        threshold = sorted_values[int(tensor_mri.shape[0] * tensor_mri.shape[1] * 0.01)-1] # 1% of total slice pixels
+        ax[1].imshow(np.where(normalize(attributions[slice, :, :]) > threshold, normalize(attributions[slice, :, :]), 0),
+                     cmap=cmap,
+                     interpolation='gaussian')
+
+    ax[1].set_title(f'MRI(Grey) vs DeepLift Attributions(Blue) Overlay\n' + ' - {axis} slice {slice}')
 
     # Save and show the plot
     plt.savefig(os.path.join(heatmap_path, heatmap_name))
