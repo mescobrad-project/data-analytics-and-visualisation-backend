@@ -8,8 +8,7 @@ from PIL import Image
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
 import pickle
-import torch.nn.functional as F
-
+#import torch.nn.functional as F
 
 class Conv3DWrapper(nn.Module):
     def __init__(self, external_model):
@@ -55,8 +54,9 @@ def visualize_dl(model_path,
     wrapped_model.to(device)
 
     #--PREDICTION
-    #prob_distribution = F.softmax(model(tensor_mri)[1]
-    top_prob, top_class = torch.max(F.softmax(model(tensor_mri)[1], dim=1), dim=1)
+    softmax = nn.Softmax(dim=1)
+    probs = softmax(model(tensor_mri)[1])
+    top_prob, top_class = torch.max(probs, dim=1)
     if top_class == 0:
         group = 'Epilepsy' #(fcd)
     elif top_class == 1:
