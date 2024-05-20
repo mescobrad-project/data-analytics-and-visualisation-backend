@@ -113,7 +113,7 @@ def visualize_dl(model_path,
                      cmap=LinearSegmentedColormap.from_list(name='blues', colors=[(1, 0, 0, 0), "blue", "blue", "blue", "blue", "blue"], N=5000),
                      interpolation='gaussian')
 
-    ax.set_title(f'Pred: {group}\n' + 'MRI(Grey) vs DeepLift Attributions(Blue) Overlay\n' + f' - {axis} slice {slice}')
+    ax.set_title('MRI(Grey) vs DeepLift Attributions(Blue) Overlay\n' + f'pred: {group}\n' + f'{axis} slice {slice}')
 
     # Save and show the plot
     plt.savefig(os.path.join(heatmap_path, heatmap_name))
