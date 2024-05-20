@@ -20,9 +20,9 @@ async def ai_mri_experiment(
         scheduler_gamma: float = 0.75
        ) -> dict:
 
-    results = run_experiment(iterations,
-                   data_path,
+    results = run_experiment(data_path,
                    csv_path,
+                   iterations,
                    lr,
                    es_patience,
                    scheduler_step_size,
