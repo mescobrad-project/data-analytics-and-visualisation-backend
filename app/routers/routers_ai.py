@@ -84,12 +84,14 @@ async def dl_explanation_experiment(
         mri_path: str,
         heatmap_path: str,
         heatmap_name: str,
+        axis: str,
         slice: int
        ) -> dict:
     results = visualize_dl(model_path,
                            mri_path,
                            heatmap_path,
                            heatmap_name,
+                           axis,
                            slice)
     return {"results": results}
 
