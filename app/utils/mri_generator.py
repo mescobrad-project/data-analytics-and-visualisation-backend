@@ -13,16 +13,17 @@ class MRI_Generator(Dataset):
                  csv_path):
 
         self.data_path = data_path  # mris directory
-        self.dataframe = self.put_labels(csv_path)
+        self.csv_path = csv_path
+        self.dataframe = self.put_labels()
 
-    def put_labels(self, csv_path):
+    def put_labels(self):
 
         try:
-            df = pd.read_csv(csv_path)  # read the csv without specifying a separator
+            df = pd.read_csv(self.csv_path)  # read the csv without specifying a separator
         except pd.errors.ParserError:
-            df = pd.read_csv(csv_path, sep='\t')  # read with tab separator
+            df = pd.read_csv(self.csv_path, sep='\t')  # read with tab separator
         except Exception as e:
-            print(f"An error occurred: {e}")
+            raise Exception(f"An error occurred while reading the CSV file: {e}")
 
         assert 'mri' in df.columns
         assert 'group' in df.columns
@@ -52,8 +53,7 @@ class MRI_Generator(Dataset):
 
         # sub = self.dataframe.loc[self.dataframe['mri'] == str(mri_file)[:-4], 'mri'].values[0] #works ok, correct sub-label assignment
         resized_map = torch.from_numpy(nib.load(mri_path).get_fdata())
-        label = self.dataframe.loc[self.dataframe['mri'] == str(mri_file)[:-4], 'label'].values[
-            0]  # [:-4] to skip the '.nii' extension
-        # should be ok for all '.nii' files
+        label = self.dataframe.loc[self.dataframe['mri'] == str(mri_file)[:-4], 'label'].values[0]  # [:-4] to skip the '.nii' extension
+                                                                                                    # should be ok for all '.nii' files
 
         return torch.unsqueeze(resized_map, 0), torch.tensor(label)
