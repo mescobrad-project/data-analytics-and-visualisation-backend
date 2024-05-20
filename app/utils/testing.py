@@ -4,10 +4,8 @@ from sklearn import metrics
 import nibabel as nib
 from app.utils.mri_dataloaders import test_dataloader
 
-
 def mri_prediction(model_path,
-                   mri_path,
-                   output_path):
+                   mri_path):
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -15,14 +13,21 @@ def mri_prediction(model_path,
     model.eval()
 
     nparray = nib.load(mri_path).get_fdata()
-    tarray = torch.from_numpy(nparray).unsqueeze(0).unsqueeze(0).to(device) #tarray.shape is torch.Size([1, 1, 157, 256, 256])
+    tarray = torch.from_numpy(nparray).unsqueeze(0).unsqueeze(0).to(device)  # tarray.shape is torch.Size([1, 1, 157, 256, 256])
 
-    pred = model(tarray)[1]
+    probs = model(tarray)[1]
+    label = int(torch.argmax(probs))
+    if label == 0:
+        group = 'Epilepsy (fcd)'
+    elif label == 1:
+        group = 'Non-Epilepsy (hc)'
+    max_prob = torch.max(probs)
+    print(f'Model prediction: {group} with probability {round(max_prob.item(), 2)}')
 
-    with open(output_path + f'prediction_for_{mri_path}.txt', 'w') as f:
-        f.write(f'The predicted class for the test point located at {mri_path} is {int(torch.argmax(pred))}\n')
+    # with open(output_path + f'prediction_for_{mri_path}.txt', 'w') as f:
+    #    f.write(f'The predicted class for the test point located at {mri_path} is {label}\n')
 
-    return pred, torch.argmax(pred)
+    return True
 
 
 def test_on_multiple_mris(model_path, 
