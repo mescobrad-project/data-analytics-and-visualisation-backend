@@ -30,8 +30,8 @@ def mri_prediction(model_path,
     return True
 
 
-def test_on_multiple_mris(model_path, 
-                          data_path, 
+def test_on_multiple_mris(model_path,
+                          data_path,
                           dataset_test, 
                           batch_size):
     
