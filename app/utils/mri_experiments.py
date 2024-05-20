@@ -3,21 +3,18 @@ from datetime import datetime
 import argparse
 import torch
 
-from app.utils.participants import get_participants
 from app.utils.conv3D import Conv3D
 from app.utils.mri_dataloaders import train_eval_dataloaders
 from app.utils.training import train_eval_model
-from app.utils.testing import test_on_multiple_mris
+#from app.utils.testing import test_on_multiple_mris
 
 NeurodesktopStorageLocation = os.environ.get('NeurodesktopStorageLocation') if os.environ.get(
     'NeurodesktopStorageLocation') else "/neurodesktop-storage"
 
 def run_experiment(iterations, 
-                   participants_path, 
-                   data_path, 
-                   batch_size,
-                   eval_size, 
-                   lr, 
+                   data_path,
+                   csv_path,
+                   lr,
                    es_patience,
                    scheduler_step_size,
                    scheduler_gamma
@@ -30,8 +27,7 @@ def run_experiment(iterations,
     for i in range(iterations):
         print(" ----- Currently on iteration no. {} ----- ".format(i+1), flush=True)
         
-        dataset_train, dataset_test = get_participants(participants_path)
-        train_dataloader, eval_dataloader = train_eval_dataloaders(data_path, dataset_train, eval_size, batch_size)
+        train_dataloader, eval_dataloader = train_eval_dataloaders(data_path, csv_path)
 
         model = Conv3D()
 
@@ -46,6 +42,7 @@ def run_experiment(iterations,
         torch.save(trained_model, exp_dir + f'{type(model).__name__}_experiment{i+1}.pth')
         #torch.save(trained_model.state_dict(), '../saved_models/' + f'{type(model).__name__}_experiment{i+1}.pth') 
 
+        '''
         #testing
         acc, prec, rec, specif, f1, auc = test_on_multiple_mris(exp_dir + f'{type(model).__name__}_experiment{i+1}.pth',
                                                                 data_path,
@@ -60,6 +57,7 @@ def run_experiment(iterations,
             f.write(f'Specificity: {specif}\n')
             f.write(f'F1-Score: {f1}\n')
             f.write(f'AUC: {auc}\n')
+        '''
 
         # Save hyperparams to a text file
         with open(exp_dir + f'hyperparams_experiment{i + 1}.txt','w') as f:
