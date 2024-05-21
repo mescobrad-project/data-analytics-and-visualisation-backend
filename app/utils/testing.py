@@ -26,7 +26,7 @@ def mri_prediction(model_path,
         group = 'Epilepsy (fcd)'
     elif top_class == 1:
         group = 'Non-Epilepsy (hc)'
-    print(f'Model prediction: {group} with probability {top_prob}')
+    print(f'Model prediction: {group} with probability {round(top_prob[0].item(),2)}')
 
     # with open(output_path + f'prediction_for_{mri_path}.txt', 'w') as f:
     #    f.write(f'The predicted class for the test point located at {mri_path} is {label}\n')
