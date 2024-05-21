@@ -44,7 +44,7 @@ def visualize_ggc(model_path,
 
     #--load mri
     tensor_mri = nib.load(mri_path).get_fdata()
-    tensor_mri = torch.from_numpy(tensor_mri).unsqueeze(0).unsqueeze(0))
+    tensor_mri = torch.from_numpy(tensor_mri).unsqueeze(0).unsqueeze(0)
 
     #--send to device
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
