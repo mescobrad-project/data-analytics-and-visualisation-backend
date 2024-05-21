@@ -79,7 +79,7 @@ def mris_batch_prediction(model_path,
     # heatmap_path = "path/to/save/heatmap.png"
 
     # Create a figure with two subplots: one for the heatmap and one for the text
-    fig, ax = plt.subplots(2, 1, figsize=(5, 8), gridspec_kw={'height_ratios': [3, 1]})
+    fig, ax = plt.subplots(2, 1, figsize=(7, 10))#, gridspec_kw={'height_ratios': [3, 1]})
 
     # Plot the heatmap
     sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=class_names, yticklabels=class_names, ax=ax[0], cbar=False)
