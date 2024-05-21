@@ -73,8 +73,8 @@ async def ggc_explanation_experiment(
     return {"results": results}
 
 
-@router.get("/mri_prediction")
-async def mri_prediction(
+@router.get("/mri_inference")
+async def mri_inference(
         workflow_id: str,
         step_id: str,
         run_id: str,
