@@ -2,6 +2,7 @@ import torch
 import numpy as np
 from sklearn import metrics
 from torch.optim.lr_scheduler import ReduceLROnPlateau
+import matplotlib.pyplot as plt
 
 def train_model(train_dataloader, model, optimizer):
 
@@ -74,14 +75,21 @@ def train_eval_model(train_dataloader,
     best_model = None
     
     n_epochs = 1000
+
+    # Lists to store losses for plotting
+    train_losses_per_epoch = []
+    val_losses_per_epoch = []
+
     for epoch in range(n_epochs):
 
         # Training phase
         train_loss = train_model(train_dataloader, model, optimizer)
+        train_losses_per_epoch.append(train_loss)
         current_lr = optimizer.param_groups[0]['lr']
 
         # Validation phase
         valid_loss, eval_targets, eval_predictions = evaluate_model(eval_dataloader, model)
+        val_losses_per_epoch.append(valid_loss)
         scheduler.step()#scheduler.step(valid_loss)
         dev_f1 = metrics.f1_score(eval_targets, eval_predictions, zero_division=1)
         dev_acc = metrics.accuracy_score(eval_targets, eval_predictions)
@@ -110,5 +118,17 @@ def train_eval_model(train_dataloader,
             '''
                 
             break
+
+    # Plotting train and validation losses
+    plt.figure(figsize=(10, 6))
+    plt.plot(train_losses_per_epoch, label='Train Loss')
+    plt.plot(val_losses_per_epoch, label='Validation Loss')
+    plt.xlabel('Epochs')
+    plt.ylabel('Loss')
+    plt.title('Train and Validation Loss per Epoch')
+    plt.legend()
+    plt.grid(True)
+    plt.savefig('train_val_loss_plot.png')
+    plt.show()
 
     return best_model

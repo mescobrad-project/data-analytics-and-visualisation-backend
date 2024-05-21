@@ -14,16 +14,14 @@ NeurodesktopStorageLocation = os.environ.get('NeurodesktopStorageLocation') if o
 def run_experiment(data_path,
                    csv_path,
                    iterations,
-                   lr,
                    es_patience,
-                   scheduler_step_size,
-                   scheduler_gamma
                    ):
 
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
     exp_dir = NeurodesktopStorageLocation + f'/model_data/saved_models_{timestamp}/'
     os.makedirs(exp_dir)
 
+    # learning rate hyperparams
     lr = 0.001
     scheduler_step_size = 3
     scheduler_gamma = 0.75
