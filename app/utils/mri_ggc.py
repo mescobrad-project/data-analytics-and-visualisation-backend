@@ -43,79 +43,48 @@ def visualize_ggc(model_path,
     wrapped_model = Conv3DWrapper(model)
 
     #--load mri
-    mri = nib.load(mri_path).get_fdata()
-    tensor_mri = torch.from_numpy(mri)
-    tensor_mri = tensor_mri.unsqueeze(0).unsqueeze(0) #5-dim torch Tensor [1,1,160,256,256] (verified)
+    tensor_mri = nib.load(mri_path).get_fdata()
+    tensor_mri = torch.from_numpy(tensor_mri).unsqueeze(0).unsqueeze(0))
 
     #--send to device
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(torch.cuda.get_device_name(0))
     tensor_mri = tensor_mri.to(device)
     wrapped_model.to(device)
 
-    #--PREDICTION
-    #top_class = int(torch.argmax(model(tensor_mri)[1]))
-    top_prob, top_class = torch.max(F.softmax(model(tensor_mri)[1], dim=1), dim=1)
-    if top_class == 0:
-        group = 'Epilepsy' #(fcd)
-    elif top_class == 1:
-        group = 'Non-Epilepsy' #(hc)
+    # Prediction
+    softmax = nn.Softmax(dim=1)
+    with torch.no_grad():
+        logits = model(tensor_mri)[1]
+    top_prob, top_class = torch.max(softmax(logits), dim=1)
+    group = 'Epilepsy' if top_class.item() == 0 else 'Non-Epilepsy'
 
-    #--GGC
+    # Guided Grad-CAM
     ggc = GuidedGradCam(wrapped_model, layer=wrapped_model.conv3d_model.group6)
     attributions = ggc.attribute(tensor_mri, target=top_class)
-
-    #--plot
     attributions = attributions.detach().cpu().squeeze().squeeze().permute(1, 2, 0).numpy()  # [256, 256, 160] numpy array (verified)
     tensor_mri = tensor_mri.detach().cpu().squeeze().squeeze().permute(1, 2, 0).numpy()
 
-    fig, ax = plt.subplots(1, 1, figsize=(8, 8))
-
-    # Plot MRI
-    # img1 = ax[0].imshow(normalize(tensor_mri[:, :, slice]), cmap='Greys')
-    # if top_class == 0:
-    #    ax[0].set_title('Epileptic MRI - Slice {}'.format(slice))
-    # else:
-    #    ax[0].set_title('Non-Epileptic MRI - Slice {}'.format(slice))
-    # fig.colorbar(img1, ax=ax[0])
-
-    # Plot attributions
-    # img2 = ax[1].imshow(normalize(attributions[:, :, slice]),
-    #                    cmap=LinearSegmentedColormap.from_list(name='yellow_to_blue',
-    #                                                           colors=[(1, 1, 0), (0, 0, 1)]))
-    # ax[1].set_title('Deeplift Attributions - Slice {}'.format(slice))
-    # fig.colorbar(img2, ax=ax[1])
-
-    # Plot overlay
     if axis == 'sagittal':
-        ax.imshow(normalize(tensor_mri[:, :, slice]), cmap='Greys')
-        sorted_values = np.sort(normalize(attributions[:, :, slice].flatten()))[::-1]
-        threshold = sorted_values[int(tensor_mri.shape[0] * tensor_mri.shape[1] * 0.01) - 1]  # 1% of total slice pixels
-        ax.imshow(np.where(normalize(attributions[:, :, slice]) > threshold, normalize(attributions[:, :, slice]), 0),
-                  cmap=LinearSegmentedColormap.from_list(name='blues',
-                                                         colors=[(1, 0, 0, 0), "blue", "blue", "blue", "blue", "blue"],
-                                                         N=5000),
-                  interpolation='gaussian')
+        mri_slice = tensor_mri[:, :, slice_idx]
+        attr_slice = attributions[:, :, slice_idx]
     elif axis == 'frontal':
-        ax.imshow(normalize(tensor_mri[:, slice, :]), cmap='Greys')
-        sorted_values = np.sort(normalize(attributions[:, slice, :].flatten()))[::-1]
-        threshold = sorted_values[int(tensor_mri.shape[0] * tensor_mri.shape[1] * 0.01) - 1]  # 1% of total slice pixels
-        ax.imshow(np.where(normalize(attributions[:, slice, :]) > threshold, normalize(attributions[:, slice, :]), 0),
-                  cmap=LinearSegmentedColormap.from_list(name='blues',
-                                                         colors=[(1, 0, 0, 0), "blue", "blue", "blue", "blue", "blue"],
-                                                         N=5000),
-                  interpolation='gaussian')
+        mri_slice = tensor_mri[:, slice_idx, :]
+        attr_slice = attributions[:, slice_idx, :]
     elif axis == 'axial':
-        ax.imshow(normalize(tensor_mri[slice, :, :]), cmap='Greys')
-        sorted_values = np.sort(normalize(attributions[slice, :, :].flatten()))[::-1]
-        threshold = sorted_values[int(tensor_mri.shape[0] * tensor_mri.shape[1] * 0.01) - 1]  # 1% of total slice pixels
-        ax.imshow(np.where(normalize(attributions[slice, :, :]) > threshold, normalize(attributions[slice, :, :]), 0),
-                  cmap=LinearSegmentedColormap.from_list(name='blues',
-                                                         colors=[(1, 0, 0, 0), "blue", "blue", "blue", "blue", "blue"],
-                                                         N=5000),
-                  interpolation='gaussian')
+        mri_slice = tensor_mri[slice_idx, :, :]
+        attr_slice = attributions[slice_idx, :, :]
 
-    ax.set_title('MRI(Grey) vs DeepLift Attributions(Blue) Overlay\n' + f'pred: {group} (prob: {round(top_prob[0].item(),2)})\n' + f'{axis} slice {slice}')
+    fig, ax = plt.subplots(figsize=(8, 8))
+    ax.imshow(normalize(mri_slice), cmap='Greys')
+    sorted_values = np.sort(normalize(attr_slice).flatten())[::-1]
+    threshold = sorted_values[int(tensor_mri.shape[0] * tensor_mri.shape[1] * 0.01) - 1]
+    ax.imshow(np.where(normalize(attr_slice) > threshold, normalize(attr_slice), 0),
+              cmap=LinearSegmentedColormap.from_list(name='blues',
+                                                     colors=[(1, 0, 0, 0), "blue", "blue", "blue", "blue", "blue"],
+                                                     N=5000),
+              interpolation='gaussian')
+
+    ax.set_title(f'MRI(Grey) vs GuidedGC Attributions(Blue) Overlay\npred: {group} (prob: {round(top_prob.item(), 2)})\n{axis} slice {slice_idx}')
 
     # Save and show the plot
     plt.savefig(os.path.join(heatmap_path, heatmap_name))

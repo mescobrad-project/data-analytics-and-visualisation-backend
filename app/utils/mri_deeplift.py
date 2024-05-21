@@ -49,13 +49,10 @@ def visualize_dl(model_path, mri_path, heatmap_path, heatmap_name, axis, slice_i
 
     # DeepLift
     dl = DeepLift(wrapped_model)
-    attributions = dl.attribute(tensor_mri, target=top_class.item()).detach().cpu().squeeze().permute(1, 2, 0).numpy()
+    attributions = dl.attribute(tensor_mri, target=top_class.item()).detach().cpu().squeeze().permute(1, 2, 0).numpy() #(256, 256, 160)
 
     # Prepare data for plotting
-    tensor_mri = tensor_mri.detach().cpu().squeeze().permute(1, 2, 0).numpy()
-
-    print('attributions', attributions.shape)
-    print('mri', tensor_mri.shape)
+    tensor_mri = tensor_mri.detach().cpu().squeeze().permute(1, 2, 0).numpy() #(256, 256, 160)
 
     if axis == 'sagittal':
         mri_slice = tensor_mri[:, :, slice_idx]
@@ -72,7 +69,9 @@ def visualize_dl(model_path, mri_path, heatmap_path, heatmap_name, axis, slice_i
     sorted_values = np.sort(normalize(attr_slice).flatten())[::-1]
     threshold = sorted_values[int(tensor_mri.shape[0] * tensor_mri.shape[1] * 0.01) - 1]
     ax.imshow(np.where(normalize(attr_slice) > threshold, normalize(attr_slice), 0),
-              cmap=LinearSegmentedColormap.from_list('blues', [(1, 0, 0, 0), "blue"], N=5000),
+              cmap=LinearSegmentedColormap.from_list(name='blues',
+                                                     colors=[(1, 0, 0, 0), "blue", "blue", "blue", "blue", "blue"],
+                                                     N=5000),
               interpolation='gaussian')
 
     ax.set_title(f'MRI(Grey) vs DeepLift Attributions(Blue) Overlay\npred: {group} (prob: {round(top_prob.item(), 2)})\n{axis} slice {slice_idx}')
@@ -82,7 +81,6 @@ def visualize_dl(model_path, mri_path, heatmap_path, heatmap_name, axis, slice_i
     plt.show()
 
     return True
-
 
 '''
 class Conv3DWrapper(nn.Module):
