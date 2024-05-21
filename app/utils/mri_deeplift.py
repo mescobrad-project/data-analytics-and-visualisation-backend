@@ -49,23 +49,23 @@ def visualize_dl(model_path, mri_path, heatmap_path, heatmap_name, axis, slice_i
 
     # DeepLift
     dl = DeepLift(wrapped_model)
-    attributions = dl.attribute(tensor_mri, target=top_class.item()).detach().cpu().squeeze().numpy()
+    attributions = dl.attribute(tensor_mri, target=top_class.item()).detach().cpu().squeeze().permute(1, 2, 0).numpy()
 
     # Prepare data for plotting
-    tensor_mri = tensor_mri.detach().cpu().squeeze().numpy()
+    tensor_mri = tensor_mri.detach().cpu().squeeze().permute(1, 2, 0).numpy()
 
     print('attributions', attributions.shape)
-    print('tensor_mri', tensor_mri.shape)
+    print('mri', tensor_mri.shape)
 
     if axis == 'sagittal':
-        mri_slice = tensor_mri[slice_idx, :, :]
-        attr_slice = attributions[slice_idx, :, :]
+        mri_slice = tensor_mri[:, :, slice_idx]
+        attr_slice = attributions[:, :, slice_idx]
     elif axis == 'frontal':
         mri_slice = tensor_mri[:, slice_idx, :]
         attr_slice = attributions[:, slice_idx, :]
     elif axis == 'axial':
-        mri_slice = tensor_mri[:, :, slice_idx]
-        attr_slice = attributions[:, :, slice_idx]
+        mri_slice = tensor_mri[slice_idx, :, :]
+        attr_slice = attributions[slice_idx, :, :]
 
     # Normalize and create plot
     mri_slice = normalize(mri_slice)
