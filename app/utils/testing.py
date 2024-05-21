@@ -4,6 +4,8 @@ from sklearn import metrics
 import nibabel as nib
 from app.utils.mri_dataloaders import test_dataloader
 import torch.nn.functional as F
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 def mri_prediction(model_path,
                    mri_path):
