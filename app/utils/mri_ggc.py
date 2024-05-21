@@ -30,7 +30,7 @@ def visualize_ggc(model_path,
                  heatmap_path,
                  heatmap_name,
                  axis,
-                 slice):
+                 slice_idx):
 
     assert(os.path.exists(model_path))
     assert (os.path.exists(mri_path))

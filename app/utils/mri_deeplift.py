@@ -21,7 +21,13 @@ def normalize(input):
     max_val = input.max()
     return (input - min_val) / (max_val - min_val)
 
-def visualize_dl(model_path, mri_path, heatmap_path, heatmap_name, axis, slice_idx):
+def visualize_dl(model_path,
+                 mri_path,
+                 heatmap_path,
+                 heatmap_name,
+                 axis,
+                 slice_idx):
+
     assert os.path.exists(model_path)
     assert os.path.exists(mri_path)
     assert os.path.exists(heatmap_path)
