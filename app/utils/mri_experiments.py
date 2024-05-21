@@ -24,7 +24,7 @@ def run_experiment(data_path,
 
     # learning rate hyperparams
     lr = 0.001
-    scheduler_step_size = 3
+    scheduler_step_size = 5
     scheduler_gamma = 0.75
     
     for i in range(iterations):
