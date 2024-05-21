@@ -67,15 +67,11 @@ def visualize_dl(model_path, mri_path, heatmap_path, heatmap_name, axis, slice_i
         mri_slice = tensor_mri[slice_idx, :, :]
         attr_slice = attributions[slice_idx, :, :]
 
-    # Normalize and create plot
-    mri_slice = normalize(mri_slice)
-    attr_slice = normalize(attr_slice)
-    sorted_values = np.sort(attr_slice.flatten())[::-1]
-    threshold = sorted_values[int(mri_slice.size * 0.01) - 1]
-
     fig, ax = plt.subplots(figsize=(8, 8))
-    ax.imshow(mri_slice, cmap='Greys')
-    ax.imshow(np.where(attr_slice > threshold, attr_slice, 0),
+    ax.imshow(normalize(mri_slice), cmap='Greys')
+    sorted_values = np.sort(normalize(attr_slice).flatten())[::-1]
+    threshold = sorted_values[int(tensor_mri.shape[0] * tensor_mri.shape[1] * 0.01) - 1]
+    ax.imshow(np.where(normalize(attr_slice) > threshold, normalize(attr_slice), 0),
               cmap=LinearSegmentedColormap.from_list('blues', [(1, 0, 0, 0), "blue"], N=5000),
               interpolation='gaussian')
 
