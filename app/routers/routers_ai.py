@@ -14,19 +14,13 @@ async def ai_mri_training_experiment(
         data_path: str,
         csv_path: str,
         iterations : int = 5,
-        lr: float = 0.001,
-        es_patience: int = 3,
-        scheduler_step_size: int = 3,
-        scheduler_gamma: float = 0.75
+        es_patience: int = 3
        ) -> dict:
 
     results = run_experiment(data_path,
                    csv_path,
                    iterations,
-                   lr,
-                   es_patience,
-                   scheduler_step_size,
-                   scheduler_gamma
+                   es_patience
                    )
     return {"results": results}
     # files = get_files_for_slowwaves_spindle(workflow_id, run_id, step_id)

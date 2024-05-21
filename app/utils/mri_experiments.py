@@ -23,6 +23,10 @@ def run_experiment(data_path,
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
     exp_dir = NeurodesktopStorageLocation + f'/model_data/saved_models_{timestamp}/'
     os.makedirs(exp_dir)
+
+    lr = 0.001
+    scheduler_step_size = 3
+    scheduler_gamma = 0.75
     
     for i in range(iterations):
         print(" ----- Currently on iteration no. {} ----- ".format(i+1), flush=True)
