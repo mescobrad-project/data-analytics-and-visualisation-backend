@@ -79,7 +79,7 @@ def mris_batch_prediction(model_path,
     # heatmap_path = "path/to/save/heatmap.png"
 
     # Create a figure with two subplots: one for the heatmap and one for the text
-    fig, ax = plt.subplots(2, 1, figsize=(10, 10), gridspec_kw={'height_ratios': [3, 1]})
+    fig, ax = plt.subplots(2, 1, figsize=(5, 8), gridspec_kw={'height_ratios': [3, 1]})
 
     # Plot the heatmap
     sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=class_names, yticklabels=class_names, ax=ax[0], cbar=False)
@@ -87,16 +87,10 @@ def mris_batch_prediction(model_path,
     ax[0].set_ylabel('Actual')
     ax[0].set_title('Confusion Matrix')
 
-    # Plot the classification report as text
-    report_text = f"Classification Report:\n\n" + \
-                  f"Precision: {report['fcd']['precision']:.2f}, {report['hc']['precision']:.2f}\n" + \
-                  f"Recall: {report['fcd']['recall']:.2f}, {report['hc']['recall']:.2f}\n" + \
-                  f"F1 Score: {report['fcd']['f1-score']:.2f}, {report['hc']['f1-score']:.2f}\n" + \
-                  f"Accuracy: {report['accuracy']:.2f}"
-    ax[1].text(0.01, 0.5, report_text, fontsize=12, ha='left', va='center', transform=ax[1].transAxes)
-
-    # Hide the axis for the text plot
+    # Plot the classification report
     ax[1].axis('off')
+    classification_report_text = classification_report(test_targets, test_predictions, target_names=class_names)
+    ax[1].text(0.01, 0.5, classification_report_text, fontsize=12, ha='left', va='center', transform=ax[1].transAxes, family='monospace')
 
     # Save the heatmap
     plt.savefig(output_path + 'test_performance.png')
