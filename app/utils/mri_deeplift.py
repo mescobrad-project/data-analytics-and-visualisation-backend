@@ -10,7 +10,82 @@ from matplotlib.colors import LinearSegmentedColormap
 import pickle
 #import torch.nn.functional as F
 
+class Conv3DWrapper(nn.Module):
+    def __init__(self, external_model):
+        super(Conv3DWrapper, self).__init__()
+        self.conv3d_model = external_model
 
+    def forward(self, x):
+        _, logits = self.conv3d_model(x)
+        return logits
+
+
+def normalize(input):
+    min_val = input.min()
+    max_val = input.max()
+    return (input - min_val) / (max_val - min_val)
+
+
+def visualize_dl(model_path, mri_path, heatmap_path, heatmap_name, axis, slice_idx):
+    assert os.path.exists(model_path)
+    assert os.path.exists(mri_path)
+    assert os.path.exists(heatmap_path)
+    assert axis in ['sagittal', 'frontal', 'axial']
+
+    # Load model
+    model = torch.load(model_path)
+    wrapped_model = Conv3DWrapper(model)
+
+    # Load MRI
+    mri = nib.load(mri_path).get_fdata()
+    tensor_mri = torch.from_numpy(mri).unsqueeze(0).unsqueeze(0)
+
+    # Set device
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    tensor_mri = tensor_mri.to(device)
+    wrapped_model.to(device)
+
+    # Prediction
+    top_class = int(torch.argmax(model(tensor_mri)[1]))
+    group = 'Epilepsy' if top_class == 0 else 'Non-Epilepsy'
+
+    # DeepLift
+    dl = DeepLift(wrapped_model)
+    attributions = dl.attribute(tensor_mri, target=top_class).detach().cpu().squeeze().numpy()
+
+    # Prepare data for plotting
+    tensor_mri = tensor_mri.detach().cpu().squeeze().numpy()
+    if axis == 'sagittal':
+        mri_slice = tensor_mri[:, :, slice_idx]
+        attr_slice = attributions[:, :, slice_idx]
+    elif axis == 'frontal':
+        mri_slice = tensor_mri[:, slice_idx, :]
+        attr_slice = attributions[:, slice_idx, :]
+    elif axis == 'axial':
+        mri_slice = tensor_mri[slice_idx, :, :]
+        attr_slice = attributions[slice_idx, :, :]
+
+    # Normalize and create plot
+    mri_slice = normalize(mri_slice)
+    attr_slice = normalize(attr_slice)
+    sorted_values = np.sort(attr_slice.flatten())[::-1]
+    threshold = sorted_values[int(mri_slice.size * 0.01) - 1]
+
+    fig, ax = plt.subplots(figsize=(8, 8))
+    ax.imshow(mri_slice, cmap='Greys')
+    ax.imshow(np.where(attr_slice > threshold, attr_slice, 0),
+              cmap=LinearSegmentedColormap.from_list('blues', [(1, 0, 0, 0), "blue"], N=5000),
+              interpolation='gaussian')
+
+    ax.set_title(f'MRI(Grey) vs DeepLift Attributions(Blue) Overlay\npred: {group}\n{axis} slice {slice_idx}')
+
+    # Save and show plot
+    plt.savefig(os.path.join(heatmap_path, heatmap_name))
+    plt.show()
+
+    return True
+
+'''
 class Conv3DWrapper(nn.Module):
     def __init__(self, external_model):
         super(Conv3DWrapper, self).__init__()
@@ -124,3 +199,4 @@ def visualize_dl(model_path,
     plt.show()
 
     return True
+'''
