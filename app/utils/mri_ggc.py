@@ -8,6 +8,7 @@ from PIL import Image
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
 import pickle
+import torch.nn.functional as F
 
 class Conv3DWrapper(nn.Module):
     def __init__(self, external_model):
@@ -28,11 +29,14 @@ def visualize_ggc(model_path,
                  mri_path,
                  heatmap_path,
                  heatmap_name,
+                 axis,
                  slice):
 
     assert(os.path.exists(model_path))
     assert (os.path.exists(mri_path))
     assert (os.path.exists(heatmap_path))
+
+    assert axis in ['sagittal', 'frontal', 'axial']
 
     #--load model
     model = torch.load(model_path)
@@ -49,50 +53,69 @@ def visualize_ggc(model_path,
     tensor_mri = tensor_mri.to(device)
     wrapped_model.to(device)
 
+    #--PREDICTION
+    #top_class = int(torch.argmax(model(tensor_mri)[1]))
+    top_prob, top_class = torch.max(F.softmax(model(tensor_mri)[1], dim=1), dim=1)
+    if top_class == 0:
+        group = 'Epilepsy' #(fcd)
+    elif top_class == 1:
+        group = 'Non-Epilepsy' #(hc)
+
     #--GGC
     ggc = GuidedGradCam(wrapped_model, layer=wrapped_model.conv3d_model.group6)
-    target_class = int(torch.argmax(model(tensor_mri)[1])) #int: this should be int 0 or 1 (verified)
-    print('target class (model prediction): ', target_class)
-    # Track GPU memory usage
-    print('Initial GPU Memory Allocated:', torch.cuda.memory_allocated(device)) #almost 11.72GB
-    #print('GPU Summary:', torch.cuda.memory_summary())
-    attributions = ggc.attribute(tensor_mri, target=target_class)
-    print('Attributions calculated! Shape:', attributions.shape)
-    print('Final GPU Memory Allocated:', torch.cuda.memory_allocated(device))
-    print('Max GPU Memory Allocated:', torch.cuda.max_memory_allocated(device))
+    attributions = ggc.attribute(tensor_mri, target=top_class)
 
     #--plot
     attributions = attributions.detach().cpu().squeeze().squeeze().permute(1, 2, 0).numpy()  # [256, 256, 160] numpy array (verified)
     tensor_mri = tensor_mri.detach().cpu().squeeze().squeeze().permute(1, 2, 0).numpy()
 
-    fig, ax = plt.subplots(1, 2, figsize=(14, 7))
+    fig, ax = plt.subplots(1, 1, figsize=(8, 8))
 
     # Plot MRI
-    img1 = ax[0].imshow(normalize(tensor_mri[:, :, slice]), cmap='Greys')
-    if target_class == 0:
-        ax[0].set_title('Epileptic MRI - Slice {}'.format(slice))
-    else:
-        ax[0].set_title('Non-Epileptic MRI - Slice {}'.format(slice))
-    fig.colorbar(img1, ax=ax[0])
+    # img1 = ax[0].imshow(normalize(tensor_mri[:, :, slice]), cmap='Greys')
+    # if top_class == 0:
+    #    ax[0].set_title('Epileptic MRI - Slice {}'.format(slice))
+    # else:
+    #    ax[0].set_title('Non-Epileptic MRI - Slice {}'.format(slice))
+    # fig.colorbar(img1, ax=ax[0])
 
     # Plot attributions
-    #img2 = ax[1].imshow(normalize(attributions[:, :, slice]),
+    # img2 = ax[1].imshow(normalize(attributions[:, :, slice]),
     #                    cmap=LinearSegmentedColormap.from_list(name='yellow_to_blue',
     #                                                           colors=[(1, 1, 0), (0, 0, 1)]))
-    #ax[1].set_title('GuidedGradCAM Attributions - Slice {}'.format(slice))
-    #fig.colorbar(img2, ax=ax[1])
+    # ax[1].set_title('Deeplift Attributions - Slice {}'.format(slice))
+    # fig.colorbar(img2, ax=ax[1])
 
     # Plot overlay
-    ax[1].imshow(normalize(tensor_mri[:, :, slice]), cmap='Greys')
-    #slight adjustment to drop low importance values, as they create fuzzy and confusing regions on the mri slice
-    sorted_values = np.sort(normalize(attributions[:, :, slice].flatten()))[::-1]
-    threshold = sorted_values[int(tensor_mri.shape[0] * tensor_mri.shape[1] * 0.01)-1] # 1% of total slice pixels
-    ax[1].imshow(np.where(normalize(attributions[:, :, slice]) > threshold, normalize(attributions[:, :, slice]), 0),
-                 cmap=LinearSegmentedColormap.from_list(name='blues',
-                                                        colors=[(1, 0, 0, 0), "blue", "blue", "blue", "blue", "blue"],
-                                                        N=5000),
-                 interpolation='gaussian')
-    ax[1].set_title('MRI(Grey) vs GuidedGradCAM Attributions(Blue) Overlay\n' + ' - Slice {}'.format(slice))
+    if axis == 'sagittal':
+        ax.imshow(normalize(tensor_mri[:, :, slice]), cmap='Greys')
+        sorted_values = np.sort(normalize(attributions[:, :, slice].flatten()))[::-1]
+        threshold = sorted_values[int(tensor_mri.shape[0] * tensor_mri.shape[1] * 0.01) - 1]  # 1% of total slice pixels
+        ax.imshow(np.where(normalize(attributions[:, :, slice]) > threshold, normalize(attributions[:, :, slice]), 0),
+                  cmap=LinearSegmentedColormap.from_list(name='blues',
+                                                         colors=[(1, 0, 0, 0), "blue", "blue", "blue", "blue", "blue"],
+                                                         N=5000),
+                  interpolation='gaussian')
+    elif axis == 'frontal':
+        ax.imshow(normalize(tensor_mri[:, slice, :]), cmap='Greys')
+        sorted_values = np.sort(normalize(attributions[:, slice, :].flatten()))[::-1]
+        threshold = sorted_values[int(tensor_mri.shape[0] * tensor_mri.shape[1] * 0.01) - 1]  # 1% of total slice pixels
+        ax.imshow(np.where(normalize(attributions[:, slice, :]) > threshold, normalize(attributions[:, slice, :]), 0),
+                  cmap=LinearSegmentedColormap.from_list(name='blues',
+                                                         colors=[(1, 0, 0, 0), "blue", "blue", "blue", "blue", "blue"],
+                                                         N=5000),
+                  interpolation='gaussian')
+    elif axis == 'axial':
+        ax.imshow(normalize(tensor_mri[slice, :, :]), cmap='Greys')
+        sorted_values = np.sort(normalize(attributions[slice, :, :].flatten()))[::-1]
+        threshold = sorted_values[int(tensor_mri.shape[0] * tensor_mri.shape[1] * 0.01) - 1]  # 1% of total slice pixels
+        ax.imshow(np.where(normalize(attributions[slice, :, :]) > threshold, normalize(attributions[slice, :, :]), 0),
+                  cmap=LinearSegmentedColormap.from_list(name='blues',
+                                                         colors=[(1, 0, 0, 0), "blue", "blue", "blue", "blue", "blue"],
+                                                         N=5000),
+                  interpolation='gaussian')
+
+    ax.set_title('MRI(Grey) vs DeepLift Attributions(Blue) Overlay\n' + f'pred: {group} (prob: {top_prob})\n' + f'{axis} slice {slice}')
 
     # Save and show the plot
     plt.savefig(os.path.join(heatmap_path, heatmap_name))
