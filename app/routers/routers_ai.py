@@ -35,14 +35,14 @@ async def dl_explanation_experiment(
         heatmap_path: str,
         heatmap_name: str,
         axis: str,
-        slice: int
+        slice_idx: int
        ) -> dict:
     results = visualize_dl(model_path,
                            mri_path,
                            heatmap_path,
                            heatmap_name,
                            axis,
-                           slice)
+                           slice_idx)
     return {"results": results}
 
 
@@ -56,14 +56,14 @@ async def ggc_explanation_experiment(
         heatmap_path: str,
         heatmap_name: str,
         axis: str,
-        slice: int
+        slice_idx: int
        ) -> dict:
     results = visualize_ggc(model_path,
                             mri_path,
                             heatmap_path,
                             heatmap_name,
                             axis,
-                            slice)
+                            slice_idx)
     return {"results": results}
 
 
