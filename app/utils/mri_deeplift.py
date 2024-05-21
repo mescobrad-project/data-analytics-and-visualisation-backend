@@ -55,6 +55,7 @@ def visualize_dl(model_path,
     wrapped_model.to(device)
 
     #--PREDICTION
+    print(model(tensor_mri)[1])
     top_class = int(torch.argmax(model(tensor_mri)[1]))
     #top_prob, top_class = torch.max(F.softmax(wrapped_model(tensor_mri), dim=1), dim=1)
     if top_class == 0:
