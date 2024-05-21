@@ -2,6 +2,7 @@ import os
 from datetime import datetime
 import argparse
 import torch
+import matplotlib.pyplot as plt
 
 from app.utils.conv3D import Conv3D
 from app.utils.mri_dataloaders import train_eval_dataloaders

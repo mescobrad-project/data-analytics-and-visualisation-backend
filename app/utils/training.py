@@ -2,7 +2,6 @@ import torch
 import numpy as np
 from sklearn import metrics
 from torch.optim.lr_scheduler import ReduceLROnPlateau
-import matplotlib.pyplot as plt
 
 def train_model(train_dataloader, model, optimizer):
 
