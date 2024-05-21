@@ -53,6 +53,10 @@ def visualize_dl(model_path, mri_path, heatmap_path, heatmap_name, axis, slice_i
 
     # Prepare data for plotting
     tensor_mri = tensor_mri.detach().cpu().squeeze().numpy()
+
+    print('attributions', attributions.shape)
+    print('tensor_mri', tensor_mri.shape)
+
     if axis == 'sagittal':
         mri_slice = tensor_mri[:, :, slice_idx]
         attr_slice = attributions[:, :, slice_idx]
