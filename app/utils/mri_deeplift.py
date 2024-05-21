@@ -58,14 +58,14 @@ def visualize_dl(model_path, mri_path, heatmap_path, heatmap_name, axis, slice_i
     print('tensor_mri', tensor_mri.shape)
 
     if axis == 'sagittal':
-        mri_slice = tensor_mri[:, :, slice_idx]
-        attr_slice = attributions[:, :, slice_idx]
+        mri_slice = tensor_mri[slice_idx, :, :]
+        attr_slice = attributions[slice_idx, :, :]
     elif axis == 'frontal':
         mri_slice = tensor_mri[:, slice_idx, :]
         attr_slice = attributions[:, slice_idx, :]
     elif axis == 'axial':
-        mri_slice = tensor_mri[slice_idx, :, :]
-        attr_slice = attributions[slice_idx, :, :]
+        mri_slice = tensor_mri[:, :, slice_idx]
+        attr_slice = attributions[:, :, slice_idx]
 
     # Normalize and create plot
     mri_slice = normalize(mri_slice)
