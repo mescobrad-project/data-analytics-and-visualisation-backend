@@ -73,10 +73,8 @@ def mris_batch_prediction(model_path,
 
     cm = confusion_matrix(test_targets, test_predictions)
     class_names = ['fcd', 'hc']
-    report = classification_report(test_targets, test_predictions, target_names=class_names, output_dict=True)
-
-    # Define the path where you want to save the heatmap
-    # heatmap_path = "path/to/save/heatmap.png"
+    #report = classification_report(test_targets, test_predictions, target_names=class_names, output_dict=True)
+    classification_report_text = classification_report(test_targets, test_predictions, target_names=class_names)
 
     # Create a figure with two subplots: one for the heatmap and one for the text
     fig, ax = plt.subplots(2, 1, figsize=(7, 10))#, gridspec_kw={'height_ratios': [3, 1]})
@@ -90,7 +88,7 @@ def mris_batch_prediction(model_path,
     # Plot the classification report
     ax[1].axis('off')
     #ax[1].set_title('Classification Report')
-    combined_text = "Classification Report\n\n" + report
+    combined_text = "Classification Report\n\n" + classification_report_text
     ax[1].text(0.01, 0.5, combined_text, fontsize=12, ha='left', va='center', transform=ax[1].transAxes, family='monospace')
 
     # Save the heatmap
