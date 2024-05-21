@@ -3,6 +3,7 @@ import torch
 from sklearn import metrics
 import nibabel as nib
 from app.utils.mri_dataloaders import test_dataloader
+import torch.nn.functional as F
 
 def mri_prediction(model_path,
                    mri_path):
@@ -15,14 +16,15 @@ def mri_prediction(model_path,
     nparray = nib.load(mri_path).get_fdata()
     tarray = torch.from_numpy(nparray).unsqueeze(0).unsqueeze(0).to(device)  # tarray.shape is torch.Size([1, 1, 157, 256, 256])
 
-    probs = model(tarray)[1]
-    label = int(torch.argmax(probs))
-    if label == 0:
+    logits = model(tarray)[1]
+    #label = int(torch.argmax(logits))
+    probs = F.softmax(logits, dim=1)
+    top_prob, top_class = torch.max(probs, dim=1)
+    if top_class == 0:
         group = 'Epilepsy (fcd)'
-    elif label == 1:
+    elif top_class == 1:
         group = 'Non-Epilepsy (hc)'
-    max_prob = torch.max(probs) #this is wrong - fix this!!
-    print(f'Model prediction: {group} with probability {round(max_prob.item(), 2)}')
+    print(f'Model prediction: {group} with probability {top_prob}')
 
     # with open(output_path + f'prediction_for_{mri_path}.txt', 'w') as f:
     #    f.write(f'The predicted class for the test point located at {mri_path} is {label}\n')

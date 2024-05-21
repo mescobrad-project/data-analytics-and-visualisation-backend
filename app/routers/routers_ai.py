@@ -1,13 +1,13 @@
 from fastapi import APIRouter, Request
 from app.utils.mri_experiments import run_experiment
-from app.utils.mri_ig import visualize_ig
 from app.utils.mri_deeplift import visualize_dl
 from app.utils.mri_ggc import visualize_ggc
+from app.utils.testing import mri_prediction
 
 router = APIRouter()
 
-@router.get("/ai_mri_experiment")
-async def ai_mri_experiment(
+@router.get("/ai_mri_training_experiment")
+async def ai_mri_training_experiment(
         workflow_id: str,
         step_id: str,
         run_id: str,
@@ -32,48 +32,6 @@ async def ai_mri_experiment(
     # files = get_files_for_slowwaves_spindle(workflow_id, run_id, step_id)
     # path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
 
-'''
-@router.get("/grad_cam_explanation_experiment")
-async def grad_cam_explanation_experiment(
-        workflow_id: str,
-        step_id: str,
-        run_id: str,
-        model_path: str,
-        mri_path: str,
-        heatmap_path: str,
-        heatmap_name: str,
-        slice: int,
-        alpha: float
-       ) -> dict:
-    results = visualize_grad_cam(model_path,
-                                 mri_path,
-                                 heatmap_path,
-                                 heatmap_name,
-                                 slice,
-                                 alpha)
-    return {"results": results}
-'''
-
-@router.get("/ig_explanation_experiment")
-async def ig_explanation_experiment(
-        workflow_id: str,
-        step_id: str,
-        run_id: str,
-        model_path: str,
-        mri_path: str,
-        heatmap_path: str,
-        heatmap_name: str,
-        slice: int,
-        n_steps: int
-       ) -> dict:
-    results = visualize_ig(model_path,
-                           mri_path,
-                           heatmap_path,
-                           heatmap_name,
-                           slice,
-                           n_steps)
-    return {"results": results}
-
 
 @router.get("/dl_explanation_experiment")
 async def dl_explanation_experiment(
@@ -95,6 +53,7 @@ async def dl_explanation_experiment(
                            slice)
     return {"results": results}
 
+
 @router.get("/ggc_explanation_experiment")
 async def ggc_explanation_experiment(
         workflow_id: str,
@@ -111,4 +70,17 @@ async def ggc_explanation_experiment(
                             heatmap_path,
                             heatmap_name,
                             slice)
+    return {"results": results}
+
+
+@router.get("/mri_prediction")
+async def mri_prediction(
+        workflow_id: str,
+        step_id: str,
+        run_id: str,
+        model_path: str,
+        mri_path: str
+       ) -> dict:
+    results = mri_prediction(model_path,
+                             mri_path)
     return {"results": results}
