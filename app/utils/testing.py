@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from sklearn import metrics
+from sklearn.metrics import confusion_matrix, classification_report
 import nibabel as nib
 from app.utils.mri_dataloaders import test_dataloader
 import torch.nn.functional as F
@@ -71,7 +71,7 @@ def mris_batch_prediction(model_path,
         test_predictions = np.append(test_predictions, np.argmax(logits, axis=1))
         test_targets = np.append(test_targets, labels)
 
-    cm = metrics.confusion_matrix(test_targets, test_predictions)
+    cm = confusion_matrix(test_targets, test_predictions)
     class_names = ['fcd', 'hc']
     report = classification_report(test_targets, test_predictions, target_names=class_names, output_dict=True)
 
