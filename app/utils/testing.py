@@ -89,6 +89,7 @@ def mris_batch_prediction(model_path,
 
     # Plot the classification report
     ax[1].axis('off')
+    ax[1].set_title('Classification Report')
     classification_report_text = classification_report(test_targets, test_predictions, target_names=class_names)
     ax[1].text(0.01, 0.5, classification_report_text, fontsize=12, ha='left', va='center', transform=ax[1].transAxes, family='monospace')
 
