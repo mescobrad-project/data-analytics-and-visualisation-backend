@@ -40,8 +40,8 @@ def visualize_dl(model_path,
     assert axis in ['sagittal', 'frontal', 'axial']
 
     #--MODEL
-    model = torch.load(model_path)
-    wrapped_model = Conv3DWrapper(model)
+    #model = torch.load(model_path)
+    wrapped_model = Conv3DWrapper(torch.load(model_path))
 
     #--MRI
     mri = nib.load(mri_path).get_fdata()
@@ -56,9 +56,7 @@ def visualize_dl(model_path,
 
     #--PREDICTION
     #top_class = int(torch.argmax(model(tensor_mri)[1]))
-    #logits = model(tensor_mri)[1]
-    #probs = F.softmax(model(tensor_mri)[1], dim=1)
-    top_prob, top_class = torch.max(F.softmax(model(tensor_mri)[1], dim=1), dim=1)
+    top_prob, top_class = torch.max(F.softmax(wrapped_model(tensor_mri), dim=1), dim=1)
     if top_class == 0:
         group = 'Epilepsy' #(fcd)
     elif top_class == 1:
