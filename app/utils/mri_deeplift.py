@@ -4,11 +4,8 @@ import torch
 import torch.nn as nn
 import nibabel as nib
 from captum.attr import DeepLift
-from PIL import Image
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
-import pickle
-import torch.nn.functional as F
 
 class Conv3DWrapper(nn.Module):
     def __init__(self, external_model):
@@ -19,12 +16,10 @@ class Conv3DWrapper(nn.Module):
         _, logits = self.conv3d_model(x)
         return logits
 
-
 def normalize(input):
     min_val = input.min()
     max_val = input.max()
     return (input - min_val) / (max_val - min_val)
-
 
 def visualize_dl(model_path, mri_path, heatmap_path, heatmap_name, axis, slice_idx):
     assert os.path.exists(model_path)
@@ -42,17 +37,19 @@ def visualize_dl(model_path, mri_path, heatmap_path, heatmap_name, axis, slice_i
 
     # Set device
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    tensor_mri = tensor_mri.to(device)
+    tensor_mri = tensor_mri.to(device, dtype=torch.float32)
     wrapped_model.to(device)
 
     # Prediction
-    #top_class = int(torch.argmax(model(tensor_mri)[1]))
-    top_prob, top_class = torch.max(F.softmax(model(tensor_mri)[1], dim=1), dim=1)
-    group = 'Epilepsy' if top_class == 0 else 'Non-Epilepsy'
+    softmax = nn.Softmax(dim=1)
+    with torch.no_grad():
+        logits = model(tensor_mri)[1]
+    top_prob, top_class = torch.max(softmax(logits), dim=1)
+    group = 'Epilepsy' if top_class.item() == 0 else 'Non-Epilepsy'
 
     # DeepLift
     dl = DeepLift(wrapped_model)
-    attributions = dl.attribute(tensor_mri, target=top_class).detach().cpu().squeeze().numpy()
+    attributions = dl.attribute(tensor_mri, target=top_class.item()).detach().cpu().squeeze().numpy()
 
     # Prepare data for plotting
     tensor_mri = tensor_mri.detach().cpu().squeeze().numpy()
@@ -78,14 +75,14 @@ def visualize_dl(model_path, mri_path, heatmap_path, heatmap_name, axis, slice_i
               cmap=LinearSegmentedColormap.from_list('blues', [(1, 0, 0, 0), "blue"], N=5000),
               interpolation='gaussian')
 
-    ax.set_title('MRI(Grey) vs DeepLift Attributions(Blue) Overlay\n' + f'pred: {group} (prob: {round(top_prob[0].item(),2)})\n' + f'{axis} slice {slice}')
-    #ax.set_title(f'MRI(Grey) vs DeepLift Attributions(Blue) Overlay\npred: {group}\n{axis} slice {slice_idx}')
+    ax.set_title(f'MRI(Grey) vs DeepLift Attributions(Blue) Overlay\npred: {group} (prob: {round(top_prob.item(), 2)})\n{axis} slice {slice_idx}')
 
     # Save and show plot
     plt.savefig(os.path.join(heatmap_path, heatmap_name))
     plt.show()
 
     return True
+
 
 '''
 class Conv3DWrapper(nn.Module):
