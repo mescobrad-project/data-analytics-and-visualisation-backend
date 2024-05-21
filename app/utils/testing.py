@@ -32,30 +32,23 @@ def mri_prediction(model_path,
     return True
 
 
-def test_on_multiple_mris(model_path,
+def mris_batch_prediction(model_path,
                           data_path,
-                          dataset_test, 
+                          csv_path,
+                          output_path,
                           batch_size):
-    
-    '''
-    - code that calculates test set statistics
-    - data_path to the folder where the sub-000id folders are in ex. './content/'
-    - dataset_test is dataframe with 'participant_id' and 'label' columns
-    '''
-
-    model = torch.load(model_path)
-
-    test_predictions = []
-    test_targets = []
-
-    dataloader = test_dataloader(data_path,
-                                 dataset_test,
-                                 batch_size)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    model.to(device)
+    model = torch.load(model_path, map_location=device)
     model.eval()
+
+    dataloader = test_dataloader(data_path,
+                                 csv_path,
+                                 batch_size)
+
+    test_predictions = []
+    test_targets = []
 
     for batch in dataloader:
         # Add batch to GPU
@@ -76,6 +69,28 @@ def test_on_multiple_mris(model_path,
         test_predictions = np.append(test_predictions, np.argmax(logits, axis=1))
         test_targets = np.append(test_targets, labels)
 
+    cm = metrics.confusion_matrix(test_targets, test_predictions)
+    class_names = ['fcd', 'hc']
+
+    # Define the path where you want to save the heatmap
+    # heatmap_path = "path/to/save/heatmap.png"
+
+    # Create a heatmap
+    plt.figure(figsize=(8, 6))
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=class_names, yticklabels=class_names)
+    plt.xlabel('Predicted')
+    plt.ylabel('Actual')
+    plt.title('Confusion Matrix')
+
+    # Save the heatmap
+    plt.savefig(output_path + 'confusion_matrix.png')
+
+    # Show the plot (optional, if you want to see the plot in addition to saving it)
+    #plt.show()
+
+    return True
+
+    '''
     # test acc/precision/recall/f1 of binary dementia
     test_acc_d = metrics.accuracy_score(test_targets, test_predictions)
     test_precision_d = metrics.precision_score(test_targets, test_predictions, zero_division=1)
@@ -85,3 +100,4 @@ def test_on_multiple_mris(model_path,
     test_roc_auc_d = metrics.roc_auc_score(test_targets, test_predictions)
 
     return test_acc_d, test_precision_d, test_recall_d, test_specificity_d, test_f1_d, test_roc_auc_d
+    '''

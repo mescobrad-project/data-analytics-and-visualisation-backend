@@ -23,9 +23,12 @@ def train_eval_dataloaders(data_path,
 
 
 def test_dataloader(data_path,
-                    csv_path):
-    # use for batch inference - currently written for test labels - not sure if we will use it
+                    csv_path,
+                    batch_size):
+
     dataset = MRI_Generator(data_path, csv_path)
-    test_dataloader = DataLoader(dataset, batch_size=len(dataset), shuffle=False)
+    test_dataloader = DataLoader(dataset,
+                                 batch_size=batch_size,
+                                 shuffle=False)
 
     return test_dataloader

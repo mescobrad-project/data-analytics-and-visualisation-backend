@@ -2,7 +2,7 @@ from fastapi import APIRouter, Request
 from app.utils.mri_experiments import run_experiment
 from app.utils.mri_deeplift import visualize_dl
 from app.utils.mri_ggc import visualize_ggc
-from app.utils.testing import mri_prediction
+from app.utils.testing import mri_prediction, mris_batch_prediction
 
 router = APIRouter()
 
@@ -83,4 +83,22 @@ async def mri_inference(
        ) -> dict:
     results = mri_prediction(model_path,
                              mri_path)
+    return {"results": results}
+
+@router.get("/mris_batch_inference")
+async def mris_batch_inference(
+        workflow_id: str,
+        step_id: str,
+        run_id: str,
+        model_path: str,
+        data_path: str,
+        csv_path: str,
+        output_path: str,
+        batch_size: int
+       ) -> dict:
+    results = mris_batch_prediction(model_path,
+                                    data_path,
+                                    csv_path,
+                                    output_path,
+                                    batch_size)
     return {"results": results}
