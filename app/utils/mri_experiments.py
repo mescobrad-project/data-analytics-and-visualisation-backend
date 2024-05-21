@@ -54,7 +54,7 @@ def run_experiment(data_path,
         plt.title('Train and Validation Loss per Epoch')
         plt.legend()
         plt.grid(True)
-        plt.savefig(exp_dir + 'train_val_loss_plot_experiment{i+1}.png')
+        plt.savefig(exp_dir + f'train_val_loss_plot_experiment{i+1}.png')
         plt.show()
 
         '''
