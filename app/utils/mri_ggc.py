@@ -115,7 +115,7 @@ def visualize_ggc(model_path,
                                                          N=5000),
                   interpolation='gaussian')
 
-    ax.set_title('MRI(Grey) vs DeepLift Attributions(Blue) Overlay\n' + f'pred: {group} (prob: {round(top_prob[0],2)})\n' + f'{axis} slice {slice}')
+    ax.set_title('MRI(Grey) vs DeepLift Attributions(Blue) Overlay\n' + f'pred: {group} (prob: {round(top_prob[0].item(),2)})\n' + f'{axis} slice {slice}')
 
     # Save and show the plot
     plt.savefig(os.path.join(heatmap_path, heatmap_name))
