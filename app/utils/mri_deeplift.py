@@ -8,7 +8,7 @@ from PIL import Image
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
 import pickle
-#import torch.nn.functional as F
+import torch.nn.functional as F
 
 class Conv3DWrapper(nn.Module):
     def __init__(self, external_model):
@@ -46,7 +46,8 @@ def visualize_dl(model_path, mri_path, heatmap_path, heatmap_name, axis, slice_i
     wrapped_model.to(device)
 
     # Prediction
-    top_class = int(torch.argmax(model(tensor_mri)[1]))
+    #top_class = int(torch.argmax(model(tensor_mri)[1]))
+    top_prob, top_class = torch.max(F.softmax(model(tensor_mri)[1], dim=1), dim=1)
     group = 'Epilepsy' if top_class == 0 else 'Non-Epilepsy'
 
     # DeepLift
@@ -77,7 +78,8 @@ def visualize_dl(model_path, mri_path, heatmap_path, heatmap_name, axis, slice_i
               cmap=LinearSegmentedColormap.from_list('blues', [(1, 0, 0, 0), "blue"], N=5000),
               interpolation='gaussian')
 
-    ax.set_title(f'MRI(Grey) vs DeepLift Attributions(Blue) Overlay\npred: {group}\n{axis} slice {slice_idx}')
+    ax.set_title('MRI(Grey) vs DeepLift Attributions(Blue) Overlay\n' + f'pred: {group} (prob: {round(top_prob[0].item(),2)})\n' + f'{axis} slice {slice}')
+    #ax.set_title(f'MRI(Grey) vs DeepLift Attributions(Blue) Overlay\npred: {group}\n{axis} slice {slice_idx}')
 
     # Save and show plot
     plt.savefig(os.path.join(heatmap_path, heatmap_name))
