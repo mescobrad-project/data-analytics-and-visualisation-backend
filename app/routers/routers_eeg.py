@@ -2145,13 +2145,14 @@ async def save_annotation_to_file(
 
 
 # TODO remove current user form param and ge from file
-@router.get("mne/open/eeg", tags=["mne_open_eeg"])
+@router.get("/mne/open/eeg", tags=["mne_open_eeg"])
 # Validation is done inline in the input of the function
 # Slices are send in a single string and then de
 async def mne_open_eeg(workflow_id: str,
                        step_id: str,
                        run_id: str,
                        selected_montage: str | None = "",
+                       selected_file: str | None = "",
                        current_user: str | None = None) -> dict:
     # # Create a new jupyter notebook with the id of the run and step for recognition
     # create_notebook_mne_plot(input_run_id, input_step_id)
@@ -2178,7 +2179,10 @@ async def mne_open_eeg(workflow_id: str,
     # Get file name to open with EDFBrowser
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
     # name_of_file = get_single_file_from_local_temp_storage(workflow_id, run_id, step_id)
-    name_of_file = get_single_edf_file_from_local_temp_storage(workflow_id, run_id, step_id)
+    if selected_file == "":
+        name_of_file = get_single_edf_file_from_local_temp_storage(workflow_id, run_id, step_id)
+    else:
+        name_of_file = selected_file
     file_full_path = path_to_storage + "/" + name_of_file
 
     # Give permissions in working folder
@@ -2230,46 +2234,6 @@ async def mne_open_mne(workflow_id: str, step_id: str, run_id: str, current_user
     # TODO !!!!!!!!!!!!!!!!!!!!!!!!!!! THIS USER MUST CHANGE TO CURRENTLY USED USER
     channel.send("pkill -INT code -u user\n")
     channel.send("/neurocommand/local/bin/mne-1_0_0.sh\n")
-
-    # Get file name to open with EDFBrowser
-    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
-    name_of_file = get_single_file_from_local_temp_storage(workflow_id, run_id, step_id)
-    file_full_path = path_to_storage + "/" + name_of_file
-
-    # Give permissions in working folder
-    channel.send(
-        "sudo chmod a+rw /home/user/neurodesktop-storage/runtime_config/workflow_" + workflow_id + "/run_" + run_id + "/step_" + step_id + "/neurodesk_interim_storage\n")
-
-    channel.send(
-        "nohup /usr/bin/code -n /home/user/neurodesktop-storage/runtime_config/workflow_" + workflow_id + "/run_" + run_id + "/step_" + step_id + "/neurodesk_interim_storage/" + "created_1.ipynb --extensions-dir=/opt/vscode-extensions --disable-workspace-trust &\n")
-
-
-@router.get("/mne/open/mne", tags=["mne_open_mne"])
-# Validation is done inline in the input of the function
-# Slices are send in a single string and then de
-async def mne_open_mne(workflow_id: str, step_id: str, run_id: str, current_user: str | None = None) -> dict:
-    # # Create a new jupyter notebook with the id of the run and step for recognition
-    # create_notebook_mne_plot(input_run_id, input_step_id)
-
-    # Initiate ssh connection with neurodesk container
-    ssh = paramiko.SSHClient()
-    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect("neurodesktop", 22, username="user", password="password")
-    channel = ssh.invoke_shell()
-
-    # print("get_neurodesk_display_id()")
-    # print(get_neurodesk_display_id())
-    channel.send("cd /home/user/neurodesktop-storage\n")
-    channel.send("sudo chmod 777 config\n")
-    channel.send("cd /home/user/neurodesktop-storage/config\n")
-    channel.send("sudo bash get_display.sh\n")
-
-    display_id = get_neurodesk_display_id()
-    channel.send("export DISPLAY=" + display_id + "\n")
-    # Close previous isntances of code for the user
-    # TODO !!!!!!!!!!!!!!!!!!!!!!!!!!! THIS USER MUST CHANGE TO CURRENTLY USED USER
-    channel.send("pkill -INT edfbrowser -u user\n")
-    # channel.send("/neurocommand/local/bin/mne-1_0_0.sh\n")
 
     # Get file name to open with EDFBrowser
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
