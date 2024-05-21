@@ -119,16 +119,4 @@ def train_eval_model(train_dataloader,
                 
             break
 
-    # Plotting train and validation losses
-    plt.figure(figsize=(10, 6))
-    plt.plot(train_losses_per_epoch, label='Train Loss')
-    plt.plot(val_losses_per_epoch, label='Validation Loss')
-    plt.xlabel('Epochs')
-    plt.ylabel('Loss')
-    plt.title('Train and Validation Loss per Epoch')
-    plt.legend()
-    plt.grid(True)
-    plt.savefig('train_val_loss_plot.png')
-    plt.show()
-
-    return best_model
+    return train_losses_per_epoch, val_losses_per_epoch, best_model

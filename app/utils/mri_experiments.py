@@ -34,15 +34,27 @@ def run_experiment(data_path,
         model = Conv3D()
 
         #training
-        trained_model = train_eval_model(train_dataloader,
-                                         eval_dataloader,
-                                         model,
-                                         lr,
-                                         es_patience,
-                                         scheduler_step_size,
-                                         scheduler_gamma)
+        train_losses_per_epoch, val_losses_per_epoch, trained_model = train_eval_model(train_dataloader,
+                                                                                       eval_dataloader,
+                                                                                       model,
+                                                                                       lr,
+                                                                                       es_patience,
+                                                                                       scheduler_step_size,
+                                                                                       scheduler_gamma)
         torch.save(trained_model, exp_dir + f'{type(model).__name__}_experiment{i+1}.pth')
-        #torch.save(trained_model.state_dict(), '../saved_models/' + f'{type(model).__name__}_experiment{i+1}.pth') 
+        #torch.save(trained_model.state_dict(), '../saved_models/' + f'{type(model).__name__}_experiment{i+1}.pth')
+
+        # Plotting train and validation losses
+        plt.figure(figsize=(10, 6))
+        plt.plot(train_losses_per_epoch, label='Train Loss')
+        plt.plot(val_losses_per_epoch, label='Validation Loss')
+        plt.xlabel('Epochs')
+        plt.ylabel('Loss')
+        plt.title('Train and Validation Loss per Epoch')
+        plt.legend()
+        plt.grid(True)
+        plt.savefig(exp_dir + 'train_val_loss_plot_experiment{i+1}.png')
+        plt.show()
 
         '''
         #testing
