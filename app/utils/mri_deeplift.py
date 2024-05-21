@@ -8,6 +8,8 @@ from PIL import Image
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
 import pickle
+import torch.nn.functional as F
+
 
 class Conv3DWrapper(nn.Module):
     def __init__(self, external_model):
@@ -53,7 +55,10 @@ def visualize_dl(model_path,
     wrapped_model.to(device)
 
     #--PREDICTION
-    top_class = int(torch.argmax(model(tensor_mri)[1]))
+    #top_class = int(torch.argmax(model(tensor_mri)[1]))
+    #logits = model(tensor_mri)[1]
+    #probs = F.softmax(model(tensor_mri)[1], dim=1)
+    top_prob, top_class = torch.max(F.softmax(model(tensor_mri)[1], dim=1), dim=1)
     if top_class == 0:
         group = 'Epilepsy' #(fcd)
     elif top_class == 1:
@@ -113,7 +118,7 @@ def visualize_dl(model_path,
                      cmap=LinearSegmentedColormap.from_list(name='blues', colors=[(1, 0, 0, 0), "blue", "blue", "blue", "blue", "blue"], N=5000),
                      interpolation='gaussian')
 
-    ax.set_title('MRI(Grey) vs DeepLift Attributions(Blue) Overlay\n' + f'pred: {group}\n' + f'{axis} slice {slice}')
+    ax.set_title('MRI(Grey) vs DeepLift Attributions(Blue) Overlay\n' + f'pred: {group} (prob: {top_prob})\n' + f'{axis} slice {slice}')
 
     # Save and show the plot
     plt.savefig(os.path.join(heatmap_path, heatmap_name))
