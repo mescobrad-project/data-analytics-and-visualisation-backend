@@ -7,11 +7,12 @@ from os import walk
 from os.path import isfile, join
 
 import requests
-from fastapi import APIRouter, Request
+from fastapi import APIRouter
 from keycloak import KeycloakOpenID
 from pydantic import BaseModel
 from fastapi.responses import RedirectResponse
 from starlette.responses import JSONResponse
+from starlette.requests import Request
 
 from app.pydantic_models import ModelTokenConfig
 from app.utils.utils_datalake import upload_object
@@ -243,7 +244,7 @@ async def task_complete(run_id: str,
 
 
 @router.put("/function/navigation/", tags=["function_navigation"])
-async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
+async def function_navigation(request: Request, navigation_item: FunctionNavigationItem) -> dict:
     url_to_redirect = FrontendAddress
     if navigation_item.function:
         match navigation_item.function:
@@ -508,16 +509,19 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/dashboard"
         #  Create local storage for files and download them
         # Handle files metadata missing from request/accept it as an empty array
+        print("TOKEN IS: " , request.session.get("secret_key", None))
         if "files" in navigation_item.metadata:
             # print("KEY EXISTS")
             # print(navigation_item.metadata)
             create_local_step(workflow_id=navigation_item.workflow_id, run_id=navigation_item.run_id,
-                              step_id=navigation_item.step_id, files_to_download=navigation_item.metadata["files"])
+                              step_id=navigation_item.step_id, files_to_download=navigation_item.metadata["files"],
+                              session_token=request.session.get("secret_key", None))
         else:
             # print("NOT EXIST KEY")
             # print(navigation_item.metadata)
             create_local_step(workflow_id=navigation_item.workflow_id,
-                              run_id=navigation_item.run_id, step_id=navigation_item.step_id, files_to_download=[])
+                              run_id=navigation_item.run_id, step_id=navigation_item.step_id, files_to_download=[],
+                              session_token=request.session.get("secret_key", None))
 
     # Add step and run id to the parameters
     url_to_redirect += "/?run_id=" + navigation_item.run_id + "&step_id=" + navigation_item.step_id + \
@@ -608,6 +612,8 @@ async def save_token(
     print(userinfo)
     request.session["secret_key"] = token.token
     # TODO CHECK IF TOKEN IS VALID BEFORE SAVING AND SEND 200
+    print("TOKEN SAVED SUCCESSFULLY:", request.session["secret_key"])
+    print("TOKEN SAVED SUCCESSFULLY 2:", token.token)
     return JSONResponse(status_code=200)
 
 

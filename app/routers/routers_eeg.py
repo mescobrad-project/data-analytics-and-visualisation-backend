@@ -239,7 +239,7 @@ async def return_autocorrelation(workflow_id: str, step_id: str, run_id: str,
                                                                    regex="^(none)$|^(raise)$|^(conservative)$|^(drop)$"),
                                  input_alpha: float | None = None,
                                  input_nlags: int | None = None,
-                                 file_used: str | None = Query("original", regex="^(original)$|^(printed)$")
+                                 file_used: str | None = Query("original", regex="^(original)$|^(printed)$"),
                                  ) -> dict:
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
 
