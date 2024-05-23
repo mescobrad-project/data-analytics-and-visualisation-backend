@@ -20,7 +20,7 @@ def run_experiment(data_path,
                    batch_size,
                    lr,
                    scheduler_step_size,
-                   scheduler_gamma,,
+                   scheduler_gamma,
                    early_stopping_patience
                    ):
 
