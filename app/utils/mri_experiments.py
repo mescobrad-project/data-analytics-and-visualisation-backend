@@ -18,6 +18,9 @@ def run_experiment(data_path,
                    csv_path,
                    iterations,
                    batch_size,
+                   lr,
+                   scheduler_step_size,
+                   scheduler_gamma,
                    es_patience,
                    ):
 
@@ -25,10 +28,11 @@ def run_experiment(data_path,
     exp_dir = NeurodesktopStorageLocation + f'/model_data/saved_models_{timestamp}/'
     os.makedirs(exp_dir)
 
-    # learning rate hyperparams
-    lr = 0.001
-    scheduler_step_size = 5
-    scheduler_gamma = 0.75
+    # hyperparams
+    #batch_size = 8
+    #lr = 0.001
+    #scheduler_step_size = 5
+    #scheduler_gamma = 0.75
     
     for i in range(iterations):
         print(" ----- Currently on iteration no. {} ----- ".format(i+1), flush=True)
