@@ -23,6 +23,8 @@ def train_model(train_dataloader, model, optimizer):
         train_losses.append(loss.item())
         optimizer.step()
 
+        torch.cuda.empty_cache()  #Clear cache after each training step
+
     return np.average(train_losses)
 
 def evaluate_model(eval_dataloader, model):
@@ -51,6 +53,8 @@ def evaluate_model(eval_dataloader, model):
         logits = np.argmax(logits, axis=1)
         eval_predictions = np.append(eval_predictions, logits)
         eval_targets = np.append(eval_targets, labels)
+
+        torch.cuda.empty_cache()  # Clear cache after each evaluation step
 
     valid_loss = np.average(valid_losses)
 
