@@ -12,7 +12,7 @@ def train_model(train_dataloader, model, optimizer):
     
     train_losses = []
 
-    #accumulation_steps = 4 #gradient accumulation
+    accumulation_steps = 4 #gradient accumulation
 
     for step, batch in enumerate(train_dataloader):
         mri, labels_binary = batch
@@ -23,9 +23,9 @@ def train_model(train_dataloader, model, optimizer):
         loss.backward()
 
         # gradient accumulation
-        #if (step + 1) % accumulation_steps == 0:
-        #    optimizer.step()
-        #    optimizer.zero_grad()
+        if (step + 1) % accumulation_steps == 0:
+            optimizer.step()
+            optimizer.zero_grad()
 
         train_losses.append(loss.item())
         optimizer.step()
