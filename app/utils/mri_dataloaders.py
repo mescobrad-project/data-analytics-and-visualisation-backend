@@ -5,7 +5,7 @@ from app.utils.mri_generator import MRI_Generator
 
 def train_eval_dataloaders(data_path,
                            csv_path,
-                           batch_size=5,
+                           batch_size,
                            train_split=0.8):
     dataset = MRI_Generator(data_path, csv_path)
 

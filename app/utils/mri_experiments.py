@@ -15,6 +15,7 @@ NeurodesktopStorageLocation = os.environ.get('NeurodesktopStorageLocation') if o
 def run_experiment(data_path,
                    csv_path,
                    iterations,
+                   batch_size,
                    es_patience,
                    ):
 
@@ -30,7 +31,9 @@ def run_experiment(data_path,
     for i in range(iterations):
         print(" ----- Currently on iteration no. {} ----- ".format(i+1), flush=True)
         
-        train_dataloader, eval_dataloader = train_eval_dataloaders(data_path, csv_path)
+        train_dataloader, eval_dataloader = train_eval_dataloaders(data_path,
+                                                                   csv_path,
+                                                                   batch_size)
 
         model = Conv3D()
 
@@ -76,7 +79,7 @@ def run_experiment(data_path,
 
         # Save hyperparams to a text file
         with open(exp_dir + f'hyperparams_experiment{i + 1}.txt','w') as f:
-            #f.write(f'batch_size: {batch_size}\n')
+            f.write(f'batch_size: {batch_size}\n')
             #f.write(f'eval_size: {eval_size}\n')
             f.write(f'lr: {lr}\n')
             f.write(f'es_patience: {es_patience}\n')
