@@ -74,11 +74,11 @@ def get_output_info_path(workflow_id, run_id, step_id):
     return info_file_to_return
 
 def get_local_storage_path(workflow_id, run_id, step_id):
-    """Function returns path with / at the end"""
+    """Function returns path without / at the end"""
     return NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id
 
 def get_local_neurodesk_storage_path(workflow_id, run_id, step_id):
-    """Function returns path with / at the end"""
+    """Function returns path without / at the end"""
     return NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id + '/neurodesk_interim_storage'
 
 def load_data_from_csv(file_with_path):
