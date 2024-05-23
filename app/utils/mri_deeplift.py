@@ -7,6 +7,7 @@ from captum.attr import DeepLift
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
 
+
 class Conv3DWrapper(nn.Module):
     def __init__(self, external_model):
         super(Conv3DWrapper, self).__init__()
@@ -56,6 +57,8 @@ def visualize_dl(model_path,
     # DeepLift
     dl = DeepLift(wrapped_model)
     attributions = dl.attribute(tensor_mri, target=top_class.item()).detach().cpu().squeeze().permute(1, 2, 0).numpy() #(256, 256, 160)
+
+    torch.cuda.empty_cache()
 
     # Prepare data for plotting
     tensor_mri = tensor_mri.detach().cpu().squeeze().permute(1, 2, 0).numpy() #(256, 256, 160)
