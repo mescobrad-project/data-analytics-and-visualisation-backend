@@ -5,6 +5,7 @@ import shutil
 from datetime import datetime
 from datetime import timedelta
 from yasa import Hypnogram
+from sys import platform
 from pprint import pprint
 # from yasa.hypno import Hypnogram
 from yasa import sleep_statistics
@@ -300,9 +301,14 @@ async def return_daily_activity_status_stages(workflow_id: str,
     # print(start)
     # print(end)
 
-    dts = [dt.strftime('%d/%m/%Y %#H:%M:%S') for dt in
-           datetime_range(start, end,
-                          timedelta(seconds=15))]
+    if get_platform() == "win32":
+        dts = [dt.strftime('%d/%m/%Y %#H:%M:%S') for dt in
+               datetime_range(start, end,
+                              timedelta(seconds=15))]
+    else:
+        dts = [dt.strftime('%d/%m/%Y %-H:%M:%S') for dt in
+               datetime_range(start, end,
+                              timedelta(seconds=15))]
     #     print(dts)
 
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
@@ -410,6 +416,10 @@ async def return_daily_activity_status_stages(workflow_id: str,
     # fig.update_traces(mode="markers+lines", line_shape="hv", line_dash="dash")
     # fig.show()
 
+def get_platform():
+    # "linux or linux2", "darwin", "win32"
+    return platform
+
 @router.get("/return_daily_activity_activity_status_area", tags=["actigraphy_analysis"])
 async def return_daily_activity_activity_status_area(workflow_id: str,
                                                      run_id: str,
@@ -420,8 +430,6 @@ async def return_daily_activity_activity_status_area(workflow_id: str,
     # Convert a String to a Date in Python
     # Date and time in format "YYYY/MM/DD hh:mm:ss"
     format_string = "%Y/%m/%d %H:%M:%S"
-    print(start_date)
-    print(end_date)
     # Convert start date string to date using strptime
     start_date_dt = datetime.strptime(start_date, format_string).date()
     # Convert end date string to date using strptime
@@ -441,25 +449,27 @@ async def return_daily_activity_activity_status_area(workflow_id: str,
     for i in datetime_list:
         new = i.replace("-", "/")
         mylist.append(new)
-    # print(mylist)
+
     date_list_obj = []
     for date in mylist:
         date_object = datetime.strptime(date, '%Y/%m/%d %H:%M:%S')
-        # print(date_object)
         date_list_obj.append(date_object)
     date_list = [date_obj.strftime('%d/%m/%Y %H:%M:%S') for date_obj in date_list_obj]
-    # print(date_list)
 
     # create a datetime list to compare with datetimes from df
     start = datetime.strptime(date_list[0], '%d/%m/%Y %H:%M:%S')
     end = datetime.strptime(date_list[-1], '%d/%m/%Y %H:%M:%S')
-    # print(start)
-    # print(end)
 
-    dts = [dt.strftime('%d/%m/%Y %#H:%M:%S') for dt in
-           datetime_range(start, end,
-                          timedelta(seconds=15))]
-    #     print(dts)
+    print(get_platform())
+    if get_platform() == "win32":
+        dts = [dt.strftime('%d/%m/%Y %#H:%M:%S') for dt in
+               datetime_range(start, end,
+                              timedelta(seconds=15))]
+    else:
+        dts = [dt.strftime('%d/%m/%Y %-H:%M:%S') for dt in
+               datetime_range(start, end,
+                              timedelta(seconds=15))]
+    # print(dts)
 
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
 
@@ -468,19 +478,17 @@ async def return_daily_activity_activity_status_area(workflow_id: str,
     df.drop(df.columns[[12]], axis=1, inplace=True)
     #     for datetime in date_list:
     df = df.drop(index=[row for row in df.index if df.loc[row, 'Datetime'] not in dts])
-    #     display(df)
-    print(df)
+    # print(df)
     x_list = df['Datetime']
     y_list = df['Interval Status']
     fig = px.line(x=x_list, y=y_list)
     fig.update_traces(mode="markers+lines", line_shape="hv", line_dash="dash")
-    fig.show()
 
     # Convert a String to a Date in Python
     # Date and time in format "YYYY/MM/DD hh:mm:ss"
     format_string = "%Y/%m/%d %H:%M:%S"
-    print(start_date)
-    print(end_date)
+    # print(start_date)
+    # print(end_date)
     # Convert start date string to date using strptime
     start_date_dt = datetime.strptime(start_date, format_string).date()
     # Convert end date string to date using strptime
@@ -500,25 +508,24 @@ async def return_daily_activity_activity_status_area(workflow_id: str,
     for i in datetime_list:
         new = i.replace("-", "/")
         mylist.append(new)
-    # print(mylist)
     date_list_obj = []
     for date in mylist:
         date_object = datetime.strptime(date, '%Y/%m/%d %H:%M:%S')
-        # print(date_object)
         date_list_obj.append(date_object)
     date_list = [date_obj.strftime('%d/%m/%Y %H:%M:%S') for date_obj in date_list_obj]
-    # print(date_list)
 
     # create a datetime list to compare with datetimes from df
     start = datetime.strptime(date_list[0], '%d/%m/%Y %H:%M:%S')
     end = datetime.strptime(date_list[-1], '%d/%m/%Y %H:%M:%S')
-    # print(start)
-    # print(end)
 
-    dts = [dt.strftime('%d/%m/%Y %#H:%M:%S') for dt in
-           datetime_range(start, end,
-                          timedelta(seconds=15))]
-    #     print(dts)
+    if get_platform() == "win32":
+        dts = [dt.strftime('%d/%m/%Y %#H:%M:%S') for dt in
+               datetime_range(start, end,
+                              timedelta(seconds=15))]
+    else:
+        dts = [dt.strftime('%d/%m/%Y %-H:%M:%S') for dt in
+               datetime_range(start, end,
+                              timedelta(seconds=15))]
 
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
 
@@ -527,38 +534,25 @@ async def return_daily_activity_activity_status_area(workflow_id: str,
     df.drop(df.columns[[12]], axis=1, inplace=True)
     #     for datetime in date_list:
     df = df.drop(index=[row for row in df.index if df.loc[row, 'Datetime'] not in dts])
-    #     display(df)
-    # print(df)
 
 
     df["Prev_Interval_Status"] = df["Interval Status"].shift(+1)
     df["Next_Interval_Status"] = df["Interval Status"].shift(-1)
     df['Flag_1'] = np.where((df['Interval Status'] == "REST-S") & (df['Prev_Interval_Status'] != "REST-S"), "Slept", "")
     df['Flag_2'] = np.where((df['Interval Status'] == "REST-S") & (df['Next_Interval_Status'] != "REST-S"), "Woke", "")
-    #     print(df.to_string())
-    # print(df)
 
     df_x0_list = df
     df_x0_list = df_x0_list.drop(index=[row for row in df_x0_list.index if "Slept" != df_x0_list.loc[row, 'Flag_1']])
-    # print(df_x0_list)
     df_x1_list = df
     df_x1_list = df_x1_list.drop(index=[row for row in df_x1_list.index if "Woke" != df_x1_list.loc[row, 'Flag_2']])
-    # print(df_x1_list)
 
     x0 = []
-    # for index, row in df_x0_list.iterrows():
-    #     if df_x0_list['Date'].eq(df_x0_list['Date'].shift(-1)):
-    #     x0 = []
     x0 = df_x0_list['Datetime'].tolist()
-    #     x0.pop()
-    # print(x0)
+
     x1 = []
     x1 = df_x1_list['Datetime'].tolist()
-    #     x1.pop()
-    # print(x1)
 
     x_list = [list(item) for item in zip(x0, x1)]
-    # print(x_list)
 
     # Manipulate x_list
     x_list_fixed = []
@@ -570,7 +564,6 @@ async def return_daily_activity_activity_status_area(workflow_id: str,
             date_string = date_object.strftime('%Y-%m-%d %H:%M:%S')
             help_list.append(date_string)
         x_list_fixed.append(help_list)
-    # print(x_list_fixed)
 
     # Manipulate x0_list
     x0_list = []
@@ -587,7 +580,6 @@ async def return_daily_activity_activity_status_area(workflow_id: str,
         date_object = datetime.strptime(new_format_x1, '%d-%m-%Y %H:%M:%S')
         date_string = date_object.strftime('%Y-%m-%d %H:%M:%S')
         x1_list.append(date_string)
-    # print(x1_list)
 
     for i in range(len(datetime_list) - 1):
         fig = make_subplots(rows=i + 1, cols=1,
@@ -618,7 +610,6 @@ async def return_daily_activity_activity_status_area(workflow_id: str,
                           fillcolor="green", opacity=0.25, line_width=0, row=day_count, col=1)
             x0_count = x0_count + 1
             x1_count = x1_count + 1
-            # fig.add_scatter(x=raw.mask.index.astype(str), y=raw.mask, yaxis='y2',mode='lines', line=dict(width=2, color=cols[1]), name='Inactivity Mask', row=day_count, col=1)
             fig.update_layout(title='Activity Visualisation', width=800, height=1400,
                               dragmode='select',
                               activeselection=dict(fillcolor='yellow'))
@@ -633,7 +624,6 @@ async def return_daily_activity_activity_status_area(workflow_id: str,
                           fillcolor="green", opacity=0.25, line_width=0, row=day_count, col=1)
             x0_count = x0_count + 1
             x1_count = x1_count + 1
-            # fig.add_scatter(x=raw.mask.index.astype(str), y=raw.mask, yaxis='y2',mode='lines', line=dict(width=2, color=cols[1]), name='Inactivity Mask', row=day_count, col=1)
             fig.update_layout(title='Activity Visualisation', width=800, height=1400,
                               dragmode='select',
                               activeselection=dict(fillcolor='yellow'))
@@ -686,16 +676,78 @@ async def return_final_daily_activity_activity_status_area(workflow_id: str,
     # print(start)
     # print(end)
 
-    dts = [dt.strftime('%d/%m/%Y %#H:%M:%S') for dt in
-           datetime_range(start, end,
-                          timedelta(seconds=15))]
+    if get_platform() == "win32":
+        dts = [dt.strftime('%d/%m/%Y %#H:%M:%S') for dt in
+               datetime_range(start, end,
+                              timedelta(seconds=15))]
+    else:
+        dts = [dt.strftime('%d/%m/%Y %-H:%M:%S') for dt in
+               datetime_range(start, end,
+                              timedelta(seconds=15))]
     #     print(dts)
 
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
 
     df = pd.read_csv(path_to_storage + '/output/' + 'NewAnalysisCopy.csv', skiprows=150)
     df["Datetime"] = df[["Date", "Time"]].apply(lambda x: " ".join(x), axis=1)
-    df.drop(df.columns[[12]], axis=1, inplace=True)
+    # df.drop(df.columns[[12]], axis=1, inplace=True)
+    #     for datetime in date_list:
+    df = df.drop(index=[row for row in df.index if df.loc[row, 'Datetime'] not in dts])
+    # print(df)
+    x_list = df['Datetime']
+    y_list = df['Interval Status']
+    fig = px.line(x=x_list, y=y_list)
+    fig.update_traces(mode="markers+lines", line_shape="hv", line_dash="dash")
+
+    # Convert a String to a Date in Python
+    # Date and time in format "YYYY/MM/DD hh:mm:ss"
+    format_string = "%Y/%m/%d %H:%M:%S"
+    # print(start_date)
+    # print(end_date)
+    # Convert start date string to date using strptime
+    start_date_dt = datetime.strptime(start_date, format_string).date()
+    # Convert end date string to date using strptime
+    end_date_dt = datetime.strptime(end_date, format_string).date()
+    graph_JSON_list = []
+    graphJSON = ""
+    datetime_list = []
+    for i in range(0, (end_date_dt - start_date_dt).days + 1):
+        datetime_list.append(str(start_date_dt + timedelta(days=i)) + str(" 12:00:00"))  # <-- here
+    #     print(datetime_list)
+    day_count = 1
+    x0_count = 0
+    x1_count = 0
+    cols = plotly.colors.DEFAULT_PLOTLY_COLORS
+
+    mylist = []
+    for i in datetime_list:
+        new = i.replace("-", "/")
+        mylist.append(new)
+    date_list_obj = []
+    for date in mylist:
+        date_object = datetime.strptime(date, '%Y/%m/%d %H:%M:%S')
+        date_list_obj.append(date_object)
+    date_list = [date_obj.strftime('%d/%m/%Y %H:%M:%S') for date_obj in date_list_obj]
+
+    # create a datetime list to compare with datetimes from df
+    start = datetime.strptime(date_list[0], '%d/%m/%Y %H:%M:%S')
+    end = datetime.strptime(date_list[-1], '%d/%m/%Y %H:%M:%S')
+
+    if get_platform() == "win32":
+        dts = [dt.strftime('%d/%m/%Y %#H:%M:%S') for dt in
+               datetime_range(start, end,
+                              timedelta(seconds=15))]
+    else:
+        dts = [dt.strftime('%d/%m/%Y %-H:%M:%S') for dt in
+               datetime_range(start, end,
+                              timedelta(seconds=15))]
+    #     print(dts)
+
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+
+    df = pd.read_csv(path_to_storage + '/output/' + 'NewAnalysisCopy.csv', skiprows=150)
+    df["Datetime"] = df[["Date", "Time"]].apply(lambda x: " ".join(x), axis=1)
+    # df.drop(df.columns[[12]], axis=1, inplace=True)
     #     for datetime in date_list:
     df = df.drop(index=[row for row in df.index if df.loc[row, 'Datetime'] not in dts])
     #     display(df)
@@ -845,9 +897,14 @@ async def return_final_daily_activity_status_stages(workflow_id: str,
     start = datetime.strptime(date_list[0], '%d/%m/%Y %H:%M:%S')
     end = datetime.strptime(date_list[-1], '%d/%m/%Y %H:%M:%S')
 
-    dts = [dt.strftime('%d/%m/%Y %#H:%M:%S') for dt in
-           datetime_range(start, end,
-                          timedelta(seconds=15))]
+    if get_platform() == "win32":
+        dts = [dt.strftime('%d/%m/%Y %#H:%M:%S') for dt in
+               datetime_range(start, end,
+                              timedelta(seconds=15))]
+    else:
+        dts = [dt.strftime('%d/%m/%Y %-H:%M:%S') for dt in
+               datetime_range(start, end,
+                              timedelta(seconds=15))]
 
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
 
@@ -995,7 +1052,7 @@ async def change_activity_status(workflow_id: str,
     print(df.head(10))
 
     # Reset the columns to be in the exact format they were before
-    df.drop(df.columns[[12, 13]], axis=1, inplace=True)
+    df.drop(df.columns[12], axis=1, inplace=True)
     df = df.set_index('Line')
     df.to_excel(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + 'new_dataset.xlsx')
     change_final_csv(workflow_id, run_id, step_id)
@@ -1004,27 +1061,53 @@ async def change_activity_status(workflow_id: str,
 def change_final_csv(workflow_id: str,
                                 run_id: str,
                                 step_id: str):
-    subject_properties = pd.DataFrame(columns=['Field', 'Value'])
-    found = False
-    count = 1
+    import csv
+    import openpyxl
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
-    df = pd.read_excel(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + 'new_dataset.xlsx')
-    df = df.astype(str)
-    # df.set_index('Line', inplace=True)
-    print('"' + '","'.join(df.loc[0, :].values.flatten().tolist()) + '"')
-    # save the original file in the same path + output and use that one in the line below
-    with open(path_to_storage + '/output/' + 'NewAnalysisCopy.csv', 'r') as f:
-        get_all = f.readlines()
+    file_path = path_to_storage + '/output/' + 'NewAnalysisCopy.csv'
+    # Load existing Excel file
+    workbook = openpyxl.load_workbook(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + 'new_dataset.xlsx')
+    sheet = workbook.active
+    # Line number to start writing after
+    start_line = 150
 
-    with open(path_to_storage + '/output/' + 'NewAnalysisCopy.csv', 'w') as f:
-        list_count = 0
-        for i, line in enumerate(get_all, 1):
-            if i >= 153:
-                f.writelines('"' + '","'.join(df.loc[list_count, :].values.flatten().tolist()) + '",' + "\n")
-                list_count = list_count + 1
-                # print(list_count)
-            else:
-                f.writelines(line)
+    # Open the CSV file for reading and writing
+    with open(file_path, 'r', newline='') as csv_file:
+        reader = csv.reader(csv_file)
+        lines_before_start = [next(reader) for _ in range(start_line)]
+
+    # Open the CSV file for writing, appending data after the 153rd line
+    with open(file_path, 'w', newline='') as csv_file:
+        writer = csv.writer(csv_file)
+
+        # Write the lines copied from the original file
+        writer.writerows(lines_before_start)
+
+        # Iterate over rows in the Excel sheet and write each row to the CSV file
+        for row in sheet.iter_rows(values_only=True):
+            writer.writerow(row)
+
+    # subject_properties = pd.DataFrame(columns=['Field', 'Value'])
+    # found = False
+    # count = 1
+    # path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    # df = pd.read_excel(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + 'new_dataset.xlsx')
+    # df = df.astype(str)
+    # # df.set_index('Line', inplace=True)
+    # print('"' + '","'.join(df.loc[0, :].values.flatten().tolist()) + '"')
+    # # save the original file in the same path + output and use that one in the line below
+    # with open(path_to_storage + '/output/' + 'NewAnalysisCopy.csv', 'r') as f:
+    #     get_all = f.readlines()
+    #
+    # with open(path_to_storage + '/output/' + 'NewAnalysisCopy.csv', 'w') as f:
+    #     list_count = 0
+    #     for i, line in enumerate(get_all, 1):
+    #         if i >= 153:
+    #             f.writelines('"' + '","'.join(df.loc[list_count, :].values.flatten().tolist()) + '",' + "\n")
+    #             list_count = list_count + 1
+    #             # print(list_count)
+    #         else:
+    #             f.writelines(line)
 
 @router.get("/save_csv_as_edf", tags=["actigraphy_analysis"])
 async def save_csv_as_edf(workflow_id: str,
