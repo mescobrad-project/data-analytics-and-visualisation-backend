@@ -555,6 +555,21 @@ async def function_save_data(
         except Exception as e:
             print(e)
             return JSONResponse(content='Error in saving zip file to the DataLake', status_code=501)
+    elif function_type == "actigraphy_stats":
+        try:
+            path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+            tmpdir = tempfile.mkdtemp()
+            output_filename = os.path.join(tmpdir, 'output/sleep_statistics')
+            print(output_filename)
+            print(shutil.make_archive(output_filename, 'csv', root_dir=path_to_storage, base_dir='output/sleep_statistics'))
+            upload_object(bucket_name="common", object_name='workflows/' + workflow_id + '/' + run_id + '/' +
+                                                            step_id + '/output/sleep_statistics.csv',
+                          file=output_filename + '.csv')
+
+            return JSONResponse(content='CSV file has been successfully uploaded to the DataLake', status_code=200)
+        except Exception as e:
+            print(e)
+            return JSONResponse(content='Error in saving csv file to the DataLake', status_code=501)
     elif function_type == "actigraphy":
         try:
             path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
