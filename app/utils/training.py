@@ -4,7 +4,6 @@ from sklearn import metrics
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from torch.cuda.amp import GradScaler, autocast #Mixed Precision Training
-scaler = GradScaler() #Mixed Precision Training
 
 def train_model(train_dataloader, model, optimizer):
 
