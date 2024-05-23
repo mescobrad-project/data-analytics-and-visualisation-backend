@@ -85,13 +85,12 @@ def train_eval_model(train_dataloader,
                      eval_dataloader,
                      model,
                      lr,
-                     es_patience,
-                     scheduler_step_size,
-                     scheduler_gamma):
+                     scheduler_patience,
+                     early_stopping_patience):
 
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-    #scheduler = ReduceLROnPlateau(optimizer, mode='min', patience=scheduler_patience)
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=scheduler_step_size, gamma=scheduler_gamma)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience=scheduler_patience)
+    #scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=scheduler_step_size, gamma=scheduler_gamma)
 
     # for early stopping
     threshold = 10e+5
@@ -114,7 +113,8 @@ def train_eval_model(train_dataloader,
         # Validation phase
         valid_loss, eval_targets, eval_predictions = evaluate_model(eval_dataloader, model)
         val_losses_per_epoch.append(valid_loss)
-        scheduler.step()#scheduler.step(valid_loss)
+        #scheduler.step() #for StepLR
+        scheduler.step(valid_loss) #for ReduceLROnPlateau
         dev_f1 = metrics.f1_score(eval_targets, eval_predictions, zero_division=1)
         dev_acc = metrics.accuracy_score(eval_targets, eval_predictions)
 
@@ -128,9 +128,9 @@ def train_eval_model(train_dataloader,
         else:
             patience_counter += 1
         
-        if patience_counter == es_patience:
-            es_epoch = max(epoch + 1 - es_patience, 1)
-            print(f'Early Stopping checkpoint at epoch {es_epoch}. Patience value was {es_patience}.', flush=True)
+        if patience_counter == early_stopping_patience:
+            es_epoch = max(epoch + 1 - early_stopping_patience, 1)
+            print(f'Early Stopping checkpoint at epoch {es_epoch}. Patience value was {early_stopping_patience}.', flush=True)
             print('Train-Eval stage complete!', flush=True)
 
             '''

@@ -19,9 +19,8 @@ def run_experiment(data_path,
                    iterations,
                    batch_size,
                    lr,
-                   scheduler_step_size,
-                   scheduler_gamma,
-                   es_patience,
+                   scheduler_patience,
+                   early_stopping_patience
                    ):
 
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
@@ -31,9 +30,10 @@ def run_experiment(data_path,
     # hyperparams
     #batch_size = 8
     #lr = 0.001
-    #scheduler_step_size = 5
-    #scheduler_gamma = 0.75
-    
+    #scheduler_step_size = 5  #StepLR
+    #scheduler_gamma = 0.75   #StepLR
+    #scheduler_patience = ..  #ReduceLROnPlateau
+
     for i in range(iterations):
         print(" ----- Currently on iteration no. {} ----- ".format(i+1), flush=True)
         
@@ -48,9 +48,8 @@ def run_experiment(data_path,
                                                                                        eval_dataloader,
                                                                                        model,
                                                                                        lr,
-                                                                                       es_patience,
-                                                                                       scheduler_step_size,
-                                                                                       scheduler_gamma)
+                                                                                       scheduler_patience,
+                                                                                       early_stopping_patience)
         torch.save(trained_model, exp_dir + f'{type(model).__name__}_experiment{i+1}.pth')
         #torch.save(trained_model.state_dict(), '../saved_models/' + f'{type(model).__name__}_experiment{i+1}.pth')
 
