@@ -8,10 +8,12 @@ from os.path import isfile, join
 
 import requests
 from fastapi import APIRouter, Request
+from keycloak import KeycloakOpenID
 from pydantic import BaseModel
 from fastapi.responses import RedirectResponse
 from starlette.responses import JSONResponse
 
+from app.pydantic_models import ModelTokenConfig
 from app.utils.utils_datalake import upload_object
 from app.utils.utils_general import create_local_step, get_local_storage_path
 
@@ -31,6 +33,16 @@ NeurodesktopStorageLocation = os.environ.get('NeurodesktopStorageLocation') if o
 
 FrontendAddress = os.environ.get('FrontendAddress') if os.environ.get(
     'FrontendAddress') else "http://localhost:3005"
+
+TRINO_HOST = "https://trino.mescobrad.digital-enabler.eng.it"
+TRINO_PORT = "443"
+TRINO_SCHEME = "https"
+keycloak_url = "https://idm.digital-enabler.eng.it/auth/realms/mescobrad/protocol/openid-connect/token"
+
+keycloak_openid = KeycloakOpenID(server_url="https://idm.digital-enabler.eng.it/auth/",
+                                 client_id="home-app",
+                                 realm_name="mescobrad",
+                                 client_secret_key="")
 
 ExistingFunctions = [
     # EEG
@@ -201,7 +213,7 @@ class FunctionNavigationItem(BaseModel):
 
 @router.get("/task/complete", tags=["test_task_complete"])
 async def task_complete(run_id: str,
-                             step_id: str) -> dict:
+                        step_id: str) -> dict:
     # channels = data.ch_names
     print("RUN COMPLETE IS RUNNING")
     print(WFAddress)
@@ -215,9 +227,10 @@ async def task_complete(run_id: str,
         }
     }
     try:
-        url = WFAddress + "/run/" + str(uuid.UUID(run_id)) + "/step/" + str(uuid.UUID(step_id)) + "/task/script/complete"
+        url = WFAddress + "/run/" + str(uuid.UUID(run_id)) + "/step/" + str(
+            uuid.UUID(step_id)) + "/task/script/complete"
     except ValueError:
-        return JSONResponse(content='Badly formed UUID string, probably testing function',status_code=500)
+        return JSONResponse(content='Badly formed UUID string, probably testing function', status_code=500)
 
     print(url)
     print(data)
@@ -475,9 +488,9 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
             case "back_average":
                 url_to_redirect += "/back_average"
             case "general_stats_min":
-                url_to_redirect +="/General_Stats_Min"
+                url_to_redirect += "/General_Stats_Min"
             case "general_stats_max":
-                url_to_redirect +="/General_Stats_Max"
+                url_to_redirect += "/General_Stats_Max"
             case "general_stats_zscore":
                 url_to_redirect += "/General_Stats_Zscore"
             case "general_stats_Std":
@@ -496,7 +509,7 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/Exploratory_Factor_Analysis_extract_latent_structure"
             case "valuesimputation":
                 url_to_redirect += "/ValuesImputation"
-        # Dashboard
+            # Dashboard
             case "dashboard":
                 url_to_redirect += "/dashboard"
         #  Create local storage for files and download them
@@ -513,7 +526,7 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                               run_id=navigation_item.run_id, step_id=navigation_item.step_id, files_to_download=[])
 
     # Add step and run id to the parameters
-    url_to_redirect += "/?run_id="+ navigation_item.run_id+"&step_id=" + navigation_item.step_id + \
+    url_to_redirect += "/?run_id=" + navigation_item.run_id + "&step_id=" + navigation_item.step_id + \
                        "&workflow_id=" + navigation_item.workflow_id
     print(url_to_redirect)
     return {"url": url_to_redirect}
@@ -521,25 +534,27 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
 
 @router.post("/function/save_data/", tags=["function_files"])
 async def function_save_data(
-                         workflow_id: str,
-                         step_id: str,
-                         run_id: str,
-                         function_type: str | None = None
-                         ) -> dict:
+        workflow_id: str,
+        step_id: str,
+        run_id: str,
+        function_type: str | None = None
+) -> dict:
     """ This function handles all the correct uploading for all types of tasks in datalake and/or trino"""
     # General uploading of all data in output folder
     if function_type is None:
         try:
             path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
-            files_to_upload = [f for f in os.listdir(path_to_storage + '/output') if isfile(join(path_to_storage + '/output', f))]
+            files_to_upload = [f for f in os.listdir(path_to_storage + '/output') if
+                               isfile(join(path_to_storage + '/output', f))]
             for file in files_to_upload:
                 out_filename = path_to_storage + '/output/' + file
-                upload_object(bucket_name="common", object_name='workflows/'+ workflow_id+'/'+ run_id+'/'+
-                                                              step_id+'/' + file, file=out_filename)
-            return JSONResponse(content='info.json file has been successfully uploaded to the DataLake', status_code=200)
+                upload_object(bucket_name="common", object_name='workflows/' + workflow_id + '/' + run_id + '/' +
+                                                                step_id + '/' + file, file=out_filename)
+            return JSONResponse(content='info.json file has been successfully uploaded to the DataLake',
+                                status_code=200)
         except Exception as e:
             print(e)
-            return JSONResponse(content='Error in saving info.json object to the DataLake',status_code=501)
+            return JSONResponse(content='Error in saving info.json object to the DataLake', status_code=501)
     elif function_type == "mri":
         try:
             path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
@@ -548,7 +563,7 @@ async def function_save_data(
             print(output_filename)
             print(shutil.make_archive(output_filename, 'zip', root_dir=path_to_storage, base_dir='output/ucl_test'))
             upload_object(bucket_name="common", object_name='workflows/' + workflow_id + '/' + run_id + '/' +
-                                                           step_id + '/ucl_test.zip',
+                                                            step_id + '/ucl_test.zip',
                           file=output_filename + '.zip')
 
             return JSONResponse(content='zip file has been successfully uploaded to the DataLake', status_code=200)
@@ -579,7 +594,11 @@ async def function_files(workflow_id: str,
                          run_id: str
                          ) -> dict:
     """This function returns the file id needed for a function"""
-    files_to_return = [f for f in os.listdir(NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id) if isfile(join(NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id, f))]
+    files_to_return = [f for f in os.listdir(
+        NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id)
+                       if isfile(join(
+            NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id,
+            f))]
     return files_to_return
 
 
@@ -588,3 +607,35 @@ async def task_existing(request: Request) -> dict:
     return {
         "analytics-functions": ExistingFunctions,
     }
+
+
+@router.post("/save/token", tags=["save_token"])
+async def save_token(
+        token: ModelTokenConfig,
+        request: Request
+) -> JSONResponse:
+    keycloak_openid = KeycloakOpenID(server_url="https://idm.digital-enabler.eng.it/auth/",
+                                     client_id="home-app",
+                                     realm_name="mescobrad",
+                                     client_secret_key=""
+                                     )
+    print(token.token)
+    try:
+        # token = keycloak_openid.token("mkontoulis@epu.ntua.gr", "Mkontoulis12345", grant_type='password')
+        userinfo = keycloak_openid.userinfo(token.token)
+    except Exception as e:
+        print("An error occurred:", e)
+        return JSONResponse(status_code=400)
+    print(userinfo)
+    request.session["secret_key"] = token.token
+    # TODO CHECK IF TOKEN IS VALID BEFORE SAVING AND SEND 200
+    return JSONResponse(status_code=200)
+
+
+@router.get("/check/token", tags=["check_token"])
+async def check_token(
+        request: Request
+) -> JSONResponse:
+    to_return = request.session.get("secret_key", None)
+    print(to_return)
+    return JSONResponse(status_code=200)
