@@ -1,3 +1,6 @@
+import os
+os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
+
 import torch
 import numpy as np
 from sklearn import metrics
