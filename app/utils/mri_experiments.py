@@ -87,9 +87,8 @@ def run_experiment(data_path,
             f.write(f'batch_size: {batch_size}\n')
             #f.write(f'eval_size: {eval_size}\n')
             f.write(f'lr: {lr}\n')
-            f.write(f'es_patience: {es_patience}\n')
-            f.write(f'scheduler_step_size: {scheduler_step_size}\n')
-            f.write(f'scheduler_gamma: {scheduler_gamma}\n')
+            f.write(f'scheduler_patience: {scheduler_patience}\n')
+            f.write(f'early_stopping_patience: {early_stopping_patience}\n')
 
     return True
         # print()
