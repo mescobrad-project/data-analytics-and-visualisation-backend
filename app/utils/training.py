@@ -14,7 +14,7 @@ def train_model(train_dataloader, model, optimizer):
     train_losses = []
 
     scaler = GradScaler() #Mixed Precision Training
-    accumulation_steps = 5 #Mixed Precision Training
+    accumulation_steps = 8 #Mixed Precision Training
 
     for step, batch in enumerate(train_dataloader):
         mri, labels_binary = batch
