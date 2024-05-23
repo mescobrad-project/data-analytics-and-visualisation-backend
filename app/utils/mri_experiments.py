@@ -19,7 +19,8 @@ def run_experiment(data_path,
                    iterations,
                    batch_size,
                    lr,
-                   scheduler_patience,
+                   scheduler_step_size,
+                   scheduler_gamma,,
                    early_stopping_patience
                    ):
 
@@ -48,7 +49,8 @@ def run_experiment(data_path,
                                                                                        eval_dataloader,
                                                                                        model,
                                                                                        lr,
-                                                                                       scheduler_patience,
+                                                                                       scheduler_step_size,
+                                                                                       scheduler_gamma,
                                                                                        early_stopping_patience)
         torch.save(trained_model, exp_dir + f'{type(model).__name__}_experiment{i+1}.pth')
         #torch.save(trained_model.state_dict(), '../saved_models/' + f'{type(model).__name__}_experiment{i+1}.pth')
@@ -87,7 +89,8 @@ def run_experiment(data_path,
             f.write(f'batch_size: {batch_size}\n')
             #f.write(f'eval_size: {eval_size}\n')
             f.write(f'lr: {lr}\n')
-            f.write(f'scheduler_patience: {scheduler_patience}\n')
+            f.write(f'scheduler_step_size: {scheduler_step_size}\n')
+            f.write(f'scheduler_gamma: {scheduler_gamma}\n')
             f.write(f'early_stopping_patience: {early_stopping_patience}\n')
 
     return True

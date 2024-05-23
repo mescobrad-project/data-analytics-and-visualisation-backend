@@ -1,7 +1,6 @@
 import torch
 import numpy as np
 from sklearn import metrics
-from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from torch.cuda.amp import GradScaler, autocast #Mixed Precision Training
 
@@ -15,7 +14,7 @@ def train_model(train_dataloader, model, optimizer):
     train_losses = []
 
     scaler = GradScaler() #Mixed Precision Training
-    accumulation_steps = 4 #Mixed Precision Training
+    accumulation_steps = 5 #Mixed Precision Training
 
     for step, batch in enumerate(train_dataloader):
         mri, labels_binary = batch
@@ -84,12 +83,13 @@ def train_eval_model(train_dataloader,
                      eval_dataloader,
                      model,
                      lr,
-                     scheduler_patience,
+                     scheduler_step_size,
+                     scheduler_gamma,
                      early_stopping_patience):
 
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience=scheduler_patience)
-    #scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=scheduler_step_size, gamma=scheduler_gamma)
+    #scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience=scheduler_patience)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=scheduler_step_size, gamma=scheduler_gamma)
 
     # for early stopping
     threshold = 10e+5
@@ -112,8 +112,8 @@ def train_eval_model(train_dataloader,
         # Validation phase
         valid_loss, eval_targets, eval_predictions = evaluate_model(eval_dataloader, model)
         val_losses_per_epoch.append(valid_loss)
-        #scheduler.step() #for StepLR
-        scheduler.step(valid_loss) #for ReduceLROnPlateau
+        scheduler.step() #for StepLR
+        #scheduler.step(valid_loss) #for ReduceLROnPlateau
         dev_f1 = metrics.f1_score(eval_targets, eval_predictions, zero_division=1)
         dev_acc = metrics.accuracy_score(eval_targets, eval_predictions)
 
