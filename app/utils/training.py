@@ -1,6 +1,3 @@
-import os
-os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
-
 import torch
 import numpy as np
 from sklearn import metrics
@@ -15,14 +12,21 @@ def train_model(train_dataloader, model, optimizer):
     
     train_losses = []
 
+    #accumulation_steps = 4 #gradient accumulation
+
     for step, batch in enumerate(train_dataloader):
-        #batch = tuple(t.to(device) for t in batch)
         mri, labels_binary = batch
         mri, labels_binary = mri.to(device), labels_binary.to(device)
         optimizer.zero_grad()
         outputs = model(x=mri, labels=labels_binary)
         loss = outputs[0]
         loss.backward()
+
+        # gradient accumulation
+        #if (step + 1) % accumulation_steps == 0:
+        #    optimizer.step()
+        #    optimizer.zero_grad()
+
         train_losses.append(loss.item())
         optimizer.step()
 
