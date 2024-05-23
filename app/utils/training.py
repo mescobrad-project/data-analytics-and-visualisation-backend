@@ -3,6 +3,9 @@ import numpy as np
 from sklearn import metrics
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
+from torch.cuda.amp import GradScaler, autocast #Mixed Precision Training
+scaler = GradScaler() #Mixed Precision Training
+
 def train_model(train_dataloader, model, optimizer):
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -12,25 +15,36 @@ def train_model(train_dataloader, model, optimizer):
     
     train_losses = []
 
-    accumulation_steps = 4 #gradient accumulation
+    scaler = GradScaler() #Mixed Precision Training
+    accumulation_steps = 4 #Mixed Precision Training
 
     for step, batch in enumerate(train_dataloader):
         mri, labels_binary = batch
         mri, labels_binary = mri.to(device), labels_binary.to(device)
         optimizer.zero_grad()
-        outputs = model(x=mri, labels=labels_binary)
-        loss = outputs[0]
-        loss.backward()
 
-        # gradient accumulation
+        # Mixed Precision Training
+        with autocast():
+            outputs = model(x=mri, labels=labels_binary)
+            loss = outputs[0] / accumulation_steps  # Scale loss for accumulation
+        scaler.scale(loss).backward()
         if (step + 1) % accumulation_steps == 0:
-            optimizer.step()
+            scaler.step(optimizer)
+            scaler.update()
             optimizer.zero_grad()
+        train_losses.append(loss.item() * accumulation_steps)  # Re-scale the loss back to original
+    scaler.step(optimizer)  # Step optimizer for the remaining accumulated gradients
+    scaler.update()
+    optimizer.zero_grad()
+    torch.cuda.empty_cache()  # Clear cache after each epoch
 
-        train_losses.append(loss.item())
-        optimizer.step()
-
-        torch.cuda.empty_cache()  #Clear cache after each training step
+        #old code - works ok
+        #outputs = model(x=mri, labels=labels_binary)
+        #loss = outputs[0]
+        #loss.backward()
+        #train_losses.append(loss.item())
+        #optimizer.step()
+        #torch.cuda.empty_cache()  #Clear cache after each training step
 
     return np.average(train_losses)
 
