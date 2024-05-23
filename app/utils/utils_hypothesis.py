@@ -15,7 +15,7 @@ import plotly.figure_factory as ff
 from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import SimpleImputer, KNNImputer, IterativeImputer
 from statsmodels.graphics.gofplots import qqplot
-
+import seaborn as sns
 
 def create_plots(plot_type: str, column: str, second_column: str, selected_dataframe, path_to_storage:str, filename:str):
     if plot_type == 'BoxPlot':
@@ -304,13 +304,11 @@ def statisticsStd(column: str, selected_dataframe, ddof):
 
 def statisticsCov(selected_dataframe, ddof):
     try:
-        # df2 = selected_dataframe.dropna(subset=[str(column)])
         result = cov(selected_dataframe, ddof=ddof)
-        # Just to check if the result is the same
-        # print(result)
-        # print(np.cov(selected_dataframe.transpose(), ddof=ddof))
-        if math.isnan(result):
-            result = ''
+        result = [
+            tuple('' if isinstance(i, float) and math.isnan(i) else i for i in t)
+            for t in result
+        ]
         return result
     except Exception as e:
         print(e)

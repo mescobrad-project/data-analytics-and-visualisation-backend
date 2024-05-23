@@ -2,6 +2,7 @@ atomicwrites==1.4.1
 autopep8==1.6.0
 binaryornot==0.4.4
 black==23.1.0
+captum==0.7.0
 cloudpickle==2.2.1
 contourpy==1.0.6
 edflib-python==1.0.6
@@ -13,11 +14,13 @@ flake8==6.0.0
 fqdn==1.5.1
 freesurfer-stats==1.2.1
 ggseg==0.1
+grad-cam==1.5.0
 graphviz==0.20.1
 guidata==2.3.1
 httptools==0.3.0
 httpx==0.24.1
 intervaltree==3.1.0
+itsdangerous==2.2.0
 isoduration==20.11.0
 jellyfish==0.9.0
 jinja2-time==0.2.0
@@ -30,6 +33,7 @@ lightgbm==3.3.5
 minio==7.1.12
 mne-qt-browser==0.4.0
 mpld3==0.5.7
+nibabel==5.2.1
 numpydoc==1.5.0
 paramiko==2.11.0
 pexpect==4.8.0
@@ -46,6 +50,7 @@ pyreadstat==1.1.9
 pytest==7.4.0
 python-dotenv==0.19.2
 python-lsp-server==1.7.1
+python-keycloak==3.12.0
 python-slugify==8.0.1
 pythonqwt==0.10.2
 pytoolconfig==1.2.5
@@ -61,6 +66,7 @@ sqlalchemy==1.4.46
 tables==3.8.0
 textdistance==4.5.0
 three-merge==0.1.1
+torch==2.2.2
 trino==0.326.0
 uri-template==1.2.0
 uvicorn==0.17.5
