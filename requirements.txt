@@ -6,6 +6,7 @@ captum==0.7.0
 cloudpickle==2.2.1
 contourpy==1.0.6
 edflib-python==1.0.6
+edfio==0.4.2
 factor-analyzer==0.4.1
 fastapi==0.74.0
 fastparquet==2023.2.0
@@ -77,5 +78,5 @@ webcolors==1.12
 websockets==10.1
 whatthepatch==1.0.4
 yapf==0.32.0
-yasa==0.6.1
+yasa==0.6.4
 zepid==0.9.1

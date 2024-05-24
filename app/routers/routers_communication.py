@@ -328,6 +328,12 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/Actigraphy_Cosinor"
             case "actigraphy_metrics":
                 url_to_redirect += "/Actigraphy_Metrics"
+            case "actigraphy_edf_viewer":
+                url_to_redirect += "/actigraphy_edf_viewer"
+            case "actigraphy_statistics":
+                url_to_redirect += "/actigraphy_statistics"
+            case "actigraphy_summary_table":
+                url_to_redirect += "/actigraphy_summary_table"
             #  MRI
             case "mri_viewer":
                 url_to_redirect += "/mri"
@@ -567,6 +573,21 @@ async def function_save_data(
         except Exception as e:
             print(e)
             return JSONResponse(content='Error in saving zip file to the DataLake', status_code=501)
+    elif function_type == "actigraphy":
+        try:
+            path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+            tmpdir = tempfile.mkdtemp()
+            output_filename = os.path.join(tmpdir, 'dataset')
+            print(output_filename)
+            print(shutil.make_archive(output_filename, 'edf', root_dir=path_to_storage, base_dir='dataset'))
+            upload_object(bucket_name="common", object_name='workflows/' + workflow_id + '/' + run_id + '/' +
+                                                           step_id + '/dataset.edf',
+                          file=output_filename + '.edf')
+
+            return JSONResponse(content='edf file has been successfully uploaded to the DataLake', status_code=200)
+        except Exception as e:
+            print(e)
+            return JSONResponse(content='Error in saving edf file to the DataLake', status_code=501)
     return
 
 
