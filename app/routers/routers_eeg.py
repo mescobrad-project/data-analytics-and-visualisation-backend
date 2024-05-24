@@ -5206,10 +5206,10 @@ async def group_sleep_analysis_sensitivity_add_subject_add_channels_final(
     #     list_second_hypnos.append(np.squeeze(df.to_numpy()))
 
     for group_name, group_data in group_hypno_list.items():
-        print("GROUP DATA  TO APPEND HYPNO LIST++++++++++++++++++++++++++++++++++++++++++++++++++++++")
-        print(type(group_data))
-        print(group_data)
-        print(group_data[0])
+        # print("GROUP DATA  TO APPEND HYPNO LIST++++++++++++++++++++++++++++++++++++++++++++++++++++++")
+        # print(type(group_data))
+        # print(group_data)
+        # print(group_data[0])
         # save and print hypnogram
         for it,group_channel_data in enumerate(group_data):
             yasa.plot_hypnogram(group_channel_data)
