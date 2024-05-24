@@ -161,6 +161,8 @@ def get_data_of_object(bucket_name: str, object_name: str, session_token: str):
 
 
 def upload_object(bucket_name: str, object_name: str, file: str, session_token: str):
+    print("Starting upload")
+    print(session_token)
     # Create new client
     minio_url = "https://storage.mescobrad.digital-enabler.eng.it"
     minio_data = {
@@ -180,6 +182,10 @@ def upload_object(bucket_name: str, object_name: str, file: str, session_token: 
     secret_access_key = xml_data.find('.//{https://sts.amazonaws.com/doc/2011-06-15/}SecretAccessKey').text
     session_token_send = xml_data.find('.//{https://sts.amazonaws.com/doc/2011-06-15/}SessionToken').text
 
+    print("USER INFORMATION")
+    print(access_key)
+    print(secret_access_key)
+    print(session_token_send)
     new_client_1 = Minio(
         "storage.mescobrad.digital-enabler.eng.it",
         access_key=access_key,

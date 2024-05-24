@@ -28,7 +28,7 @@ from statsmodels.stats.mediation import Mediation
 import statsmodels.stats.api as sms
 from pydantic import BaseModel
 from statsmodels.stats.diagnostic import het_goldfeldquandt
-from fastapi import FastAPI, Path, Query, APIRouter
+from fastapi import FastAPI, Path, Query, APIRouter, Request
 from fastapi.responses import JSONResponse
 import pingouin
 from statsmodels.stats.diagnostic import het_white
@@ -164,14 +164,15 @@ async def return_all_files(workflow_id: str, step_id: str, run_id: str):
 
 
 @router.put("/save_hypothesis_output")
-async def save_hypothesis_output(item: FunctionOutputItem) -> dict:
+async def save_hypothesis_output(item: FunctionOutputItem, request: Request) -> dict:
     try:
         path_to_storage = get_local_storage_path(item.workflow_id, item.run_id, item.step_id)
         files_to_upload = [f for f in os.listdir(path_to_storage + '/output') if isfile(join(path_to_storage + '/output', f))]
         for file in files_to_upload:
             out_filename = path_to_storage + '/output/' + file
             upload_object(bucket_name="demo", object_name='expertsystem/workflow/'+ item.workflow_id+'/'+ item.run_id+'/'+
-                                                          item.step_id+'/analysis_output/' + file, file=out_filename)
+                                                          item.step_id+'/analysis_output/' + file, file=out_filename,
+                          session_token=request.session.get("secret_key"))
         return JSONResponse(content='info.json file has been successfully uploaded to the DataLake', status_code=200)
     except Exception as e:
         print(e)

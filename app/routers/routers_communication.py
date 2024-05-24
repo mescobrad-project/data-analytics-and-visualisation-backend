@@ -537,6 +537,7 @@ async def function_save_data(
         workflow_id: str,
         step_id: str,
         run_id: str,
+        request: Request,
         function_type: str | None = None
 ) -> dict:
     """ This function handles all the correct uploading for all types of tasks in datalake and/or trino"""
@@ -549,7 +550,8 @@ async def function_save_data(
             for file in files_to_upload:
                 out_filename = path_to_storage + '/output/' + file
                 upload_object(bucket_name="common", object_name='workflows/' + workflow_id + '/' + run_id + '/' +
-                                                                step_id + '/' + file, file=out_filename)
+                                                                step_id + '/' + file, file=out_filename,
+                              session_token=request.session.get("secret_key"))
             return JSONResponse(content='info.json file has been successfully uploaded to the DataLake',
                                 status_code=200)
         except Exception as e:
@@ -564,7 +566,7 @@ async def function_save_data(
             print(shutil.make_archive(output_filename, 'zip', root_dir=path_to_storage, base_dir='output/ucl_test'))
             upload_object(bucket_name="common", object_name='workflows/' + workflow_id + '/' + run_id + '/' +
                                                             step_id + '/ucl_test.zip',
-                          file=output_filename + '.zip')
+                          file=output_filename + '.zip',session_token=request.session.get("secret_key"))
 
             return JSONResponse(content='zip file has been successfully uploaded to the DataLake', status_code=200)
         except Exception as e:
