@@ -3,7 +3,7 @@ import os
 import shutil
 from typing import Annotated
 
-import plotly.figure_factory as ff
+# import plotly.figure_factory as ff
 from datetime import datetime
 import json
 from functools import reduce
@@ -45,7 +45,7 @@ from app.utils.utils_general import validate_and_convert_peaks, validate_and_con
     create_notebook_mne_plot, get_neurodesk_display_id, get_annotations_from_csv, create_notebook_mne_modular, \
     get_single_file_from_local_temp_storage, get_local_storage_path, get_local_neurodesk_storage_path, \
     get_single_file_from_neurodesk_interim_storage, write_function_data_to_config_file, \
-    get_files_for_slowwaves_spindle, get_single_edf_file_from_local_temp_storage
+    get_files_for_slowwaves_spindle, get_single_edf_file_from_local_temp_storage, create_info_json
 
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -239,8 +239,30 @@ async def return_autocorrelation(workflow_id: str, step_id: str, run_id: str,
                                                                    regex="^(none)$|^(raise)$|^(conservative)$|^(drop)$"),
                                  input_alpha: float | None = None,
                                  input_nlags: int | None = None,
-                                 file_used: str | None = Query("original", regex="^(original)$|^(printed)$")
+                                 file_used: str | None = Query("original", regex="^(original)$|^(printed)$"),
                                  ) -> dict:
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+
+    # Initialise output files
+    # Prepare the data to be written to the config file
+    test_params = {
+        'name': input_name,
+        'adjusted': input_adjusted,
+        'qstat': input_qstat,
+        'fft': input_fft,
+        'bartlett_confint': input_bartlett_confint,
+        'missing': input_missing,
+        # 'alpha': "none" if input_alpha is None else input_alpha,
+        'alpha': input_alpha,
+        'nlags': input_nlags,
+    }
+
+    saved_plots = []
+    output_datasets = []
+    test_name = "auto_correlation"
+    test_results = []
+
+
     data = load_file_from_local_or_interim_edfbrowser_storage(file_used, workflow_id, run_id, step_id)
 
     raw_data = data.get_data()
@@ -273,6 +295,7 @@ async def return_autocorrelation(workflow_id: str, step_id: str, run_id: str,
                 to_return['confint'] = z[1].tolist()
                 to_return['qstat'] = z[2].tolist()
                 to_return['pvalues'] = z[3].tolist()
+
                 # plot_acf(z, adjusted=input_adjusted, alpha=input_alpha, lags=len(z[0].tolist())-1, ax=ax)
                 # ax.set_xticks(np.arange(1, len(z[0].tolist()), step=1))
             elif input_qstat:
@@ -320,27 +343,21 @@ async def return_autocorrelation(workflow_id: str, step_id: str, run_id: str,
             print(to_return)
             plt.savefig(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + 'autocorrelation.png')
 
+            to_df = pd.DataFrame(z)
+            to_df.to_csv(path_to_storage + '/output/autocorrelation.csv', index=False)
+
             # plt.show()
+            # Save autocorrelation as csv
 
-            # Prepare the data to be written to the config file
-            parameter_data = {
-                'name': input_name,
-                'adjusted': input_adjusted,
-                'qstat': input_qstat,
-                'fft': input_fft,
-                'bartlett_confint': input_bartlett_confint,
-                'missing': input_missing,
-                'alpha': input_alpha,
-                'nlags': input_nlags,
-            }
-            result_data = {
-                'data_values_autocorrelation': to_return['values_autocorrelation'],
-                'data_confint': to_return['confint'],
-                'data_qstat': to_return['qstat'],
-                'data_pvalues': to_return['pvalues']
-            }
+            # ADDING INFO JSON DATA
+            saved_plots.append('autocorrelation.png')
+            output_datasets.append('autocorrelation.csv')
+            test_results = to_return
+            test_results.pop('values_autocorrelation')
+            # write_function_data_to_config_file(parameter_data, result_data, workflow_id, run_id, step_id)
 
-            write_function_data_to_config_file(parameter_data, result_data, workflow_id, run_id, step_id)
+            create_info_json(workflow_id, run_id, step_id, test_name, test_params, test_results, output_datasets, saved_plots)
+
             return to_return
     return {'Channel not found'}
 
@@ -2152,6 +2169,7 @@ async def mne_open_eeg(workflow_id: str,
                        step_id: str,
                        run_id: str,
                        selected_montage: str | None = "",
+                       selected_file: str | None = "",
                        current_user: str | None = None) -> dict:
     # # Create a new jupyter notebook with the id of the run and step for recognition
     # create_notebook_mne_plot(input_run_id, input_step_id)
@@ -2178,7 +2196,10 @@ async def mne_open_eeg(workflow_id: str,
     # Get file name to open with EDFBrowser
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
     # name_of_file = get_single_file_from_local_temp_storage(workflow_id, run_id, step_id)
-    name_of_file = get_single_edf_file_from_local_temp_storage(workflow_id, run_id, step_id)
+    if selected_file == "":
+        name_of_file = get_single_edf_file_from_local_temp_storage(workflow_id, run_id, step_id)
+    else:
+        name_of_file = selected_file
     file_full_path = path_to_storage + "/" + name_of_file
 
     # Give permissions in working folder
@@ -2204,7 +2225,7 @@ async def mne_open_eeg(workflow_id: str,
     # channel.send("nohup /usr/bin/code -n /home/user/neurodesktop-storage/created_1.ipynb --extensions-dir=/opt/vscode-extensions --disable-workspace-trust &\n")
 
 
-@router.get("/mne/open/mne", tags=["mne_open_eeg"])
+@router.get("/mne/open/mne", tags=["mne_open_mne"])
 # Validation is done inline in the input of the function
 # Slices are send in a single string and then de
 async def mne_open_mne(workflow_id: str, step_id: str, run_id: str, current_user: str | None = None) -> dict:

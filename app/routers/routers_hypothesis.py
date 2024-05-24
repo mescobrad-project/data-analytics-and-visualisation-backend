@@ -28,7 +28,7 @@ from statsmodels.stats.mediation import Mediation
 import statsmodels.stats.api as sms
 from pydantic import BaseModel
 from statsmodels.stats.diagnostic import het_goldfeldquandt
-from fastapi import FastAPI, Path, Query, APIRouter
+from fastapi import FastAPI, Path, Query, APIRouter, Request
 from fastapi.responses import JSONResponse
 import pingouin
 from statsmodels.stats.diagnostic import het_white
@@ -164,14 +164,15 @@ async def return_all_files(workflow_id: str, step_id: str, run_id: str):
 
 
 @router.put("/save_hypothesis_output")
-async def save_hypothesis_output(item: FunctionOutputItem) -> dict:
+async def save_hypothesis_output(item: FunctionOutputItem, request: Request) -> dict:
     try:
         path_to_storage = get_local_storage_path(item.workflow_id, item.run_id, item.step_id)
         files_to_upload = [f for f in os.listdir(path_to_storage + '/output') if isfile(join(path_to_storage + '/output', f))]
         for file in files_to_upload:
             out_filename = path_to_storage + '/output/' + file
             upload_object(bucket_name="demo", object_name='expertsystem/workflow/'+ item.workflow_id+'/'+ item.run_id+'/'+
-                                                          item.step_id+'/analysis_output/' + file, file=out_filename)
+                                                          item.step_id+'/analysis_output/' + file, file=out_filename,
+                          session_token=request.session.get("secret_key"))
         return JSONResponse(content='info.json file has been successfully uploaded to the DataLake', status_code=200)
     except Exception as e:
         print(e)
@@ -4843,10 +4844,10 @@ async def correlation(workflow_id: str,
 async def covariance(workflow_id: str,
                      step_id: str,
                      run_id: str,
+                     file:str,
                      ddof : int | None = Query(default=0),
                      independent_variables: list[str] | None = Query(default=None)):
 
-    # dataset = load_file_csv_direct(workflow_id, run_id, step_id)
     df = pd.DataFrame()
     dfv = pd.DataFrame()
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
@@ -4854,23 +4855,28 @@ async def covariance(workflow_id: str,
     # Load Datasets
     try:
         test_status = 'Dataset is not defined'
-        dfv['variables'] = independent_variables
-        dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
-
-        selected_datasources = pd.unique(dfv['Datasource'])
+        if file is None:
+            test_status = 'Dataset is not defined'
+            raise Exception
         test_status = 'Unable to retrieve datasets'
-        dataset = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
-        # Keep requested Columns
-        selected_columns = pd.unique(dfv['Variable'])
+        dataset = load_data_from_csv(path_to_storage + "/" + file)
         for columns in dataset.columns:
-            if columns not in selected_columns:
+            if columns not in independent_variables:
                 dataset = dataset.drop(str(columns), axis=1)
         test_status = 'Unable to compute the Covariance matrix for the selected columns'
         res = statisticsCov(dataset, ddof)
-        if len(res) >= 1:
+        if res != ():
             df = pd.DataFrame(res, columns=dataset.columns)
+            fig, ax = plt.subplots()
+            sns.heatmap(df, annot=True, fmt='.3g', xticklabels=dataset.columns,
+                        yticklabels=dataset.columns, cmap='YlGnBu')
+            if os.path.exists(path_to_storage + "/output/Cov.svg"):
+                print('file exists')
+                os.remove(path_to_storage + "/output/Cov.svg")
+            plt.savefig(path_to_storage + "/output/Cov.svg", format="svg")
+            df.insert(loc=0, column='Cov matrix', value=dataset.columns)
         else:
-            df = ["N/A"]
+            df = pd.DataFrame(['NaN'])
         test_status = 'Unable to create info.json file'
         with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
             # Load existing data into a dict.
@@ -4887,6 +4893,8 @@ async def covariance(workflow_id: str,
             }
             file_data['results'] = new_data
             file_data['Output_datasets'] = []
+            file_data['Saved_plots'] = [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
+                                                 step_id + '/Cov.svg'}]
             # Set file's current position at offset.
             f.seek(0)
             # convert back to json.
@@ -5616,6 +5624,7 @@ async def compute_granger_analysis(workflow_id: str,
 async def compute_one_way_welch_anova(workflow_id: str,
                                       step_id: str,
                                       run_id: str,
+                                      file:str,
                                       dv: str,
                                       between: str):
 
@@ -5624,12 +5633,9 @@ async def compute_one_way_welch_anova(workflow_id: str,
     # Load Datasets
     try:
         test_status = 'Dataset is not defined'
-        selected_datasource, dv = dv.split("--")
-        between = between.split("--")[1]
+        selected_datasource=file
         test_status = 'Unable to retrieve datasets'
-        # We expect only one here
         df_data = load_data_from_csv(path_to_storage + "/" + selected_datasource)
-
         test_status = 'Unable to compute Welch Anova test for the selected columns.'
         df = pingouin.welch_anova(data=df_data, dv=dv, between=between)
         print(df)

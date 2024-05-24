@@ -1,8 +1,14 @@
 import os
 import pandas as pd
+import paramiko
+
+from app.utils.utils_general import get_neurodesk_display_id
 
 NeurodesktopStorageLocation = os.environ.get('NeurodesktopStorageLocation') if os.environ.get(
     'NeurodesktopStorageLocation') else "/neurodesktop-storage"
+
+NEURODESK_DEFAULT_USER = os.environ.get('NEURODESK_DEFAULT_USER') if os.environ.get('NEURODESK_DEFAULT_USER') else "random_user"
+NEURODESK_DEFAULT_PASSWORD = os.environ.get('NEURODESK_DEFAULT_PASSWORD') if os.environ.get('NEURODESK_DEFAULT_PASSWORD') else "random_password"
 
 def plot_aseg(data, cmap='Spectral', background='k', edgecolor='w', ylabel='',
               figsize=(15, 5), bordercolor='w', vminmax=[],
@@ -157,3 +163,26 @@ def download_mri_dataset(workflow_id, run_id, step_id, bucket, file):
         json.dump({"selected_datasets":files_to_download, "results":{}}, f)
         pass
 """
+
+def create_freesurfer_license():
+    """ This functions creates a freesurfer license in the neurodesktop storage folder so there is access"""
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect("neurodesktop", 22, username=NEURODESK_DEFAULT_USER, password=NEURODESK_DEFAULT_PASSWORD)
+
+    channel = ssh.invoke_shell()
+
+    display_id = get_neurodesk_display_id()
+    channel.send("export DISPLAY=" + display_id + "\n")
+    # channel.send("cd /neurocommand/local/bin/\n")
+    # channel.send("./freesurfer-7_3_2.sh\n")
+    channel.send("cd /home/user\n")
+    channel.send("sudo chmod a+rw /neurodesktop-storage\n")
+    channel.send("cd /home/user/neurodesktop-storage\n")
+    channel.send("rm .license\n")
+    channel.send("echo \"mkontoulis@epu.ntua.gr\n")
+    channel.send("60631\n")
+    channel.send(" *CctUNyzfwSSs\n")
+    channel.send(" FSNy4xe75KyK.\n")
+    channel.send(" D4GXfOXX8hArD8mYfI4OhNCQ8Gb00sflXj1yH6NEFxk=\" >> .license\n")
+    channel.send("export FS_LICENSE=.license\n")
