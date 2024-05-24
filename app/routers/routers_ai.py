@@ -53,7 +53,7 @@ async def dl_explanation_experiment(
                            slice_idx)
     return {"results": results}
 
-
+'''
 @router.get("/ggc_explanation_experiment")
 async def ggc_explanation_experiment(
         workflow_id: str,
@@ -73,8 +73,9 @@ async def ggc_explanation_experiment(
                             axis,
                             slice_idx)
     return {"results": results}
+'''
 
-
+'''
 @router.get("/mri_inference")
 async def mri_inference(
         workflow_id: str,
@@ -86,6 +87,7 @@ async def mri_inference(
     results = mri_prediction(model_path,
                              mri_path)
     return {"results": results}
+'''
 
 @router.get("/mris_batch_inference")
 async def mris_batch_inference(
