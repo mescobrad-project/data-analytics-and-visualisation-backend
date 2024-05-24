@@ -157,6 +157,7 @@ ExistingFunctions = [
     "GrangerAnalysis",
     "structural_equation_models_optimization",
     'exploratory_factor_analysis_extract_latent_structure',
+    'linearregressionmodelcreation',
     'valuesimputation',
     # Dashboard
     "dashboard",
@@ -501,6 +502,8 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/Structural_Equation_Models_Optimization"
             case "exploratory_factor_analysis_extract_latent_structure":
                 url_to_redirect += "/Exploratory_Factor_Analysis_extract_latent_structure"
+            case "linearregressionmodelcreation":
+                url_to_redirect += "/LinearRegressionModelCreation"
             case "valuesimputation":
                 url_to_redirect += "/ValuesImputation"
             # Dashboard
