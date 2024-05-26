@@ -73,7 +73,7 @@ def visualize_dl(model_path,
         mri_slice = tensor_mri[slice_idx, :, :]
         attr_slice = attributions[slice_idx, :, :]
 
-    fig, ax = plt.subplots(figsize=(7, 7))
+    fig, ax = plt.subplots(figsize=(8, 8))
     ax.imshow(normalize(mri_slice), cmap='Greys')
     sorted_values = np.sort(normalize(attr_slice).flatten())[::-1]
     threshold = sorted_values[int(tensor_mri.shape[0] * tensor_mri.shape[1] * 0.01) - 1]
@@ -83,7 +83,7 @@ def visualize_dl(model_path,
                                                      N=5000),
               interpolation='gaussian')
 
-    ax.set_title(f'Prediction: {group} (prob: {round(top_prob.item(), 2)}) \n\n MRI(Grey) vs DeepLift Attributions(Blue) Overlay \n\n {axis} plane no. {slice_idx} \n')
+    ax.set_title(f'Prediction: {group} (prob: {round(top_prob.item(), 2)}) \n\n MRI(Grey) vs DeepLift Attributions(Blue) Overlay \n {axis} plane no. {slice_idx} \n')
     #ax.set_title(f'MRI(Grey) vs DeepLift Attributions(Blue) Overlay\npred: {group} (prob: {round(top_prob.item(), 2)})\n{axis} slice {slice_idx}')
 
     # Save and show plot
