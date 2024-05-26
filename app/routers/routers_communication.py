@@ -553,6 +553,7 @@ async def function_save_data(
             path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
             files_to_upload = [f for f in os.listdir(path_to_storage + '/output') if
                                isfile(join(path_to_storage + '/output', f))]
+            print("TEST 1 Reached")
             for file in files_to_upload:
                 out_filename = path_to_storage + '/output/' + file
                 upload_object(bucket_name="common", object_name='workflows/' + workflow_id + '/' + run_id + '/' +
