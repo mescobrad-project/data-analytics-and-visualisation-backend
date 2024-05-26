@@ -197,7 +197,11 @@ def upload_object(bucket_name: str, object_name: str, file: str, session_token: 
 
     # Upload data .
     try:
+        # print("Result DATA PRINT HERE NOW")
         result = new_client_1.fput_object(bucket_name, object_name, file)
+        # print("Result DATA PRINT HERE NOW")
+        print(result)
+
         print(
             "created {0} object; etag: {1}, version-id: {2}".format(
                 result.object_name, result.etag, result.version_id))

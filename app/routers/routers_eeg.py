@@ -598,8 +598,16 @@ async def estimate_welch(
                 "data_power spectral density": to_return["power spectral density"]
             }
 
-            write_function_data_to_config_file(workflow_id, step_id, run_id, parameter_data, result_data)
+            # write_function_data_to_config_file(workflow_id, step_id, run_id, parameter_data, result_data)
 
+            saved_plots = []
+            output_datasets = []
+            test_results = []
+            test_params = []
+            test_name = "power_spectral_density"
+            saved_plots.append("welch_plot.png")
+            create_info_json(workflow_id, run_id, step_id, test_name, test_params, test_results, output_datasets,
+                             saved_plots)
             return to_return
     return {'Channel not found'}
 
@@ -873,6 +881,16 @@ async def estimate_periodogram(workflow_id: str, step_id: str, run_id: str, inpu
             plt.clf()
             plt.close()
 
+            saved_plots = []
+            output_datasets = []
+            test_results = []
+            test_params = []
+            test_name = "power_spectral_density"
+            saved_plots.append("periodogram_plot.png")
+            create_info_json(workflow_id, run_id, step_id, test_name, test_params, test_results, output_datasets,
+                             saved_plots)
+
+
             return {'frequencies': f.tolist(), 'power spectral density': pxx_den.tolist()}
     return {'Channel not found'}
 
@@ -967,6 +985,15 @@ async def return_power_spectral_density(workflow_id: str,
             plt.show()
             plt.clf()
             plt.close()
+
+            saved_plots = []
+            output_datasets = []
+            test_results = []
+            test_params = []
+            test_name = "power_spectral_density"
+            saved_plots.append("multitaper_plot.png")
+            create_info_json(workflow_id, run_id, step_id, test_name, test_params, test_results, output_datasets,
+                             saved_plots)
 
             to_return = {'frequencies': freqs.tolist(), 'power spectral density': psd_results.tolist()}
             return to_return
@@ -1103,7 +1130,7 @@ async def calculate_alpha_delta_ratio(workflow_id: str, step_id: str, run_id: st
             peak_f_new.append(peak_f[1])
             df_peak = pd.DataFrame(peak_f_new, columns=['Peak (Hz)'])
 
-            df = pd.concat([df_names, df_power, df_peak], 1)
+            df = pd.concat([df_names, df_power, df_peak], axis = 1)
 
             df['index'] = df.index
             return {'alpha_delta_ratio': alpha_power / delta_power,
@@ -1222,7 +1249,7 @@ async def calculate_alpha_delta_ratio_periodogram(workflow_id: str,
             df_power = pd.DataFrame(list_power, columns=['Power (uV^2)'])
             df_peak = pd.DataFrame(peak_f, columns=['Peak (Hz)'])
 
-            df = pd.concat([df_names, df_power, df_peak], 1)
+            df = pd.concat([df_names, df_power, df_peak], axis =1)
             print(df)
 
             df['index'] = df.index
@@ -1470,6 +1497,17 @@ async def sleep_stage_classify(workflow_id: str,
     # Convert and send to frontend
     df['id'] = df.index
     df_pred['id'] = df_pred.index
+
+
+
+    saved_plots = []
+    output_datasets = ["sleep_stage.csv", "sleep_stage_confidence.csv"]
+    test_results = []
+    test_params = []
+    test_name = "sleep_stage_classify"
+    # saved_plots.append("back_average_plot.png")
+    create_info_json(workflow_id, run_id, step_id, test_name, test_params, test_results, output_datasets, saved_plots)
+
     return {'sleep_stage': df.to_json(orient='records'),
             # Predicted probability for each sleep stage for each 30-sec epoch of data
             'sleep_stage_confidence': df_pred.to_json(
@@ -1683,6 +1721,17 @@ async def sleep_statistics_hypnogram(
     df = df.T
     # df['index'] = df.index
     df.insert(0, 'id', range(1, 1 + len(df)))
+
+    df.to_csv(path_to_storage + '/output/sleep_statistics.csv', index=False)
+    saved_plots=[]
+    output_datasets =["sleep_statistics.csv", "sleep_transition_matrix_counts.csv" , "sleep_transition_matrix_probs.csv"]
+    test_results = []
+    test_params= []
+    test_name = "sleep_statistics"
+    saved_plots.append("sleep_transition_matrix.png")
+    create_info_json(workflow_id, run_id, step_id, test_name, test_params, test_results, output_datasets, saved_plots)
+
+
     return {'sleep_statistics': df.to_json(orient='records')}
 
 
@@ -1721,6 +1770,8 @@ async def sleep_transition_matrix(workflow_id: str,
     # plt.savefig(NeurodesktopStorageLocation + '/sleep_transition_matrix.png')
     plt.savefig(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + 'sleep_transition_matrix.png')
 
+    counts.to_csv(get_local_storage_path(workflow_id,  run_id, step_id) + "/output/" +  "sleep_transition_matrix_counts.csv")
+    probs.to_csv(get_local_storage_path(workflow_id,  run_id, step_id) + "/output/" +  "sleep_transition_matrix_probs.csv")
     # html_str = mpld3.fig_to_html(fig)
     # to_return["figure"] = html_str
 
@@ -1784,6 +1835,15 @@ async def spectrogram_yasa(
             plt.savefig(
                 get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + 'spectrogram.png')
 
+            saved_plots = ["spectrogram.png"]
+            output_datasets = ["bandpower.csv"]
+            test_results = []
+            test_params = []
+            test_name = "spectrogram_bandpower"
+            saved_plots.append("back_average_plot.png")
+            create_info_json(workflow_id, run_id, step_id, test_name, test_params, test_results, output_datasets,
+                             saved_plots)
+
             return {'figure': to_return}
     return {'Channel not found'}
 
@@ -1822,6 +1882,8 @@ async def bandpower_yasa(workflow_id: str,
 
     # Add index as column
     df['index'] = df.index
+    df.to_csv(path_to_storage + '/output/bandpower.csv', index=False)
+
     return {'bandpower': df.to_json(orient='split')}
 
 
@@ -1872,6 +1934,19 @@ async def spindles_detect_two_dataframes(
 
         # df_2 = df_2.T
         df_2.insert(0, 'id', range(1, 1 + len(df_2)))
+
+        df_1.to_csv(path_to_storage + '/output/df_1.csv')
+        df_2.to_csv(path_to_storage + '/output/df_2.csv')
+
+        saved_plots = []
+        output_datasets = ["df_1.csv", "df_2.csv"]
+        test_results = []
+        test_params = []
+        test_name = "spindles"
+        saved_plots.append("spindles.png")
+        create_info_json(workflow_id, run_id, step_id, test_name, test_params, test_results, output_datasets,
+                         saved_plots)
+
         return {'data_frame_1': df_1.to_json(orient='records'), 'data_frame_2': df_2.to_json(orient='records')}
     else:
         return {'No spindles detected'}
@@ -1940,6 +2015,19 @@ async def sw_detect_two_dataframes(workflow_id: str,
         df_2_old = df_2
         # df_2 = df_2.T
         df_2.insert(0, 'id', range(1, 1 + len(df_2)))
+
+        df_1.to_csv(path_to_storage + '/output/df_1.csv')
+        df_2.to_csv(path_to_storage + '/output/df_2.csv')
+
+        saved_plots = []
+        output_datasets = ["df_1.csv", "df_2.csv"]
+        test_results = []
+        test_params = []
+        test_name = "slowwaves"
+        saved_plots.append("slowwaves.png","pac_values.png", "extra_pac_values.png", "rose_plot.png")
+        create_info_json(workflow_id, run_id, step_id, test_name, test_params, test_results, output_datasets,
+                         saved_plots)
+
 
         return {'data_frame_1': df_1.to_json(orient='records'), 'data_frame_2': df_2.to_json(orient='records'),
                 'circular_mean:': pg.circ_mean(df_1_old['PhaseAtSigmaPeak']),  # Circular mean (rad)
@@ -2615,7 +2703,7 @@ async def back_average(
         ax.imshow(img)
         ax.axis('off')  # to hide axis
 
-    plt.savefig(get_local_storage_path(workflow_id, step_id, run_id) + "/output/" + 'back_average_plot.png',
+    plt.savefig(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + 'back_average_plot.png',
                 bbox_inches='tight')
     plt.show()
     # plot.savefig(NeurodesktopStorageLocation + '/back_average_plot.png')
@@ -2624,9 +2712,18 @@ async def back_average(
     # mne.viz.plot_evoked(evoked, show=True)
     to_return = {}
     to_return["channels"] = epochs.ch_names
+
+    saved_plots=[]
+    output_datasets =[]
+    test_results = []
+    test_params= []
+    test_name = "back_average"
+    saved_plots.append("back_average_plot.png")
+    create_info_json(workflow_id, run_id, step_id, test_name, test_params, test_results, output_datasets, saved_plots)
+
     return to_return
 
-    return True
+    # return True
 
 
 @router.get("/eeg_upsampling", tags=["eeg_upsampling"])
