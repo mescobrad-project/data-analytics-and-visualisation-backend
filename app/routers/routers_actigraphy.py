@@ -684,6 +684,7 @@ async def return_final_daily_activity_activity_status_area(workflow_id: str,
         dts = [dt.strftime('%d/%m/%Y %-H:%M:%S') for dt in
                datetime_range(start, end,
                               timedelta(seconds=15))]
+
     #     print(dts)
 
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
@@ -1038,7 +1039,7 @@ async def change_activity_status(workflow_id: str,
         shutil.copyfile(source, target)
     else:
         print("The file already exists!")
-    # print(isExisting)
+    print(isExisting)
     # Import dataset as pd dataframe excluding the first 150 rows
     df = pd.read_csv(path_to_storage + '/output/' + 'NewAnalysisCopy.csv', skiprows=150)
 
