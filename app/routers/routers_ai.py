@@ -159,6 +159,9 @@ async def linear_reg_create_model(
         test_status = 'Unable to save the model'
         filename = model_name+'.sav'
         pickle.dump(linear_model, open(path_to_storage +'/'+ filename, 'wb'))
+
+        # TODO: Temporarily we save in both paths - to be available for Load model and also proceed to datalake
+        pickle.dump(linear_model, open(path_to_storage +'/'+ filename, 'wb'))
         # Save the model parameters to a JSON file
         model_params = {
             'independent_variables': independent_variables,
@@ -226,9 +229,50 @@ async def linear_reg_create_model(
         plt.savefig(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + "shap_violin_lr.svg",
                     dpi=700)  # .png,.pdf will also support here
 
+        test_status = 'Error in creating info file.'
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            # Load existing data into a dict.
+            file_data = json.load(f)
+            # Join new data
+            new_data = {
+                "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                "workflow_id": workflow_id,
+                "run_id": run_id,
+                "step_id": step_id,
+                "test_name": 'Linear Regression Create Model',
+                "test_params": {
+                    "Dependent variable": dependent_variable,
+                    "Independent variables": independent_variables
+                },
+                "test_results": {"mse": mse, "r2_score": r2_score_val,
+                                 "Loss": loss, "mae": mae, "rmse": rmse,
+                                 'coeff_determination': r_sq.to_dict(),
+                                 'intercept': linear_model.intercept_,
+                                 'slope': dfslope.transpose().to_dict(),
+                                 }}
+            file_data['results'] = new_data
+            file_data['Output_datasets'] = []
+            file_data['Saved_plots'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id + '/analysis_output/shap_summary_lr.svg'},
+                                        {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id + '/analysis_output/shap_waterfall_lr.svg'},
+                                        {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id + '/analysis_output/shap_heatmap_lr.svg'},
+                                         {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id + '/analysis_output/shap_violin_lr.svg'}
+                                        ]
+            file_data['Created_Model'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id + '/analysis_output/' + filename}]
+            # Set file's current position at offset.
+            f.seek(0)
+            # convert back to json.
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+
+
         return JSONResponse(content={'status': 'Success', "mse": mse, "r2_score": r2_score_val, "Loss":loss, "mae":mae, "rmse":rmse,
-                "coeff_determination":r_sq, 'intercept': linear_model.intercept_, 'slope': dfslope.transpose().to_json(orient='records')},
-                                status_code=200)
+                    "coeff_determination":r_sq, 'intercept': linear_model.intercept_, 'slope': dfslope.transpose().to_json(orient='records')},
+                                    status_code=200)
     except Exception as e:
         print(e)
         return JSONResponse(content={'status': test_status, "mse": '', "r2_score": '', "Loss":'', "mae":'', "rmse":'',
