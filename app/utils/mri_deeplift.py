@@ -83,7 +83,7 @@ def visualize_dl(model_path,
                                                      N=5000),
               interpolation='gaussian')
 
-    ax.set_title(f'Prediction: {group} (prob: {round(top_prob.item(), 2)}) \n\n MRI(Grey) vs DeepLift Attributions(Blue) Overlay \n {axis} plane no. {slice_idx} \n')
+    ax.set_title(f'Prediction: {group} (prob: {round(top_prob.item(), 2)}) \n\n MRI(Grey) vs DeepLift Attributions(Blue) Overlay \n {axis} plane no. {slice_idx}')
     #ax.set_title(f'MRI(Grey) vs DeepLift Attributions(Blue) Overlay\npred: {group} (prob: {round(top_prob.item(), 2)})\n{axis} slice {slice_idx}')
 
     # Save and show plot
