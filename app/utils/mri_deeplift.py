@@ -32,7 +32,7 @@ def visualize_dl(model_path,
     assert os.path.exists(model_path)
     assert os.path.exists(mri_path)
     assert os.path.exists(heatmap_path)
-    assert axis in ['sagittal', 'frontal', 'axial']
+    assert axis in ['Sagittal', 'Coronal', 'Axial']
 
     # Load model
     model = torch.load(model_path)
@@ -63,17 +63,17 @@ def visualize_dl(model_path,
     # Prepare data for plotting
     tensor_mri = tensor_mri.detach().cpu().squeeze().permute(1, 2, 0).numpy() #(256, 256, 160)
 
-    if axis == 'sagittal':
+    if axis == 'Sagittal':
         mri_slice = tensor_mri[:, :, slice_idx]
         attr_slice = attributions[:, :, slice_idx]
-    elif axis == 'frontal':
+    elif axis == 'Coronal':
         mri_slice = tensor_mri[:, slice_idx, :]
         attr_slice = attributions[:, slice_idx, :]
-    elif axis == 'axial':
+    elif axis == 'Axial':
         mri_slice = tensor_mri[slice_idx, :, :]
         attr_slice = attributions[slice_idx, :, :]
 
-    fig, ax = plt.subplots(figsize=(8, 8))
+    fig, ax = plt.subplots(figsize=(7, 7))
     ax.imshow(normalize(mri_slice), cmap='Greys')
     sorted_values = np.sort(normalize(attr_slice).flatten())[::-1]
     threshold = sorted_values[int(tensor_mri.shape[0] * tensor_mri.shape[1] * 0.01) - 1]
@@ -83,7 +83,7 @@ def visualize_dl(model_path,
                                                      N=5000),
               interpolation='gaussian')
 
-    ax.set_title(f'Prediction: {group} (prob: {round(top_prob.item(), 2)}) \n\n MRI(Grey) vs DeepLift Attributions(Blue) Overlay \n {axis} plane no. {slice_idx}')
+    ax.set_title(f'Prediction: {group} (prob: {round(top_prob.item(), 2)}) \n\n MRI(Grey) vs DeepLift Attributions(Blue) Overlay \n\n {axis} plane no. {slice_idx} \n')
     #ax.set_title(f'MRI(Grey) vs DeepLift Attributions(Blue) Overlay\npred: {group} (prob: {round(top_prob.item(), 2)})\n{axis} slice {slice_idx}')
 
     # Save and show plot
