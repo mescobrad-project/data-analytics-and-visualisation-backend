@@ -1,4 +1,5 @@
-FROM vnmd/neurodesktop:20220329
+#FROM vnmd/neurodesktop:20220329
+FROM vnmd/neurodesktop:20230112
 
 RUN sudo apt update
 RUN sudo apt -y install g++ make git qtbase5-dev-tools qtbase5-dev
