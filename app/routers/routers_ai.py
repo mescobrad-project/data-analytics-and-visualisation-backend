@@ -6,6 +6,7 @@ import numpy as np
 import shap
 
 import pickle
+import json
 import matplotlib.pyplot as plt
 from starlette.responses import JSONResponse
 
@@ -15,6 +16,7 @@ from app.utils.mri_deeplift import visualize_dl
 from app.utils.mri_ggc import visualize_ggc
 from app.utils.utils_ai import train_linear_regression
 from app.utils.utils_general import get_local_storage_path, load_data_from_csv
+from datetime import datetime
 
 router = APIRouter()
 
@@ -145,19 +147,29 @@ async def linear_reg_create_model(
     try:
         df = pd.DataFrame()
         path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
-        test_status = ''
+        test_status = 'Unable to retrieve the dataset'
         data = load_data_from_csv(path_to_storage + "/" + file_name)
         X = data[independent_variables]
         y = data[dependent_variable]
         # Split dataset into train and test sets
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=random_state, shuffle=shuffle)
+        test_status = 'Unable to execute regression'
         linear_model = train_linear_regression(X_train, y_train)
+
+        test_status = 'Unable to save the model'
         filename = model_name+'.sav'
         pickle.dump(linear_model, open(path_to_storage +'/'+ filename, 'wb'))
-
+        # Save the model parameters to a JSON file
+        model_params = {
+            'independent_variables': independent_variables,
+            'dependent_variable': dependent_variable
+        }
+        with open(path_to_storage +'/'+ model_name+'.json', 'w') as f:
+            json.dump(model_params, f)
         # Make predictions
         y_pred = linear_model.predict(X_test)
 
+        test_status = 'Unable to print model stats'
 
         # The following section will get results by interpreting the created instance:
         # Obtain the coefficient of determination by calling the model with the score() function, then print the coefficient:
@@ -186,6 +198,7 @@ async def linear_reg_create_model(
         # Predict a Response and print it:
         # y_pred = linear_model.predict(X_test)
         # print('Predicted response:', y_pred, sep='\n')
+        test_status = 'Unable to present XAI plots'
 
         explainer = shap.LinearExplainer(linear_model, X_train, feature_names=independent_variables)
         shap_values = explainer(X_train)
@@ -218,7 +231,74 @@ async def linear_reg_create_model(
                                 status_code=200)
     except Exception as e:
         print(e)
-        return JSONResponse(content={'status': '', "mse": '', "r2_score": '', "Loss":'', "mae":'', "rmse":'',
+        return JSONResponse(content={'status': test_status, "mse": '', "r2_score": '', "Loss":'', "mae":'', "rmse":'',
                 "coeff_determination":'', 'intercept': '', 'slope': []},
                                 status_code=200)
     # return {"mse": mse, "r2_score": r2_score_val, "Loss":loss, "coeff_determination":r_sq, 'intercept': linear_model.intercept_,'slope': linear_model.coef_}
+
+
+@router.get("/linear_reg_load_model")
+async def linear_reg_load_model(
+        workflow_id: str,
+        step_id: str,
+        run_id: str,
+        file_name: str,
+        model_name:str
+) -> dict:
+
+    try:
+        path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+        test_status = 'Unable to retrieve the dataset'
+        data = load_data_from_csv(path_to_storage + "/" + file_name)
+        loaded_model = pickle.load(open(get_local_storage_path(workflow_id, run_id, step_id) +"/"+ model_name, 'rb'))
+        with open(get_local_storage_path(workflow_id, run_id, step_id) +"/"+ model_name.replace('.sav','.json')) as f:
+            test_params = json.load(f)
+        X_test = data[test_params['independent_variables']]
+        col_name = str(test_params['dependent_variable']) + '_predict'
+        y_pred = pd.DataFrame(loaded_model.predict(X_test))
+        df = pd.DataFrame(loaded_model.coef_, index=test_params['independent_variables']).transpose()
+        data.insert(loc=0, column=col_name, value=y_pred)
+        result_dataset = data
+        result_dataset.to_csv(path_to_storage + '/output/Dataset_predict.csv', index=False)
+
+        test_status = 'Error in creating info file.'
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            # Load existing data into a dict.
+            file_data = json.load(f)
+            # Join new data
+            new_data = {
+                "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                "workflow_id": workflow_id,
+                "run_id": run_id,
+                "step_id": step_id,
+                "test_name": 'Linear Regression Test Model',
+                "test_params": {
+                    "Dependent variable": test_params['dependent_variable'],
+                    "Independent variables": test_params['independent_variables']
+                },
+                "test_results": {'coeff_determination': df.to_dict(),
+                                 'intercept': loaded_model.intercept_,
+                                 }}
+            file_data['results'] = new_data
+            file_data['Output_datasets'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id + '/analysis_output' + '/Dataset_predict.csv'}]
+            file_data['Saved_plots'] = []
+            # Set file's current position at offset.
+            f.seek(0)
+            # convert back to json.
+            json.dump(file_data, f, indent=4)
+            f.truncate()
+
+
+        return JSONResponse(
+            content={'status': 'Success', "coeff_determination": df.to_json(orient='records'),
+                     'intercept': loaded_model.intercept_,
+                     'dependent_param':test_params['dependent_variable'], 'independent_params':test_params['independent_variables'],
+                     'result_dataset':result_dataset.to_json(orient='records')},
+            status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status': test_status, "coeff_determination": '[]',
+                     'intercept': '',
+                     'dependent_param':'', 'independent_params':'','result_dataset':'[]'},
+            status_code=200)
