@@ -3458,7 +3458,15 @@ async def kaplan_meier(workflow_id: str,
         confidence_interval_cumulative_density.insert(0, "timeline", timeline)
         confidence_interval_cumulative_density.columns = confidence_interval_cumulative_density.columns.str.replace('.', ',', regex=True)
         cumulative_density.insert(0, "timeline", timeline)
-        test_status = 'Erro in creating info file.'
+        test_status = 'Error in creating info file.'
+        # print(df.to_string() +'\n'+
+        #             confidence_interval.to_string()+'\n'+
+        #             event_table.to_string()+'\n'+
+        #             conditional_time_to_event.to_string()+'\n'+
+        #            confidence_interval_cumulative_density.to_string()+'\n'+
+        #             cumulative_density.to_string()+'\n'+
+        #             timeline.to_string()+'\n'+
+        #             str(median_survival_time))
         with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
             file_data = json.load(f)
             file_data['results'] |= {
@@ -4871,7 +4879,6 @@ async def covariance(workflow_id: str,
             sns.heatmap(df, annot=True, fmt='.3g', xticklabels=dataset.columns,
                         yticklabels=dataset.columns, cmap='YlGnBu')
             if os.path.exists(path_to_storage + "/output/Cov.svg"):
-                print('file exists')
                 os.remove(path_to_storage + "/output/Cov.svg")
             plt.savefig(path_to_storage + "/output/Cov.svg", format="svg")
             df.insert(loc=0, column='Cov matrix', value=dataset.columns)
