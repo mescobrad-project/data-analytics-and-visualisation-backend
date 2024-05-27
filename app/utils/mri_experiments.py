@@ -29,7 +29,7 @@ def run_experiment(data_path,
     os.makedirs(exp_dir)
 
     # hyperparams
-    #batch_size = 8
+    #batch_size = 5
     #lr = 0.001
     #scheduler_step_size = 5  #StepLR
     #scheduler_gamma = 0.75   #StepLR
