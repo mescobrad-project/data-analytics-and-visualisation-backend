@@ -159,7 +159,11 @@ ExistingFunctions = [
     "structural_equation_models_optimization",
     'exploratory_factor_analysis_extract_latent_structure',
     'linearregressionmodelcreation',
+    'logisticregressionmodelcreation',
+    'SVCregressionmodelcreation',
     'LinearRegressionModelLoad',
+    'LogisticRegressionModelLoad',
+    'SVCModelLoad',
     'valuesimputation',
     # Dashboard
     "dashboard",
@@ -514,6 +518,14 @@ async def function_navigation(navigation_item: FunctionNavigationItem, request: 
                 url_to_redirect += "/LinearRegressionModelCreation"
             case "linearregressionmodelload":
                 url_to_redirect += "/LinearRegressionModelLoad"
+            case "logisticregressionmodelcreation":
+                url_to_redirect += "/LogisticRegressionModelCreation"
+            case "logisticregressionmodelload":
+                url_to_redirect += "/LogisticRegressionModelLoad"
+            case "SVCregressionmodelcreation":
+                url_to_redirect += "/SVCModelCreation"
+            case "SVCregressionmodelload":
+                url_to_redirect += "/SVCModelLoad"
             case "valuesimputation":
                 url_to_redirect += "/ValuesImputation"
             # Dashboard

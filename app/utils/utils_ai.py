@@ -1,5 +1,5 @@
-from sklearn.linear_model import LinearRegression
-
+from sklearn.linear_model import LinearRegression, LogisticRegression
+from sklearn.svm import SVC
 
 def train_linear_regression(X_train, y_train):
     """
@@ -16,3 +16,19 @@ def train_linear_regression(X_train, y_train):
     linear_model.fit(X_train, y_train)
 
     return linear_model
+
+def train_logistic_regression(X_train, y_train):
+
+    logistic_model = LogisticRegression()
+    # Train the model
+    logistic_model.fit(X_train, y_train)
+
+    return logistic_model
+
+def train_SVC(X_train, y_train):
+
+    SVC_model = SVC()
+    # Train the model
+    SVC_model.fit(X_train, y_train)
+
+    return SVC_model
