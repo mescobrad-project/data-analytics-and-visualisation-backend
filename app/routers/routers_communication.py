@@ -161,9 +161,13 @@ ExistingFunctions = [
     'linearregressionmodelcreation',
     'logisticregressionmodelcreation',
     'SVCregressionmodelcreation',
-    'LinearRegressionModelLoad',
-    'LogisticRegressionModelLoad',
-    'SVCModelLoad',
+    'XGBoostmodelcreation',
+    'Linearregressionmodelload',
+    'Logisticregressionmodelload',
+    'XGBoostmodelload',
+    'SVCmodelload',
+    'autoencodermodelcreation',
+    'autoencodermodelload'
     'valuesimputation',
     # Dashboard
     "dashboard",
@@ -522,10 +526,18 @@ async def function_navigation(navigation_item: FunctionNavigationItem, request: 
                 url_to_redirect += "/LogisticRegressionModelCreation"
             case "logisticregressionmodelload":
                 url_to_redirect += "/LogisticRegressionModelLoad"
-            case "SVCregressionmodelcreation":
+            case "SVCmodelcreation":
                 url_to_redirect += "/SVCModelCreation"
-            case "SVCregressionmodelload":
+            case "SVCmodelload":
                 url_to_redirect += "/SVCModelLoad"
+            case "XGBoostmodelcreation":
+                url_to_redirect += "/XGBoostModelCreation"
+            case "XGBoostmodelload":
+                url_to_redirect += "/XGBoostModelLoad"
+            case "autoencodermodelcreation":
+                url_to_redirect += "/AutoencoderModelCreation"
+            case "autoencodermodelload":
+                url_to_redirect += "/AutoencoderModelLoad"
             case "valuesimputation":
                 url_to_redirect += "/ValuesImputation"
             # Dashboard
