@@ -2046,6 +2046,13 @@ async def actigraphy_string_sleep_statistics(workflow_id: str,
     # print(df_sleep_stats)
     # print(json_count_trans_matrix)
     # print(json_probs_trans_matrix)
+    print(json_duration)
+    print(json_sleep_stats)
+    csv_sleep_stats_filepath = get_local_storage_path(workflow_id, run_id,
+                               step_id) + "/output/sleep_statistics.csv"
+    df = pd.read_json(json_sleep_stats)
+    transposed_df = df.transpose()
+    transposed_df.to_csv(csv_sleep_stats_filepath, index=True)
     return {
         "duration": json_duration,
         "sleep_stats": json_sleep_stats,
@@ -2054,6 +2061,16 @@ async def actigraphy_string_sleep_statistics(workflow_id: str,
         "annotations": json_annotations,
         "periods": json_periods
     }
+
+# @router.get("/send_sleep_stats_to_trino", tags=["actigraphy_analysis"])
+# async def send_sleep_stats_to_trino(workflow_id: str,
+#                                     run_id: str,
+#                                     step_id: str,
+#                                     filename: str,
+#                                     institution: str,
+#                                     workspace_id: str):
+#     # From here we will send the sleep statistics csv to trino
+#     return 1
 
 @router.get("/actigraphy_int_sleep_statistics", tags=["actigraphy_analysis"])
 async def actigraphy_int_sleep_statistics(workflow_id: str,
