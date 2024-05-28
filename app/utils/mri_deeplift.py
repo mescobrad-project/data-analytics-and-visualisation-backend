@@ -57,6 +57,8 @@ def visualize_dl(model_path,
     # DeepLift
     dl = DeepLift(wrapped_model)
     attributions = dl.attribute(tensor_mri, target=top_class.item()).detach().cpu().squeeze().permute(1, 2, 0).numpy() #(256, 256, 160)
+    #nib.save(nib.Nifti1Image(attributions, affine=np.eye(4)), os.path.join(heatmap_path, 'attributions.nii'))
+    np.save(os.path.join(heatmap_path, 'attributions.npy'), attributions)
 
     torch.cuda.empty_cache()
 
