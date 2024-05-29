@@ -19,7 +19,8 @@ async def ai_mri_training_experiment(
         lr: float,
         scheduler_step_size: int,
         scheduler_gamma: float,
-        early_stopping_patience: int
+        early_stopping_patience: int,
+        trainable_feature_layers: list = None
        ) -> dict:
     results = run_experiment(data_path,
                              csv_path,
@@ -29,7 +30,8 @@ async def ai_mri_training_experiment(
                              lr,
                              scheduler_step_size,
                              scheduler_gamma,
-                             early_stopping_patience)
+                             early_stopping_patience,
+                             trainable_feature_layers)
     return {"results": results}
     # files = get_files_for_slowwaves_spindle(workflow_id, run_id, step_id)
     # path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)

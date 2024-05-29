@@ -23,7 +23,8 @@ def run_experiment(data_path,
                    lr,
                    scheduler_step_size,
                    scheduler_gamma,
-                   early_stopping_patience
+                   early_stopping_patience,
+                   trainable_feature_layers
                    ):
 
     assert type in ['custom', 'resnet']
@@ -49,7 +50,7 @@ def run_experiment(data_path,
         if type == 'custom':
             model = Conv3D()
         else:
-            model = ResNet18_3D()
+            model = ResNet18_3D(trainable_feature_layers)
 
         #training
         train_losses_per_epoch, val_losses_per_epoch, trained_model = train_eval_model(train_dataloader,
