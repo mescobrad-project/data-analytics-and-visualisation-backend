@@ -4,11 +4,12 @@ import re
 import time
 import csv
 import traceback
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Request
 from mne.time_frequency import psd_array_multitaper
 from scipy.signal import butter, lfilter, sosfilt, freqs, freqs_zpk, sosfreqz
 from statsmodels.graphics.tsaplots import acf, pacf
 from scipy import signal
+from trino.dbapi import connect
 import mne
 import matplotlib.pyplot as plt
 import mpld3
@@ -18,13 +19,14 @@ from os.path import isfile, join
 from keycloak import KeycloakOpenID
 import shutil
 import tempfile
+import pytz
 from app.utils.utils_general import create_local_step, get_all_files_from_local_temp_storage, \
-    get_single_nii_file_from_local_temp_storage
+    get_single_nii_file_from_local_temp_storage, transform_dataframe
 from sqlalchemy.sql import text
 
 from app.utils.utils_general import validate_and_convert_peaks, validate_and_convert_power_spectral_density, \
     create_notebook_mne_plot, get_neurodesk_display_id, get_local_storage_path, get_single_file_from_local_temp_storage, \
-    NeurodesktopStorageLocation, get_local_neurodesk_storage_path
+    NeurodesktopStorageLocation, get_local_neurodesk_storage_path, csv_stats_to_trino
 
 from app.utils.utils_mri import load_stats_measurements_table, load_stats_measurements_measures, plot_aseg, \
     create_freesurfer_license
@@ -42,7 +44,7 @@ import paramiko
 
 from pydantic import BaseModel
 
-from trino.auth import BasicAuthentication
+from trino.auth import BasicAuthentication, JWTAuthentication
 from sqlalchemy import create_engine
 
 
@@ -950,37 +952,30 @@ async def reconall_stats_to_trino(workflow_id: str,
                                 step_id: str,
                                 run_id: str,
                                 reconall_source_file: str,
-                                schema: str,
+                                institution: str,
+                                workspace_id: str,
                                 folder_name: str) -> str:
 
     # TODO Change auth methods or create a super function for upload to trino
     try:
         #connect to trino
-        TRINO__USR = "mescobrad-dwh-user"
-        TRINO__PSW = "dwhouse"
-
-
-
+        TRINO_SCHEME = "https"
+        timezone = pytz.timezone("UTC")
+        #access_token = request.session.get("secret_key", None)
+        text_file = open("token.txt", "r")
+        access_token = text_file.read()
+        text_file.close()
+        print(access_token)
         engine = create_engine(
-            f"trino://{TRINO__USR}@trino.mescobrad.digital-enabler.eng.it:443/iceberg",
+            f"trino://trino.mescobrad.digital-enabler.eng.it:443/iceberg",
             connect_args={
-                "auth": BasicAuthentication(TRINO__USR, TRINO__PSW),
-                "http_scheme": "https",
+                "http_scheme" : TRINO_SCHEME,
+                "auth" : JWTAuthentication(access_token),
+                "timezone" : str(timezone),
             }
         )
 
         conn = engine.connect()
-
-        counter = 0.0
-        conn.execute(f"CREATE SCHEMA IF NOT EXISTS iceberg.{schema} WITH (location = 's3a://dwh-test/')")
-        if [elem for elem in conn.execute(f"SHOW TABLES FROM iceberg.{schema} LIKE 'reconall_mri_tabular_stats_test'")] != []:
-            # Check if workflow_id, run_id, step_id, reconall_source_file is already on trino (reconall_mri_tabular_stats_test)
-            id_list = conn.execute(f'\
-                       SELECT DISTINCT workflow_id, run_id, step_id, reconall_source_file, counter FROM iceberg.{schema}.reconall_mri_tabular_stats_test')
-            # id_list = [[0]]
-            for id in id_list:
-                if id[0] == workflow_id and id[1] == run_id and id[2] == step_id and id[3] == reconall_source_file:
-                    counter = max(float(id[4]) + 1, counter)
 
         path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
         path_to_stats = os.path.join(path_to_storage, "output", folder_name, "stats")
@@ -996,13 +991,15 @@ async def reconall_stats_to_trino(workflow_id: str,
                 #change to trino format
                 stats_dict["table"] = stats_dict["table"].drop(columns={"Hemisphere", "id"}, errors="ignore")
                 df = pd.melt(stats_dict["table"], id_vars=['StructName'], var_name='variable_name', value_name='variable_value')
-                df["source"] = filename
+                df["filename"] = filename
                 df["workflow_id"] = workflow_id
                 df["run_id"] = run_id
                 df["step_id"] = step_id
-                df["counter"] = counter
                 df["reconall_source_file"] = reconall_source_file
-                df = df.rename(columns={"StructName": "rowid"})
+                df["rowid"] = range(1, len(df) + 1)
+                df['variable_value'] = df['variable_value'].astype(str)
+                df["workspace_id"] = workspace_id
+                df["source"] = "workflow" + path_to_file.split("workflow")[1].replace("\\", "/") + " (tabular data)"
 
                 #concatenate to res
                 if first:
@@ -1011,23 +1008,19 @@ async def reconall_stats_to_trino(workflow_id: str,
                 else:
                     res = pd.concat([res, df], ignore_index=True)
 
+        res = transform_dataframe(res, ['filename', 'workflow_id', 'run_id', 'step_id', 'reconall_source_file', 'StructName'])
+
+        #,rowid,variable_name,variable_value,source_,workflow_id,run_id,step_id,reconall_source_file
+        #"source": workflow_id,"rowid": i,"variable_name": row[0].strip("# Measure "),"variable_value": row[1],"workspace_id"
         #append to trino table
-        df.to_sql(name='reconall_mri_tabular_stats_test', schema=schema, con=conn, if_exists='append',
-                 index=False, method='multi')
 
 
-        # Delete all old data with the same workflow_id, etc.
-        conn.execute(f"\
-        DELETE FROM iceberg.{schema}.reconall_mri_tabular_stats_test WHERE workflow_id = '{workflow_id}' AND run_id = '{run_id}' AND step_id = '{step_id}' AND reconall_source_file = '{reconall_source_file}' AND counter < {counter}")
+        res = res[['source', 'rowid', 'variable_name', 'variable_value', 'workspace_id']]
 
-        counter = 0.0
-        if [elem for elem in conn.execute(f"SHOW TABLES FROM iceberg.{schema} LIKE 'reconall_mri_measurement_stats_test'")] != []:
-            id_list = conn.execute(f"\
-                       SELECT DISTINCT workflow_id, run_id, step_id, reconall_source_file, counter FROM iceberg.{schema}.reconall_mri_measurement_stats_test")
-            # id_list = [[0]]
-            for id in id_list:
-                if id[0] == workflow_id and id[1] == run_id and id[2] == step_id and id[3] == reconall_source_file:
-                    counter = max(float(id[4]) + 1, counter)
+        res.to_csv("recon_all_table.csv")
+
+        to_return = res.copy()
+
         #for all files with measurement data
         first = True
         for filename in os.listdir(path_to_stats):
@@ -1042,11 +1035,12 @@ async def reconall_stats_to_trino(workflow_id: str,
                 stats_dict["dataframe"]["workflow_id"] = workflow_id
                 stats_dict["dataframe"]["run_id"] = run_id
                 stats_dict["dataframe"]["step_id"] = step_id
-                stats_dict["dataframe"]["counter"] = counter
                 stats_dict["dataframe"]["reconall_source_file"] = reconall_source_file
 
-                df = pd.melt(stats_dict["dataframe"], id_vars=["workflow_id", "run_id", "step_id", "reconall_source_file", "counter"], var_name='variable_name', value_name='variable_value')
-                df["source"] = filename
+                df = pd.melt(stats_dict["dataframe"], id_vars=["workflow_id", "run_id", "step_id", "reconall_source_file"], var_name='variable_name', value_name='variable_value')
+                df["filename"] = filename
+                df["rowid"] = df.index
+                df["source"] = "workflow" + path_to_file.split("workflow")[1].replace("\\", "/") + " (measurement data)"
                 #df = df.rename(columns={"StructName": "rowid"}) rowid or patient id ?
 
                 #concatenate to res
@@ -1057,11 +1051,55 @@ async def reconall_stats_to_trino(workflow_id: str,
                     res = pd.concat([res, df], ignore_index=True)
 
         #append to trino table
-        res.to_sql(name='reconall_mri_measurement_stats_test', schema=schema, con=conn, if_exists='append',
-                  index=False, method='multi')
+        res['variable_value'] = res['variable_value'].astype(str)
 
-        conn.execute(f"\
-        DELETE FROM iceberg.{schema}.reconall_mri_measurement_stats_test WHERE workflow_id = '{workflow_id}' AND run_id = '{run_id}' AND step_id = '{step_id}' AND reconall_source_file = '{reconall_source_file}' AND counter < {counter}")
+        #,workflow_id,run_id,step_id,reconall_source_file,variable_name,variable_value,source
+        #"source": workflow_id,"rowid": i,"variable_name": row[0].strip("# Measure "),"variable_value": row[1],"workspace_id"
+
+        res["workspace_id"] = workspace_id
+        res["rowid"] = res["rowid"].astype(int)
+
+        res = transform_dataframe(res, ['filename', 'workflow_id', 'run_id', 'step_id', 'reconall_source_file'])
+
+
+        res = res[['source', 'rowid', 'variable_name', 'variable_value', 'workspace_id']]
+
+
+        res.to_csv("recon_all_measurement.csv")
+
+        to_return = pd.concat([to_return, res], ignore_index=True)
+        to_return.to_csv("to_return.csv")
+
+        dtypes = {
+            'source': 'str',
+            'rowid': 'int',
+            'variable_name': 'str',
+            'variable_value': 'str',
+            'workspace_id': 'str'
+        }
+
+        pd.DataFrame({col: pd.Series(dtype=dt) for col, dt in dtypes.items()}).to_sql(name='testtest999',
+                                                                                      schema=institution,
+                                                                                      con=conn,
+                                                                                      if_exists='append',
+                                                                                      index=False,
+                                                                                      method='multi')
+
+        #Delete all old data with the same workflow_id, etc.
+
+        for filename in os.listdir(path_to_stats):
+            path_to_file = os.path.join(path_to_stats, filename)
+            if os.path.isfile(path_to_file):
+                measurement_data =  "workflow" + path_to_file.split("workflow")[1].replace("\\", "/") + " (measurement data)"
+                tabular_data =  "workflow" + path_to_file.split("workflow")[1].replace("\\", "/") + " (tabular data)"
+
+                conn.execute(f"\
+                DELETE FROM iceberg.{institution}.testtest999 WHERE (source = '{measurement_data}' OR source = '{tabular_data}') AND workspace_id = '{workspace_id}'")
+
+
+        to_return.to_sql(name='testtest999', schema=institution, con=conn, if_exists='append',
+                  index=False, method='multi', chunksize=20000)
+
         return JSONResponse(content='Stats have been successfully uploaded to Trino', status_code=200)
     except Exception as e:
         print(e)
@@ -1075,37 +1113,32 @@ async def samseg_stats_to_trino(workflow_id: str,
                                 step_id: str,
                                 run_id: str,
                                 samseg_source_file: str,
-                                schema: str) -> str:
+                                institution: str,
+                                workspace_id: str,
+                                request: Request) -> str:
     try:
-        #patient id psakse an ginetai apo nifti
-        #connect to trino
-        TRINO__USR = "mescobrad-dwh-user"
-        TRINO__PSW = "dwhouse"
 
-
-
+        TRINO_SCHEME = "https"
+        timezone = pytz.timezone("UTC")
+        # access_token = request.session.get("secret_key", None)
+        text_file = open("token.txt", "r")
+        access_token = text_file.read()
+        text_file.close()
+        print(access_token)
         engine = create_engine(
-            f"trino://{TRINO__USR}@trino.mescobrad.digital-enabler.eng.it:443/iceberg",
+            f"trino://trino.mescobrad.digital-enabler.eng.it:443/iceberg",
             connect_args={
-                "auth": BasicAuthentication(TRINO__USR, TRINO__PSW),
-                "http_scheme": "https",
+                "http_scheme" : TRINO_SCHEME,
+                "auth" : JWTAuthentication(access_token),
+                "timezone" : str(timezone),
             }
         )
 
-        conn = engine.connect()
-        #TODO Check location
-        conn.execute(f"CREATE SCHEMA IF NOT EXISTS iceberg.{schema} WITH (location = 's3a://dwh-test/')")
-        counter = 0.0
-        if [elem for elem in conn.execute(f"SHOW TABLES FROM iceberg.{schema} LIKE 'samseg_stats_test'")] != []:
-            id_list = conn.execute(f'\
-                       SELECT DISTINCT workflow_id, run_id, step_id, samseg_source_file, counter FROM iceberg.{schema}.samseg_stats_test')
-            # id_list = [[0]]
-            for id in id_list:
-                if id[0] == workflow_id and id[1] == run_id and id[2] == step_id and id[3] == samseg_source_file:
-                    counter = max(float(id[4]) + 1, counter)
 
+        conn = engine.connect()
         path_to_file = get_local_storage_path(workflow_id, run_id, step_id)
         path_to_file = os.path.join(path_to_file, "output", "samseg_output", "samseg.stats")
+        source = "workflow" + path_to_file.split("workflow")[1].replace("\\", "/")
 
         with open(path_to_file, newline="") as csvfile:
             if not os.path.isfile(path_to_file):
@@ -1116,30 +1149,204 @@ async def samseg_stats_to_trino(workflow_id: str,
             for row in reader:
                 i += 1
                 temp_to_append = {
+                    "source": source,
                     "rowid": i,
-                    "measure": row[0].strip("# Measure "),
-                    "value": row[1],
-                    "unit": row[2]
+                    "variable_name": row[0].strip("# Measure "),
+                    "variable_value": row[1],
+                    "workspace_id": workspace_id
                 }
                 results_array.append(temp_to_append)
 
-        df = pd.DataFrame.from_records(results_array)
-        df["workflow_id"] = workflow_id
-        df["run_id"] = run_id
-        df["step_id"] = step_id
-        df["counter"] = counter
-        df["samseg_source_file"] = samseg_source_file
+                temp_to_append = {
+                    "source": source,
+                    "rowid": i,
+                    "variable_name": "workflow_id",
+                    "variable_value": workflow_id,
+                    "workspace_id": workspace_id
+                }
+                results_array.append(temp_to_append)
 
-        df.to_sql(name='samseg_stats_test', schema=schema, con=conn, if_exists='append',
+                temp_to_append = {
+                    "source": source,
+                    "rowid": i,
+                    "variable_name": "run_id",
+                    "variable_value": run_id,
+                    "workspace_id": workspace_id
+                }
+                results_array.append(temp_to_append)
+
+                temp_to_append = {
+                    "source": source,
+                    "rowid": i,
+                    "variable_name": "step_id",
+                    "variable_value": step_id,
+                    "workspace_id": workspace_id
+                }
+                results_array.append(temp_to_append)
+
+                temp_to_append = {
+                    "source": source,
+                    "rowid": i,
+                    "variable_name": "samseg_source_file",
+                    "variable_value": samseg_source_file,
+                    "workspace_id": workspace_id
+                }
+                results_array.append(temp_to_append)
+
+
+        df = pd.DataFrame.from_records(results_array)
+
+
+        df = df[['source', 'rowid', 'variable_name', 'variable_value', 'workspace_id']]
+
+        df.to_csv("recon_all_table.csv")
+
+        dtypes = {
+            'source': 'str',
+            'rowid': 'int',
+            'variable_name': 'str',
+            'variable_value': 'str',
+            'workspace_id': 'str'
+        }
+
+        pd.DataFrame({col: pd.Series(dtype=dt) for col, dt in dtypes.items()}).to_sql(name='testtest999',
+                                                                                      schema=institution,
+                                                                                      con=conn,
+                                                                                      if_exists='append',
+                                                                                      index=False,
+                                                                                      method='multi')
+
+        #Delete all old data with the same workflow_id, etc.
+        conn.execute(f"\
+        DELETE FROM iceberg.{institution}.testtest999 WHERE source = '{source}' AND workspace_id = '{workspace_id}'")
+
+
+        df.to_sql(name='testtest999', schema=institution, con=conn, if_exists='append',
                   index=False, method='multi')
 
-        conn.execute(f"\
-        DELETE FROM iceberg.{schema}.samseg_stats_test WHERE workflow_id = '{workflow_id}' AND run_id = '{run_id}' AND step_id = '{step_id}' AND samseg_source_file = '{samseg_source_file}' AND counter < {counter}")
         return JSONResponse(content='Stats have been successfully uploaded to Trino', status_code=200)
     except Exception as e:
         print(e)
         traceback.print_exc()
         return JSONResponse(content='Error in uploading stats to Trino',status_code=501)
+
+@router.put("/csv_stats_to_trino_")
+#All samseg stats to trino both tabular and measurements
+async def csv_stats_to_trino_(workflow_id: str,
+                                step_id: str,
+                                run_id: str,
+                                source_file: str,
+                                institution: str,
+                                workspace_id: str,
+                                request: Request) -> str:
+    print(csv_stats_to_trino(workflow_id,step_id,run_id,source_file,institution,workspace_id,[]))
+
+# @router.put("/samseg_stats_to_trino")
+# #All samseg stats to trino both tabular and measurements
+# async def samseg_stats_to_trino(workflow_id: str,
+#                                 step_id: str,
+#                                 run_id: str,
+#                                 samseg_source_file: str,
+#                                 schema: str,
+#                                 request: Request) -> str:
+#     try:
+#         #patient id psakse an ginetai apo nifti
+#         #connect to trino
+#         # TRINO__USR = "mescobrad-dwh-user"
+#         # TRINO__PSW = "dwhouse"
+#         #
+#         #
+#         #
+#         # engine = create_engine(
+#         #     f"trino://{TRINO__USR}@trino.mescobrad.digital-enabler.eng.it:443/iceberg",
+#         #     connect_args={
+#         #         "auth": BasicAuthentication(TRINO__USR, TRINO__PSW),
+#         #         "http_scheme": "https",
+#         #     }
+#         # )
+#
+#         TRINO_HOST = "trino.mescobrad.digital-enabler.eng.it"
+#         TRINO_PORT = "443"
+#         TRINO_SCHEME = "https"
+#         timezone = pytz.timezone("UTC")
+#         access_token = request.session.get("secret_key", None)
+#         text_file = open("token.txt", "r")
+#         access_token = text_file.read()
+#         text_file.close()
+#         print(access_token)
+#         engine = create_engine(
+#             f"trino://trino.mescobrad.digital-enabler.eng.it:443/iceberg",
+#             connect_args={
+#                 "http_scheme" : TRINO_SCHEME,
+#                 "auth" : JWTAuthentication(access_token),
+#                 "timezone" : str(timezone),
+#             }
+#         )
+#
+#
+#         # client = connect(
+#         #     host=TRINO_HOST,
+#         #     port=TRINO_PORT,
+#         #     http_scheme=TRINO_SCHEME,
+#         #     auth=JWTAuthentication(access_token),
+#         #     timezone=str(timezone),
+#         #     #verify=False,
+#         # )
+#         # print(client)
+#
+#         conn = engine.connect()
+#         # print([elem for elem in conn.execute("SHOW SCHEMAS IN iceberg")])
+#         #TODO Check location
+#         schema = "staging_area"
+#
+#         print([elem for elem in conn.execute(f"SHOW TABLES FROM iceberg.{schema}")])
+#         return
+#
+#         #conn.execute(f"CREATE SCHEMA IF NOT EXISTS iceberg.{schema} WITH (location = 's3a://common/')")
+#         # counter = 0.0
+#         # if [elem for elem in conn.execute(f"SHOW TABLES FROM iceberg.{schema} LIKE 'test'")] != []:
+#         #     id_list = conn.execute(f'\
+#         #                SELECT DISTINCT workflow_id, run_id, step_id, samseg_source_file, counter FROM iceberg.{schema}.samseg_stats_test')
+#         #     # id_list = [[0]]
+#         #     for id in id_list:
+#         #         if id[0] == workflow_id and id[1] == run_id and id[2] == step_id and id[3] == samseg_source_file:
+#         #             counter = max(float(id[4]) + 1, counter)
+#
+#         path_to_file = get_local_storage_path(workflow_id, run_id, step_id)
+#         path_to_file = os.path.join(path_to_file, "output", "samseg_output", "samseg.stats")
+#
+#         with open(path_to_file, newline="") as csvfile:
+#             if not os.path.isfile(path_to_file):
+#                 return []
+#             reader = csv.reader(csvfile, delimiter=',')
+#             results_array = []
+#             i = 0
+#             for row in reader:
+#                 i += 1
+#                 temp_to_append = {
+#                     "rowid": i,
+#                     "measure": row[0].strip("# Measure "),
+#                     "value": row[1],
+#                     "unit": row[2]
+#                 }
+#                 results_array.append(temp_to_append)
+#
+#         df = pd.DataFrame.from_records(results_array)
+#         df["workflow_id"] = workflow_id
+#         df["run_id"] = run_id
+#         df["step_id"] = step_id
+#         df["samseg_source_file"] = samseg_source_file
+#
+#         df.to_sql(name='test123', schema=schema, con=conn, if_exists='append',
+#                   index=False, method='multi')
+#
+#         # conn.execute(f"\
+#         # DELETE FROM iceberg.{schema}.samseg_stats_test WHERE workflow_id = '{workflow_id}' AND run_id = '{run_id}' AND step_id = '{step_id}' AND samseg_source_file = '{samseg_source_file}' AND counter < {counter}")
+#         return JSONResponse(content='Stats have been successfully uploaded to Trino', status_code=200)
+#     except Exception as e:
+#         print(e)
+#         traceback.print_exc()
+#         return JSONResponse(content='Error in uploading stats to Trino',status_code=501)
 
 @router.get("/reconall_files_to_local")
 async def reconall_files_to_local(workflow_id: str,

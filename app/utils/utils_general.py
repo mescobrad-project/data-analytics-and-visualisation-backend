@@ -2,7 +2,8 @@
 import json
 import time
 from os.path import isfile, join
-
+import traceback
+import trino
 import nbformat as nbf
 import pandas as pd
 import paramiko
@@ -12,6 +13,10 @@ import mne
 from mne.preprocessing import ICA
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler,DirCreatedEvent,FileCreatedEvent
+from fastapi import Request
+from trino.auth import BasicAuthentication, JWTAuthentication
+from sqlalchemy import create_engine
+import pytz
 
 from app.utils.utils_datalake import get_saved_dataset_for_Hypothesis
 
@@ -494,6 +499,115 @@ def write_function_data_to_config_file(parameter_data: dict | list, result_data:
         return "error: parameter_data and result_data type should the same"
 
 
+# Function to transform the dataframe
+def transform_dataframe(df, additional_columns):
+    rows = []
+    for _, row in df.iterrows():
+        rows.append({
+            'source': row['source'],
+            'rowid': row['rowid'],
+            'variable_name': row['variable_name'],
+            'variable_value': row['variable_value'],
+            'workspace_id': row['workspace_id']
+        })
+        for col in additional_columns:
+            rows.append({
+                'source': row['source'],
+                'rowid': row['rowid'],
+                'variable_name': col,
+                'variable_value': row[col],
+                'workspace_id': row['workspace_id']
+            })
+    return pd.DataFrame(rows)
+
+
+def csv_stats_to_trino(workflow_id: str,
+                       step_id: str,
+                       run_id: str,
+                       source_file: str,
+                       institution: str,
+                       workspace_id: str,
+                       request: Request) -> str:
+    try:
+
+        TRINO_SCHEME = "https"
+        timezone = pytz.timezone("UTC")
+        #access_token = request.session.get("secret_key", None)
+
+        text_file = open("token.txt", "r")
+        access_token = text_file.read()
+        text_file.close()
+
+        engine = create_engine(
+            f"trino://trino.mescobrad.digital-enabler.eng.it:443/iceberg",
+            connect_args={
+                "http_scheme" : TRINO_SCHEME,
+                "auth" : JWTAuthentication(access_token),
+                "timezone" : str(timezone),
+            }
+        )
+
+        conn = engine.connect()
+
+        path_to_file = get_local_storage_path(workflow_id, run_id, step_id)
+        path_to_file = os.path.join(path_to_file, "output", source_file)
+
+        df = pd.read_csv(path_to_file, sep=",", header=0)
+        print(df.columns)
+
+        if not isinstance(df.index, pd.RangeIndex):
+            if len(df.columns) != 1:
+                return 'Error in uploading stats to Trino; If the index is not a range index, the csv must have 1 column'
+            df.rename(columns={df.columns[0]: "variable_value"}, inplace=True)
+            df["variable_name"] = df.index
+        else:
+            if len(df.columns) != 2:
+                return 'Error in uploading stats to Trino; If the index is a range index, the csv must have 2 columns'
+            df.rename(columns={df.columns[0]: "variable_name"}, inplace=True)
+            df.rename(columns={df.columns[1]: "variable_value"}, inplace=True)
+
+        df["rowid"] = range(1, len(df) + 1)
+        df["workflow_id"] = workflow_id
+        df["run_id"] = run_id
+        df["step_id"] = step_id
+        df["source"] = "workflow" + path_to_file.split("workflow")[1].replace("\\", "/")
+        df["variable_value"] = df["variable_value"].astype(str)
+        df["workspace_id"] = workspace_id
+
+        df = transform_dataframe(df, ['workflow_id', 'run_id', 'step_id', 'source'])
+        df = df[['source', 'rowid', 'variable_name', 'variable_value', 'workspace_id']]
+        df.to_csv("dataframe.csv")
+
+        dtypes = {
+            'source': 'str',
+            'rowid': 'int',
+            'variable_name': 'str',
+            'variable_value': 'str',
+            'workspace_id': 'str'
+        }
+
+        pd.DataFrame({col: pd.Series(dtype=dt) for col, dt in dtypes.items()}).to_sql(name='testtest999',
+                                                                                      schema=institution,
+                                                                                      con=conn,
+                                                                                      if_exists='append',
+                                                                                      index=False,
+                                                                                      method='multi')
+
+
+        #Delete all old data with the same workflow_id, etc.
+        conn.execute(f"\
+        DELETE FROM iceberg.{institution}.testtest999 WHERE source = '{source_file}' AND workspace_id = '{workspace_id}'")
+
+        df.to_csv("general_test.csv")
+
+        df.to_sql(name="testtest999", schema=institution, con=conn, if_exists='append',
+                  index=False, method='multi')
+
+        return 'Success'
+    except Exception as e:
+        print(e)
+        traceback.print_exc()
+        return 'Error in uploading stats to Trino'
 
 
 
