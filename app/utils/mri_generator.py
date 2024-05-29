@@ -53,9 +53,7 @@ class MRI_Generator(Dataset):
 
         # sub = self.dataframe.loc[self.dataframe['mri'] == str(mri_file)[:-4], 'mri'].values[0] #works ok, correct sub-label assignment
         resized_map = torch.from_numpy(nib.load(mri_path).get_fdata()).float()
-        print(resized_map.min(), resized_map.max())
         resized_map = (resized_map - resized_map.min()) / (resized_map.max() - resized_map.min())   # Normalize the MRI values to [0, 1]
-        print(resized_map.min(), resized_map.max())
         label = self.dataframe.loc[self.dataframe['mri'] == str(mri_file)[:-4], 'label'].values[0]  # [:-4] to skip the '.nii' extension
                                                                                                     # should be ok for all '.nii' files
 
