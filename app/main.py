@@ -187,6 +187,7 @@ app = FastAPI(openapi_tags=tags_metadata)
 origins = [
            "http://localhost:8000",
            "http://localhost:3005",
+           "http://localhost:4000",
             "https://analytics.platform.mes-cobrad.eu",
             "https://analyticsbk.platform.mes-cobrad.eu"
             "https://es.platform.mes-cobrad.eu/",
