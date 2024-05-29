@@ -57,8 +57,8 @@ def visualize_dl(model_path,
 
     # DeepLift
     dl = DeepLift(wrapped_model)
-    attributions = dl.attribute(tensor_mri, target=top_class.item()).detach().cpu().squeeze().permute(1, 2, 0).numpy() #(256, 256, 160)
-    print('attributions', attributions.min(), attributions.max(), attributions.shape)
+    attributions = dl.attribute(tensor_mri, target=top_class.item()).detach().cpu().squeeze().permute(1, 2, 0).numpy()
+    #attributions shape is (256, 256, 160) & they have both negative and positive values (thus normalization to [0,1] is needed for plot)
     #nib.save(nib.Nifti1Image(attributions, affine=np.eye(4)), os.path.join(heatmap_path, 'attributions.nii')) #save an nii
     #np.save(os.path.join(heatmap_path, 'attributions.npy'), attributions) #save as numpy array
 
@@ -66,7 +66,7 @@ def visualize_dl(model_path,
 
     # Prepare data for plotting
     attributions = normalize(attributions)
-    tensor_mri = tensor_mri.detach().cpu().squeeze().permute(1, 2, 0).numpy() #(256, 256, 160)
+    tensor_mri = tensor_mri.detach().cpu().squeeze().permute(1, 2, 0).numpy() #convert mri to numpy array of shape (256, 256, 160)
 
     if axis == 'Sagittal':
         mri_slice = tensor_mri[:, :, slice_idx]
@@ -79,19 +79,14 @@ def visualize_dl(model_path,
         attr_slice = attributions[slice_idx, :, :]
 
     fig, ax = plt.subplots(figsize=(8, 8))
-    #ax.imshow(normalize(mri_slice), cmap='Greys')
     ax.imshow(mri_slice, cmap='Greys')
-    #sorted_values = np.sort(normalize(attr_slice).flatten())[::-1]
     sorted_values = np.sort(attr_slice.flatten())[::-1]
     threshold = sorted_values[int(tensor_mri.shape[0] * tensor_mri.shape[1] * 0.01) - 1]
     ax.imshow(np.where(attr_slice > threshold, attr_slice, 0),
-              cmap=LinearSegmentedColormap.from_list(name='blues',
-                                                     colors=[(1, 0, 0, 0), "blue", "blue", "blue", "blue", "blue"],
-                                                     N=5000),
+              cmap=LinearSegmentedColormap.from_list(name='blues', colors=[(1, 0, 0, 0), "blue", "blue", "blue", "blue", "blue"], N=5000),
               interpolation='gaussian')
 
     ax.set_title(f'Prediction: {group} (prob: {round(top_prob.item(), 2)}) \n\n MRI(Grey) vs DeepLift Attributions(Blue) Overlay \n {axis} plane no. {slice_idx}')
-    #ax.set_title(f'MRI(Grey) vs DeepLift Attributions(Blue) Overlay\npred: {group} (prob: {round(top_prob.item(), 2)})\n{axis} slice {slice_idx}')
 
     # Save and show plot
     plt.savefig(os.path.join(heatmap_path, heatmap_name))
