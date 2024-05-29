@@ -5,7 +5,7 @@ from collections import OrderedDict
 class ResNet18_3D(nn.Module):
 
     def __init__(self,
-                 trainable_feature_layers=None):
+                 trainable_feature_layers):
         super(ResNet18_3D, self).__init__()
 
         resnet = torchvision.models.video.r3d_18(pretrained=True)
