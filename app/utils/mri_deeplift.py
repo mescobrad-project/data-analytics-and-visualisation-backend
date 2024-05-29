@@ -41,6 +41,7 @@ def visualize_dl(model_path,
     # Load MRI
     mri = nib.load(mri_path).get_fdata()
     tensor_mri = torch.from_numpy(mri).unsqueeze(0).unsqueeze(0)
+    tensor_mri = normalize(tensor_mri)
 
     # Set device
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -76,7 +77,8 @@ def visualize_dl(model_path,
         attr_slice = attributions[slice_idx, :, :]
 
     fig, ax = plt.subplots(figsize=(8, 8))
-    ax.imshow(normalize(mri_slice), cmap='Greys')
+    #ax.imshow(normalize(mri_slice), cmap='Greys')
+    ax.imshow(mri_slice, cmap='Greys')
     sorted_values = np.sort(normalize(attr_slice).flatten())[::-1]
     threshold = sorted_values[int(tensor_mri.shape[0] * tensor_mri.shape[1] * 0.01) - 1]
     ax.imshow(np.where(normalize(attr_slice) > threshold, normalize(attr_slice), 0),

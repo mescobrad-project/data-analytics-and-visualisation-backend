@@ -9,7 +9,8 @@ class Conv3D(nn.Module):
         super(Conv3D, self).__init__()
 
         self.num_labels = 2
-        self.classifier = nn.Linear(512, self.num_labels)
+        self.dense = nn.Linear(512, 64)
+        self.classifier = nn.Linear(64, self.num_labels)
         self.in_channels = 1  # because only FLAIR
         self.group1 = nn.Sequential(
             nn.Conv3d(self.in_channels, 64, kernel_size=3, padding=1),
@@ -52,8 +53,9 @@ class Conv3D(nn.Module):
         out = self.group3(out)
         out = self.group4(out)
         out = self.group5(out)
-        out = self.group6(out)
+        #out = self.group6(out)
         y = torch.mean(out.view(out.size(0), out.size(1), -1), dim=2)
+        y = self.dense(y)
         logits = self.classifier(y)
 
         loss = None
