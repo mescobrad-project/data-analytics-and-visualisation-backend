@@ -18,13 +18,13 @@ NeurodesktopStorageLocation = os.environ.get('NeurodesktopStorageLocation') if o
 def run_experiment(data_path,
                    csv_path,
                    type,
+                   trainable_feature_layers,
                    iterations,
                    batch_size,
                    lr,
                    scheduler_step_size,
                    scheduler_gamma,
-                   early_stopping_patience,
-                   trainable_feature_layers
+                   early_stopping_patience
                    ):
 
     assert type in ['custom', 'resnet']
