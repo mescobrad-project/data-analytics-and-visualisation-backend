@@ -39,10 +39,10 @@ class ResNet18_3D(nn.Module):
             self.freeze = [layer for i, layer in enumerate(all_layers) if i not in trainable_feature_layers]
         '''
 
-        layers_to_freeze = [resnet.layer1[0], resnet.layer1[1],
-                            resnet.layer2[0], resnet.layer2[1],
-                            resnet.layer3[0], resnet.layer3[1],
-                            resnet.layer4[0]]
+        layers_to_freeze = [self.resnet.layer1[0], self.resnet.layer1[1],
+                            self.resnet.layer2[0], self.resnet.layer2[1],
+                            self.resnet.layer3[0], self.resnet.layer3[1],
+                            self.resnet.layer4[0]]
         for child in layers_to_freeze:
             for param in child.parameters():
                 param.requires_grad = False
