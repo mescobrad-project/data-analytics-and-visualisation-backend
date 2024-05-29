@@ -190,8 +190,8 @@ origins = [
            "http://localhost:4000",
             "https://analytics.platform.mes-cobrad.eu",
             "https://analyticsbk.platform.mes-cobrad.eu"
-            "https://es.platform.mes-cobrad.eu/",
-            "https://esbk.platform.mes-cobrad.eu/",
+            "https://es.platform.mes-cobrad.eu",
+            "https://esbk.platform.mes-cobrad.eu",
             "http://109.178.212.89/"
             "https://109.178.212.89/"
           ]
