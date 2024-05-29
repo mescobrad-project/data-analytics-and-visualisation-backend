@@ -13,6 +13,7 @@ async def ai_mri_training_experiment(
         run_id: str,
         data_path: str,
         csv_path: str,
+        type: str,
         iterations : int,
         batch_size: int,
         lr: float,
@@ -22,6 +23,7 @@ async def ai_mri_training_experiment(
        ) -> dict:
     results = run_experiment(data_path,
                              csv_path,
+                             type,
                              iterations,
                              batch_size,
                              lr,

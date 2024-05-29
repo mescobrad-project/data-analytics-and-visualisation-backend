@@ -7,6 +7,7 @@ import torch
 import matplotlib.pyplot as plt
 
 from app.utils.conv3D import Conv3D
+from app.utils.resnet18_3d import ResNet18_3D
 from app.utils.mri_dataloaders import train_eval_dataloaders
 from app.utils.training import train_eval_model
 #from app.utils.testing import test_on_multiple_mris
@@ -16,6 +17,7 @@ NeurodesktopStorageLocation = os.environ.get('NeurodesktopStorageLocation') if o
 
 def run_experiment(data_path,
                    csv_path,
+                   type,
                    iterations,
                    batch_size,
                    lr,
@@ -23,6 +25,8 @@ def run_experiment(data_path,
                    scheduler_gamma,
                    early_stopping_patience
                    ):
+
+    assert type in ['custom', 'resnet']
 
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
     exp_dir = NeurodesktopStorageLocation + f'/model_data/saved_models_{timestamp}/'
@@ -42,7 +46,10 @@ def run_experiment(data_path,
                                                                    csv_path,
                                                                    batch_size)
 
-        model = Conv3D()
+        if type == 'custom':
+            model = Conv3D()
+        else:
+            model = ResNet18_3D()
 
         #training
         train_losses_per_epoch, val_losses_per_epoch, trained_model = train_eval_model(train_dataloader,
