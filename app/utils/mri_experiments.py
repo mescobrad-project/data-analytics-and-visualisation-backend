@@ -18,7 +18,6 @@ NeurodesktopStorageLocation = os.environ.get('NeurodesktopStorageLocation') if o
 def run_experiment(data_path,
                    csv_path,
                    type,
-                   trainable_feature_layers,
                    iterations,
                    batch_size,
                    lr,
@@ -50,7 +49,7 @@ def run_experiment(data_path,
         if type == 'custom':
             model = Conv3D()
         else:
-            model = ResNet18_3D(trainable_feature_layers)
+            model = ResNet18_3D()
 
         #training
         train_losses_per_epoch, val_losses_per_epoch, trained_model = train_eval_model(train_dataloader,
@@ -95,7 +94,6 @@ def run_experiment(data_path,
         # Save hyperparams to a text file
         with open(exp_dir + f'hyperparams_experiment{i + 1}.txt','w') as f:
             f.write(f'type: {type}\n')
-            f.write(f'trainable_feature_layers: {trainable_feature_layers}\n')
             f.write(f'batch_size: {batch_size}\n')
             #f.write(f'eval_size: {eval_size}\n')
             f.write(f'lr: {lr}\n')
