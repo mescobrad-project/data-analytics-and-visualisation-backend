@@ -189,6 +189,8 @@ origins = [
            "http://localhost:3005",
             "https://analytics.platform.mes-cobrad.eu",
             "https://analyticsbk.platform.mes-cobrad.eu"
+            "https://es.platform.mes-cobrad.eu/",
+            "https://esbk.platform.mes-cobrad.eu/"
           ]
 
 app.add_middleware(
