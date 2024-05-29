@@ -94,6 +94,8 @@ def run_experiment(data_path,
 
         # Save hyperparams to a text file
         with open(exp_dir + f'hyperparams_experiment{i + 1}.txt','w') as f:
+            f.write(f'type: {type}\n')
+            f.write(f'trainable_feature_layers: {trainable_feature_layers}\n')
             f.write(f'batch_size: {batch_size}\n')
             #f.write(f'eval_size: {eval_size}\n')
             f.write(f'lr: {lr}\n')
