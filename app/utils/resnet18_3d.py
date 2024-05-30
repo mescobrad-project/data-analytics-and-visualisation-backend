@@ -8,6 +8,10 @@ class ResNet18_3D(nn.Module):
         super(ResNet18_3D, self).__init__()
 
         self.resnet = torchvision.models.video.r3d_18(pretrained=True)
+
+        # Modify the first convolution layer to accept 1 channel instead of 3
+        self.resnet.stem[0] = nn.Conv3d(1, 64, kernel_size=(3, 7, 7), stride=(1, 2, 2), padding=(1, 3, 3), bias=False)
+
         self.resnet.fc = nn.Linear(self.resnet.fc.in_features, 2)
 
         '''
@@ -47,7 +51,6 @@ class ResNet18_3D(nn.Module):
             for param in child.parameters():
                 param.requires_grad = False
 
-    def trainable_params(self):
         print('No. of trainable params', sum(p.numel() for p in self.resnet.parameters() if p.requires_grad))
 
     def forward(self, x, labels=None):
