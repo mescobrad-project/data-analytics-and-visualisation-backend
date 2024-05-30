@@ -46,7 +46,7 @@ class ResNet18_3D(nn.Module):
         layers_to_freeze = [self.resnet.layer1[0], self.resnet.layer1[1],
                             self.resnet.layer2[0], self.resnet.layer2[1],
                             self.resnet.layer3[0], self.resnet.layer3[1],
-                            self.resnet.layer4[0]]
+                            self.resnet.layer4[0], self.resnet.layer4[1].conv1]
         for child in layers_to_freeze:
             for param in child.parameters():
                 param.requires_grad = False
