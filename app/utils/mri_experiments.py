@@ -59,7 +59,10 @@ def run_experiment(data_path,
                                                                                        scheduler_step_size,
                                                                                        scheduler_gamma,
                                                                                        early_stopping_patience)
-        torch.save(trained_model, exp_dir + f'{type(model).__name__}_experiment{i+1}.pth')
+        if type == 'custom':
+            torch.save(trained_model, exp_dir + f'{type(model).__name__}_experiment{i+1}.pth')
+        else:
+            torch.save(trained_model, exp_dir + f'resnet_experiment{i + 1}.pth')
         #torch.save(trained_model.state_dict(), '../saved_models/' + f'{type(model).__name__}_experiment{i+1}.pth')
 
         # Plotting train and validation losses

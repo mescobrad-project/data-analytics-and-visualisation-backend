@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Request
 from app.utils.mri_experiments import run_experiment
 from app.utils.mri_deeplift import visualize_dl
-from app.utils.mri_ggc import visualize_ggc
+#from app.utils.mri_ggc import visualize_ggc
 from app.utils.testing import mri_prediction, mris_batch_prediction
 
 router = APIRouter()
