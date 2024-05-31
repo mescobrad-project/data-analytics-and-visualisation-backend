@@ -68,7 +68,7 @@ class MoRF_3D():
             print('noise', noise.min(), noise.max(), noise.shape)
 
             slices = order_coronal_attributions(self.attributions.cpu().numpy()) #indices of attributions array for the 2nd dim
-            print('slices', slices.min(), slices.max(), slices.shape)
+            print('slices', min(slices), max(slices), len(slices))
             print('order_coronal_attributions calculated')
 
             for slice in slices:
