@@ -52,10 +52,14 @@ class MoRF_3D():
         perturbations = []
 
         with torch.no_grad():
+            print('right after torch no grad')
 
             _, raw_scores = self.model(self.mri)
+            print('raw scores: ', raw_scores)
             probs = softmax(raw_scores)
+            print('probs: ', probs)
             index = torch.argmax(probs)  # of top predicted class
+            print('index: ', index)
             class_prob = round(float(probs[0, index]), 3)
             print('class_prob', class_prob)
             perturbations.append(class_prob)
