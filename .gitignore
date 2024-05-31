@@ -69,6 +69,8 @@ local.properties
 # Reference: https://intellij-support.jetbrains.com/hc/en-us/articles/206544839
 
 # User-specific stuff
+.idea/*
+.idea/
 .idea/**/workspace.xml
 .idea/**/tasks.xml
 .idea/**/usage.statistics.xml
@@ -285,6 +287,7 @@ dist
 
 /anvizenv
 /example_data/NIA test.edf
+/example_data/MRIs_Epilepsy/*
 /annotation_test.csv
 /.idea/vcs.xml
 /.idea/inspectionProfiles/profiles_settings.xml

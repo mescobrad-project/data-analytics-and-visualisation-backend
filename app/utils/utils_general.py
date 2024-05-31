@@ -1,6 +1,7 @@
 # DO NOT AUTO FORMAT THIS FILE THE STRINGS ADDED TO MNE NOTEBOOKS ARE TAB AND SPACE SENSITIVE
 import json
 import time
+from datetime import datetime
 from os.path import isfile, join
 import traceback
 import trino
@@ -79,11 +80,11 @@ def get_output_info_path(workflow_id, run_id, step_id):
     return info_file_to_return
 
 def get_local_storage_path(workflow_id, run_id, step_id):
-    """Function returns path with / at the end"""
+    """Function returns path without / at the end"""
     return NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id
 
 def get_local_neurodesk_storage_path(workflow_id, run_id, step_id):
-    """Function returns path with / at the end"""
+    """Function returns path without / at the end"""
     return NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id + '/neurodesk_interim_storage'
 
 def load_data_from_csv(file_with_path):
@@ -99,7 +100,7 @@ def load_file_csv_direct(workflow_id, run_id, step_id ):
     return data
 
 
-def create_local_step(workflow_id, run_id, step_id, files_to_download):
+def create_local_step(workflow_id, run_id, step_id, files_to_download, session_token):
     """ files_to_download format is array of dicts with 'bucket' being bucket name 'file' object name each representing one file"""
     print("CREATING LOCAL STEP")
     print(files_to_download)
@@ -136,7 +137,7 @@ def create_local_step(workflow_id, run_id, step_id, files_to_download):
                 file_location_path = NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id + '/' + \
                                      file_location_path.split("/")[-1]
         print("file_location_path")
-        get_saved_dataset_for_Hypothesis(bucket_name=file_to_download["bucket"], object_name=file_to_download["file"], file_location=file_location_path)
+        get_saved_dataset_for_Hypothesis(bucket_name=file_to_download["bucket"], object_name=file_to_download["file"], file_location=file_location_path, session_token=session_token)
     # Info file might be unneeded
     with open( path_to_save + '/output/info.json', 'w', encoding='utf-8') as f:
         json.dump({"selected_datasets":files_to_download, "results":{}}, f)
@@ -478,6 +479,8 @@ def write_function_data_to_config_file(parameter_data: dict | list, result_data:
      if parameter_data or result_data is a list then each entry represents a different iteration (only in functions where
      it's applicable to do multiple iterations with different data in the same run)
       and each entry in the list should contain one dict as described above
+
+      THIS FUNCTIONS IS DEFUNCT!!
      """
 
     # Record misc information about the run
@@ -498,6 +501,46 @@ def write_function_data_to_config_file(parameter_data: dict | list, result_data:
     else:
         return "error: parameter_data and result_data type should the same"
 
+def create_info_json(workflow_id, run_id, step_id, test_name, test_params, test_results, output_datasets, saved_plots):
+    """ This functions should be called from a backend function and is used to create the appropriate info json file
+        The format of the expected variables is the following
+        test_params = { "parameter_name" : parameter_value}
+        test_results = {"test_results": test_results} But only if applicable
+        output_datasets = ["filename1", "filename2", "filename3"]
+        saved_plots = ["filename1", "filename2", "filename3"]
+    """
+    # Create list for output datasets and saved plots
+    output_datasets_to_add = []
+
+    for output_dataset_name in output_datasets:
+        output_datasets_to_add.append( {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                 step_id + '/analysis_output/' + output_dataset_name})
+
+    output_saved_plots_to_add= []
+
+    for saved_plot_name in saved_plots:
+        output_saved_plots_to_add.append({"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                               step_id + '/analysis_output/' + saved_plot_name})
+    new_data = {
+        "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+        "workflow_id": workflow_id,
+        "run_id": run_id,
+        "step_id": step_id,
+        "test_name": test_name,
+        "test_params": test_params,
+        "test_results": test_results,
+        'Output_datasets': output_datasets_to_add,
+        'Saved_plots': output_saved_plots_to_add
+    }
+    
+    print(new_data)
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+        file_data = json.load(f)
+        file_data['results'] |= new_data
+        f.seek(0)
+        json.dump(file_data, f, indent=4)
+        f.truncate()
 
 # Function to transform the dataframe
 def transform_dataframe(df, additional_columns):
@@ -608,6 +651,3 @@ def csv_stats_to_trino(workflow_id: str,
         print(e)
         traceback.print_exc()
         return 'Error in uploading stats to Trino'
-
-
-

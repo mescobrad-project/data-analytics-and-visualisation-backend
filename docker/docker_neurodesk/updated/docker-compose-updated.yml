@@ -12,7 +12,12 @@ services:
       - neurodesk-volume:/MES-CoBraD Input
       - 'C:/neurodesktop-storage:/neurodesktop-storage'
     ports:
-      - '8080:8888'
+      - '8080:8080'
+#      - '8000:8000'
+      - '8888:8888'
+      - '4822:4822'
+    environment:
+      NEURODESKTOP_VERSION: 2024-01-12
     networks:
       - mri-freesurfer-network
     shm_size: 1gb

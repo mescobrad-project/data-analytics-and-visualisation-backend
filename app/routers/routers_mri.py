@@ -931,7 +931,7 @@ async def return_aseg_stats(workflow_id: str,
 @router.put("/reconall_files_to_datalake")
 async def reconall_files_to_datalake(workflow_id: str,
                                 step_id: str,
-                                run_id: str) -> str :
+                                run_id: str,request: Request) -> str :
     try:
         path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
         tmpdir = tempfile.mkdtemp()
@@ -939,7 +939,9 @@ async def reconall_files_to_datalake(workflow_id: str,
         print(output_filename)
         print(shutil.make_archive(output_filename, 'zip', root_dir=path_to_storage, base_dir='output/ucl_test'))
         upload_object(bucket_name="saved", object_name='expertsystem/workflow/'+ workflow_id+'/'+ run_id+'/'+
-                                                          step_id+'/output/ucl_test.zip', file=output_filename + '.zip')
+                                                          step_id+'/output/ucl_test.zip', file=output_filename + '.zip',
+                      session_token=request.session.get("secret_key")
+                      )
 
         return JSONResponse(content='zip file has been successfully uploaded to the DataLake', status_code=200)
     except Exception as e:
