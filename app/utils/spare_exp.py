@@ -54,7 +54,7 @@ class MoRF_3D():
         with torch.no_grad():
             print('right after torch no grad')
 
-            raw_scores = self.model(self.mri)
+            raw_scores = self.model(self.mri)[1]
             print('raw scores: ', raw_scores)
             probs = softmax(raw_scores)
             print('probs: ', probs)
