@@ -77,7 +77,7 @@ class MoRF_3D():
                 print('mri shape for perturb', self.mri[0, 0, :, slice, :].shape)
                 print('noise shape for perturb',  noise[:, slice, :].shape)
                 self.mri[0, 0, :, slice, :] = noise[:, slice, :]
-                _, raw_scores = self.model(self.mri)
+                raw_scores = self.model(self.mri)[1]
                 perturbed_probs = softmax(raw_scores)
                 class_perturbed_prob = round(float(perturbed_probs[0, index]), 3)
                 perturbations.append(class_perturbed_prob)
