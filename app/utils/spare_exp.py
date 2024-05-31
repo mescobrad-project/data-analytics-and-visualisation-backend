@@ -88,7 +88,7 @@ class MoRF_3D():
             plt.title('MoRF Perturbation Curve')
             plt.xlabel('Perturbation steps')
             plt.ylabel('Predicted probability')
-            plt.savefig(os.path.join(self.model_path, 'morf.png'))
+            plt.savefig(os.path.join(os.path.dirname(self.model_path), 'morf.png'))
             plt.show()
 
         differences = [perturbations[0] - perturbations[i] for i in range(1, len(perturbations))]
@@ -102,7 +102,7 @@ class MoRF_3D():
             plt.title('Cumulative differences')
             plt.xlabel('Perturbation steps')
             plt.ylabel('Sum of differences')
-            plt.savefig(os.path.join(self.model_path, 'difs.png'))
+            plt.savefig(os.path.join(os.path.dirname(self.model_path), 'difs.png'))
             plt.show()
 
         return True
