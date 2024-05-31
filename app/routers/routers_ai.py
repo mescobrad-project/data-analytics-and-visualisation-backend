@@ -110,8 +110,8 @@ async def mris_batch_inference(
                                     batch_size)
     return {"results": results}
 
-@router.get("/3d_aopc")
-async def get_3d_score(
+@router.get("/get_3d_aopc")
+async def get_3d_aopc(
         workflow_id: str,
         step_id: str,
         run_id: str,
