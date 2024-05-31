@@ -71,7 +71,7 @@ class MoRF_3D():
             print('order_coronal_attributions calculated')
 
             for slice in slices:
-                self.mri[1, 1, :, slice, :] = noise[:, slice, :]
+                self.mri[0, 0, :, slice, :] = noise[:, slice, :]
                 _, raw_scores = self.model(self.mri)
                 perturbed_probs = softmax(raw_scores)
                 class_perturbed_prob = round(float(perturbed_probs[0, index]), 3)
