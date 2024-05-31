@@ -3,6 +3,7 @@ from app.utils.mri_experiments import run_experiment
 from app.utils.mri_deeplift import visualize_dl
 #from app.utils.mri_ggc import visualize_ggc
 from app.utils.testing import mri_prediction, mris_batch_prediction
+from app.utils.spare_exp import order_coronal_attributions, MoRF_3D, get_3d_score
 
 router = APIRouter()
 
@@ -107,4 +108,18 @@ async def mris_batch_inference(
                                     csv_path,
                                     output_path,
                                     batch_size)
+    return {"results": results}
+
+@router.get("/3d_aopc")
+async def get_3d_score(
+        workflow_id: str,
+        step_id: str,
+        run_id: str,
+        mri_path: str,
+        attributions_path: str,
+        model_path: str
+       ) -> dict:
+    results = get_3d_score(mri_path,
+                           attributions_path,
+                           model_path)
     return {"results": results}
