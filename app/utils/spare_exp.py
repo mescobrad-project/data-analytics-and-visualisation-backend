@@ -38,7 +38,8 @@ class MoRF_3D():
         self.attributions = torch.from_numpy(self.attributions).to(device=self.device)
         print('attributions: ', self.attributions.min(), self.attributions.max(), self.attributions.shape) #256,256,160
 
-        self.model = torch.load(model_path)
+        self.model_path = model_path
+        self.model = torch.load(self.model_path)
         self.model = self.model.to(self.device)
         self.model.eval()
 
@@ -87,7 +88,7 @@ class MoRF_3D():
             plt.title('MoRF Perturbation Curve')
             plt.xlabel('Perturbation steps')
             plt.ylabel('Predicted probability')
-            plt.savefig(os.path.join(os.path.dirname(model_path), 'morf.png'))
+            plt.savefig(os.path.join(self.model_path, 'morf.png'))
             plt.show()
 
         differences = [perturbations[0] - perturbations[i] for i in range(1, len(perturbations))]
@@ -101,7 +102,7 @@ class MoRF_3D():
             plt.title('Cumulative differences')
             plt.xlabel('Perturbation steps')
             plt.ylabel('Sum of differences')
-            plt.savefig(os.path.join(os.path.dirname(model_path), 'difs.png'))
+            plt.savefig(os.path.join(self.model_path, 'difs.png'))
             plt.show()
 
         return True
