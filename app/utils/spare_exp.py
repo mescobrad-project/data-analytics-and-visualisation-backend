@@ -32,11 +32,11 @@ class MoRF_3D():
         self.mri = torch.from_numpy(self.mri).unsqueeze(0).unsqueeze(0)
         self.mri = (self.mri - self.mri.min()) / (self.mri.max() - self.mri.min())  # mri values to [0,1] range
         self.mri = self.mri.to(device=self.device, dtype=torch.float32)
-        print('mri: ', self.mri.min(), self.mri.max(), self.mri.shape)
+        print('mri: ', self.mri.min(), self.mri.max(), self.mri.shape) # 1,1,160,256,256
 
         self.attributions = np.load(attributions_path)
         self.attributions = torch.from_numpy(self.attributions).to(device=self.device)
-        print('attributions: ', self.attributions.min(), self.attributions.max(), self.attributions.shape)
+        print('attributions: ', self.attributions.min(), self.attributions.max(), self.attributions.shape) #256,256,160
 
         self.model = torch.load(model_path)
         self.model = self.model.to(self.device)
@@ -73,10 +73,10 @@ class MoRF_3D():
 
             for slice in slices:
                 print('perturbations begin here')
-                print('mri', self.mri.shape)
-                print('mri shape for perturb', self.mri[0, 0, :, slice, :].shape)
-                print('noise shape for perturb',  noise[:, slice, :].shape)
-                self.mri[0, 0, :, slice, :] = noise[:, slice, :]
+                print('mri', self.mri.shape) # 1,1,160,256,256
+                print('noise shape for perturb',  noise[:, slice, :].shape) # 256,160
+                #self.mri[0, 0, :, slice, :] = noise[:, slice, :]
+                self.mri[0, 0, :, :, slice] = noise.permute(0,2,1)[:, slice, :] #this is correct!
                 raw_scores = self.model(self.mri)[1]
                 perturbed_probs = softmax(raw_scores)
                 class_perturbed_prob = round(float(perturbed_probs[0, index]), 3)
