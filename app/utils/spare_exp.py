@@ -73,7 +73,7 @@ class MoRF_3D():
 
             for slice in slices:
                 print('perturbations begin here')
-                print('mri', mri.shape)
+                print('mri', self.mri.shape)
                 print('mri shape for perturb', self.mri[0, 0, :, slice, :].shape)
                 print('noise shape for perturb',  noise[:, slice, :].shape)
                 self.mri[0, 0, :, slice, :] = noise[:, slice, :]
