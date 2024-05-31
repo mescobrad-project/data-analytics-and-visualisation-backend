@@ -60,7 +60,7 @@ def visualize_dl(model_path,
     attributions = dl.attribute(tensor_mri, target=top_class.item()).detach().cpu().squeeze().permute(1, 2, 0).numpy()
     #attributions shape is (256, 256, 160) & they have both negative and positive values (thus normalization to [0,1] is needed for plot)
     #nib.save(nib.Nifti1Image(attributions, affine=np.eye(4)), os.path.join(heatmap_path, 'attributions.nii')) #save an nii
-    #np.save(os.path.join(heatmap_path, 'attributions.npy'), attributions) #save as numpy array
+    np.save(os.path.join(heatmap_path, 'attributions.npy'), attributions) #save as numpy array
 
     torch.cuda.empty_cache()
 
