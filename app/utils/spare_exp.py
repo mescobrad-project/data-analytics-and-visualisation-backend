@@ -26,20 +26,20 @@ class MoRF_3D():
                  attributions_path,
                  model_path):
 
-        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
         self.mri = nib.load(mri_path).get_fdata()
         self.mri = torch.from_numpy(self.mri).unsqueeze(0).unsqueeze(0)
         self.mri = (self.mri - self.mri.min()) / (self.mri.max() - self.mri.min())  # mri values to [0,1] range
-        self.mri = self.mri.to(device=self.device)
+        self.mri = self.mri.to(device=device, dtype=torch.float32)
         print('mri: ', self.mri.min(), self.mri.max(), self.mri.shape)
 
         self.attributions = np.load(attributions_path)
-        self.attributions = torch.from_numpy(self.attributions).to(device=self.device)
+        self.attributions = torch.from_numpy(self.attributions).to(device=device)
         print('attributions: ', self.attributions.min(), self.attributions.max(), self.attributions.shape)
 
         self.model = torch.load(model_path)
-        self.model = self.model.to(self.device)
+        self.model = self.model.to(device)
         self.model.eval()
 
         print('mri, attributions, model loaded ok')
