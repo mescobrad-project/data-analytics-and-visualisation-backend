@@ -64,7 +64,7 @@ class MoRF_3D():
             print('class_prob', class_prob)
             perturbations.append(class_prob)
 
-            noise = torch.rand(256, 256, 160, device=self.device)  # random noise tensor with values in [0,1]
+            noise = torch.rand(256, 256, 160, device=device)  # random noise tensor with values in [0,1]
             print('noise', noise.min(), noise.max(), noise.shape)
 
             slices = order_coronal_attributions(self.attributions.cpu().numpy())
