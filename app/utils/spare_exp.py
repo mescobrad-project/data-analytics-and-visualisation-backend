@@ -67,10 +67,15 @@ class MoRF_3D():
             noise = torch.rand(256, 256, 160, device=self.device)  # random noise tensor with values in [0,1]
             print('noise', noise.min(), noise.max(), noise.shape)
 
-            slices = order_coronal_attributions(self.attributions.cpu().numpy())
+            slices = order_coronal_attributions(self.attributions.cpu().numpy()) #indices of attributions array for the 2nd dim
+            print('slices', slices.min(), slices.max(), slices.shape)
             print('order_coronal_attributions calculated')
 
             for slice in slices:
+                print('perturbations begin here')
+                print('mri', mri.shape)
+                print('mri shape for perturb', self.mri[0, 0, :, slice, :].shape)
+                print('noise shape for perturb',  noise[:, slice, :].shape)
                 self.mri[0, 0, :, slice, :] = noise[:, slice, :]
                 _, raw_scores = self.model(self.mri)
                 perturbed_probs = softmax(raw_scores)
