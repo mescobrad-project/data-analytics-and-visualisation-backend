@@ -42,9 +42,11 @@ class MoRF_3D():
         self.model = self.model.to(self.device)
         self.model.eval()
 
+        print('mri, attributions, model loaded ok')
+
     def perturbations(self,
-                      plot_morf_curve=False,
-                      plot_cumulative_differences=False):
+                      plot_morf_curve=True,
+                      plot_cumulative_differences=True):
 
         softmax = nn.Softmax(dim=1)
         perturbations = []
@@ -62,6 +64,7 @@ class MoRF_3D():
             print('noise', noise.min(), noise.max(), noise.shape)
 
             slices = order_coronal_attributions(self.attributions.cpu().numpy())
+            print('order_coronal_attributions calculated')
 
             for slice in slices:
                 self.mri[1, 1, :, slice, :] = noise[:, slice, :]
@@ -86,7 +89,7 @@ class MoRF_3D():
 
         if plot_cumulative_differences:
             sum_of_differences = np.cumsum(differences)  # cumulative sum of differences
-            plt.plot(range(1, len(probabilities)), sum_of_differences)
+            plt.plot(range(1, len(perturbations)), sum_of_differences)
             plt.title('Cumulative differences')
             plt.xlabel('Perturbation steps')
             plt.ylabel('Sum of differences')
