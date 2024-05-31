@@ -75,8 +75,7 @@ class MoRF_3D():
                 print('perturbations begin here')
                 print('mri', self.mri.shape) # 1,1,160,256,256
                 print('noise shape for perturb',  noise[:, slice, :].shape) # 256,160
-                #self.mri[0, 0, :, slice, :] = noise[:, slice, :]
-                self.mri[0, 0, :, :, slice] = noise.permute(0,2,1)[:, slice, :] #this is correct!
+                self.mri[0, 0, :, :, slice] = noise.permute(2, 0, 1)[:, :, slice]
                 raw_scores = self.model(self.mri)[1]
                 perturbed_probs = softmax(raw_scores)
                 class_perturbed_prob = round(float(perturbed_probs[0, index]), 3)
