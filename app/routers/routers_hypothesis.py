@@ -884,6 +884,7 @@ async def transform_data_anova(
 async def statistical_tests(workflow_id: str,
                             step_id: str,
                             run_id: str,
+                            file:str,
                             columns: list[str] | None = Query(default=None),
                             # column_1: str,
                             # column_2: str,
@@ -907,17 +908,19 @@ async def statistical_tests(workflow_id: str,
     # Load Datasets
     try:
         test_status = 'Dataset is not defined'
-        dfv['variables'] = columns
-        dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
+        if file is None:
+            raise Exception
+        # dfv['variables'] = columns
+        # dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
 
-        selected_datasources = pd.unique(dfv['Datasource'])
+        # selected_datasources = pd.unique(dfv['Datasource'])
         # We expect only one here
         test_status='Unable to retrieve datasets'
-        data = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
-        columns = dfv['Variable'].tolist()
-        selected_columns = pd.unique(dfv['Variable'])
+        data = load_data_from_csv(path_to_storage + "/" + file)
+        # columns = dfv['Variable'].tolist()
+        # selected_columns = pd.unique(dfv['Variable'])
         for column in data.columns:
-            if column not in selected_columns:
+            if column not in columns:
                 data = data.drop(str(column), axis=1)
 
         test_status = 'Unable to compute ' + statistical_test + \
