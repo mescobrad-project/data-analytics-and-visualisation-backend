@@ -169,14 +169,14 @@ def upload_object(bucket_name: str, object_name: str, file: str, session_token: 
         "Action": "AssumeRoleWithWebIdentity",
         "Version": "2011-06-15",
         "WebIdentityToken": session_token}
-    # print("Request user data")
+    print("Request user data")
     try:
         response = requests.post(minio_url, data=minio_data)
     except Exception as e:
         print(e)
     xml_data = ElementTree.fromstring(response.text)
-    # print("Request user data END")
-    # print(response.content)
+    print("Request user data END")
+    print(response.content)
     # Step 2: Parse the output to extract the credentials
     access_key = xml_data.find('.//{https://sts.amazonaws.com/doc/2011-06-15/}AccessKeyId').text
     secret_access_key = xml_data.find('.//{https://sts.amazonaws.com/doc/2011-06-15/}SecretAccessKey').text

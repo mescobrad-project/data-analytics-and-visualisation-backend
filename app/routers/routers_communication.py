@@ -547,10 +547,10 @@ async def function_navigation(navigation_item: FunctionNavigationItem, request: 
         #  Create local storage for files and download them
         # Handle files metadata missing from request/accept it as an empty array
         # print("TOKEN IS: ", request.session.get("my_token", None))
-        print("TOKEN IS: ", request.session.get("secret_key"))
         my_session_token = request.session.get("secret_key")
         if my_session_token is None:
             my_session_token = navigation_item.token
+        print("TOKEN IS: ", my_session_token)
         if "files" in navigation_item.metadata:
             # print("KEY EXISTS")
             # print(navigation_item.metadata)
