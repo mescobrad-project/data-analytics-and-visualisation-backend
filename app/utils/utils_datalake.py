@@ -96,8 +96,8 @@ def list_all_objects(bucket_name: str, session_token: str):
 def fget_object(bucket_name: str, object_name: str, file_location: str, session_token: str):
     # Create new client
     # session_token = ""
-    # print("Info about request download data")
-    # print(session_token)
+    print("Info about request download data")
+    print(session_token)
     # print(os.getenv("MINIO_ACCESS_KEY"),)
     # print(os.getenv("MINIO_SECRET_KEY"))
     minio_url = "https://storage.mescobrad.digital-enabler.eng.it"
@@ -111,8 +111,8 @@ def fget_object(bucket_name: str, object_name: str, file_location: str, session_
     except Exception as e:
         print(e)
     xml_data = ElementTree.fromstring(response.text)
-    # print("Request user data END")
-    # print(response.content)
+    print("Request user data END")
+    print(response.content)
     # Step 2: Parse the output to extract the credentials
     access_key = xml_data.find('.//{https://sts.amazonaws.com/doc/2011-06-15/}AccessKeyId').text
     secret_access_key = xml_data.find('.//{https://sts.amazonaws.com/doc/2011-06-15/}SecretAccessKey').text
