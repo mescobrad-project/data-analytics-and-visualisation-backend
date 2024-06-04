@@ -16,7 +16,7 @@ from starlette.responses import JSONResponse
 
 from app.pydantic_models import ModelTokenConfig
 from app.utils.utils_datalake import upload_object
-from app.utils.utils_general import create_local_step, get_local_storage_path
+from app.utils.utils_general import create_local_step, get_local_storage_path, get_output_info_path
 
 router = APIRouter()
 
@@ -224,20 +224,20 @@ class FunctionNavigationItem(BaseModel):
 
 
 @router.get("/task/complete", tags=["test_task_complete"])
-async def task_complete(run_id: str,
+async def task_complete(
+                        workflow_id: str,
+                        run_id: str,
                         step_id: str) -> dict:
     # channels = data.ch_names
     print("RUN COMPLETE IS RUNNING")
     print(WFAddress)
     headers = {"Content-Type": "application/json", "Accept": "*/*"}
 
+    info_file = open(get_output_info_path(workflow_id, run_id, step_id))
+    info_data = json.load(info_file)
+
     saved_files = []
-    data = {
-        "data": {
-            "datalake": [],
-            "trino": []
-        }
-    }
+    data = info_data
     try:
         url = WFAddress + "/run/" + str(uuid.UUID(run_id)) + "/step/" + str(
             uuid.UUID(step_id)) + "/task/script/complete"
