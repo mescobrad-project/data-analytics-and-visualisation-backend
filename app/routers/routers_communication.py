@@ -5,6 +5,7 @@ import tempfile
 import uuid
 from os import walk
 from os.path import isfile, join
+import traceback
 
 import requests
 from fastapi import APIRouter,Request, Response
@@ -604,16 +605,30 @@ async def function_save_data(
         try:
             path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
             tmpdir = tempfile.mkdtemp()
-            output_filename = os.path.join(tmpdir, 'ucl_test')
-            print(output_filename)
-            print(shutil.make_archive(output_filename, 'zip', root_dir=path_to_storage, base_dir='output/ucl_test'))
-            upload_object(bucket_name="common", object_name='workflows/' + workflow_id + '/' + run_id + '/' +
+
+            ##UPLOAD RECONALL STATS
+            if os.path.isdir(os.path.join(path_to_storage, 'output/ucl_test')):
+                output_filename = os.path.join(tmpdir, 'ucl_test')
+                print(output_filename)
+                print(shutil.make_archive(output_filename, 'zip', root_dir=path_to_storage, base_dir='output/ucl_test'))
+                upload_object(bucket_name="common", object_name='workflows/' + workflow_id + '/' + run_id + '/' +
                                                             step_id + '/ucl_test.zip',
                           file=output_filename + '.zip',session_token=request.session.get("secret_key"))
+
+            ##UPLOAD SAMSEG STATS
+            if os.path.isdir(os.path.join(path_to_storage, 'output/samseg_output')):
+                output_filename = os.path.join(tmpdir, 'samseg_output')
+                print(output_filename)
+                print(shutil.make_archive(output_filename, 'zip', root_dir=path_to_storage, base_dir='output/samseg_output'))
+                upload_object(bucket_name="common", object_name='workflows/' + workflow_id + '/' + run_id + '/' +
+                                                            step_id + '/samseg_output.zip',
+                          file=output_filename + '.zip',session_token=request.session.get("secret_key"))
+
 
             return JSONResponse(content='zip file has been successfully uploaded to the DataLake', status_code=200)
         except Exception as e:
             print(e)
+            # traceback.print_exc()
             return JSONResponse(content='Error in saving zip file to the DataLake', status_code=501)
     elif function_type == "actigraphy":
         try:
@@ -675,11 +690,16 @@ async def save_token(
     # print(userinfo)
     # print(token)
     request.session["secret_key"] = token.token
+    # request.session["groups"] = keycloak_openid.userinfo(token.token)['groups']
     # request.session["token"] = token
     # TODO CHECK IF TOKEN IS VALID BEFORE SAVING AND SEND 200
     print("TOKEN SAVED SUCCESSFULLY:", request.session.get("secret_key"))
+    # print("groups SAVED SUCCESSFULLY:", request.session.get("groups"))
     # print("TOKEN SAVED SUCCESSFULLY:", token.token)
     # response.set_cookie(key='my_token', value=token.token)
+    # text_file = open("token.txt", "w")
+    # text_file.write(token.token)
+    # text_file.close()
     return JSONResponse(status_code=200)
 
 
