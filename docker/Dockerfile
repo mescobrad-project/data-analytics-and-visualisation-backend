@@ -3,7 +3,7 @@ FROM python:3.10
 
 # set working directory
 WORKDIR /data-analytics-and-visualisation-backend
-RUN #apt-get update && apt-get install ffmpeg libsm6 libxext6  -y
+#RUN apt-get update && apt-get install ffmpeg libsm6 libxext6  -y
 
 # install Project requirements
 COPY ../requirements.txt .
