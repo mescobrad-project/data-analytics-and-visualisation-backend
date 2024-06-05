@@ -25,9 +25,9 @@ def train_eval_dataloaders(data_path,
 
     # Define the transformations
     transform = transforms.Compose([
-        transforms.v2.Lambda(lambda x: (x - x.min()) / (x.max() - x.min())),  # Normalize to [0, 1]
-        transforms.v2.RandomHorizontalFlip(p=0.5),  # Apply random horizontal flipping with a probability of 0.5
-        transforms.v2.RandomZoomOut(p=0.5)
+        transforms.Lambda(lambda x: (x - x.min()) / (x.max() - x.min())),  # Normalize to [0, 1]
+        transforms.RandomHorizontalFlip(p=0.5),  # Apply random horizontal flipping with a probability of 0.5
+        transforms.RandomRotation(20)
     ])
 
     # Apply the transformations
@@ -53,7 +53,7 @@ def test_dataloader(data_path,
     dataset = MRI_Generator(data_path, csv_path)
 
     transform = transforms.Compose([
-        transforms.v2.Lambda(lambda x: (x - x.min()) / (x.max() - x.min())),  # Normalize to [0, 1]
+        transforms.Lambda(lambda x: (x - x.min()) / (x.max() - x.min())),  # Normalize to [0, 1]
     ])
 
     transformed_dataset = TransformedDataset(dataset, transform)
