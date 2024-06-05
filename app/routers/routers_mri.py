@@ -948,25 +948,48 @@ async def reconall_files_to_datalake(workflow_id: str,
         print(e)
         return JSONResponse(content='Error in saving zip file to the DataLake',status_code=501)
 
-@router.put("/reconall_stats_to_trino")
+class ReconallStatsToTrinoItem(BaseModel):
+    workflow_id: str
+    step_id: str
+    run_id: str
+    reconall_source_file: str
+    workspace_id: str
+    folder_name: str
+
+@router.put("/reconall_stats_to_trino", tags=["reconall_stats_to_trino"])
 #All recon-all stats to trino both tabular and measurements
-async def reconall_stats_to_trino(workflow_id: str,
-                                step_id: str,
-                                run_id: str,
-                                reconall_source_file: str,
-                                institution: str,
-                                workspace_id: str,
-                                folder_name: str) -> str:
+async def reconall_stats_to_trino(input_item: ReconallStatsToTrinoItem,
+                                  request: Request) -> str:
 
     # TODO Change auth methods or create a super function for upload to trino
     try:
+        workflow_id = input_item.workflow_id
+        step_id = input_item.step_id
+        run_id = input_item.run_id
+        reconall_source_file = input_item.reconall_source_file
+        workspace_id = input_item.workspace_id
+        folder_name = input_item.folder_name
+
         #connect to trino
         TRINO_SCHEME = "https"
         timezone = pytz.timezone("UTC")
-        #access_token = request.session.get("secret_key", None)
+
+
+        ##TODO WHEN MIDDLEWARE WORKS
+        # access_token = request.session.get("secret_key", None)
+        # groups = request.session.get("groups", None)
+        # institution = "staging_area"
+        # if groups != None:
+        #     for group in groups:
+        #         if group in ["nia", "uu", "chs-rmc", "kcl", "sant-pau"]:
+        #             institution = group.replace("-", "_")
+
+        ##TODO TEMPORARY SOLUTION
         text_file = open("token.txt", "r")
         access_token = text_file.read()
         text_file.close()
+        institution = "staging_area"
+
         print(access_token)
         engine = create_engine(
             f"trino://trino.mescobrad.digital-enabler.eng.it:443/iceberg",
@@ -1080,7 +1103,7 @@ async def reconall_stats_to_trino(workflow_id: str,
             'workspace_id': 'str'
         }
 
-        pd.DataFrame({col: pd.Series(dtype=dt) for col, dt in dtypes.items()}).to_sql(name='testtest999',
+        pd.DataFrame({col: pd.Series(dtype=dt) for col, dt in dtypes.items()}).to_sql(name='testtest9999',
                                                                                       schema=institution,
                                                                                       con=conn,
                                                                                       if_exists='append',
@@ -1089,18 +1112,24 @@ async def reconall_stats_to_trino(workflow_id: str,
 
         #Delete all old data with the same workflow_id, etc.
 
+        delete_source_str = ""
+
         for filename in os.listdir(path_to_stats):
             path_to_file = os.path.join(path_to_stats, filename)
             if os.path.isfile(path_to_file):
                 measurement_data =  "workflow" + path_to_file.split("workflow")[1].replace("\\", "/") + " (measurement data)"
+
+                print(f"DELETE FROM iceberg.{institution}.testtest9999 WHERE source = '{measurement_data}'")
+                conn.execute(f"DELETE FROM iceberg.{institution}.testtest9999 WHERE source = '{measurement_data}'")
+
                 tabular_data =  "workflow" + path_to_file.split("workflow")[1].replace("\\", "/") + " (tabular data)"
 
-                conn.execute(f"\
-                DELETE FROM iceberg.{institution}.testtest999 WHERE (source = '{measurement_data}' OR source = '{tabular_data}') AND workspace_id = '{workspace_id}'")
+                print(f"DELETE FROM iceberg.{institution}.testtest9999 WHERE source = '{tabular_data}'")
+                conn.execute(f"DELETE FROM iceberg.{institution}.testtest9999 WHERE source = '{tabular_data}'")
 
 
-        to_return.to_sql(name='testtest999', schema=institution, con=conn, if_exists='append',
-                  index=False, method='multi', chunksize=20000)
+        to_return[:3000].to_sql(name='testtest9999', schema=institution, con=conn, if_exists='append',
+                  index=False, method='multi', chunksize=2500)
 
         return JSONResponse(content='Stats have been successfully uploaded to Trino', status_code=200)
     except Exception as e:
@@ -1108,25 +1137,45 @@ async def reconall_stats_to_trino(workflow_id: str,
         traceback.print_exc()
         return JSONResponse(content='Error in uploading stats to Trino',status_code=501)
 
+class SamsegStatsToTrinoItem(BaseModel):
+    workflow_id: str
+    step_id: str
+    run_id: str
+    samseg_source_file: str
+    workspace_id: str
 
-@router.put("/samseg_stats_to_trino")
+@router.put("/samseg_stats_to_trino/", tags=["samseg_stats_to_trino"])
 #All samseg stats to trino both tabular and measurements
-async def samseg_stats_to_trino(workflow_id: str,
-                                step_id: str,
-                                run_id: str,
-                                samseg_source_file: str,
-                                institution: str,
-                                workspace_id: str,
+async def samseg_stats_to_trino(input_item : SamsegStatsToTrinoItem,
                                 request: Request) -> str:
     try:
+        workflow_id = input_item.workflow_id
+        step_id = input_item.step_id
+        run_id = input_item.run_id
+        samseg_source_file = input_item.samseg_source_file
+        workspace_id = input_item.workspace_id
 
         TRINO_SCHEME = "https"
         timezone = pytz.timezone("UTC")
+
+        ##TODO WHEN MIDDLEWARE WORKS
         # access_token = request.session.get("secret_key", None)
+        # groups = request.session.get("groups", None)
+        # institution = "staging_area"
+        # if groups != None:
+        #     for group in groups:
+        #         if group in ["nia", "uu", "chs-rmc", "kcl", "sant-pau"]:
+        #             institution = group.replace("-", "_")
+
+        ##TODO TEMPORARY SOLUTION
         text_file = open("token.txt", "r")
         access_token = text_file.read()
         text_file.close()
+        institution = "staging_area"
+
+
         print(access_token)
+        print(institution)
         engine = create_engine(
             f"trino://trino.mescobrad.digital-enabler.eng.it:443/iceberg",
             connect_args={
@@ -1211,7 +1260,7 @@ async def samseg_stats_to_trino(workflow_id: str,
             'workspace_id': 'str'
         }
 
-        pd.DataFrame({col: pd.Series(dtype=dt) for col, dt in dtypes.items()}).to_sql(name='testtest999',
+        pd.DataFrame({col: pd.Series(dtype=dt) for col, dt in dtypes.items()}).to_sql(name='testtest9999',
                                                                                       schema=institution,
                                                                                       con=conn,
                                                                                       if_exists='append',
@@ -1220,10 +1269,10 @@ async def samseg_stats_to_trino(workflow_id: str,
 
         #Delete all old data with the same workflow_id, etc.
         conn.execute(f"\
-        DELETE FROM iceberg.{institution}.testtest999 WHERE source = '{source}' AND workspace_id = '{workspace_id}'")
+        DELETE FROM iceberg.{institution}.testtest9999 WHERE source = '{source}'")
 
 
-        df.to_sql(name='testtest999', schema=institution, con=conn, if_exists='append',
+        df.to_sql(name='testtest9999', schema=institution, con=conn, if_exists='append',
                   index=False, method='multi')
 
         return JSONResponse(content='Stats have been successfully uploaded to Trino', status_code=200)
@@ -1238,10 +1287,9 @@ async def csv_stats_to_trino_(workflow_id: str,
                                 step_id: str,
                                 run_id: str,
                                 source_file: str,
-                                institution: str,
                                 workspace_id: str,
                                 request: Request) -> str:
-    print(csv_stats_to_trino(workflow_id,step_id,run_id,source_file,institution,workspace_id,[]))
+    print(csv_stats_to_trino(workflow_id,step_id,run_id,source_file,workspace_id,[]))
 
 # @router.put("/samseg_stats_to_trino")
 # #All samseg stats to trino both tabular and measurements
