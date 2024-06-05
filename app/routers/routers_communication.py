@@ -16,7 +16,7 @@ from starlette.responses import JSONResponse
 
 from app.pydantic_models import ModelTokenConfig
 from app.utils.utils_datalake import upload_object
-from app.utils.utils_general import create_local_step, get_local_storage_path
+from app.utils.utils_general import create_local_step, get_local_storage_path, get_output_info_path
 
 router = APIRouter()
 
@@ -183,6 +183,7 @@ class FunctionNavigationItem(BaseModel):
     run_id: str
     step_id: str
     function: str
+    token: str
     metadata: dict
 
 
@@ -223,20 +224,20 @@ class FunctionNavigationItem(BaseModel):
 
 
 @router.get("/task/complete", tags=["test_task_complete"])
-async def task_complete(run_id: str,
+async def task_complete(
+                        workflow_id: str,
+                        run_id: str,
                         step_id: str) -> dict:
     # channels = data.ch_names
     print("RUN COMPLETE IS RUNNING")
     print(WFAddress)
     headers = {"Content-Type": "application/json", "Accept": "*/*"}
 
+    info_file = open(get_output_info_path(workflow_id, run_id, step_id))
+    info_data = json.load(info_file)
+
     saved_files = []
-    data = {
-        "data": {
-            "datalake": [],
-            "trino": []
-        }
-    }
+    data = info_data
     try:
         url = WFAddress + "/run/" + str(uuid.UUID(run_id)) + "/step/" + str(
             uuid.UUID(step_id)) + "/task/script/complete"
@@ -546,20 +547,25 @@ async def function_navigation(navigation_item: FunctionNavigationItem, request: 
         #  Create local storage for files and download them
         # Handle files metadata missing from request/accept it as an empty array
         # print("TOKEN IS: ", request.session.get("my_token", None))
-        print("TOKEN IS: ", request.session.get("secret_key"))
+        my_session_token = request.session.get("secret_key")
+        if my_session_token is None:
+            my_session_token = navigation_item.token
+        print("TOKEN IS: ", my_session_token)
         if "files" in navigation_item.metadata:
             # print("KEY EXISTS")
             # print(navigation_item.metadata)
             create_local_step(workflow_id=navigation_item.workflow_id, run_id=navigation_item.run_id,
                               step_id=navigation_item.step_id, files_to_download=navigation_item.metadata["files"],
-                              session_token=request.session.get("secret_key"))
+                              # session_token=request.session.get("secret_key"))
+                              session_token=my_session_token)
                               # session_token="eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICI0MUVRLS11SElzcFlkanhIMU9wbWI5QUVSZ05fdlhfTE1BUGNwdGJPeTJFIn0.eyJleHAiOjE3MTY0NTc0NjQsImlhdCI6MTcxNjQ1NzE2NCwiYXV0aF90aW1lIjoxNzE2NDU3MTYzLCJqdGkiOiI2YmQ3OTFlNS04YTZmLTRhOTgtYWQ1Ny01MTYwYzQ5YTQ0YmIiLCJpc3MiOiJodHRwczovL2lkbS5kaWdpdGFsLWVuYWJsZXIuZW5nLml0L2F1dGgvcmVhbG1zL21lc2NvYnJhZCIsImF1ZCI6WyJob21lLWFwcCIsImFjY291bnQiXSwic3ViIjoiZjAyZjExYmItZDc4NC00NDdjLTlmYTEtZjliYmUxODg5MjlkIiwidHlwIjoiQmVhcmVyIiwiYXpwIjoiZGF0YS1hbmFseXRpY3MiLCJub25jZSI6IjY4ODFhNWM1LTNmZjMtNDZjZC1hNGYxLTkyYmY0NjEwOGM3YyIsInNlc3Npb25fc3RhdGUiOiI3YTQwODllMy03ZTlhLTQ0MzMtOWI5OC0zOWRkMDE3M2U3ZmYiLCJhY3IiOiIxIiwiYWxsb3dlZC1vcmlnaW5zIjpbIioiXSwicmVhbG1fYWNjZXNzIjp7InJvbGVzIjpbIk1FUy1Db0JyYUQiLCJhbGxfYW5hbHl0aWNzIiwidmFyaWFibGVzIiwidmlldy1hbmFseXRpY3MiLCJ1cGxvYWQtZGF0YSIsInF1ZXN0aW9ucyIsInZpZXctcWIiLCJtZXRhZGF0YS1hZG1pbiIsInZpZXctZXhwZXJ0LXN5c3RlbSIsInF1ZXN0aW9ubmFpcmVzIiwiZGVmYXVsdC1yb2xlcy1tZXNjb2JyYWQiLCJldS1zdXJ2ZXkiLCJkYXRhLW1hbmFnZXIiLCJ2aWV3LXJlc3VsdHMiLCJvZmZsaW5lX2FjY2VzcyIsIndvcmtzcGFjZXMiLCJ1bWFfYXV0aG9yaXphdGlvbiIsImNhdGVnb3JpZXMiLCJtYXN0ZXItYWRtaW4iLCJ2aWV3LWNhdGVnb3JpZXMiLCJtZXRhZGF0YS1tYW5hZ2VyIl19LCJyZXNvdXJjZV9hY2Nlc3MiOnsiaG9tZS1hcHAiOnsicm9sZXMiOlsiTUVTLUNvQnJhRCJdfSwiYWNjb3VudCI6eyJyb2xlcyI6WyJtYW5hZ2UtYWNjb3VudCIsIm1hbmFnZS1hY2NvdW50LWxpbmtzIiwidmlldy1wcm9maWxlIl19fSwic2NvcGUiOiJvcGVuaWQgcHJvZmlsZSBlbWFpbCIsInNpZCI6IjdhNDA4OWUzLTdlOWEtNDQzMy05Yjk4LTM5ZGQwMTczZTdmZiIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJuYW1lIjoiTWljaGFlbCBLb250b3VsaXMiLCJwcmVmZXJyZWRfdXNlcm5hbWUiOiJta29udG91bGlzQGVwdS5udHVhLmdyIiwibG9jYWxlIjoiZW4iLCJnaXZlbl9uYW1lIjoiTWljaGFlbCIsImZhbWlseV9uYW1lIjoiS29udG91bGlzIiwiZW1haWwiOiJta29udG91bGlzQGVwdS5udHVhLmdyIn0.H6nwbIL7F4C-T6AILstsiAg0x0zr5YOkvwJg36KnVScXzA5lVlYV9lJWhjfsorR5WGxqCQ_oWYaz6emU7gK-_po8eDXznXmaUCtR_3OyvwQA8YuywV61FHaKHNQQ8aknaX4kSwAcpuBjpwRJMU8v_Wl_HvoNiMSKuoRl3fFKI3zoO3uxyJC9Dn2r6FPAvD8TW7_6meej3sijtSC3oQVGuTrQfgbUNenQ4xZNSa3hZmJfEuO4XKFU2OjCj6fFpDJ4hDAepw6K_t9ZXNPU1LoTOPR8m2X3HHYH2Rca8uAB0E_w0TydkTZau5kPx3AX3D8pdEfhr5Oa1Lko5nXqke5pSw")
         else:
             # print("NOT EXIST KEY")
             # print(navigation_item.metadata)
             create_local_step(workflow_id=navigation_item.workflow_id,
                               run_id=navigation_item.run_id, step_id=navigation_item.step_id, files_to_download=[],
-                              session_token=request.session.get("secret_key"))
+                              session_token=my_session_token)
+                              # session_token=request.session.get("secret_key"))
 
     # Add step and run id to the parameters
     url_to_redirect += "/?run_id=" + navigation_item.run_id + "&step_id=" + navigation_item.step_id + \

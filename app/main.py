@@ -185,10 +185,15 @@ app = FastAPI(openapi_tags=tags_metadata)
 # This region enables FastAPI's built in CORSMiddleware allowing cross-origin requests allowing communication with
 # the React front end
 origins = [
+           "https://es.platform.mes-cobrad.eu",
+           "https://esbk.platform.mes-cobrad.eu",
            "http://localhost:8000",
            "http://localhost:3005",
-            "https://analytics.platform.mes-cobrad.eu",
-            "https://analyticsbk.platform.mes-cobrad.eu"
+           "http://localhost:4000",
+           "https://analytics.platform.mes-cobrad.eu",
+           "https://analyticsbk.platform.mes-cobrad.eu"
+           "http://109.178.212.89/"
+           "https://109.178.212.89/"
           ]
 
 app.add_middleware(

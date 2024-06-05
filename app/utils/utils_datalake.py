@@ -98,25 +98,25 @@ def fget_object(bucket_name: str, object_name: str, file_location: str, session_
     # session_token = ""
     # print("Info about request download data")
     # print(session_token)
-    # print(os.getenv("MINIO_ACCESS_KEY"),)
-    # print(os.getenv("MINIO_SECRET_KEY"))
-    minio_url = "https://storage.mescobrad.digital-enabler.eng.it"
-    minio_data = {
-        "Action": "AssumeRoleWithWebIdentity",
-        "Version": "2011-06-15",
-        "WebIdentityToken":  session_token }
-    # print("Request user data")
-    try:
-        response = requests.post(minio_url, data=minio_data)
-    except Exception as e:
-        print(e)
-    xml_data = ElementTree.fromstring(response.text)
+    # # print(os.getenv("MINIO_ACCESS_KEY"),)
+    # # print(os.getenv("MINIO_SECRET_KEY"))
+    # minio_url = "https://storage.mescobrad.digital-enabler.eng.it"
+    # minio_data = {
+    #     "Action": "AssumeRoleWithWebIdentity",
+    #     "Version": "2011-06-15",
+    #     "WebIdentityToken":  session_token }
+    # # print("Request user data")
+    # try:
+    #     response = requests.post(minio_url, data=minio_data)
+    # except Exception as e:
+    #     print(e)
+    # xml_data = ElementTree.fromstring(response.text)
     # print("Request user data END")
     # print(response.content)
-    # Step 2: Parse the output to extract the credentials
-    access_key = xml_data.find('.//{https://sts.amazonaws.com/doc/2011-06-15/}AccessKeyId').text
-    secret_access_key = xml_data.find('.//{https://sts.amazonaws.com/doc/2011-06-15/}SecretAccessKey').text
-    session_token_send = xml_data.find('.//{https://sts.amazonaws.com/doc/2011-06-15/}SessionToken').text
+    # # Step 2: Parse the output to extract the credentials
+    # access_key = xml_data.find('.//{https://sts.amazonaws.com/doc/2011-06-15/}AccessKeyId').text
+    # secret_access_key = xml_data.find('.//{https://sts.amazonaws.com/doc/2011-06-15/}SecretAccessKey').text
+    # session_token_send = xml_data.find('.//{https://sts.amazonaws.com/doc/2011-06-15/}SessionToken').text
 
     # print("USER INFORMATION")
     # print(access_key)
@@ -124,11 +124,11 @@ def fget_object(bucket_name: str, object_name: str, file_location: str, session_
     # print(session_token_send)
     new_client_1 = Minio(
         "storage.mescobrad.digital-enabler.eng.it",
-        access_key=access_key,
+        access_key=os.getenv("SERVICE_ACCESS_KEY"),
         # access_key=os.getenv("MINIO_ACCESS_KEY"),
-        secret_key=secret_access_key,
+        secret_key=os.getenv("SERVICE_SECRET_KEY"),
         # secret_key=os.getenv("MINIO_SECRET_KEY"),
-        session_token=session_token_send
+        # session_token=session_token_send
     )
     # Download data of an object.
     # try:
@@ -164,35 +164,35 @@ def upload_object(bucket_name: str, object_name: str, file: str, session_token: 
     print("Starting upload")
     print(session_token)
     # Create new client
-    minio_url = "https://storage.mescobrad.digital-enabler.eng.it"
-    minio_data = {
-        "Action": "AssumeRoleWithWebIdentity",
-        "Version": "2011-06-15",
-        "WebIdentityToken": session_token}
+    # minio_url = "https://storage.mescobrad.digital-enabler.eng.it"
+    # minio_data = {
+    #     "Action": "AssumeRoleWithWebIdentity",
+    #     "Version": "2011-06-15",
+    #     "WebIdentityToken": session_token}
     # print("Request user data")
-    try:
-        response = requests.post(minio_url, data=minio_data)
-    except Exception as e:
-        print(e)
-    xml_data = ElementTree.fromstring(response.text)
+    # try:
+    #     response = requests.post(minio_url, data=minio_data)
+    # except Exception as e:
+    #     print(e)
+    # xml_data = ElementTree.fromstring(response.text)
     # print("Request user data END")
     # print(response.content)
-    # Step 2: Parse the output to extract the credentials
-    access_key = xml_data.find('.//{https://sts.amazonaws.com/doc/2011-06-15/}AccessKeyId').text
-    secret_access_key = xml_data.find('.//{https://sts.amazonaws.com/doc/2011-06-15/}SecretAccessKey').text
-    session_token_send = xml_data.find('.//{https://sts.amazonaws.com/doc/2011-06-15/}SessionToken').text
-
-    print("USER INFORMATION")
-    print(access_key)
-    print(secret_access_key)
-    print(session_token_send)
+    # # Step 2: Parse the output to extract the credentials
+    # access_key = xml_data.find('.//{https://sts.amazonaws.com/doc/2011-06-15/}AccessKeyId').text
+    # secret_access_key = xml_data.find('.//{https://sts.amazonaws.com/doc/2011-06-15/}SecretAccessKey').text
+    # session_token_send = xml_data.find('.//{https://sts.amazonaws.com/doc/2011-06-15/}SessionToken').text
+    #
+    # print("USER INFORMATION")
+    # print(access_key)
+    # print(secret_access_key)
+    # print(session_token_send)
     new_client_1 = Minio(
         "storage.mescobrad.digital-enabler.eng.it",
-        access_key=access_key,
+        access_key=os.getenv("SERVICE_ACCESS_KEY"),
         # access_key=os.getenv("MINIO_ACCESS_KEY"),
-        secret_key=secret_access_key,
+        secret_key=os.getenv("SERVICE_SECRET_KEY"),
         # secret_key=os.getenv("MINIO_SECRET_KEY"),
-        session_token=session_token_send
+        # session_token=session_token_send
     )
 
     # Upload data .
@@ -242,6 +242,32 @@ def get_saved_mri_files(bucket_name: str, object_name: str, file_location: str):
     except Exception as exc:
         print(exc)
         print("error")
+
+# def get_special_token():
+#     client = Minio(
+#         endpoint="storage.mescobrad.digital-enabler.eng.it",
+#         access_key=os.getenv("SERVICE_ACCESS_KEY"),
+#         secret_key=os.getenv("SERVICE_SECRET_KEY"),
+#         session_token=session_token,
+#         # For local testing
+#         secure=False,
+#     )
+#
+# {"console":[{"access_key":"dataanalytics","secret_key":"G7x$2kN!q@5wZ8rP"}]}
+#
+# # Init MinIO cloud client
+#         s3_data_lake = boto3.resource('s3',
+#                         endpoint_url= self.__OBJ_STORAGE_URL__,
+#                         aws_access_key_id= self.__OBJ_STORAGE_ACCESS_ID__,
+#                         aws_secret_access_key= self.__OBJ_STORAGE_ACCESS_SECRET__,
+#                         config=Config(signature_version='s3v4'),
+#                         region_name=self.__OBJ_STORAGE_REGION__)
+#
+# [7:10 PM] Saska Cvoro (External)
+# region =  us-east-1
+
+
+
 
 # fget_object('saved', f"{'folder01'}/test-object", 'gd_test_data/Downloaded_object.json')
 
