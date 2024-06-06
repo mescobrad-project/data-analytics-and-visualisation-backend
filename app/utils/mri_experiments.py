@@ -40,6 +40,8 @@ def run_experiment(data_path,
                                                                    csv_path,
                                                                    batch_size)
 
+        model = Conv3D()
+
         #training
         train_losses_per_epoch, val_losses_per_epoch, train_accs, \
             dev_accs, train_f1s, dev_f1s, best_model, es_epoch = train_eval_model(train_dataloader,
