@@ -95,9 +95,9 @@ def train_eval_model(train_dataloader,
         # Training phase
         train_loss, train_targets, train_predictions = train_model(train_dataloader, model, optimizer)
         train_losses_per_epoch.append(train_loss)
-        train_f1 = metrics.accuracy_score(train_targets, train_predictions, zero_division=1)
+        train_f1 = metrics.f1_score(train_targets, train_predictions, zero_division=1)
         train_f1s.append(train_f1)
-        train_acc = metrics.f1_score(train_targets, train_predictions)
+        train_acc = metrics.accuracy_score(train_targets, train_predictions)
         train_accs.append(train_acc)
 
         current_lr = optimizer.param_groups[0]['lr']
