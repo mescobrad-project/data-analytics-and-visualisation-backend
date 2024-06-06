@@ -53,7 +53,10 @@ def test_dataloader(data_path,
 
     dataset = MRI_Generator(data_path, csv_path)
 
-    transform = transforms.Lambda(lambda x: (x - x.min()) / (x.max() - x.min())),  # Normalize to [0, 1]
+    # Define the transformations
+    transform = transforms.Compose([
+        transforms.Lambda(lambda x: (x - x.min()) / (x.max() - x.min())),  # Normalize to [0, 1]
+    ])
 
     transformed_dataset = TransformedDataset(dataset, transform)
 
