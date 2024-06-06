@@ -94,19 +94,5 @@ def mris_batch_prediction(model_path,
     # Save the heatmap
     plt.savefig(output_path + 'test_performance.png')
 
-    # Show the plot (optional, if you want to see the plot in addition to saving it)
-    #plt.show()
-
     return True
 
-    '''
-    # test acc/precision/recall/f1 of binary dementia
-    test_acc_d = metrics.accuracy_score(test_targets, test_predictions)
-    test_precision_d = metrics.precision_score(test_targets, test_predictions, zero_division=1)
-    test_recall_d = metrics.recall_score(test_targets, test_predictions, zero_division=1)
-    test_specificity_d = metrics.recall_score(test_targets, test_predictions, pos_label = 0, zero_division=1)
-    test_f1_d = metrics.f1_score(test_targets, test_predictions, zero_division=1)
-    test_roc_auc_d = metrics.roc_auc_score(test_targets, test_predictions)
-
-    return test_acc_d, test_precision_d, test_recall_d, test_specificity_d, test_f1_d, test_roc_auc_d
-    '''

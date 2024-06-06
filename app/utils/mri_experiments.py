@@ -7,7 +7,7 @@ import torch
 import matplotlib.pyplot as plt
 
 from app.utils.conv3D import Conv3D
-from app.utils.resnet18_3d import ResNet18_3D
+#from app.utils.resnet18_3d import ResNet18_3D
 from app.utils.mri_dataloaders import train_eval_dataloaders
 from app.utils.training import train_eval_model
 #from app.utils.testing import test_on_multiple_mris
@@ -17,16 +17,11 @@ NeurodesktopStorageLocation = os.environ.get('NeurodesktopStorageLocation') if o
 
 def run_experiment(data_path,
                    csv_path,
-                   type,
                    iterations,
                    batch_size,
                    lr,
-                   scheduler_step_size,
-                   scheduler_gamma,
                    early_stopping_patience
                    ):
-
-    assert type in ['custom', 'resnet']
 
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
     exp_dir = NeurodesktopStorageLocation + f'/model_data/saved_models_{timestamp}/'
@@ -35,9 +30,8 @@ def run_experiment(data_path,
     # hyperparams
     #batch_size = 5
     #lr = 0.001
-    #scheduler_step_size = 5  #StepLR
-    #scheduler_gamma = 0.75   #StepLR
-    #scheduler_patience = ..  #ReduceLROnPlateau
+    scheduler_step_size = 10  #StepLR
+    scheduler_gamma = 0.75   #StepLR
 
     for i in range(iterations):
         print(" ----- Currently on iteration no. {} ----- ".format(i+1), flush=True)
@@ -46,53 +40,52 @@ def run_experiment(data_path,
                                                                    csv_path,
                                                                    batch_size)
 
-        if type == 'custom':
-            model = Conv3D()
-        else:
-            model = ResNet18_3D()
-
         #training
-        train_losses_per_epoch, val_losses_per_epoch, trained_model = train_eval_model(train_dataloader,
-                                                                                       eval_dataloader,
-                                                                                       model,
-                                                                                       lr,
-                                                                                       scheduler_step_size,
-                                                                                       scheduler_gamma,
-                                                                                       early_stopping_patience)
-        if type == 'custom':
-            torch.save(trained_model, exp_dir + f'{type(model).__name__}_experiment{i+1}.pth')
-        else:
-            torch.save(trained_model, exp_dir + f'resnet_experiment{i + 1}.pth')
-        #torch.save(trained_model.state_dict(), '../saved_models/' + f'{type(model).__name__}_experiment{i+1}.pth')
+        train_losses_per_epoch, val_losses_per_epoch, train_accs, \
+            dev_accs, train_f1s, dev_f1s, best_model, es_epoch = train_eval_model(train_dataloader,
+                                                                                  eval_dataloader,
+                                                                                  model,
+                                                                                  lr,
+                                                                                  scheduler_step_size,
+                                                                                  scheduler_gamma,
+                                                                                  early_stopping_patience)
 
-        # Plotting train and validation losses
-        plt.figure(figsize=(10, 6))
-        plt.plot(train_losses_per_epoch, label='Train Loss')
-        plt.plot(val_losses_per_epoch, label='Validation Loss')
-        plt.xlabel('Epochs')
-        plt.ylabel('Loss')
-        plt.title('Train and Validation Loss per Epoch')
-        plt.legend()
-        plt.grid(True)
-        plt.savefig(exp_dir + f'train_val_loss_plot_experiment{i+1}.png')
+        torch.save(trained_model.state_dict(), '../saved_models/' + f'{type(model).__name__}_experiment{i+1}.pth')
+
+        # Plotting train and validation metrics
+        fig, axs = plt.subplots(3, 1, figsize=(10, 18))
+
+        # Loss plot
+        axs[0].plot(train_losses_per_epoch, label='Train Loss')
+        axs[0].plot(val_losses_per_epoch, label='Validation Loss')
+        axs[0].set_xlabel('Epochs')
+        axs[0].set_ylabel('Loss')
+        axs[0].set_title(f'Train and Validation Loss per Epoch \n Early Stopping checkpoint at epoch {es_epoch}')
+        axs[0].legend()
+        axs[0].grid(True)
+
+        # Accuracy plot
+        axs[1].plot(train_accs, label='Train Accuracy')
+        axs[1].plot(dev_accs, label='Validation Accuracy')
+        axs[1].set_xlabel('Epochs')
+        axs[1].set_ylabel('Accuracy')
+        axs[1].set_title('Train and Validation Accuracy per Epoch')
+        axs[1].legend()
+        axs[1].grid(True)
+
+        # F1 Score plot
+        axs[2].plot(train_f1s, label='Train F1 Score')
+        axs[2].plot(dev_f1s, label='Validation F1 Score')
+        axs[2].set_xlabel('Epochs')
+        axs[2].set_ylabel('F1 Score')
+        axs[2].set_title('Train and Validation F1 Score per Epoch')
+        axs[2].legend()
+        axs[2].grid(True)
+
+        # Save and show the plot
+        plt.tight_layout()
+        plt.savefig(exp_dir + f'train_val_metrics_plot_experiment{i + 1}.png')
         plt.show()
-
-        '''
-        #testing
-        acc, prec, rec, specif, f1, auc = test_on_multiple_mris(exp_dir + f'{type(model).__name__}_experiment{i+1}.pth',
-                                                                data_path,
-                                                                dataset_test,
-                                                                1)
-        # Save metrics to a text file
-        with open(exp_dir + f'test_metrics_experiment{i + 1}.txt','w') as f:
-            f.write(f'No. of test data: {len(dataset_test)}\n')
-            f.write(f'Accuracy: {acc}\n')
-            f.write(f'Precision: {prec}\n')
-            f.write(f'Recall: {rec}\n')
-            f.write(f'Specificity: {specif}\n')
-            f.write(f'F1-Score: {f1}\n')
-            f.write(f'AUC: {auc}\n')
-        '''
 
         # Save hyperparams to a text file
         with open(exp_dir + f'hyperparams_experiment{i + 1}.txt','w') as f:
@@ -100,13 +93,6 @@ def run_experiment(data_path,
             f.write(f'batch_size: {batch_size}\n')
             #f.write(f'eval_size: {eval_size}\n')
             f.write(f'lr: {lr}\n')
-            f.write(f'scheduler_step_size: {scheduler_step_size}\n')
-            f.write(f'scheduler_gamma: {scheduler_gamma}\n')
             f.write(f'early_stopping_patience: {early_stopping_patience}\n')
 
     return True
-        # print()
-
-# if __name__ == "__main__":
-#     args = parse_arguments()
-#     run_experiment(args.iterations, args.participants_path, args.data_path, args.model_type, args.batch_size, args.eval_size, args.lr, args.patience)
