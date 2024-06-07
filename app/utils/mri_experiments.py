@@ -52,7 +52,7 @@ def run_experiment(data_path,
                                                                                   scheduler_gamma,
                                                                                   early_stopping_patience)
 
-        torch.save(best_model.state_dict(), '../saved_models/' + f'{type(model).__name__}_experiment{i+1}.pth')
+        torch.save(best_model, exp_dir + f'conv3d_experiment{i+1}.pth')
 
         # Plotting train and validation metrics
         fig, axs = plt.subplots(2, 1, figsize=(10, 12))
