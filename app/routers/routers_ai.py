@@ -97,6 +97,5 @@ async def mris_batch_inference(
     results = mris_batch_prediction(model_path,
                                     data_path,
                                     csv_path,
-                                    output_path,
-                                    batch_size)
+                                    output_path)
     return {"results": results}
