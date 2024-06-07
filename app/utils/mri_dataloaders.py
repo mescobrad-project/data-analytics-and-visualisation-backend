@@ -59,9 +59,8 @@ def test_dataloader(data_path,
 
     transformed_dataset = TransformedDataset(dataset, transform)
 
-    batch_size = len(dataset)
     test_dataloader = DataLoader(transformed_dataset,
-                                 batch_size=batch_size,
+                                 batch_size=2,
                                  shuffle=False)
 
     return test_dataloader
