@@ -690,11 +690,11 @@ async def save_token(
     # print(userinfo)
     # print(token)
     request.session["secret_key"] = token.token
-    # request.session["groups"] = keycloak_openid.userinfo(token.token)['groups']
+    request.session["groups"] = keycloak_openid.userinfo(token.token)['groups']
     # request.session["token"] = token
     # TODO CHECK IF TOKEN IS VALID BEFORE SAVING AND SEND 200
     print("TOKEN SAVED SUCCESSFULLY:", request.session.get("secret_key"))
-    # print("groups SAVED SUCCESSFULLY:", request.session.get("groups"))
+    print("groups SAVED SUCCESSFULLY:", request.session.get("groups"))
     # print("TOKEN SAVED SUCCESSFULLY:", token.token)
     # response.set_cookie(key='my_token', value=token.token)
     # text_file = open("token.txt", "w")
