@@ -48,8 +48,7 @@ def train_eval_dataloaders(data_path,
 
 
 def test_dataloader(data_path,
-                    csv_path,
-                    batch_size):
+                    csv_path):
 
     dataset = MRI_Generator(data_path, csv_path)
 
@@ -60,6 +59,7 @@ def test_dataloader(data_path,
 
     transformed_dataset = TransformedDataset(dataset, transform)
 
+    batch_size = len(dataset)
     test_dataloader = DataLoader(transformed_dataset,
                                  batch_size=batch_size,
                                  shuffle=False)

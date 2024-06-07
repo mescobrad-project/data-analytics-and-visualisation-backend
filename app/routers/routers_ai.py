@@ -90,9 +90,8 @@ async def mris_batch_inference(
         model_path: str,
         data_path: str,
         csv_path: str,
-        output_path: str,
-        batch_size: int
-       ) -> dict:
+        output_path: str
+) -> dict:
     """ MRI Batch Inference Function To Be Implemented"""
 
     results = mris_batch_prediction(model_path,

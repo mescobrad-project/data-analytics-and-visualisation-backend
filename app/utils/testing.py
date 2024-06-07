@@ -37,8 +37,7 @@ def mri_prediction(model_path,
 def mris_batch_prediction(model_path,
                           data_path,
                           csv_path,
-                          output_path,
-                          batch_size):
+                          output_path):
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -46,8 +45,7 @@ def mris_batch_prediction(model_path,
     model.eval()
 
     dataloader = test_dataloader(data_path,
-                                 csv_path,
-                                 batch_size)
+                                 csv_path)
 
     test_predictions = []
     test_targets = []
