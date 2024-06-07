@@ -108,8 +108,8 @@ def visualize_dl(model_path,
         plt.show()
 
     for i in range(attributions.shape[2]):
-        mri_slice = tensor_mri[:, , i]
-        attr_slice = attributions[:, :, i]
+        mri_slice = tensor_mri[:,:,i]
+        attr_slice = attributions[:,:,i]
 
         fig, ax = plt.subplots(figsize=(8, 8))
         ax.imshow(mri_slice, cmap='Greys')
