@@ -44,7 +44,7 @@ def run_experiment(data_path,
 
         #training
         train_losses_per_epoch, val_losses_per_epoch, train_accs, \
-            dev_accs, train_f1s, dev_f1s, best_model, es_epoch = train_eval_model(train_dataloader,
+            dev_accs, _, _, best_model, es_epoch = train_eval_model(train_dataloader,
                                                                                   eval_dataloader,
                                                                                   model,
                                                                                   lr,
@@ -55,7 +55,7 @@ def run_experiment(data_path,
         torch.save(best_model.state_dict(), '../saved_models/' + f'{type(model).__name__}_experiment{i+1}.pth')
 
         # Plotting train and validation metrics
-        fig, axs = plt.subplots(3, 1, figsize=(10, 18))
+        fig, axs = plt.subplots(2, 1, figsize=(10, 12))
 
         # Loss plot
         axs[0].plot(train_losses_per_epoch, label='Train Loss')
@@ -75,6 +75,7 @@ def run_experiment(data_path,
         axs[1].legend()
         axs[1].grid(True)
 
+        '''
         # F1 Score plot
         axs[2].plot(train_f1s, label='Train F1 Score')
         axs[2].plot(dev_f1s, label='Validation F1 Score')
@@ -83,6 +84,7 @@ def run_experiment(data_path,
         axs[2].set_title('Train and Validation F1 Score per Epoch')
         axs[2].legend()
         axs[2].grid(True)
+        '''
 
         # Save and show the plot
         plt.tight_layout()
