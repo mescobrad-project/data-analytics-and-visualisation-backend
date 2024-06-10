@@ -60,8 +60,7 @@ class Conv3D(nn.Module):
 
         loss = None
         if labels is not None:
-            #loss_fn = nn.CrossEntropyLoss()
-            loss_fn = nn.BCELoss()
+            loss_fn = nn.CrossEntropyLoss()
             loss = loss_fn(logits, labels)
 
         #return loss, logits if labels is not None else logits
