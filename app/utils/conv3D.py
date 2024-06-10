@@ -53,7 +53,7 @@ class Conv3D(nn.Module):
         out = self.group3(out)
         out = self.group4(out)
         out = self.group5(out)
-        out = self.group6(out)
+        #out = self.group6(out)
         y = torch.mean(out.view(out.size(0), out.size(1), -1), dim=2)
         y = self.dense(y)
         logits = self.classifier(y)
