@@ -2,6 +2,7 @@ import math
 import os
 import re
 import time
+import glob
 import csv
 import traceback
 from fastapi import APIRouter, Query, Request
@@ -304,11 +305,23 @@ async def return_free_surfer_log_vol2vol_coreg(workflow_id: str,
                                    output_file: str,
                                    ) -> dict:
     """Check if vol2vol or coreg has finished by checking if the output file exists"""
-    path_to_output = os.path.join( get_local_storage_path(workflow_id, run_id, step_id), output_file)
-    if os.path.exists(path_to_output):
-        return True
-    else:
+    path_to_output = os.path.join(get_local_storage_path(workflow_id, run_id, step_id), "output")
+
+    folder_pattern = os.path.join(path_to_output, "coregistration_output_*")
+    folders = glob.glob(folder_pattern)
+
+
+    # Check if any matching folders exist
+    if not folders:
         return False
+
+    for folder in folders:
+        file_path = os.path.join(folder, output_file)
+        if os.path.exists(file_path):
+            return True
+        else:
+            return False
+
 
 @router.get("/free_surfer/log/synthseg", tags=["return_free_surfer_log_synthseg"])
 async def return_free_surfer_log_synthseg(workflow_id: str,
@@ -317,11 +330,21 @@ async def return_free_surfer_log_synthseg(workflow_id: str,
                                    output_file: str,
                                    ) -> dict:
     """Check if synthseg has finished by checking if the output file exists"""
-    path_to_output = os.path.join( get_local_storage_path(workflow_id, run_id, step_id), output_file)
-    if os.path.exists(path_to_output):
-        return True
-    else:
+    path_to_output = os.path.join(get_local_storage_path(workflow_id, run_id, step_id), "output")
+
+    folder_pattern = os.path.join(path_to_output, "synthseg_output_*")
+    folders = glob.glob(folder_pattern)
+
+    # Check if any matching folders exist
+    if not folders:
         return False
+
+    for folder in folders:
+        file_path = os.path.join(folder, output_file)
+        if os.path.exists(file_path):
+            return True
+        else:
+            return False
 
 @router.get("free_surfer/recon/check", tags=["return_free_surfer_recon"])
 # Validation is done inline in the input of the function
@@ -445,7 +468,7 @@ async def run_synthseg(workflow_id: str,
         synthseg_cmd += f" --resample ./output/synthseg_output_{input_file_name}/resample_{input_file_name}"
 
     # Finalize the command with nohup, output redirection, and background execution
-    synthseg_cmd = f"nohup {synthseg_cmd} > ./output/synthseg_output_{input_file_name}/synthseg_log.txt &\n"
+    synthseg_cmd = f"nohup {synthseg_cmd} > ./output/synthseg_log.txt &\n"
     print(synthseg_cmd)
     channel.send(synthseg_cmd)
     to_return = "Success"
@@ -539,7 +562,7 @@ async def return_free_surfer_samseg(workflow_id: str,
     channel.send(f"sudo mkdir -m777 ./output/samseg_output_{input_file_name} > mkdir.txt\n")
 
 
-    print("nohup run_samseg" + " --input " + input_file_name + f" -o ./output/samseg_output_{input_file_name} > ./output/samseg_output_{input_file_name}/samseg_log.txt &\n")
+    print("nohup run_samseg" + " --input " + input_file_name + f" -o ./output/samseg_output_{input_file_name} > ./output/samseg_log.txt &\n")
 
     command = f"nohup run_samseg --input {input_file_name}"
 
@@ -731,7 +754,7 @@ async def return_free_surfer_coreg( workflow_id: str,
 
     # The created file has name "flairToT1_" + ref_file_name to keep track of it
     # print("nohup mri_coreg --mov "+ flair_file_name + " --ref " + ref_file_name + " --reg flairToT1_" + ref_file_name[:-4] + ".lta > logs_coreg.txt &\n")
-    channel.send("nohup mri_coreg --mov " + flair_file_name + " --ref " + ref_file_name + f" --reg ./output/coregistration_output_{flair_file_name}_{ref_file_name}/flairToT1_" + ref_file_name[:-4] + f".lta > ./output/coregistration_output_{flair_file_name}_{ref_file_name}/logs_coreg.txt &\n")
+    channel.send("nohup mri_coreg --mov " + flair_file_name + " --ref " + ref_file_name + f" --reg ./output/coregistration_output_{flair_file_name}_{ref_file_name}/flairToT1_" + ref_file_name[:-4] + f".lta > ./output/logs_coreg.txt &\n")
 
     # If everything ok return Success
     to_return = "Success"
@@ -794,7 +817,7 @@ async def return_free_surfer_vol2vol( workflow_id: str,
     # Output file has name "flair_reg_" + flair_file_name to keep track of it
     # Name of reg file is derived automatically from the name of the reference file as produced in the previous step
     # print("nohup mri_vol2vol --mov " + flair_file_name + " --reg flairToT1_" + ref_file_name[:-4] + ".lta --o flair_reg_" + ref_file_name + " --targ " + target_file_name + " &\n")
-    channel.send("nohup mri_vol2vol --mov " + flair_file_name + f" --reg ./output/coregistration_output_{flair_file_name}_{ref_file_name}/flairToT1_" + ref_file_name[:-4] + f".lta --o ./output/coregistration_output_{flair_file_name}_{ref_file_name}/flair_reg_" +  ref_file_name + " --targ " + target_file_name + f" > ./output/coregistration_output_{flair_file_name}_{ref_file_name}/log_vol2.txt &\n")
+    channel.send("nohup mri_vol2vol --mov " + flair_file_name + f" --reg ./output/coregistration_output_{flair_file_name}_{ref_file_name}/flairToT1_" + ref_file_name[:-4] + f".lta --o ./output/coregistration_output_{flair_file_name}_{ref_file_name}/flair_reg_" +  ref_file_name + " --targ " + target_file_name + f" > ./output/log_vol2.txt &\n")
 
     # If everything ok return Success
     to_return = "Success"
