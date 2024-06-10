@@ -129,31 +129,3 @@ def visualize_dl(model_path,
         plt.show()
 
     return True
-
-'''
-    if axis == 'Sagittal':
-        mri_slice = tensor_mri[:, :, slice_idx]
-        attr_slice = attributions[:, :, slice_idx]
-    elif axis == 'Coronal':
-        mri_slice = tensor_mri[:, slice_idx, :]
-        attr_slice = attributions[:, slice_idx, :]
-    elif axis == 'Axial':
-        mri_slice = tensor_mri[slice_idx, :, :]
-        attr_slice = attributions[slice_idx, :, :]
-
-    fig, ax = plt.subplots(figsize=(8, 8))
-    ax.imshow(mri_slice, cmap='Greys')
-    sorted_values = np.sort(attr_slice.flatten())[::-1]
-    threshold = sorted_values[int(tensor_mri.shape[0] * tensor_mri.shape[1] * 0.01) - 1]
-    ax.imshow(np.where(attr_slice > threshold, attr_slice, 0),
-              cmap=LinearSegmentedColormap.from_list(name='blues', colors=[(1, 0, 0, 0), "blue", "blue", "blue", "blue", "blue"], N=5000),
-              interpolation='gaussian')
-
-    ax.set_title(f'Prediction: {group} (prob: {round(top_prob.item(), 2)}) \n\n MRI(Grey) vs DeepLift Attributions(Blue) Overlay \n {axis} plane no. {slice_idx}')
-
-    # Save and show plot
-    plt.savefig(os.path.join(heatmap_path, heatmap_name))
-    plt.show()
-    
-    return True
-'''
