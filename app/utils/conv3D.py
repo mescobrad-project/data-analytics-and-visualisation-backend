@@ -43,7 +43,7 @@ class Conv3D(nn.Module):
             nn.Conv3d(512, 512, kernel_size=3, padding=1),
             nn.BatchNorm3d(512),
             nn.ReLU(),
-            nn.Dropout(0.3),
+            nn.Dropout(0.2),
             nn.MaxPool3d(kernel_size=(2, 2, 2), stride=(2, 2, 2)))
 
     def forward(self, x, labels=None):
@@ -53,7 +53,7 @@ class Conv3D(nn.Module):
         out = self.group3(out)
         out = self.group4(out)
         out = self.group5(out)
-        #out = self.group6(out)
+        out = self.group6(out)
         y = torch.mean(out.view(out.size(0), out.size(1), -1), dim=2)
         y = self.dense(y)
         logits = self.classifier(y)
