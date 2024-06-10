@@ -43,7 +43,7 @@ class Conv3D(nn.Module):
             nn.Conv3d(512, 512, kernel_size=3, padding=1),
             nn.BatchNorm3d(512),
             nn.ReLU(),
-            nn.Dropout(0.2),
+            nn.Dropout(0.3),
             nn.MaxPool3d(kernel_size=(2, 2, 2), stride=(2, 2, 2)))
 
     def forward(self, x, labels=None):
