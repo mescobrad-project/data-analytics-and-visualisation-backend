@@ -75,28 +75,16 @@ def run_experiment(data_path,
         axs[1].legend()
         axs[1].grid(True)
 
-        '''
-        # F1 Score plot
-        axs[2].plot(train_f1s, label='Train F1 Score')
-        axs[2].plot(dev_f1s, label='Validation F1 Score')
-        axs[2].set_xlabel('Epochs')
-        axs[2].set_ylabel('F1 Score')
-        axs[2].set_title('Train and Validation F1 Score per Epoch')
-        axs[2].legend()
-        axs[2].grid(True)
-        '''
-
         # Save and show the plot
         plt.tight_layout()
         plt.savefig(exp_dir + f'train_val_metrics_plot_experiment{i + 1}.png')
         plt.show()
 
         # Save hyperparams to a text file
-        with open(exp_dir + f'hyperparams_experiment{i + 1}.txt','w') as f:
-            f.write(f'type: {type}\n')
-            f.write(f'batch_size: {batch_size}\n')
-            #f.write(f'eval_size: {eval_size}\n')
-            f.write(f'lr: {lr}\n')
-            f.write(f'early_stopping_patience: {early_stopping_patience}\n')
+        # with open(exp_dir + f'hyperparams_experiment{i + 1}.txt','w') as f:
+        #     f.write(f'batch_size: {batch_size}\n')
+        #     #f.write(f'eval_size: {eval_size}\n')
+        #     f.write(f'lr: {lr}\n')
+        #     f.write(f'early_stopping_patience: {early_stopping_patience}\n')
 
     return True

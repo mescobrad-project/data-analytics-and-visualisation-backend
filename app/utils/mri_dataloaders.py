@@ -21,6 +21,7 @@ def train_eval_dataloaders(data_path,
                            csv_path,
                            batch_size,
                            train_split=0.8):
+
     dataset = MRI_Generator(data_path, csv_path)
 
     # Define the transformations

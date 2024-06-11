@@ -1,8 +1,7 @@
 from fastapi import APIRouter, Request
 from app.utils.mri_experiments import run_experiment
 from app.utils.mri_deeplift import visualize_dl
-#from app.utils.mri_ggc import visualize_ggc
-from app.utils.testing import mri_prediction, mris_batch_prediction
+from app.utils.mri_testing import mri_prediction, mris_batch_prediction
 
 router = APIRouter()
 
@@ -45,28 +44,6 @@ async def dl_explanation_experiment(
                            mri_path,
                            heatmap_path)
     return {"results": results}
-
-'''
-@router.get("/ggc_explanation_experiment")
-async def ggc_explanation_experiment(
-        workflow_id: str,
-        step_id: str,
-        run_id: str,
-        model_path: str,
-        mri_path: str,
-        heatmap_path: str,
-        heatmap_name: str,
-        axis: str,
-        slice_idx: int
-       ) -> dict:
-    results = visualize_ggc(model_path,
-                            mri_path,
-                            heatmap_path,
-                            heatmap_name,
-                            axis,
-                            slice_idx)
-    return {"results": results}
-'''
 
 '''
 @router.get("/mri_inference")

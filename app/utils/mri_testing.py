@@ -7,6 +7,7 @@ import torch.nn.functional as F
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+'''
 def mri_prediction(model_path,
                    mri_path):
 
@@ -32,7 +33,7 @@ def mri_prediction(model_path,
     #    f.write(f'The predicted class for the test point located at {mri_path} is {label}\n')
 
     return True
-
+'''
 
 def mris_batch_prediction(model_path,
                           data_path,
