@@ -6,7 +6,8 @@ import paramiko
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
-from .routers import routers_eeg, routers_mri, routers_datalake, routers_hypothesis,  routers_communication, routers_actigraphy, routers_ai
+from .routers import routers_eeg, routers_mri, routers_datalake, routers_hypothesis, routers_communication, \
+    routers_actigraphy, routers_ai, routers_datasets
 
 from starlette.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -333,5 +334,6 @@ app.include_router(routers_hypothesis.router)
 app.include_router(routers_datalake.router)
 app.include_router(routers_actigraphy.router)
 app.include_router(routers_ai.router)
+app.include_router(routers_datasets.router)
 
 # endregion

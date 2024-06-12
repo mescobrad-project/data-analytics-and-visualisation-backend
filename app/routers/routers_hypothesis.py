@@ -203,7 +203,6 @@ async def dataset_content(workflow_id: str, step_id: str, run_id: str, file_name
         print(e)
         return JSONResponse(content='Error : Failed to retrieve column names', status_code=501)
 
-
 @router.get("/return_columns")
 async def name_columns(workflow_id: str, step_id: str, run_id: str, file_name:str|None=None):
     try:
@@ -277,7 +276,7 @@ async def name_columns(workflow_id: str, step_id: str, run_id: str, file_name:st
                 return {'columns': []}
         print(data.columns)
         for b_column in data.columns:
-            if data[b_column].unique().shape[0] > 2:
+            if data[b_column].unique().shape[0] != 2:
                 data = data.drop([b_column], axis=1)
 
         columns = data.columns
@@ -302,6 +301,7 @@ async def name_saved_object_columns(file_name:str):
 @router.get("/normality_tests", tags=['hypothesis_testing'])
 async def normal_tests(workflow_id: str, step_id: str, run_id: str,
                        column: str,
+                       file: str,
                        nan_policy: Optional[str] | None = Query("propagate",
                                                                 regex="^(propagate)$|^(raise)$|^(omit)$"),
                        axis: Optional[int] = 0,
@@ -317,14 +317,17 @@ async def normal_tests(workflow_id: str, step_id: str, run_id: str,
     # Load Datasets
     try:
         test_status = 'Dataset is not defined'
-        dfv['variables'] = [column]
-        dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
-
-        selected_datasources = pd.unique(dfv['Datasource'])
+        if file is None:
+            raise Exception
+        # dfv['variables'] = [column]
+        # dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
+        #
+        # selected_datasources = pd.unique(dfv['Datasource'])
         test_status='Unable to retrieve datasets'
 
-        data = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
-        column = dfv['Variable'][0]
+        data = load_data_from_csv(path_to_storage + "/" + file)
+        # data = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
+        # column = dfv['Variable'][0]
         # Remove Nans for the calculations
         data = data.dropna(subset=[str(column)])
 
@@ -379,14 +382,14 @@ async def normal_tests(workflow_id: str, step_id: str, run_id: str,
                 'last_5': results_to_send['last_5']
             },
             'Output_datasets': [],
-            'Saved_plots': [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
-                                             step_id + '/BoxPlot.svg'},
-                                    {"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
-                                             step_id + '/PPlot.svg'},
-                                    {"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
-                                             step_id + '/HistogramPlot.svg'},
-                                    {"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
-                                             step_id + '/QQPlot.svg'}
+            'Saved_plots': [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                             step_id +'/analysis_output/' + 'BoxPlot.svg'},
+                                    {"file": 'expertsystem/workflow//' + workflow_id + '/' + run_id + '/' +
+                                             step_id +'/analysis_output/' + 'PPlot.svg'},
+                                    {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                             step_id +'/analysis_output/' + 'HistogramPlot.svg'},
+                                    {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                             step_id +'/analysis_output/' + 'QQPlot.svg'}
                                     ]
         }
 
@@ -447,6 +450,7 @@ async def normal_tests(workflow_id: str, step_id: str, run_id: str,
 async def transform_data(workflow_id: str,
                          step_id: str,
                          run_id: str,
+                         file: str,
                          column: str,
                          name_transform: str | None = Query("Box-Cox",
                                                            regex="^(Box-Cox)$|^(Yeo-Johnson)$|^(Log)$|^(Squared-root)$|^(Cube-root)$"),
@@ -458,14 +462,17 @@ async def transform_data(workflow_id: str,
     # Load Datasets
     try:
         test_status = 'Dataset is not defined'
-        dfv['variables'] = [column]
-        dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
-
-        selected_datasources = pd.unique(dfv['Datasource'])
+        if file is None:
+            raise Exception
+        # dfv['variables'] = [column]
+        # dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
+        #
+        # selected_datasources = pd.unique(dfv['Datasource'])
         test_status='Unable to retrieve datasets'
         # We expect only one here
-        data = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
-        column = dfv['Variable'][0]
+        data = load_data_from_csv(path_to_storage + "/" + file)
+        # data = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
+        # column = dfv['Variable'][0]
         test_status = 'Unable to compute ' + name_transform + \
                       ' for the selected columns.'
 
@@ -544,18 +551,18 @@ async def transform_data(workflow_id: str,
                 'top_5': results_to_send['top_5'],
                 'last_5': results_to_send['last_5']
             },
-            'Output_datasets': [{"file": 'workflows/'+ workflow_id+'/'+ run_id+'/'+
-                                         step_id+'/new_dataset.csv'}],
-            'Saved_plots': [{"file": 'workflows/'+ workflow_id+'/'+ run_id+'/'+
-                                         step_id+'/BoxPlot.svg'},
-                            {"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
-                                     step_id + '/PPlot.svg'},
-                            {"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
-                                     step_id + '/HistogramPlot.svg'},
-                            {"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
-                                     step_id + '/QQPlot.svg'},
-                            {"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
-                                     step_id + '/Scatter_Two_Variables.svg'},
+            'Output_datasets': [{"file": 'expertsystem/workflow/'+ workflow_id+'/'+ run_id+'/'+
+                                         step_id+'/analysis_output/' +'new_dataset.csv'}],
+            'Saved_plots': [{"file": 'expertsystem/workflow/'+ workflow_id+'/'+ run_id+'/'+
+                                         step_id+'/analysis_output/' +'BoxPlot.svg'},
+                            {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                     step_id +'/analysis_output/' + 'PPlot.svg'},
+                            {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                     step_id +'/analysis_output/' + 'HistogramPlot.svg'},
+                            {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                     step_id +'/analysis_output/' + 'QQPlot.svg'},
+                            {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                     step_id +'/analysis_output/' + 'Scatter_Two_Variables.svg'},
                             ]
         }
         with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
@@ -599,7 +606,8 @@ async def transform_data(workflow_id: str,
 
 @router.get("/compute_point_biserial_correlation", tags=['hypothesis_testing'])
 async def point_biserial_correlation(workflow_id: str, step_id: str, run_id: str,
-                                     column_1: str, column_2: str,
+                                     file: str,
+                                     variable_binary: str, variable: str,
                                      # remove_outliers: bool | None = Query(default=True)
                                      ):
     dfv = pd.DataFrame()
@@ -608,31 +616,40 @@ async def point_biserial_correlation(workflow_id: str, step_id: str, run_id: str
     # Load Datasets
     try:
         test_status = 'Dataset is not defined'
-        dfv['variables'] = [column_1, column_2]
-        dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
-
-        selected_datasources = pd.unique(dfv['Datasource'])
+        if file is None:
+            raise Exception
+        dfv['Variable'] = [variable_binary, variable]
+        # dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
+        #
+        # selected_datasources = pd.unique(dfv['Datasource'])
         test_status='Unable to retrieve datasets'
         # We expect only one here
-        data = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
+        data = load_data_from_csv(path_to_storage + "/" + file)
+        # data = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
         column_1 = dfv['Variable'][0]
         column_2 = dfv['Variable'][1]
-        test_status = 'Unable to compute Point Biserial correlation for the selected columns. NaNs or nonnumeric values are selected.'
+        test_status = 'Unable to compute Point Biserial correlation for the selected columns.'
 
         le = LabelEncoder()
         new_column_1 = 'le_'+str(column_1)
         data[new_column_1] = le.fit_transform(data[str(column_1)])
+
         if not pd.to_numeric(data[str(column_2)], errors='coerce').notnull().all():
             raise Exception
 
         unique_values = np.unique(data[new_column_1])
         unique_values.sort()
+
         if len(unique_values) == 2:
+
             html_scr = create_plots(plot_type='Scatter_Two_Variables', column=new_column_1, second_column=column_2, selected_dataframe=data, path_to_storage=path_to_storage, filename='Scatter_Two_Variables')
             sub_set_a = data[data[new_column_1] != unique_values[1]]
             sub_set_b = data[data[new_column_1] != unique_values[0]]
-            new_dataset_for_bp = [sub_set_a[str(column_2)], sub_set_b[str(column_2)]]
-            html_box = create_plots(plot_type='BoxPlot', column=column_2, second_column=new_column_1, selected_dataframe=new_dataset_for_bp, path_to_storage=path_to_storage, filename='BoxPlot')
+
+            # new_dataset_for_bp = [sub_set_a[str(column_2)], sub_set_b[str(column_2)]]
+
+            html_box = create_plots(plot_type='BoxPlot', column=column_2, second_column='', selected_dataframe=sub_set_a, path_to_storage=path_to_storage, filename='BoxPlot_1st')
+            html_box = create_plots(plot_type='BoxPlot', column=column_2, second_column='', selected_dataframe=sub_set_b, path_to_storage=path_to_storage, filename='BoxPlot_2nd')
             html_hist_A = create_plots(plot_type='HistogramPlot', column=column_2, second_column='',
                                        selected_dataframe=sub_set_a, path_to_storage=path_to_storage, filename='HistogramPlot_GroupA')
             html_hist_B = create_plots(plot_type='HistogramPlot', column=column_2, second_column='',
@@ -643,10 +660,13 @@ async def point_biserial_correlation(workflow_id: str, step_id: str, run_id: str
             # check Normality per sample
             shapiro_test_A = shapiro(sub_set_a[str(column_2)])
             shapiro_test_B = shapiro(sub_set_b[str(column_2)])
+
             # check homoscedasticity per sample
             Levene_A = levene(sub_set_a[str(column_2)], sub_set_b[str(column_2)], center='median')
+
             # Levene_B = ''
-            df = sub_set_a_clean.append(sub_set_b_clean)
+            # df = sub_set_a_clean.append(sub_set_b_clean)
+            df = pd.concat([sub_set_a_clean,sub_set_b_clean])
             pointbiserialr_test = pointbiserialr(df[new_column_1], df[str(column_2)])
             df.to_csv(path_to_storage + '/output/new_dataset.csv', index=False)
 
@@ -686,16 +706,18 @@ async def point_biserial_correlation(workflow_id: str, step_id: str, run_id: str
                     "test_params": {'Binary variable': str(column_1),
                                     'Variable': str(column_2)},
                     "test_results": data_to_return,
-                    "Output_datasets":[{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
-                                                step_id + '/new_dataset.csv'}],
-                    "Saved_plots": [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
-                                             step_id + '/BoxPlot.svg'},
-                                    {"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
-                                             step_id + '/HistogramPlot_GroupA.svg'},
-                                    {"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
-                                             step_id + '/HistogramPlot_GroupB.svg'},
-                                    {"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
-                                             step_id + '/Scatter_Two_Variables.svg'}]
+                    "Output_datasets":[{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                step_id +'/analysis_output/' + 'new_dataset.csv'}],
+                    "Saved_plots": [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                             step_id +'/analysis_output/' + 'BoxPlot_1st.svg'},
+                                    {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                             step_id + '/analysis_output/' + 'BoxPlot_2nd.svg'},
+                                    {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                             step_id +'/analysis_output/' + 'HistogramPlot_GroupA.svg'},
+                                    {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                             step_id +'/analysis_output/' + 'HistogramPlot_GroupB.svg'},
+                                    {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                             step_id +'/analysis_output/' + 'Scatter_Two_Variables.svg'}]
                     }
                 file_data['results'] |= new_data
                 f.seek(0)
@@ -737,6 +759,7 @@ async def point_biserial_correlation(workflow_id: str, step_id: str, run_id: str
 async def check_homoskedasticity(workflow_id: str,
                                  step_id: str,
                                  run_id: str,
+                                 file: str,
                                  columns: list[str] | None = Query(default=None),
                                  name_of_test: str | None = Query("Levene",
                                                                   regex="^(Levene)$|^(Bartlett)$|^(Fligner-Killeen)$"),
@@ -748,14 +771,17 @@ async def check_homoskedasticity(workflow_id: str,
     # Load Datasets
     try:
         test_status = 'Dataset is not defined'
-        dfv['variables'] = columns
-        dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
-
-        selected_datasources = pd.unique(dfv['Datasource'])
+        if file is None:
+            raise Exception
+        # dfv['variables'] = columns
+        # dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
+        #
+        # selected_datasources = pd.unique(dfv['Datasource'])
         test_status = 'Unable to retrieve datasets'
         # We expect only one here
-        data = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
-        columns = dfv['Variable']
+        data = load_data_from_csv(path_to_storage + "/" + file)
+        # data = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
+        # columns = dfv['Variable']
 
         test_status = 'Unable to compute Homoscedasticity for the selected columns. NaNs or nonnumeric values are selected.'
 
@@ -787,7 +813,7 @@ async def check_homoskedasticity(workflow_id: str,
             "test_name": 'Homoscedasticity test',
             "test_params": {
                 'selected_method': name_of_test,
-                'selected_variable': columns.to_dict(),
+                'selected_variable': columns,
                 'center': center
             },
             "test_results": {
@@ -815,6 +841,7 @@ async def transform_data_anova(
         workflow_id: str,
         step_id: str,
         run_id: str,
+        file: str,
         variables: list[str] | None = Query(default=None)):
     dfv = pd.DataFrame()
     df = pd.DataFrame()
@@ -823,18 +850,23 @@ async def transform_data_anova(
     # Load Datasets
     try:
         test_status = 'Dataset is not defined'
-        dfv['variables'] = variables
-        dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
-
-        selected_datasources = pd.unique(dfv['Datasource'])
+        if file is None:
+            raise Exception
+        # dfv['variables'] = variables
+        # dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
+        #
+        # selected_datasources = pd.unique(dfv['Datasource'])
         test_status = 'Unable to retrieve datasets'
         # We expect only one here
-        data = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
-        variables = dfv['Variable']
+        data = load_data_from_csv(path_to_storage + "/" + file)
+
+        # data = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
+        # variables = dfv['Variable']
 
         test_status = 'Unable to compute Obrien transformation for the selected columns. NaNs or nonnumeric values are selected.'
         # Keep requested Columns
-        selected_columns = pd.unique(dfv['Variable'])
+        # selected_columns = pd.unique(dfv['Variable'])
+        selected_columns = variables
         args = []
         args_name=[]
         for column in data.columns:
@@ -856,12 +888,12 @@ async def transform_data_anova(
             "step_id": step_id,
             "test_name": 'Obrien Transform test',
             "test_params": {
-                'selected_variable': variables.to_dict()
+                'selected_variable': variables
             },
             "test_results": {
             },
-            "Output_datasets":[{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
-                                                    step_id + '/new_dataset.csv'}],
+            "Output_datasets":[{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                    step_id +'/analysis_output/' + 'new_dataset.csv'}],
             'Saved_plots': []
         }
 
@@ -884,6 +916,7 @@ async def transform_data_anova(
 async def statistical_tests(workflow_id: str,
                             step_id: str,
                             run_id: str,
+                            file:str,
                             columns: list[str] | None = Query(default=None),
                             # column_1: str,
                             # column_2: str,
@@ -907,17 +940,19 @@ async def statistical_tests(workflow_id: str,
     # Load Datasets
     try:
         test_status = 'Dataset is not defined'
-        dfv['variables'] = columns
-        dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
+        if file is None:
+            raise Exception
+        # dfv['variables'] = columns
+        # dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
 
-        selected_datasources = pd.unique(dfv['Datasource'])
+        # selected_datasources = pd.unique(dfv['Datasource'])
         # We expect only one here
         test_status='Unable to retrieve datasets'
-        data = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
-        columns = dfv['Variable'].tolist()
-        selected_columns = pd.unique(dfv['Variable'])
+        data = load_data_from_csv(path_to_storage + "/" + file)
+        # columns = dfv['Variable'].tolist()
+        # selected_columns = pd.unique(dfv['Variable'])
         for column in data.columns:
-            if column not in selected_columns:
+            if column not in columns:
                 data = data.drop(str(column), axis=1)
 
         test_status = 'Unable to compute ' + statistical_test + \
@@ -944,7 +979,7 @@ async def statistical_tests(workflow_id: str,
             if len(data.columns) != 2:
                 test_status = 'Two variables must be selected for ' + statistical_test
                 raise Exception
-            statistic, p_value = mannwhitneyu(data.iloc[:, 0],data.iloc[:, 1], nan_policy=nan_policy, alternative=alternative, method=method)
+            statistic, p_value = mannwhitneyu(data.iloc[:, 0],data.iloc[:, 1], alternative=alternative, method=method)
         elif statistical_test == "Wilcoxon signed-rank test":
             if len(data.columns) != 2:
                 test_status = 'Two variables must be selected for ' + statistical_test
@@ -952,7 +987,7 @@ async def statistical_tests(workflow_id: str,
             elif np.shape(data.iloc[:, 0])[0] != np.shape(data.iloc[:, 1])[0]:
                 test_status = 'The arrays must have the same shape for' + statistical_test
                 raise Exception
-            statistic, p_value = wilcoxon(data.iloc[:, 0],data.iloc[:, 1], alternative=alternative, nan_policy=nan_policy, correction=correction, zero_method=zero_method, mode=mode)
+            statistic, p_value = wilcoxon(data.iloc[:, 0],data.iloc[:, 1], alternative=alternative, correction=correction, zero_method=zero_method, mode=mode)
         elif statistical_test == "Alexander Govern test":
             samples = []
             for k in data.columns:
@@ -976,7 +1011,7 @@ async def statistical_tests(workflow_id: str,
             if len(data.columns) != 2:
                 test_status = 'Two variables must be selected for ' + statistical_test
                 raise Exception
-            statistic, p_value = ranksums(data.iloc[:, 0],data.iloc[:, 1], nan_policy=nan_policy, alternative=alternative)
+            statistic, p_value = ranksums(data.iloc[:, 0],data.iloc[:, 1], alternative=alternative)
         elif statistical_test == "one-way chi-square test":
             samples = []
             for k in data.columns:
@@ -1016,6 +1051,7 @@ async def statistical_tests(workflow_id: str,
             }
             file_data['results'] = new_data
             file_data['Output_datasets'] = []
+            file_data["Saved_plots"]= []
             # Set file's current position at offset.
             f.seek(0)
             # convert back to json.
@@ -1025,7 +1061,7 @@ async def statistical_tests(workflow_id: str,
                                      'p-value': p_value, 'mean_std': df.to_json(orient='records')}, status_code=200)
     except Exception as e:
         print(e)
-        return JSONResponse(content={'status':test_status, 'statistic': '',
+        return JSONResponse(content={'status':test_status+'\n'+ e.__str__(), 'statistic': '',
                                      'p-value': '', 'mean_std': df.to_json(orient='records')}, status_code=200)
 
 
@@ -1091,8 +1127,9 @@ async def p_value_correction(workflow_id: str,
                     "test_results": ''
             }
             file_data['results'] = new_data
-            file_data['Output_datasets'] = [{"file": 'workflows/'+ workflow_id+'/'+ run_id+'/'+
-                                         step_id+'/new_dataset.csv'}]
+            file_data['Output_datasets'] = [{"file": 'expertsystem/workflow/'+ workflow_id+'/'+ run_id+'/'+
+                                         step_id+'/analysis_output/' +'new_dataset.csv'}]
+            file_data["Saved_plots"]= []
             # Set file's current position at offset.
             f.seek(0)
             # convert back to json.
@@ -1415,11 +1452,11 @@ async def principal_component_analysis(workflow_id: str,
                                     'singular_values': singular_values.to_dict(),
                                     'principal_axes': principal_axes.to_dict()}}
             file_data['results'] = new_data
-            file_data['Output_datasets'] = [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
-                                                     step_id + '/principalComponents_Df.csv'}
+            file_data['Output_datasets'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id + '/analysis_output/' +'principalComponents_Df.csv'}
                                             ]
-            file_data['Saved_plots'] = [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
-                                                 step_id + '/PCA.svg'}]
+            file_data['Saved_plots'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                 step_id + '/analysis_output/' + 'PCA.svg'}]
             # Set file's current position at offset.
             f.seek(0)
             # convert back to json.
@@ -1523,8 +1560,9 @@ async def kmeans_clustering(workflow_id: str,
                     "test_results": to_return
             }
             file_data['results'] = new_data
-            file_data['Output_datasets'] = [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
-                                                     step_id + '/new_dataset.csv'}]
+            file_data['Output_datasets'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id + '/analysis_output/' + 'new_dataset.csv'}]
+            file_data["Saved_plots"]= []
             # Set file's current position at offset.
             f.seek(0)
             # convert back to json.
@@ -1678,8 +1716,9 @@ async def elastic_net(workflow_id: str,
                                  'dataframe': df.to_dict()}
             }
             file_data['results'] = new_data
-            file_data['Output_datasets'] = [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
+            file_data['Output_datasets'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
                                                      step_id + '/analysis_output' + '/elastic_preds.csv'}]
+            file_data["Saved_plots"]= []
             # Set file's current position at offset.
             f.seek(0)
             # convert back to json.
@@ -1803,8 +1842,9 @@ async def lasso(workflow_id: str,
                     'dataframe': df.to_dict()}
             }
             file_data['results'] = new_data
-            file_data['Output_datasets'] = [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
-                                                     step_id + '/lasso_preds.csv'}]
+            file_data['Output_datasets'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id + '/analysis_output/' +'lasso_preds.csv'}]
+            file_data["Saved_plots"]= []
             # Set file's current position at offset.
             f.seek(0)
             # convert back to json.
@@ -1932,8 +1972,9 @@ async def ridge(workflow_id: str,
                                  'dataframe': df.to_dict()}
             }
             file_data['results'] = new_data
-            file_data['Output_datasets'] = [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
-                                                     step_id + '/ridge_preds.csv'}]
+            file_data['Output_datasets'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id + '/analysis_output/' +'ridge_preds.csv'}]
+            file_data["Saved_plots"]= []
             # Set file's current position at offset.
             f.seek(0)
             # convert back to json.
@@ -2240,8 +2281,9 @@ async def sgd_regressor(workflow_id: str,
                                  'dataframe': df.to_dict()}
             }
             file_data['results'] = new_data
-            file_data['Output_datasets'] = [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
-                                                     step_id + '/sgd_preds.csv'}]
+            file_data['Output_datasets'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id +'/analysis_output/' + 'sgd_preds.csv'}]
+            file_data["Saved_plots"]= []
             # Set file's current position at offset.
             f.seek(0)
             # convert back to json.
@@ -2369,8 +2411,9 @@ async def huber_regressor(workflow_id: str,
                                  'dataframe': df.to_dict()}
             }
             file_data['results'] = new_data
-            file_data['Output_datasets'] = [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
-                                                     step_id + '/huber_preds.csv'}]
+            file_data['Output_datasets'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id +'/analysis_output/' + 'huber_preds.csv'}]
+            file_data["Saved_plots"]= []
             # Set file's current position at offset.
             f.seek(0)
             # convert back to json.
@@ -2496,8 +2539,9 @@ async def linear_svr_regressor(workflow_id: str,
                                  'dataframe': df.to_dict()}
             }
             file_data['results'] = new_data
-            file_data['Output_datasets'] = [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
-                                                     step_id + '/linearsvr_preds.csv'}]
+            file_data['Output_datasets'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id+'/analysis_output/' + 'linearsvr_preds.csv'}]
+            file_data["Saved_plots"]= []
             # Set file's current position at offset.
             f.seek(0)
             # convert back to json.
@@ -2598,8 +2642,9 @@ async def linear_svc_regressor(workflow_id: str,
                 "test_results": {}
             }
             file_data['results'] = new_data
-            file_data['Output_datasets'] = [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
-                                                     step_id + '/linearsvc.csv'}]
+            file_data['Output_datasets'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id +'/analysis_output/'+ 'linearsvc.csv'}]
+            file_data["Saved_plots"]= []
             # Set file's current position at offset.
             f.seek(0)
             # convert back to json.
@@ -2876,8 +2921,9 @@ async def poisson_regression(workflow_id: str,
                                  'dataframe': df.to_dict()}
             }
             file_data['results'] = new_data
-            file_data['Output_datasets'] = [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
-                                                     step_id + '/poisson_preds.csv'}]
+            file_data['Output_datasets'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id+'/analysis_output/' + 'poisson_preds.csv'}]
+            file_data["Saved_plots"]= []
             # Set file's current position at offset.
             f.seek(0)
             # convert back to json.
@@ -3493,8 +3539,8 @@ async def kaplan_meier(workflow_id: str,
                     "median_survival_time": str(median_survival_time)
                 },
                 "Output_datasets": [],
-                'Saved_plots': [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
-                                             step_id + '/survival_function.svg'}
+                'Saved_plots': [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                             step_id+'/analysis_output/' + 'survival_function.svg'}
                                     ]
             }
             f.seek(0)
@@ -3788,8 +3834,8 @@ async def risk_ratio_1(
                     'table': df.to_dict()
                 },
                 "Output_datasets": [],
-                'Saved_plots': [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
-                                             step_id + '/Risktest.svg'}
+                'Saved_plots': [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                             step_id+'/analysis_output/' + 'Risktest.svg'}
                                     ]
             }
             f.seek(0)
@@ -4154,7 +4200,8 @@ async def correlations_pingouin(workflow_id: str,
                                 step_id: str,
                                 run_id: str,
                                 # column_1: str,
-                                column_2: list[str] | None = Query(default=None),
+                                file: str,
+                                columns: list[str] | None = Query(default=None),
                                 alternative: Optional[str] | None = Query("two-sided",
                                                                           regex="^(two-sided)$|^(less)$|^(greater)$"),
                                 method: Optional[str] | None = Query("pearson",
@@ -4166,20 +4213,22 @@ async def correlations_pingouin(workflow_id: str,
     # Load Datasets
     try:
         test_status = 'Dataset is not defined'
-        dfv['variables'] = column_2
-        dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
-
-        selected_datasources = pd.unique(dfv['Datasource'])
+        # dfv['variables'] = columns
+        # dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
+        #
+        # selected_datasources = pd.unique(dfv['Datasource'])
         test_status='Unable to retrieve datasets'
-        data = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
-        column_2 = dfv['Variable'].tolist()
-        selected_columns = pd.unique(dfv['Variable'])
+        data = load_data_from_csv(path_to_storage + "/" + file)
+        # data = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
+        # column_2 = dfv['Variable'].tolist()
+        # selected_columns = pd.unique(dfv['Variable'])
+        selected_columns = columns
         for column in data.columns:
             if column not in selected_columns:
                 data = data.drop(str(column), axis=1)
 
         test_status = 'Unable to compute ' + method+' correlation.'
-        df = data[column_2]
+        df = data[columns]
         # Not for all methods -
         # df1 = df.rcorr(stars=False).round(5)
         # corrs = df.corr()
@@ -4200,9 +4249,9 @@ async def correlations_pingouin(workflow_id: str,
 
         all_res = []
         count=0
-        for i in column_2:
-            for j in column_2:
-                if i == j or column_2.index(j) < column_2.index(i):
+        for i in columns:
+            for j in columns:
+                if i == j or columns.index(j) < columns.index(i):
                     continue
                 res = pingouin.corr(x=data[i], y=data[j], method=method, alternative=alternative).round(5)
                 res.insert(0,'Cor', i + "-" + j, True)
@@ -4235,13 +4284,14 @@ async def correlations_pingouin(workflow_id: str,
                     "test_name": "Correlation test",
                     "test_params": {
                         'selected_method': method,
-                        'selected_variable': column_2,
+                        'selected_variable': columns,
                         'alternative': alternative
                     },
                     "test_results": all_res
             }
             file_data['results'] = new_data
             file_data['Output_datasets'] = []
+            file_data["Saved_plots"]= []
             # Set file's current position at offset.
             f.seek(0)
             # convert back to json.
@@ -4251,7 +4301,7 @@ async def correlations_pingouin(workflow_id: str,
         # return JSONResponse(content={'status':'Success', 'DataFrame': all_res, "Table_rcorr": df1.to_json(orient='records')}, status_code=200)
     except Exception as e:
         print(e)
-        return JSONResponse(content={'status':test_status, 'DataFrame': []}, status_code=200)
+        return JSONResponse(content={'status':test_status+ "\n" + e.__str__(), 'DataFrame': []}, status_code=200)
         # return JSONResponse(content={'status':test_status, 'DataFrame': [],'Table_rcorr':dfe.to_json(orient='records')}, status_code=200)
 
 # TODO:We use statsModel
@@ -4330,8 +4380,9 @@ async def logistic_regression_pinguin(workflow_id: str, step_id: str, run_id: st
                 "test_results": {'dataframe': lm.to_json(orient='records')}
             }
             file_data['results'] = new_data
-            file_data['Output_datasets'] = [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
-                                                     step_id + '/logistic_pingouin.csv'}]
+            file_data['Output_datasets'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id+'/analysis_output/' + 'logistic_pingouin.csv'}]
+            file_data["Saved_plots"]= []
             # Set file's current position at offset.
             f.seek(0)
             # convert back to json.
@@ -4625,8 +4676,9 @@ async def linear_regression_statsmodels(workflow_id: str, step_id: str, run_id: 
                                     goldfeld_test.loc['ordering used in the alternative'][0]}
             }
             file_data['results'] = new_data
-            file_data['Output_datasets'] = [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
-                                                     step_id + '/influence_points.csv'}]
+            file_data['Output_datasets'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id+'/analysis_output/' + 'influence_points.csv'}]
+            file_data["Saved_plots"]= []
             # Set file's current position at offset.
             f.seek(0)
             # convert back to json.
@@ -4643,6 +4695,7 @@ async def linear_regression_statsmodels(workflow_id: str, step_id: str, run_id: 
 async def z_score(workflow_id: str,
                   step_id: str,
                   run_id: str,
+                  file:str,
                   ddof: int | None = Query(default=0),
                   nan_policy: Optional[str] | None = Query("propagate",
                                                            regex="^(propagate)$|^(raise)$|^(omit)$"),
@@ -4654,26 +4707,20 @@ async def z_score(workflow_id: str,
     # Load Datasets
     try:
         test_status = 'Dataset is not defined'
-        dfv['variables'] = dependent_variables
-        dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
-        selected_datasources = pd.unique(dfv['Datasource'])
-        print(selected_datasources)
-        test_status = 'Unable to retrieve datasets'
-        selected_columns = pd.unique(dfv['Variable'])
-        print(selected_columns)
-        for ds in selected_datasources:
-            dataset = load_data_from_csv(path_to_storage + "/" + ds)
-            # Keep requested Columns
-            for columns in dataset.columns:
-                if columns not in selected_columns:
-                    dataset = dataset.drop(str(columns), axis=1)
-            # Get min values
-            test_status = 'Unable to compute the z score values for the selected columns'
-            for column in dataset.columns:
-                try:
-                    df[column] = zscore(dataset[column], ddof=ddof, nan_policy=nan_policy)
-                except:
-                    df[column] = np.nan
+        if file is None:
+            raise Exception
+        data = load_data_from_csv(path_to_storage + "/" + file)
+        for column in data.columns:
+            if column not in dependent_variables:
+                data = data.drop(str(column), axis=1)
+            # Get z_score values
+        test_status = 'Unable to compute the z score values for the selected columns'
+        for column in data.columns:
+            try:
+                df[column] = zscore(data[column], ddof=ddof, nan_policy=nan_policy)
+            except:
+                df[column] = np.nan
+        df.to_csv(path_to_storage + '/output/z_scores.csv', index=False)
 
         test_status = 'Unable to create info.json file'
         with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
@@ -4687,10 +4734,13 @@ async def z_score(workflow_id: str,
                 "step_id": step_id,
                 "test_name": 'Z score',
                 "test_params": dependent_variables,
-                "test_results": df.to_dict()
+                "test_results": {}
+                # "test_results": df.to_dict()
             }
             file_data['results'] = new_data
-            file_data['Output_datasets'] = []
+            file_data['Output_datasets'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id+'/analysis_output/' + 'z_scores.csv'}]
+            file_data["Saved_plots"] = []
             # Set file's current position at offset.
             f.seek(0)
             # convert back to json.
@@ -4817,8 +4867,9 @@ async def logistic_regression_statsmodels(workflow_id: str, step_id: str, run_id
             'converged': df_0.loc['converged:'][0]}
             }
             file_data['results'] = new_data
-            file_data['Output_datasets'] = [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
-                                                     step_id + '/logistic_statsmodels.csv'}]
+            file_data['Output_datasets'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id+'/analysis_output/' + 'logistic_statsmodels.csv'}]
+            file_data["Saved_plots"]= []
             # Set file's current position at offset.
             f.seek(0)
             # convert back to json.
@@ -4900,8 +4951,8 @@ async def covariance(workflow_id: str,
             }
             file_data['results'] = new_data
             file_data['Output_datasets'] = []
-            file_data['Saved_plots'] = [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
-                                                 step_id + '/Cov.svg'}]
+            file_data['Saved_plots'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                 step_id +'/analysis_output/' + 'Cov.svg'}]
             # Set file's current position at offset.
             f.seek(0)
             # convert back to json.
@@ -5253,7 +5304,8 @@ async def compute_confirmatory_factor_analysis(workflow_id: str,
 async def analysis_mediation(workflow_id: str,
                              step_id: str,
                              run_id: str,
-                             dependent_1: str,
+                             file: str,
+                             dependent: str,
                              exposure: str,
                              mediator: list[str] | None = Query(default=None),
                              independent: list[str] | None = Query(default=None)):
@@ -5261,20 +5313,23 @@ async def analysis_mediation(workflow_id: str,
     test_status = ''
     dfm = pd.DataFrame()
     dfi = pd.DataFrame()
-    print(workflow_id, step_id, run_id, dependent_1, exposure, mediator, independent)
+    print(workflow_id, step_id, run_id, dependent, exposure, mediator, independent)
     # Load Datasets
     try:
         test_status = 'Dataset is not defined'
-        selected_datasource = dependent_1.split("--")[0]
-        dependent_1 = dependent_1.split("--")[1]
-        exposure = exposure.split("--")[1]
-        dfm['variables'] = mediator
-        dfm[['Datasource', 'Variable']] = dfm["variables"].apply(lambda x: pd.Series(str(x).split("--")))
-        mediator = dfm['Variable'].tolist()
-        if independent != ['']:
-            dfi['variables'] = independent
-            dfi[['Datasource', 'Variable']] = dfi["variables"].apply(lambda x: pd.Series(str(x).split("--")))
-            independent = dfi['Variable'].tolist()
+        if file is None:
+            raise Exception
+        dependent_1 = dependent
+        # selected_datasource = dependent_1.split("--")[0]
+        # dependent_1 = dependent_1.split("--")[1]
+        # exposure = exposure.split("--")[1]
+        # dfm['variables'] = mediator
+        # dfm[['Datasource', 'Variable']] = dfm["variables"].apply(lambda x: pd.Series(str(x).split("--")))
+        # mediator = dfm['Variable'].tolist()
+        # if independent != ['']:
+        #     dfi['variables'] = independent
+        #     dfi[['Datasource', 'Variable']] = dfi["variables"].apply(lambda x: pd.Series(str(x).split("--")))
+        #     independent = dfi['Variable'].tolist()
         if (dependent_1 == exposure) or (dependent_1 in mediator) or (exposure in mediator):
             test_status = 'Select different columns for outcome, predictor and mediator variables'
             raise Exception
@@ -5286,7 +5341,10 @@ async def analysis_mediation(workflow_id: str,
                 test_status = 'Mediator columns cannot be in covar variables'
                 raise Exception
         test_status = 'Unable to retrieve datasets'
-        data = load_data_from_csv(path_to_storage + "/" + selected_datasource)
+
+        data = load_data_from_csv(path_to_storage + "/" + file)
+
+        # data = load_data_from_csv(path_to_storage + "/" + selected_datasource)
 
         # We want X to affect Y. If there is no relationship between X and Y, there is nothing to mediate.
         # model.0 <- lm(Y ~ X, myData)
@@ -5350,7 +5408,9 @@ async def analysis_mediation(workflow_id: str,
         else:
             df, dist = mediation_analysis(data=data, x=exposure, m=mediator, y=dependent_1,
                                            seed=42, return_dist=True)
-        df.columns = df.columns.str.replace('.', ',', regex=True)
+
+        df.columns = df.columns.str.replace('.', ',')
+
         # fig = plt.figure()
         # ax = fig.add_subplot()
         # ax1 = fig.add_subplot()
@@ -5380,6 +5440,7 @@ async def analysis_mediation(workflow_id: str,
             }
             file_data['results'] = new_data
             file_data['Output_datasets'] = []
+            file_data["Saved_plots"]= []
             # Set file's current position at offset.
             f.seek(0)
             # convert back to json.
@@ -5396,9 +5457,10 @@ async def analysis_mediation(workflow_id: str,
 async def canonical_correlation(workflow_id: str,
                                 step_id: str,
                                 run_id: str,
+                                file: str,
                                 n_components: int | None = Query(default=2),
-                                independent_variables_1: list[str] | None = Query(default=None),
-                                independent_variables_2: list[str] | None = Query(default=None)):
+                                training_vectors: list[str] | None = Query(default=None),
+                                target_vectors: list[str] | None = Query(default=None)):
     dfv = pd.DataFrame()
     dfv2 = pd.DataFrame()
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
@@ -5406,21 +5468,26 @@ async def canonical_correlation(workflow_id: str,
     # Load Datasets
     try:
         test_status = 'Dataset is not defined'
-        dfv['variables1'] = independent_variables_1
-        dfv[['Datasource', 'Variable1']] = dfv["variables1"].apply(lambda x: pd.Series(str(x).split("--")))
-        dfv2['variables2'] = independent_variables_2
-        dfv2[['Datasource', 'Variable2']] = dfv2["variables2"].apply(lambda x: pd.Series(str(x).split("--")))
-        independent_variables_1 = dfv["Variable1"].tolist()
-        independent_variables_2 = dfv2["Variable2"].tolist()
-        selected_datasources = pd.unique(dfv['Datasource'])
-        test_status = 'Variables cannot be found in the same Dataset'
-        if selected_datasources != pd.unique(dfv2['Datasource']):
-            print(selected_datasources+"      vs     "+pd.unique(dfv2['Datasource']))
+        if file is None:
             raise Exception
+        # dfv['variables1'] = independent_variables_1
+        # dfv[['Datasource', 'Variable1']] = dfv["variables1"].apply(lambda x: pd.Series(str(x).split("--")))
+        # dfv2['variables2'] = independent_variables_2
+        # dfv2[['Datasource', 'Variable2']] = dfv2["variables2"].apply(lambda x: pd.Series(str(x).split("--")))
+        # independent_variables_1 = dfv["Variable1"].tolist()
+        # independent_variables_2 = dfv2["Variable2"].tolist()
+        independent_variables_1 = training_vectors
+        independent_variables_2 = target_vectors
+        # selected_datasources = pd.unique(dfv['Datasource'])
+        test_status = 'Variables cannot be found in the same Dataset'
+        # if selected_datasources != pd.unique(dfv2['Datasource']):
+        #     print(selected_datasources+"      vs     "+pd.unique(dfv2['Datasource']))
+        #     raise Exception
 
         test_status = 'Unable to retrieve datasets'
         # We expect only one here
-        dataset = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
+        dataset = load_data_from_csv(path_to_storage + "/" + file)
+        # dataset = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
 
         X = dataset[dataset.columns.intersection(independent_variables_1)]
         Y = dataset[dataset.columns.intersection(independent_variables_2)]
@@ -5484,7 +5551,7 @@ async def canonical_correlation(workflow_id: str,
         Xc_df.to_csv(path_to_storage + '/output/Xc_df.csv', index=False)
         Yc_df.to_csv(path_to_storage + '/output/Yc_df.csv', index=False)
 
-        test_status = 'Erro in creating info file.'
+        test_status = 'Error in creating info file.'
         with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
             # Load existing data into a dict.
             file_data = json.load(f)
@@ -5508,19 +5575,19 @@ async def canonical_correlation(workflow_id: str,
                                      'coef_df': coef_df.to_dict()}
             }
             file_data['results'] = new_data
-            file_data['Output_datasets'] = [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
-                                                step_id + '/Xc_df.csv'},
-                                            {"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
-                                                     step_id + '/Yc_df.csv'}
+            file_data['Output_datasets'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                step_id +'/analysis_output/' + 'Xc_df.csv'},
+                                            {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id +'/analysis_output/' + 'Yc_df.csv'}
                                             ]
-            file_data['Saved_plots'] = [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
-                                             step_id + '/CCA_XYcorr.svg'},
-                                        {"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
-                                                 step_id + '/CCA_comp_corr.svg'},
-                                        {"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
-                                                 step_id + '/CCA_XY_c_corr.svg'},
-                                        {"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
-                                                 step_id + '/CCA_coefs.svg'}]
+            file_data['Saved_plots'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                             step_id + '/analysis_output/' +'CCA_XYcorr.svg'},
+                                        {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                 step_id + '/analysis_output/' +'CCA_comp_corr.svg'},
+                                        {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                 step_id + '/analysis_output/' +'CCA_XY_c_corr.svg'},
+                                        {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                 step_id + '/analysis_output/' +'CCA_coefs.svg'}]
             # Set file's current position at offset.
             f.seek(0)
             # convert back to json.
@@ -6003,7 +6070,8 @@ async def compute_anova_pinguin(workflow_id: str,
 async def compute_mean(workflow_id: str,
                                  step_id: str,
                                  run_id: str,
-                                 variables: list[str] | None = Query(default=None)):
+                                 file:str,
+                       variables: list[str] | None = Query(default=None)):
     df = pd.DataFrame()
     dfv = pd.DataFrame()
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
@@ -6011,26 +6079,20 @@ async def compute_mean(workflow_id: str,
     # Load Datasets
     try:
         test_status = 'Dataset is not defined'
-        dfv['variables'] = variables
-        dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
-        selected_datasources = pd.unique(dfv['Datasource'])
-        test_status = 'Unable to retrieve datasets'
-        for ds in selected_datasources:
-            dataset = load_data_from_csv(path_to_storage + "/" + ds)
-            # Keep requested Columns
-            selected_columns = pd.unique(dfv['Variable'])
-            for columns in dataset.columns:
-                if columns not in selected_columns:
-                    dataset = dataset.drop(str(columns), axis=1)
-            # Get mean values
-            test_status = 'Unable to compute the average values for the selected columns'
-            for column in dataset.columns:
-                print(str(column))
-                print(dataset[str(column)].dtype)
-                res = statisticsMean(column, dataset)
-                if (res!= -1):
-                    df[column] = [res]
-                else: df[column] = ["N/A"]
+        if file is None:
+            raise Exception
+        data = load_data_from_csv(path_to_storage + "/" + file)
+        for column in data.columns:
+            if column not in variables:
+                data = data.drop(str(column), axis=1)
+
+        # Get mean values
+        test_status = 'Unable to compute the average values for the selected columns'
+        for column in data.columns:
+            res = statisticsMean(column, data)
+            if (res!= -1):
+                df[column] = [res]
+            else: df[column] = ["N/A"]
         test_status = 'Unable to create info.json file'
         with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
             # Load existing data into a dict.
@@ -6047,6 +6109,7 @@ async def compute_mean(workflow_id: str,
             }
             file_data['results'] = new_data
             file_data['Output_datasets'] = []
+            file_data["Saved_plots"]= []
             # Set file's current position at offset.
             f.seek(0)
             # convert back to json.
@@ -6064,7 +6127,8 @@ async def compute_mean(workflow_id: str,
 async def compute_min(workflow_id: str,
                                  step_id: str,
                                  run_id: str,
-                                 variables: list[str] | None = Query(default=None)):
+                                 file:str,
+                      variables: list[str] | None = Query(default=None)):
     df = pd.DataFrame()
     dfv = pd.DataFrame()
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
@@ -6072,25 +6136,19 @@ async def compute_min(workflow_id: str,
     # Load Datasets
     try:
         test_status = 'Dataset is not defined'
-        dfv['variables'] = variables
-        dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
-
-        selected_datasources = pd.unique(dfv['Datasource'])
-        test_status = 'Unable to retrieve datasets'
-        for ds in selected_datasources:
-            dataset = load_data_from_csv(path_to_storage + "/" + ds)
-            # Keep requested Columns
-            selected_columns = pd.unique(dfv['Variable'])
-            for columns in dataset.columns:
-                if columns not in selected_columns:
-                    dataset = dataset.drop(str(columns), axis=1)
-            # Get min values
-            test_status = 'Unable to compute the min values for the selected columns'
-            for column in dataset.columns:
-                res = statisticsMin(column, dataset)
-                if (res!= -1):
-                    df[column] = [res]
-                else: df[column] = ["N/A"]
+        if file is None:
+            raise Exception
+        data = load_data_from_csv(path_to_storage + "/" + file)
+        for column in data.columns:
+            if column not in variables:
+                data = data.drop(str(column), axis=1)
+        # Get min values
+        test_status = 'Unable to compute the min values for the selected columns'
+        for column in data.columns:
+            res = statisticsMin(column, data)
+            if (res!= -1):
+                df[column] = [res]
+            else: df[column] = ["N/A"]
         test_status = 'Unable to create info.json file'
         with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
             # Load existing data into a dict.
@@ -6107,6 +6165,7 @@ async def compute_min(workflow_id: str,
             }
             file_data['results'] = new_data
             file_data['Output_datasets'] = []
+            file_data["Saved_plots"]= []
             # Set file's current position at offset.
             f.seek(0)
             # convert back to json.
@@ -6124,34 +6183,28 @@ async def compute_min(workflow_id: str,
 async def compute_std(workflow_id: str,
                        step_id: str,
                        run_id: str,
-                       ddof: int | None = Query(default=0),
+                       file:str,
+                      ddof: int | None = Query(default=0),
                        variables: list[str] | None = Query(default=None)):
     df = pd.DataFrame()
-    dfv = pd.DataFrame()
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
     test_status = ''
     # Load Datasets
     try:
         test_status = 'Dataset is not defined'
-        dfv['variables'] = variables
-        dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
-
-        selected_datasources = pd.unique(dfv['Datasource'])
-        test_status = 'Unable to retrieve datasets'
-        for ds in selected_datasources:
-            dataset = load_data_from_csv(path_to_storage + "/" + ds)
-            # Keep requested Columns
-            selected_columns = pd.unique(dfv['Variable'])
-            for columns in dataset.columns:
-                if columns not in selected_columns:
-                    dataset = dataset.drop(str(columns), axis=1)
-            # Get min values
-            test_status = 'Unable to compute the Std for the selected columns'
-            for column in dataset.columns:
-                res = statisticsStd(column, dataset, ddof)
-                if (res!= -1):
-                    df[column] = [res]
-                else: df[column] = ["N/A"]
+        if file is None:
+            raise Exception
+        data = load_data_from_csv(path_to_storage + "/" + file)
+        for column in data.columns:
+            if column not in variables:
+                data = data.drop(str(column), axis=1)
+        # Get std values
+        test_status = 'Unable to compute the Std for the selected columns'
+        for column in data.columns:
+            res = statisticsStd(column, data, ddof)
+            if (res!= -1):
+                df[column] = [res]
+            else: df[column] = ["N/A"]
         test_status = 'Unable to create info.json file'
         with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
             # Load existing data into a dict.
@@ -6168,6 +6221,7 @@ async def compute_std(workflow_id: str,
             }
             file_data['results'] = new_data
             file_data['Output_datasets'] = []
+            file_data["Saved_plots"]= []
             # Set file's current position at offset.
             f.seek(0)
             # convert back to json.
@@ -6185,7 +6239,8 @@ async def compute_std(workflow_id: str,
 async def compute_max(workflow_id: str,
                                  step_id: str,
                                  run_id: str,
-                                 variables: list[str] | None = Query(default=None)):
+                                 file:str,
+                      variables: list[str] | None = Query(default=None)):
     df = pd.DataFrame()
     dfv = pd.DataFrame()
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
@@ -6228,6 +6283,7 @@ async def compute_max(workflow_id: str,
             }
             file_data['results'] = new_data
             file_data['Output_datasets'] = []
+            file_data["Saved_plots"]= []
             # Set file's current position at offset.
             f.seek(0)
             # convert back to json.
@@ -6401,23 +6457,23 @@ async def Structural_Equation_Models_Optimization(
 
     # # TODO: check int64 with floats
     #      because it raises an exception
-        print(data.dtypes)
-        print('------------------------')
-        print('non numeric')
-        print(data.select_dtypes(exclude=[np.number]))
-        print('int')
-        print(data.select_dtypes(include=[np.int]))
-        print('float')
-        print(data.select_dtypes(include=[np.float]))
+    #     print(data.dtypes)
+    #     print('------------------------')
+    #     print('non numeric')
+    #     print(data.select_dtypes(exclude=[np.number]))
+    #     print('int')
+    #     print(data.select_dtypes(include=[np.int]))
+    #     print('float')
+    #     print(data.select_dtypes(include=[np.float]))
 
         if not data.select_dtypes(include=[np.float]).empty:
             # for num_col in data.dtypes:
             df_num = data.select_dtypes(include=[np.int])
-            print(df_num)
+            # print(df_num)
             for col in df_num.columns:
                 data[col] = pd.to_numeric(data[col], downcast='float')
-            print(df_num.dtypes)
-            print(data.dtypes)
+            # print(df_num.dtypes)
+            # print(data.dtypes)
     # *****************-----------------
     # It's OK up until now
     # *****************-----------------
@@ -6425,18 +6481,25 @@ async def Structural_Equation_Models_Optimization(
         m = Model(model)
         test_status = 'Preparing to fit the model to the data'
         r = m.fit(data, obj=obj_func)
+        print(r)
         test_status = 'Unable to calculate inspect parameters estimate'
         ins = m.inspect(std_est=True)
-        ins.columns = ins.columns.str.replace('.', '_', regex=True)
+        ins.columns = ins.columns.str.replace('.', '_')
+        ins.to_csv(path_to_storage + '/output/inspect_means.csv', index=False)
+
         test_status = 'Unable to calculate estimate means'
         means = estimate_means(m)
+        means.to_csv(path_to_storage + '/output/estimate_means.csv', index=False)
         cstats = calc_stats(m)
+        cstats.to_csv(path_to_storage + '/output/calc_stats.csv', index=False)
         test_status = 'Unable to calculate factors'
         factors = m.predict_factors(data)
+        factors.to_csv(path_to_storage + '/output/factors.csv', index=False)
         robust = m.inspect(se_robust=True)
-        robust.columns = robust.columns.str.replace('.', '_', regex=True)
+        robust.columns = robust.columns.str.replace('.', '_')
+        robust.to_csv(path_to_storage + '/output/robust.csv', index=False)
         test_status = 'Unable to plot the graph'
-        g = semplot(m, filename='t.pdf',plot_covs=True)
+        g = semplot(m, filename=path_to_storage + "/output/semplot.pdf",plot_covs=True)
 
         # # TODO: Another implementation of means - We don't use it for now
         # m = ModelMeans(model)
@@ -6454,7 +6517,46 @@ async def Structural_Equation_Models_Optimization(
         # print('stats--------')
         # print(type(stats))
         # print(stats)
-
+        test_status = 'Error in creating info file.'
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            # Load existing data into a dict.
+            file_data = json.load(f)
+            # Join new data
+            new_data = {
+                "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                "workflow_id": workflow_id,
+                "run_id": run_id,
+                "step_id": step_id,
+                "test_name": 'Structural Equation Models Optimization',
+                "test_params": {
+                    "model": model,
+                    "obj_func": obj_func
+                },
+                "test_results": {'fit_results': str(r),
+                                 }
+            }
+            file_data['results'] = new_data
+            file_data['Output_datasets'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id + '/analysis_output/' + 'inspect_means.csv'},
+                                            {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id + '/analysis_output/' + 'estimate_means.csv'},
+                                            {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id + '/analysis_output/' + 'calc_stats.csv'},
+                                            {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id + '/analysis_output/' + 'factors.csv'},
+                                            {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id + '/analysis_output/' + 'robust.csv'}
+                                            ]
+            file_data['Saved_plots'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                 step_id + '/analysis_output/' + 'semplot'},
+                                        {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                 step_id + '/analysis_output/' + 'semplot.pdf'}
+                                        ]
+            # Set file's current position at offset.
+            f.seek(0)
+            # convert back to json.
+            json.dump(file_data, f, indent=4)
+            f.truncate()
 
         return JSONResponse(content={'status': 'Success','fit_results':str(r), 'inspect_means':ins.to_json(orient='records'),'estimate_means':means.to_json(orient='records'),
                                      'factors':factors.to_json(orient='records'),'calc_stats':cstats.to_json(orient='records'),
@@ -6493,11 +6595,11 @@ async def Exploratory_Factor_Analysis_extract_latent_structure(
         data.columns = data.columns.str.replace("[^a-zA-Z]+", "_", regex=True)
         print(data.columns)
         df = data[data.columns.intersection(variables)]
-        print(df.columns)
-        print(df.head())
+        # print(df.columns)
+        # print(df.head())
         # TODO: Remove nans
         df = df.dropna()
-        print(df.head())
+        # print(df.head())
         # data = data.dropna(subset=variables)
 
         # *****************-------------------------
@@ -6510,17 +6612,47 @@ async def Exploratory_Factor_Analysis_extract_latent_structure(
             # df = data.drop('Unnamed: 0', axis='columns')
         # else:
 
-        print(df.columns)
+        # print(df.columns)
         dfv1 = pd.DataFrame([df[col].tolist() for col in df.columns], index=df.columns).T
         # print(dfv)
         if test == 'explore_cfa_model':
+            print("explore_cfa_model")
             test_result = efa.explore_cfa_model(dfv1,min_loadings=min_loadings,pval=pval)
         elif test == 'explore_pine_model':
+            print("explore_pine_model")
             test_result = efa.explore_pine_model(dfv1,min_loadings=min_loadings,pval=pval,levels=levels)
         else:
             test_result=''
-        print(type(test_result))
-        print(test_result)
+        # print(type(test_result))
+        # print(test_result)
+        test_status = 'Error in creating info file.'
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            # Load existing data into a dict.
+            file_data = json.load(f)
+            # Join new data
+            new_data = {
+                "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                "workflow_id": workflow_id,
+                "run_id": run_id,
+                "step_id": step_id,
+                "test_name": 'Exploratory Factor Analysis',
+                "test_params": {
+                    'test':test,
+                    "variables": variables,
+                    "min_loadings": min_loadings,
+                    ' p-value cutoff':pval,
+                    'levels':levels
+                },
+                "test_results": test_result
+            }
+            file_data['results'] = new_data
+            file_data['Output_datasets'] = []
+            file_data['Saved_plots'] = []
+            # Set file's current position at offset.
+            f.seek(0)
+            # convert back to json.
+            json.dump(file_data, f, indent=4)
+            f.truncate()
         # print(pine_test)
         return JSONResponse(content={'status': 'Success', 'test_result': test_result},
                             status_code=200)
@@ -6530,75 +6662,7 @@ async def Exploratory_Factor_Analysis_extract_latent_structure(
                                      'test_result': ''},
                             status_code=200)
 
-@router.get("/Dataframe_preparation")
-async def Dataframe_preparation(workflow_id: str,
-                                step_id: str,
-                                run_id: str,
-                                file:str,
-                                variables: list[str] | None = Query(default=None),
-                                method: str | None = Query("mean",
-                                                  regex="^(mean)$|^(median)$|^(most_frequent)$|^(constant)$|^(KNN)$|^(iterative)$")):
 
-    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
-    # test_status = ''
-    # dfv = pd.DataFrame()
-    print(path_to_storage)
-    try:
-        test_status = 'Dataset is not defined'
-        if file is None:
-            test_status = 'Dataset is not defined'
-            raise Exception
-        test_status = 'Unable to retrieve datasets'
-        # We expect only one here
-        data = load_data_from_csv(path_to_storage + "/" + file)
-        for variable in variables:
-            if variable not in data.columns:
-                raise Exception(str(variable) + '- The selected variable cannot be found in the dataset.')
-        print(method)
-        print(variables)
-
-        x = DataframeImputation(data,variables,method)
-        if type(x) == str:
-            test_status= 'Failed to impute values'
-            raise Exception (x)
-        x.to_csv(path_to_storage + '/output/imputed_dataset.csv', index=False)
-
-        df = pd.DataFrame(x.describe())
-        df.insert(0, 'Index', df.index)
-        df1 = pd.DataFrame()
-        df1['Non Null Count'] = x.notna().sum()
-        df1['Dtype'] = x.dtypes
-        dfinfo = df1.T
-        dfinfo['Index'] = dfinfo.index
-        df = pd.concat([df, dfinfo], ignore_index=True)
-        print(df)
-        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
-            # Load existing data into a dict.
-            file_data = json.load(f)
-            # Join new data
-            new_data = {
-                    "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
-                    "workflow_id": workflow_id,
-                    "run_id": run_id,
-                    "step_id": step_id,
-                    "test_name": method,
-                    "test_params": variables
-            }
-            file_data['results'] = new_data
-            file_data['Output_datasets'] = [{"file": 'workflows/' + workflow_id + '/' + run_id + '/' +
-                                             step_id + '/imputed_dataset.svg'}]
-            # Set file's current position at offset.
-            f.seek(0)
-            # convert back to json.
-            json.dump(file_data, f, indent=4)
-            f.truncate()
-        return JSONResponse(content={'status': 'Success', 'newdataFrame': df.to_json(orient='records', default_handler=str)},
-                            status_code=200)
-    except Exception as e:
-        print(e)
-        return JSONResponse(content={'status': test_status + "\n" + e.__str__(),
-                             'newdataFrame': '[]'},
-                    status_code=200)
 
 @router.get("/hypothesis/autocorrelation", tags=["return_autocorrelation"])
 # Validation is done inline in the input of the function
