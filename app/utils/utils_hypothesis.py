@@ -33,6 +33,20 @@ def create_plots(plot_type: str, column: str, second_column: str, selected_dataf
                         outlierwidth=2)),
                 line_color='rgb(8,81,156)'
             ))
+            # if second_column is not None:
+            #     print('Im here')
+            #     fig1.add_trace(go.Box(
+            #         y=selected_dataframe[str(second_column)],
+            #         name="Suspected Outliers",
+            #         boxpoints='suspectedoutliers',  # only suspected outliers
+            #         marker=dict(
+            #             color='rgb(8,81,156)',
+            #             outliercolor='rgba(219, 64, 82, 0.6)',
+            #             line=dict(
+            #                 outliercolor='rgba(219, 64, 82, 0.6)',
+            #                 outlierwidth=2)),
+            #         line_color='rgb(8,81,156)'
+            #     ))
             # fig1.update_layout(title_text="Box Plot Styling Outliers")
 
             # fig, ax1 = plt.subplots()
