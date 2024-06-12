@@ -568,18 +568,28 @@ def csv_stats_to_trino(workflow_id: str,
                        step_id: str,
                        run_id: str,
                        source_file: str,
-                       institution: str,
                        workspace_id: str,
                        request: Request) -> str:
     try:
 
         TRINO_SCHEME = "https"
         timezone = pytz.timezone("UTC")
-        #access_token = request.session.get("secret_key", None)
 
-        text_file = open("token.txt", "r")
-        access_token = text_file.read()
-        text_file.close()
+        ##TODO WHEN MIDDLEWARE WORKS
+        access_token = request.session.get("secret_key", None)
+        groups = request.session.get("groups", None)
+        institution = "staging_area"
+        if groups != None:
+            for group in groups:
+                if group in ["nia", "uu", "chs-rmc", "kcl", "sant-pau"]:
+                    institution = group.replace("-", "_")
+
+        ##TODO TEMPORARY SOLUTION
+        # text_file = open("token.txt", "r")
+        # access_token = text_file.read()
+        # text_file.close()
+        # institution = "staging_area"
+
 
         engine = create_engine(
             f"trino://trino.mescobrad.digital-enabler.eng.it:443/iceberg",
@@ -629,7 +639,7 @@ def csv_stats_to_trino(workflow_id: str,
             'workspace_id': 'str'
         }
 
-        pd.DataFrame({col: pd.Series(dtype=dt) for col, dt in dtypes.items()}).to_sql(name='testtest999',
+        pd.DataFrame({col: pd.Series(dtype=dt) for col, dt in dtypes.items()}).to_sql(name='testtest9999',
                                                                                       schema=institution,
                                                                                       con=conn,
                                                                                       if_exists='append',
@@ -639,11 +649,11 @@ def csv_stats_to_trino(workflow_id: str,
 
         #Delete all old data with the same workflow_id, etc.
         conn.execute(f"\
-        DELETE FROM iceberg.{institution}.testtest999 WHERE source = '{source_file}' AND workspace_id = '{workspace_id}'")
+        DELETE FROM iceberg.{institution}.testtest9999 WHERE source = '{source_file}'")
 
         df.to_csv("general_test.csv")
 
-        df.to_sql(name="testtest999", schema=institution, con=conn, if_exists='append',
+        df.to_sql(name="testtest9999", schema=institution, con=conn, if_exists='append',
                   index=False, method='multi')
 
         return 'Success'

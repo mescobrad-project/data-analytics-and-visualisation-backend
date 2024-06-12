@@ -147,6 +147,29 @@ if input isn't recognized
         "You don't follow instructions very well, do you? """
     return {'status': to_send_status}
 
+@router.get("/check_mri_folders_existence")
+async def check_mri_folders_existence(workflow_id: str,
+                                      step_id: str,
+                                      run_id: str) -> dict:
+    # Get list of files from the local storage
+    try:
+        directory = NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id + "/output"
+        # Get all entries in the directory
+        entries = os.listdir(directory)
+        # Filter out only directories
+        folders = [entry for entry in entries if os.path.isdir(os.path.join(directory, entry))]
+        print(folders)
+    except Exception as e:
+        print(e)
+        print("Error : Failed to retrieve mri folder names")
+        return []
+
+    return {
+                'samseg_results_folder' : 'samseg_output' in folders,
+                'ucl_test': 'ucl_test' in folders,
+                'coreg_results_folder': 'coreg_results_folder' in folders,
+                'synthseg_results_folder': 'synthseg_results_folder' in folders
+            }
 
 @router.get("/free_surfer/recon", tags=["return_free_surfer_recon"])
 # Validation is done inline in the input of the function
@@ -399,11 +422,11 @@ async def run_synthseg(workflow_id: str,
     channel.send(
         "sudo chmod 777 /home/user/neurodesktop-storage/runtime_config/workflow_" + workflow_id + "/run_" + run_id + "/step_" + step_id + "/output\n")
 
-    channel.send("sudo mkdir -m777 ./output/samseg_output > mkdir.txt\n")
+    channel.send(f"sudo mkdir -m777 ./output/synthseg_output_{input_file_name} > mkdir.txt\n")
     input_file_name_name = input_file_name.split(".")[0]
 
 
-    synthseg_cmd = f"mri_synthseg --i {input_file_name} --o converted_nii_{input_file_name}"
+    synthseg_cmd = f"mri_synthseg --i {input_file_name} --o ./output/synthseg_output_{input_file_name}/converted_nii_{input_file_name}"
 
     if parc:
         synthseg_cmd += " --parc"
@@ -413,16 +436,16 @@ async def run_synthseg(workflow_id: str,
         synthseg_cmd += " --fast"
 
     if vol_save:
-        synthseg_cmd += f" --vol vol_{input_file_name_name}.csv"
+        synthseg_cmd += f" --vol ./output/synthseg_output_{input_file_name}/vol_{input_file_name_name}.csv"
     if qc_save:
-        synthseg_cmd += f" --qc qc_{input_file_name_name}.csv"
+        synthseg_cmd += f" --qc ./output/synthseg_output_{input_file_name}/qc_{input_file_name_name}.csv"
     if post_save:
-        synthseg_cmd += f" --post post_{input_file_name}"
+        synthseg_cmd += f" --post ./output/synthseg_output_{input_file_name}/post_{input_file_name}"
     if resample_save:
-        synthseg_cmd += f" --resample resample_{input_file_name}"
+        synthseg_cmd += f" --resample ./output/synthseg_output_{input_file_name}/resample_{input_file_name}"
 
     # Finalize the command with nohup, output redirection, and background execution
-    synthseg_cmd = f"nohup {synthseg_cmd} > ./output/synthseg_log.txt &\n"
+    synthseg_cmd = f"nohup {synthseg_cmd} > ./output/synthseg_output_{input_file_name}/synthseg_log.txt &\n"
     print(synthseg_cmd)
     channel.send(synthseg_cmd)
     to_return = "Success"
@@ -513,10 +536,10 @@ async def return_free_surfer_samseg(workflow_id: str,
     # channel.send(
     #     "sudo chmod 777 /home/user/neurodesktop-storage/runtime_config/workflow_" + workflow_id + "/run_" + run_id + "/step_" + step_id + "/output/samseg_output\n")
 
-    channel.send("sudo mkdir -m777 ./output/samseg_output > mkdir.txt\n")
+    channel.send(f"sudo mkdir -m777 ./output/samseg_output_{input_file_name} > mkdir.txt\n")
 
 
-    print("nohup run_samseg" + " --input " + input_file_name + " -o ./output/samseg_output > ./output/samseg_log.txt &\n")
+    print("nohup run_samseg" + " --input " + input_file_name + f" -o ./output/samseg_output_{input_file_name} > ./output/samseg_output_{input_file_name}/samseg_log.txt &\n")
 
     command = f"nohup run_samseg --input {input_file_name}"
 
@@ -526,7 +549,7 @@ async def return_free_surfer_samseg(workflow_id: str,
     if lession:
         command += f" --lesion --lesion-mask-pattern {lession_mask_pattern_file} {lession_mask_pattern_flair} --threshold {threshold}"
 
-    command += " -o ./output/samseg_output > ./output/samseg_log.txt &\n"
+    command += f" -o ./output/samseg_output_{input_file_name} > ./output/samseg_output_{input_file_name}/samseg_log.txt &\n"
 
     print("Command to send")
     print(command)
@@ -703,9 +726,12 @@ async def return_free_surfer_coreg( workflow_id: str,
     channel.send("cd /home/user" + path_to_storage + "/\n")
     # channel.send("sudo chmod 777 ./output/\n")
     channel.send("ls > ls1123.txt\n")
+
+    channel.send(f"sudo mkdir -m777 ./output/coregistration_output_{flair_file_name}_{ref_file_name} > mkdir.txt\n")
+
     # The created file has name "flairToT1_" + ref_file_name to keep track of it
     # print("nohup mri_coreg --mov "+ flair_file_name + " --ref " + ref_file_name + " --reg flairToT1_" + ref_file_name[:-4] + ".lta > logs_coreg.txt &\n")
-    channel.send("nohup mri_coreg --mov " + flair_file_name + " --ref " + ref_file_name + " --reg flairToT1_" + ref_file_name[:-4] + ".lta > ./logs_coreg.txt &\n")
+    channel.send("nohup mri_coreg --mov " + flair_file_name + " --ref " + ref_file_name + f" --reg ./output/coregistration_output_{flair_file_name}_{ref_file_name}/flairToT1_" + ref_file_name[:-4] + f".lta > ./output/coregistration_output_{flair_file_name}_{ref_file_name}/logs_coreg.txt &\n")
 
     # If everything ok return Success
     to_return = "Success"
@@ -768,7 +794,7 @@ async def return_free_surfer_vol2vol( workflow_id: str,
     # Output file has name "flair_reg_" + flair_file_name to keep track of it
     # Name of reg file is derived automatically from the name of the reference file as produced in the previous step
     # print("nohup mri_vol2vol --mov " + flair_file_name + " --reg flairToT1_" + ref_file_name[:-4] + ".lta --o flair_reg_" + ref_file_name + " --targ " + target_file_name + " &\n")
-    channel.send("nohup mri_vol2vol --mov " + flair_file_name + " --reg flairToT1_" + ref_file_name[:-4] + ".lta --o flair_reg_" +  ref_file_name + " --targ " + target_file_name + " > ./log_vol2.txt &\n")
+    channel.send("nohup mri_vol2vol --mov " + flair_file_name + f" --reg ./output/coregistration_output_{flair_file_name}_{ref_file_name}/flairToT1_" + ref_file_name[:-4] + f".lta --o ./output/coregistration_output_{flair_file_name}_{ref_file_name}/flair_reg_" +  ref_file_name + " --targ " + target_file_name + f" > ./output/coregistration_output_{flair_file_name}_{ref_file_name}/log_vol2.txt &\n")
 
     # If everything ok return Success
     to_return = "Success"
@@ -948,25 +974,48 @@ async def reconall_files_to_datalake(workflow_id: str,
         print(e)
         return JSONResponse(content='Error in saving zip file to the DataLake',status_code=501)
 
-@router.put("/reconall_stats_to_trino")
+class ReconallStatsToTrinoItem(BaseModel):
+    workflow_id: str
+    step_id: str
+    run_id: str
+    reconall_source_file: str
+    workspace_id: str
+    folder_name: str
+
+@router.put("/reconall_stats_to_trino", tags=["reconall_stats_to_trino"])
 #All recon-all stats to trino both tabular and measurements
-async def reconall_stats_to_trino(workflow_id: str,
-                                step_id: str,
-                                run_id: str,
-                                reconall_source_file: str,
-                                institution: str,
-                                workspace_id: str,
-                                folder_name: str) -> str:
+async def reconall_stats_to_trino(input_item: ReconallStatsToTrinoItem,
+                                  request: Request) -> str:
 
     # TODO Change auth methods or create a super function for upload to trino
     try:
+        workflow_id = input_item.workflow_id
+        step_id = input_item.step_id
+        run_id = input_item.run_id
+        reconall_source_file = input_item.reconall_source_file
+        workspace_id = input_item.workspace_id
+        folder_name = input_item.folder_name
+
         #connect to trino
         TRINO_SCHEME = "https"
         timezone = pytz.timezone("UTC")
-        #access_token = request.session.get("secret_key", None)
-        text_file = open("token.txt", "r")
-        access_token = text_file.read()
-        text_file.close()
+
+
+        ##TODO WHEN MIDDLEWARE WORKS
+        access_token = request.session.get("secret_key", None)
+        groups = request.session.get("groups", None)
+        institution = "staging_area"
+        if groups != None:
+            for group in groups:
+                if group in ["nia", "uu", "chs-rmc", "kcl", "sant-pau"]:
+                    institution = group.replace("-", "_")
+
+        ##TODO TEMPORARY SOLUTION
+        # text_file = open("token.txt", "r")
+        # access_token = text_file.read()
+        # text_file.close()
+        # institution = "staging_area"
+
         print(access_token)
         engine = create_engine(
             f"trino://trino.mescobrad.digital-enabler.eng.it:443/iceberg",
@@ -1080,7 +1129,7 @@ async def reconall_stats_to_trino(workflow_id: str,
             'workspace_id': 'str'
         }
 
-        pd.DataFrame({col: pd.Series(dtype=dt) for col, dt in dtypes.items()}).to_sql(name='testtest999',
+        pd.DataFrame({col: pd.Series(dtype=dt) for col, dt in dtypes.items()}).to_sql(name='testtest9999',
                                                                                       schema=institution,
                                                                                       con=conn,
                                                                                       if_exists='append',
@@ -1089,18 +1138,24 @@ async def reconall_stats_to_trino(workflow_id: str,
 
         #Delete all old data with the same workflow_id, etc.
 
-        for filename in os.listdir(path_to_stats):
-            path_to_file = os.path.join(path_to_stats, filename)
-            if os.path.isfile(path_to_file):
-                measurement_data =  "workflow" + path_to_file.split("workflow")[1].replace("\\", "/") + " (measurement data)"
-                tabular_data =  "workflow" + path_to_file.split("workflow")[1].replace("\\", "/") + " (tabular data)"
+        delete_source_str = ""
 
-                conn.execute(f"\
-                DELETE FROM iceberg.{institution}.testtest999 WHERE (source = '{measurement_data}' OR source = '{tabular_data}') AND workspace_id = '{workspace_id}'")
+        # for filename in os.listdir(path_to_stats):
+        #     path_to_file = os.path.join(path_to_stats, filename)
+        #     if os.path.isfile(path_to_file):
+        #         measurement_data =  "workflow" + path_to_file.split("workflow")[1].replace("\\", "/") + " (measurement data)"
+        #
+        #         print(f"DELETE FROM iceberg.{institution}.testtest9999 WHERE source = '{measurement_data}'")
+        #         conn.execute(f"DELETE FROM iceberg.{institution}.testtest9999 WHERE source = '{measurement_data}'")
+        #
+        #         tabular_data =  "workflow" + path_to_file.split("workflow")[1].replace("\\", "/") + " (tabular data)"
+        #
+        #         print(f"DELETE FROM iceberg.{institution}.testtest9999 WHERE source = '{tabular_data}'")
+        #         conn.execute(f"DELETE FROM iceberg.{institution}.testtest9999 WHERE source = '{tabular_data}'")
 
 
-        to_return.to_sql(name='testtest999', schema=institution, con=conn, if_exists='append',
-                  index=False, method='multi', chunksize=20000)
+        # to_return.to_sql(name='testtest9999', schema=institution, con=conn, if_exists='append',
+        #           index=False, method='multi', chunksize=2500)
 
         return JSONResponse(content='Stats have been successfully uploaded to Trino', status_code=200)
     except Exception as e:
@@ -1108,25 +1163,46 @@ async def reconall_stats_to_trino(workflow_id: str,
         traceback.print_exc()
         return JSONResponse(content='Error in uploading stats to Trino',status_code=501)
 
+class SamsegStatsToTrinoItem(BaseModel):
+    workflow_id: str
+    step_id: str
+    run_id: str
+    samseg_source_file: str
+    workspace_id: str
 
-@router.put("/samseg_stats_to_trino")
+@router.put("/samseg_stats_to_trino/", tags=["samseg_stats_to_trino"])
 #All samseg stats to trino both tabular and measurements
-async def samseg_stats_to_trino(workflow_id: str,
-                                step_id: str,
-                                run_id: str,
-                                samseg_source_file: str,
-                                institution: str,
-                                workspace_id: str,
+async def samseg_stats_to_trino(input_item : SamsegStatsToTrinoItem,
                                 request: Request) -> str:
     try:
+        workflow_id = input_item.workflow_id
+        step_id = input_item.step_id
+        run_id = input_item.run_id
+        samseg_source_file = input_item.samseg_source_file
+        workspace_id = input_item.workspace_id
 
         TRINO_SCHEME = "https"
         timezone = pytz.timezone("UTC")
-        # access_token = request.session.get("secret_key", None)
-        text_file = open("token.txt", "r")
-        access_token = text_file.read()
-        text_file.close()
+
+        ##TODO WHEN MIDDLEWARE WORKS
+        access_token = request.session.get("secret_key", None)
+        groups = request.session.get("groups", None)
+        institution = "staging_area"
+        if groups != None:
+            for group in groups:
+                if group in ["nia", "uu", "chs-rmc", "kcl", "sant-pau"]:
+                    institution = group.replace("-", "_")
+
+        ##TODO TEMPORARY SOLUTION
+        # text_file = open("token.txt", "r")
+        # access_token = text_file.read()
+        # text_file.close()
+        # institution = "staging_area"
+
+
         print(access_token)
+        print(groups)
+        print(institution)
         engine = create_engine(
             f"trino://trino.mescobrad.digital-enabler.eng.it:443/iceberg",
             connect_args={
@@ -1211,7 +1287,7 @@ async def samseg_stats_to_trino(workflow_id: str,
             'workspace_id': 'str'
         }
 
-        pd.DataFrame({col: pd.Series(dtype=dt) for col, dt in dtypes.items()}).to_sql(name='testtest999',
+        pd.DataFrame({col: pd.Series(dtype=dt) for col, dt in dtypes.items()}).to_sql(name='testtest9999',
                                                                                       schema=institution,
                                                                                       con=conn,
                                                                                       if_exists='append',
@@ -1220,10 +1296,10 @@ async def samseg_stats_to_trino(workflow_id: str,
 
         #Delete all old data with the same workflow_id, etc.
         conn.execute(f"\
-        DELETE FROM iceberg.{institution}.testtest999 WHERE source = '{source}' AND workspace_id = '{workspace_id}'")
+        DELETE FROM iceberg.{institution}.testtest9999 WHERE source = '{source}'")
 
 
-        df.to_sql(name='testtest999', schema=institution, con=conn, if_exists='append',
+        df.to_sql(name='testtest9999', schema=institution, con=conn, if_exists='append',
                   index=False, method='multi')
 
         return JSONResponse(content='Stats have been successfully uploaded to Trino', status_code=200)
@@ -1232,16 +1308,22 @@ async def samseg_stats_to_trino(workflow_id: str,
         traceback.print_exc()
         return JSONResponse(content='Error in uploading stats to Trino',status_code=501)
 
+class CSVToTrinoItem(BaseModel):
+    workflow_id: str
+    step_id: str
+    run_id: str
+    source_file: str
+    workspace_id: str
 @router.put("/csv_stats_to_trino_")
 #All samseg stats to trino both tabular and measurements
-async def csv_stats_to_trino_(workflow_id: str,
-                                step_id: str,
-                                run_id: str,
-                                source_file: str,
-                                institution: str,
-                                workspace_id: str,
+async def csv_stats_to_trino_( input_item : CSVToTrinoItem,
                                 request: Request) -> str:
-    print(csv_stats_to_trino(workflow_id,step_id,run_id,source_file,institution,workspace_id,[]))
+    workflow_id = input_item.workflow_id
+    step_id = input_item.step_id
+    run_id = input_item.run_id
+    source_file = input_item.source_file
+    workspace_id = input_item.workspace_id
+    print(csv_stats_to_trino(workflow_id,step_id,run_id,source_file,workspace_id,[]))
 
 # @router.put("/samseg_stats_to_trino")
 # #All samseg stats to trino both tabular and measurements
