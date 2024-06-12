@@ -170,6 +170,7 @@ ExistingFunctions = [
     'autoencodermodelcreation',
     'autoencodermodelload'
     'valuesimputation',
+    'datasetconcat',
     # Dashboard
     "dashboard",
 ]
@@ -542,6 +543,8 @@ async def function_navigation(navigation_item: FunctionNavigationItem, request: 
                 url_to_redirect += "/AutoencoderModelLoad"
             case "valuesimputation":
                 url_to_redirect += "/ValuesImputation"
+            case "datasetconcat":
+                url_to_redirect += "/DatasetConcat"
             # Dashboard
             case "dashboard":
                 url_to_redirect += "/dashboard"

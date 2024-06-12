@@ -203,7 +203,6 @@ async def dataset_content(workflow_id: str, step_id: str, run_id: str, file_name
         print(e)
         return JSONResponse(content='Error : Failed to retrieve column names', status_code=501)
 
-
 @router.get("/return_columns")
 async def name_columns(workflow_id: str, step_id: str, run_id: str, file_name:str|None=None):
     try:
