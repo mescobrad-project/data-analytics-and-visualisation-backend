@@ -18,8 +18,7 @@ def tabular_run_experiment(csv_path,
                            no_of_features,
                            test_size,
                            iterations,
-                           lr,
-                           early_stopping_patience
+                           lr,                           early_stopping_patience
                            ):
 
     '''
