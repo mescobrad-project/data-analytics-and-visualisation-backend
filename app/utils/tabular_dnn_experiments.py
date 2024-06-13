@@ -9,12 +9,14 @@ from app.utils.tabular_dnn import DenseNN
 from app.utils.tabular_dnn_preprocessing import dataloaders
 from app.utils.training import train_eval_model
 
+NeurodesktopStorageLocation = os.environ.get('NeurodesktopStorageLocation') if os.environ.get(
+    'NeurodesktopStorageLocation') else "/neurodesktop-storage"
+
 def tabular_run_experiment(csv_path,
                            no_of_features,
                            test_size,
                            iterations,
-                           lr,
-                           early_stopping_patience
+                           lr,                           early_stopping_patience
                            ):
 
     '''

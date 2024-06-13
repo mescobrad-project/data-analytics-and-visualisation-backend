@@ -3,8 +3,6 @@ import torch
 import torch.nn as nn
 from captum.attr import InputXGradient
 
-from tabular_dnn import DenseNN
-
 class ModelWrapper(nn.Module):
 
     def __init__(self, external_model):
