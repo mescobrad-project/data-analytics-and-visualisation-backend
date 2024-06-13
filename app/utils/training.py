@@ -13,10 +13,10 @@ def train_model(train_dataloader, model, optimizer):
     train_predictions = []
 
     for step, batch in enumerate(train_dataloader):
-        mri, labels_binary = batch
-        mri, labels_binary = mri.to(device), labels_binary.to(device)
+        data, labels_binary = batch
+        data, labels_binary = data.to(device), labels_binary.to(device)
         optimizer.zero_grad()
-        outputs = model(x=mri, labels=labels_binary)
+        outputs = model(x=data, labels=labels_binary)
         loss, logits = outputs[0], outputs[1]
         loss.backward()
         train_losses.append(loss.item())
@@ -47,10 +47,10 @@ def evaluate_model(eval_dataloader, model):
     eval_predictions = []
 
     for batch in eval_dataloader:
-        mri, labels_binary = batch
-        mri, labels_binary = mri.to(device), labels_binary.to(device)
+        data, labels_binary = batch
+        data, labels_binary = data.to(device), labels_binary.to(device)
         with torch.no_grad():
-            outputs = model(x=mri, labels=labels_binary)
+            outputs = model(x=data, labels=labels_binary)
             loss, logits = outputs[0], outputs[1]
         valid_losses.append(loss.item())
 
