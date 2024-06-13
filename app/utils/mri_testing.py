@@ -1,9 +1,9 @@
 import numpy as np
 import torch
 from sklearn.metrics import confusion_matrix, classification_report
-import nibabel as nib
+# # import nibabel as nib
 from app.utils.mri_dataloaders import test_dataloader
-import torch.nn.functional as F
+# # import torch.nn.functional as F
 import matplotlib.pyplot as plt
 import seaborn as sns
 
@@ -94,4 +94,4 @@ def mris_batch_prediction(model_path,
     plt.savefig(output_path + 'test_performance.png')
 
     return True
-
+#

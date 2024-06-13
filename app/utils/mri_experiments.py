@@ -1,5 +1,4 @@
 import os
-os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
 
 from datetime import datetime
 import torch
@@ -11,6 +10,7 @@ from app.utils.training import train_eval_model
 
 NeurodesktopStorageLocation = os.environ.get('NeurodesktopStorageLocation') if os.environ.get(
     'NeurodesktopStorageLocation') else "/neurodesktop-storage"
+os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
 
 def mri_run_experiment(data_path,
                        csv_path,

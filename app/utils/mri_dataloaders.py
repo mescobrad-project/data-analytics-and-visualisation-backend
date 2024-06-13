@@ -1,5 +1,5 @@
-import os
-import torch
+# import os
+# import torch
 from torch.utils.data import Dataset, DataLoader, random_split
 from torchvision import transforms
 from app.utils.mri_generator import MRI_Generator
@@ -21,7 +21,6 @@ def train_eval_dataloaders(data_path,
                            csv_path,
                            batch_size,
                            train_split=0.85):
-
     dataset = MRI_Generator(data_path, csv_path)
 
     # Define the transformations
@@ -50,7 +49,6 @@ def train_eval_dataloaders(data_path,
 
 def test_dataloader(data_path,
                     csv_path):
-
     dataset = MRI_Generator(data_path, csv_path)
 
     # Define the transformations
