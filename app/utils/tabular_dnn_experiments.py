@@ -1,5 +1,7 @@
 import os
 from datetime import datetime
+
+import numpy as np
 import torch
 from sklearn.metrics import confusion_matrix, classification_report
 import matplotlib.pyplot as plt
@@ -8,6 +10,9 @@ import seaborn as sns
 from app.utils.tabular_dnn import DenseNN
 from app.utils.tabular_dnn_preprocessing import dataloaders
 from app.utils.training import train_eval_model
+
+NeurodesktopStorageLocation = os.environ.get('NeurodesktopStorageLocation') if os.environ.get(
+    'NeurodesktopStorageLocation') else "/neurodesktop-storage"
 
 def tabular_run_experiment(csv_path,
                            no_of_features,
@@ -36,7 +41,7 @@ def tabular_run_experiment(csv_path,
     for i in range(iterations):
         print(" ----- Currently on iteration no. {} ----- ".format(i + 1), flush=True)
 
-        train_dataloader, eval_dataloader, test_dataloader = dataloaders(csv_path, test_size)
+        train_dataloader, eval_dataloader, test_dataloader = dataloaders( NeurodesktopStorageLocation  + "/mescobrad_dataset.csv", test_size)
 
         model = DenseNN(input_size=no_of_features)
 
@@ -112,6 +117,7 @@ def tabular_run_experiment(csv_path,
 
         # Plot the classification report
         ax[1].axis('off')
+        # ax[1].set_axis_off()
         combined_text = "Classification Report\n\n" + classification_report_text
         ax[1].text(0.01, 0.5, combined_text, fontsize=10, ha='left', va='center', transform=ax[1].transAxes,
                    family='monospace')
@@ -122,3 +128,11 @@ def tabular_run_experiment(csv_path,
         plt.show()
 
     return True
+
+# tabular_run_experiment("",
+#                            12,
+#                            0.1,
+#                            1,
+#                            0.001,
+#                            2
+#                            )
