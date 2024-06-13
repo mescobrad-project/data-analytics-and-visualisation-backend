@@ -5,22 +5,20 @@ from datetime import datetime
 import torch
 import matplotlib.pyplot as plt
 
-from app.utils.conv3D import Conv3D
-#from app.utils.resnet18_3d import ResNet18_3D
+from app.utils.mri_conv3D import Conv3D
 from app.utils.mri_dataloaders import train_eval_dataloaders
 from app.utils.training import train_eval_model
-#from app.utils.testing import test_on_multiple_mris
 
 NeurodesktopStorageLocation = os.environ.get('NeurodesktopStorageLocation') if os.environ.get(
     'NeurodesktopStorageLocation') else "/neurodesktop-storage"
 
-def run_experiment(data_path,
-                   csv_path,
-                   iterations,
-                   batch_size,
-                   lr,
-                   early_stopping_patience
-                   ):
+def mri_run_experiment(data_path,
+                       csv_path,
+                       iterations,
+                       batch_size,
+                       lr,
+                       early_stopping_patience
+                       ):
 
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
     exp_dir = NeurodesktopStorageLocation + f'/model_data/saved_models_{timestamp}/'
