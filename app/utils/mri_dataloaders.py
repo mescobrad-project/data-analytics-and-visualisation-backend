@@ -17,6 +17,12 @@ class TransformedDataset(Dataset):
         x = self.transform(x)
         return x, y
 
+def class_distribution(dataset):
+    from collections import Counter
+    labels = [dataset[i][1] for i in range(len(dataset))]
+    distribution = Counter(labels)
+    return distribution
+
 def train_eval_dataloaders(data_path,
                            csv_path,
                            batch_size,
@@ -34,6 +40,7 @@ def train_eval_dataloaders(data_path,
 
     # Apply the transformations
     transformed_dataset = TransformedDataset(dataset, transform)
+    print("Original class distribution:", class_distribution(transformed_dataset))
 
     train_size = int(train_split * len(transformed_dataset))
     val_size = len(transformed_dataset) - train_size
