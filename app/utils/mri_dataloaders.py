@@ -50,6 +50,10 @@ def train_eval_dataloaders(data_path,
     val_dataloader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
     print('points in the dataloaders ', len(train_dataloader.dataset), len(val_dataloader.dataset))
+
+    # Calculate class distribution in train and val dataloaders
+    train_class_dist = class_distribution(train_dataset)
+    val_class_dist = class_distribution(val_dataset)
     print('Class distribution - Train: Class 0:', train_class_dist[0], 'Class 1:', train_class_dist[1])
     print('Class distribution - Validation: Class 0:', val_class_dist[0], 'Class 1:', val_class_dist[1])
 
