@@ -1,9 +1,10 @@
 import pandas as pd
 from fastapi import APIRouter, Request, Query
-from sklearn.metrics import mean_squared_error, accuracy_score, r2_score, mean_absolute_error
+from sklearn.metrics import mean_squared_error, accuracy_score, r2_score, mean_absolute_error, classification_report
 from sklearn.model_selection import train_test_split
 import numpy as np
 import shap
+from sklearn.preprocessing import LabelEncoder
 
 import pickle
 import json
@@ -300,6 +301,8 @@ async def linear_reg_load_model(
         X_test = data[test_params['independent_variables']]
         col_name = str(test_params['dependent_variable']) + '_predict'
         y_pred = pd.DataFrame(loaded_model.predict(X_test))
+        print("Linear Predict")
+        print(loaded_model.coef_)
         df = pd.DataFrame(loaded_model.coef_, index=test_params['independent_variables']).transpose()
         data.insert(loc=0, column=col_name, value=y_pred)
         result_dataset = data
@@ -369,17 +372,26 @@ async def logistic_reg_create_model(
         data = load_data_from_csv(path_to_storage + "/" + file_name)
         X = data[independent_variables]
         y = data[dependent_variable]
+
+        print("here 1")
         # Split dataset into train and test sets
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=random_state, shuffle=shuffle)
+
+        lab_enc = LabelEncoder()
+        encoded = lab_enc.fit_transform(y_train)
+
         test_status = 'Unable to execute regression'
-        linear_model = train_logistic_regression(X_train, y_train)
+        logistic_model = train_logistic_regression(X_train, encoded)
+        # logistic_model = train_logistic_regression(X_train, y_train)
+        print("here 2")
+        print(classification_report(y_test, logistic_model.predict(X_test)))
 
         test_status = 'Unable to save the model'
         filename = model_name+'.sav'
-        pickle.dump(linear_model, open(path_to_storage +'/'+ filename, 'wb'))
+        pickle.dump(logistic_model, open(path_to_storage +'/'+ filename, 'wb'))
 
         # TODO: Temporarily we save in both paths - to be available for Load model and also proceed to datalake
-        pickle.dump(linear_model, open(path_to_storage +'/output/'+ filename, 'wb'))
+        pickle.dump(logistic_model, open(path_to_storage +'/output/'+ filename, 'wb'))
         # Save the model parameters to a JSON file
         model_params = {
             'independent_variables': independent_variables,
@@ -388,36 +400,40 @@ async def logistic_reg_create_model(
         with open(path_to_storage +'/'+ model_name+'.json', 'w') as f:
             json.dump(model_params, f)
         # Make predictions
-        y_pred = linear_model.predict(X_test)
-
+        y_pred = logistic_model.predict(X_test)
+        # encoded_pred = lab_enc.fit_transform(y_pred)
         test_status = 'Unable to print model stats'
 
-        r_sq = linear_model.score(X_train, y_train)
-        loss = np.sqrt(np.mean(np.square(y_test - y_pred)))
-        mse = mean_squared_error(y_test, y_pred)
-        mae = mean_absolute_error(y_test, y_pred)
-        r2_score_val = r2_score(y_test, y_pred)
-        rmse = np.sqrt(mse)
-        dfslope= pd.DataFrame(linear_model.coef_.transpose(), index=independent_variables)
+        r_sq = logistic_model.score(X_train, encoded)
+        # r_sq = logistic_model.score(X_train, y_train)
+        print(r_sq)
+        print(logistic_model.get_params())
+        print(logistic_model.decision_function(X_train))
+        print(logistic_model.coef_)
+        mse = ""
+        mae = ""
+        r2_score_val = ""
+        rmse = ""
+        dfslope= pd.DataFrame(logistic_model.coef_.transpose(), index=independent_variables)
         test_status = 'Unable to present XAI plots'
-
-        explainer = shap.LinearExplainer(linear_model, X_train, feature_names=independent_variables)
-        shap_values = explainer(X_train)
-        shap.summary_plot(shap_values, X_train, feature_names=independent_variables, show=False, max_display=20, plot_size=[8,5])
-        plt.savefig(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + "shap_summary_lr.svg", dpi=700)  # .png,.pdf will also support here
-        plt.close()
-        shap.plots.waterfall(shap_values[1], max_display=20, show=False)
-        plt.savefig(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + "shap_waterfall_lr.svg",
-                    dpi=700)
-        plt.close()
-        shap.plots.heatmap(shap_values, show=False)
-        plt.savefig(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + "shap_heatmap_lr.svg",
-                    dpi=700)
-        plt.close()
-
-        shap.plots.violin(shap_values, show=False, plot_size=[8,5])
-        plt.savefig(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + "shap_violin_lr.svg",
-                    dpi=700)
+        #
+        explainer = shap.Explainer(logistic_model, X_train, feature_names=independent_variables)
+        # shap_values = explainer(X_train)
+        # shap.summary_plot(shap_values, X_train, feature_names=independent_variables, show=False, max_display=20, plot_size=[8,5])
+        # plt.savefig(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + "shap_summary_lr.svg", dpi=700)  # .png,.pdf will also support here
+        # plt.close()
+        # shap.plots.waterfall(shap_values[1], max_display=20, show=False)
+        # plt.savefig(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + "shap_waterfall_lr.svg",
+        #             dpi=700)
+        # plt.close()
+        # shap.plots.heatmap(shap_values, show=False)
+        # plt.savefig(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + "shap_heatmap_lr.svg",
+        #             dpi=700)
+        # plt.close()
+        #
+        # shap.plots.violin(shap_values, show=False, plot_size=[8,5])
+        # plt.savefig(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + "shap_violin_lr.svg",
+        #             dpi=700)
 
         test_status = 'Error in creating info file.'
         with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
@@ -435,9 +451,9 @@ async def logistic_reg_create_model(
                     "Independent variables": independent_variables
                 },
                 "test_results": {"mse": mse, "r2_score": r2_score_val,
-                                 "Loss": loss, "mae": mae, "rmse": rmse,
+                                 "Loss": '', "mae": mae, "rmse": rmse,
                                  'coeff_determination': r_sq.to_dict(),
-                                 'intercept': linear_model.intercept_,
+                                 'intercept': logistic_model.intercept_,
                                  'slope': dfslope.transpose().to_dict(),
                                  }}
             file_data['results'] = new_data
@@ -460,8 +476,8 @@ async def logistic_reg_create_model(
             f.truncate()
 
 
-        return JSONResponse(content={'status': 'Success', "mse": mse, "r2_score": r2_score_val, "Loss":loss, "mae":mae, "rmse":rmse,
-                    "coeff_determination":r_sq, 'intercept': linear_model.intercept_, 'slope': dfslope.transpose().to_json(orient='records')},
+        return JSONResponse(content={'status': 'Success', "mse": mse, "r2_score": r2_score_val, "Loss":'', "mae":mae, "rmse":rmse,
+                    "coeff_determination":r_sq, 'intercept': logistic_model.intercept_, 'slope': dfslope.transpose().to_json(orient='records')},
                                     status_code=200)
     except Exception as e:
         print(e)
@@ -483,14 +499,20 @@ async def logistic_reg_load_model(
         path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
         test_status = 'Unable to retrieve the dataset'
         data = load_data_from_csv(path_to_storage + "/" + file_name)
+        print("Logistic LOAD")
         loaded_model = pickle.load(open(get_local_storage_path(workflow_id, run_id, step_id) +"/"+ model_name, 'rb'))
+        print("Logistic LOADED")
         with open(get_local_storage_path(workflow_id, run_id, step_id) +"/"+ model_name.replace('.sav','.json')) as f:
             test_params = json.load(f)
         X_test = data[test_params['independent_variables']]
         col_name = str(test_params['dependent_variable']) + '_predict'
         y_pred = pd.DataFrame(loaded_model.predict(X_test))
+        print("Logistic Predict")
+        print(loaded_model.coef_)
         df = pd.DataFrame(loaded_model.coef_, index=test_params['independent_variables']).transpose()
+        print("Logistic coefs_")
         data.insert(loc=0, column=col_name, value=y_pred)
+        print("Logistic first column")
         result_dataset = data
         result_dataset.to_csv(path_to_storage + '/output/Dataset_predict.csv', index=False)
 
