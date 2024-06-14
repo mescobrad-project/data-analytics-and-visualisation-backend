@@ -1,11 +1,13 @@
+import os
 import numpy as np
 import torch
 from sklearn.metrics import confusion_matrix, classification_report
-# # import nibabel as nib
 from app.utils.mri_dataloaders import test_dataloader
-# # import torch.nn.functional as F
 import matplotlib.pyplot as plt
 import seaborn as sns
+
+NeurodesktopStorageLocation = os.environ.get('NeurodesktopStorageLocation') if os.environ.get(
+    'NeurodesktopStorageLocation') else "/neurodesktop-storage"
 
 '''
 def mri_prediction(model_path,
@@ -70,28 +72,43 @@ def mris_batch_prediction(model_path,
         test_predictions = np.append(test_predictions, np.argmax(logits, axis=1))
         test_targets = np.append(test_targets, labels)
 
-    cm = confusion_matrix(test_targets, test_predictions)
     class_names = ['fcd', 'hc']
-    #report = classification_report(test_targets, test_predictions, target_names=class_names, output_dict=True)
-    classification_report_text = classification_report(test_targets, test_predictions, target_names=class_names)
 
-    # Create a figure with two subplots: one for the heatmap and one for the text
-    fig, ax = plt.subplots(2, 1, figsize=(7, 10))#, gridspec_kw={'height_ratios': [3, 1]})
+    # Classification report
+    report = classification_report(test_targets, test_predictions, target_names=class_names)
+    fig, ax = plt.subplots()  # Adjust the figure size as needed
+    ax.axis('off')
+    fig.suptitle('Classification Report', y=0.8, x=0.5, fontweight='bold')
+    # ax.set_title('Classification report')
+    plt.text(0.01, 0.5, report, {'fontsize': 12}, fontproperties='monospace')
+    plt.tight_layout()
+    plt.subplots_adjust(top=0.5)
+    plt.savefig(os.path.join(output_path, 'classification_report.png'))
+    plt.show()
 
-    # Plot the heatmap
-    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=class_names, yticklabels=class_names, ax=ax[0], cbar=False)
-    ax[0].set_xlabel('Predicted')
-    ax[0].set_ylabel('Actual')
-    ax[0].set_title('Confusion Matrix')
-
-    # Plot the classification report
-    ax[1].axis('off')
-    #ax[1].set_title('Classification Report')
-    combined_text = "Classification Report\n\n" + classification_report_text
-    ax[1].text(0.01, 0.5, combined_text, fontsize=12, ha='left', va='center', transform=ax[1].transAxes, family='monospace')
-
-    # Save the heatmap
-    plt.savefig(output_path + 'test_performance.png')
+    # Confusion matrix
+    fig, ax = plt.subplots()
+    cm = confusion_matrix(test_targets, test_predictions)
+    sns.heatmap(cm, annot=True, cmap='Blues', fmt='d', ax=ax, cbar=False, xticklabels=class_names, yticklabels=class_names)
+    ax.set_xlabel('Predicted')
+    ax.set_ylabel('Ground Truth')
+    fig.suptitle('Confusion Matrix', y=0.7, x=0.5, fontweight='bold')
+    plt.tight_layout()
+    plt.subplots_adjust(top=0.55)
+    plt.savefig(os.path.join(output_path, 'confusion_matrix.png'))
+    plt.show()
 
     return True
-#
+
+
+
+
+# path = NeurodesktopStorageLocation + "/model_data/saved_models_2024-06-12_17-47/"
+# model_path = path + "conv3d_experiment1.pth"
+# data_path = path + "mris_test/"
+# csv_path = path + "groups_test.tsv"
+# output_path = path
+# mris_batch_prediction(model_path,
+#                       data_path,
+#                       csv_path,
+#                       output_path)

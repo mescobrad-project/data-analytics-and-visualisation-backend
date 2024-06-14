@@ -2,6 +2,7 @@ import os
 from datetime import datetime
 
 import numpy as np
+import pandas as pd
 import torch
 from sklearn.metrics import confusion_matrix, classification_report
 import matplotlib.pyplot as plt
@@ -18,7 +19,8 @@ def tabular_run_experiment(csv_path,
                            no_of_features,
                            test_size,
                            iterations,
-                           lr,                           early_stopping_patience
+                           lr,
+                           early_stopping_patience
                            ):
 
     '''
@@ -40,7 +42,7 @@ def tabular_run_experiment(csv_path,
     for i in range(iterations):
         print(" ----- Currently on iteration no. {} ----- ".format(i + 1), flush=True)
 
-        train_dataloader, eval_dataloader, test_dataloader = dataloaders( NeurodesktopStorageLocation  + "/mescobrad_dataset.csv", test_size)
+        train_dataloader, eval_dataloader, test_dataloader = dataloaders(csv_path, test_size)
 
         model = DenseNN(input_size=no_of_features)
 
@@ -66,7 +68,7 @@ def tabular_run_experiment(csv_path,
         axs[0].set_ylabel('Loss')
         axs[0].set_title(f'Train and Validation Loss per Epoch \n Early Stopping checkpoint at epoch {es_epoch}')
         axs[0].legend()
-        axs[0].grid(True)
+        #axs[0].grid(True)
 
         # f1s plot
         axs[1].plot(train_f1s, label='Train F1')
@@ -75,10 +77,12 @@ def tabular_run_experiment(csv_path,
         axs[1].set_ylabel('f1 score')
         axs[1].set_title('Train and Validation f1 score per Epoch')
         axs[1].legend()
-        axs[1].grid(True)
+        #axs[1].grid(True)
 
         # Save and show the plot
         plt.tight_layout()
+        plt.subplots_adjust(hspace=0.7)
+
         plt.savefig(os.path.join(exp_dir, f'train_val_metrics_plot_experiment{i + 1}.png'))
         plt.show()
 
@@ -101,37 +105,37 @@ def tabular_run_experiment(csv_path,
             test_predictions = np.append(test_predictions, np.argmax(logits, axis=1))
             test_targets = np.append(test_targets, labels)
 
-        cm = confusion_matrix(test_targets, test_predictions)
-        print(cm)
-        # class_names = ['class0', 'class1']
-        classification_report_text = classification_report(test_targets,
-                                                           test_predictions)  # , target_names=class_names)
-
-        fig, ax = plt.subplots(2, 1, figsize=(5, 7))
-
-        sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', ax=ax[0], cbar=False)
-        ax[0].set_xlabel('Predicted')
-        ax[0].set_ylabel('Actual')
-        ax[0].set_title('Confusion Matrix')
-
-        # Plot the classification report
-        ax[1].axis('off')
-        # ax[1].set_axis_off()
-        combined_text = "Classification Report\n\n" + classification_report_text
-        ax[1].text(0.01, 0.5, combined_text, fontsize=10, ha='left', va='center', transform=ax[1].transAxes,
-                   family='monospace')
-
-        #
+        # Classification report
+        report = classification_report(test_targets, test_predictions)#, output_dict=True)  # , target_names=class_names)
+        fig, ax = plt.subplots()  # Adjust the figure size as needed
+        ax.axis('off')
+        fig.suptitle('Classification Report', y=0.8, x=0.5, fontweight='bold')
+        #ax.set_title('Classification report')
+        plt.text(0.01, 0.5, report, {'fontsize': 12}, fontproperties='monospace')  # use a monospaced font
         plt.tight_layout()
-        plt.savefig(os.path.join(exp_dir, f'test_performance_experiment{i + 1}.png'))
+        plt.subplots_adjust(top=0.5)
+        plt.savefig(os.path.join(exp_dir, f'classification_report_experiment{i + 1}.png'))
+        plt.show()
+
+        # Confusion matrix
+        fig, ax = plt.subplots()
+        cm = confusion_matrix(test_targets, test_predictions)
+        sns.heatmap(cm, annot=True, cmap='Blues', fmt='d', ax=ax, cbar=False)
+        ax.set_xlabel('Predicted')
+        ax.set_ylabel('Ground Truth')
+        fig.suptitle('Confusion Matrix', y=0.7, x=0.5, fontweight='bold')
+        plt.tight_layout()
+        plt.subplots_adjust(top=0.55)
+        plt.savefig(os.path.join(exp_dir, f'confusion_matrix_experiment{i + 1}.png'))
         plt.show()
 
     return True
 
-# tabular_run_experiment("",
-#                            12,
-#                            0.1,
-#                            1,
-#                            0.001,
-#                            2
-#                            )
+# path = NeurodesktopStorageLocation + "/mescobrad_dataset.csv"
+# tabular_run_experiment(path,
+#                        12,
+#                        0.1,
+#                        4,
+#                        0.001,
+#                        20
+#                        )
