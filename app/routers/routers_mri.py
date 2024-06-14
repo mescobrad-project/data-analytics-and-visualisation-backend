@@ -78,6 +78,16 @@ async def list_nii_files(workflow_id: str, step_id: str, run_id: str):
     # Get list of files from the local storage
     try:
         list_of_files = get_all_files_from_local_temp_storage(workflow_id, run_id, step_id)
+
+        directory = NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id + "/output"
+        # Get all entries in the directory
+        entries = os.listdir(directory)
+        # Filter out only directories
+        folders = [entry for entry in entries if os.path.isdir(os.path.join(directory, entry))]
+        for folder in folders:
+            if folder.startswith("coregistration_output_"):
+                list_of_files.append(get_all_files_from_local_temp_storage(workflow_id, run_id, step_id + "/output/" + folder))
+
     except Exception as e:
         print(e)
         print("Error : Failed to retrieve file names")
@@ -160,17 +170,31 @@ async def check_mri_folders_existence(workflow_id: str,
         # Filter out only directories
         folders = [entry for entry in entries if os.path.isdir(os.path.join(directory, entry))]
         print(folders)
+
+        to_return = {
+                'samseg_results_folder_exists' : False,
+                'reconall_results_folder_exists': False,
+                'coreg_results_folder_exists': False,
+                'synthseg_results_folder_exists': False,
+                'samseg_results_folder': "none",
+                'reconall_results_folder': "none",
+                'coreg_results_folder': "none",
+                'synthseg_results_folder': "none",
+            }
+
+        processes = {"reconall_results_": 'reconall_results_folder', "samseg_output_": 'samseg_results_folder', "coregistration_output_": 'coreg_results_folder', "synthseg_output_": 'synthseg_results_folder'}
+        for process in processes.keys():
+            for folder in folders:
+                if folder.startswith(process):
+                    to_return[processes[process]] = folder
+                    to_return[processes[process] + '_exists'] = True
+        print(to_return)
+        return to_return
+
     except Exception as e:
         print(e)
         print("Error : Failed to retrieve mri folder names")
         return []
-
-    return {
-                'samseg_results_folder' : 'samseg_output' in folders,
-                'ucl_test': 'ucl_test' in folders,
-                'coreg_results_folder': 'coreg_results_folder' in folders,
-                'synthseg_results_folder': 'synthseg_results_folder' in folders
-            }
 
 @router.get("/free_surfer/recon", tags=["return_free_surfer_recon"])
 # Validation is done inline in the input of the function
@@ -242,10 +266,10 @@ async def return_free_surfer_recon(workflow_id: str,
     channel.send(
         "sudo chmod 777 /home/user/neurodesktop-storage/runtime_config/workflow_" + workflow_id + "/run_" + run_id + "/step_" + step_id + "/output\n")
 
-    channel.send("sudo mkdir -m777 ./output/samseg_output > mkdir.txt\n")
+    # channel.send("sudo mkdir -m777 ./output/samseg_output > mkdir.txt\n")
 
     channel.send(
-        "nohup recon-all -subject " + file_name + " -i ./" + file_name + " -all > ./output/recon_log.txt &\n")
+        "nohup recon-all -subject " + "reconall_results_" + file_name + " -i ./" + file_name + " -all > ./output/recon_log.txt &\n")
 
     print("Name of file")
     print(file_name)
@@ -297,54 +321,6 @@ async def return_free_surfer_samseg_log(workflow_id: str,
             return False
 
     return False
-
-@router.get("/free_surfer/log/vol2vol", tags=["return_free_surfer_samseg"])
-async def return_free_surfer_log_vol2vol_coreg(workflow_id: str,
-                                   run_id: str,
-                                   step_id: str,
-                                   output_file: str,
-                                   ) -> dict:
-    """Check if vol2vol or coreg has finished by checking if the output file exists"""
-    path_to_output = os.path.join(get_local_storage_path(workflow_id, run_id, step_id), "output")
-
-    folder_pattern = os.path.join(path_to_output, "coregistration_output_*")
-    folders = glob.glob(folder_pattern)
-
-
-    # Check if any matching folders exist
-    if not folders:
-        return False
-
-    for folder in folders:
-        file_path = os.path.join(folder, output_file)
-        if os.path.exists(file_path):
-            return True
-        else:
-            return False
-
-
-@router.get("/free_surfer/log/synthseg", tags=["return_free_surfer_log_synthseg"])
-async def return_free_surfer_log_synthseg(workflow_id: str,
-                                   run_id: str,
-                                   step_id: str,
-                                   output_file: str,
-                                   ) -> dict:
-    """Check if synthseg has finished by checking if the output file exists"""
-    path_to_output = os.path.join(get_local_storage_path(workflow_id, run_id, step_id), "output")
-
-    folder_pattern = os.path.join(path_to_output, "synthseg_output_*")
-    folders = glob.glob(folder_pattern)
-
-    # Check if any matching folders exist
-    if not folders:
-        return False
-
-    for folder in folders:
-        file_path = os.path.join(folder, output_file)
-        if os.path.exists(file_path):
-            return True
-        else:
-            return False
 
 @router.get("free_surfer/recon/check", tags=["return_free_surfer_recon"])
 # Validation is done inline in the input of the function
@@ -559,20 +535,24 @@ async def return_free_surfer_samseg(workflow_id: str,
     # channel.send(
     #     "sudo chmod 777 /home/user/neurodesktop-storage/runtime_config/workflow_" + workflow_id + "/run_" + run_id + "/step_" + step_id + "/output/samseg_output\n")
 
-    channel.send(f"sudo mkdir -m777 ./output/samseg_output_{input_file_name} > mkdir.txt\n")
+    outfolder_name = f"./output/samseg_output_{input_file_name}"
+    if input_flair_file_name is not None:
+        outfolder_name += "_" + input_flair_file_name
+
+    channel.send(f"sudo mkdir -m777 {outfolder_name} > mkdir.txt\n")
 
 
-    print("nohup run_samseg" + " --input " + input_file_name + f" -o ./output/samseg_output_{input_file_name} > ./output/samseg_log.txt &\n")
+    print("nohup run_samseg" + " --input " + input_file_name + f" -o {outfolder_name} > ./output/samseg_log.txt &\n")
 
     command = f"nohup run_samseg --input {input_file_name}"
 
-    if input_flair_file_name is None:
+    if input_flair_file_name is not None:
         command += f" {input_flair_file_name} --pallidum-separate"
 
     if lession:
         command += f" --lesion --lesion-mask-pattern {lession_mask_pattern_file} {lession_mask_pattern_flair} --threshold {threshold}"
 
-    command += f" -o ./output/samseg_output_{input_file_name} > ./output/samseg_output_{input_file_name}/samseg_log.txt &\n"
+    command += f" -o {outfolder_name} > ./output/samseg_log.txt &\n"
 
     print("Command to send")
     print(command)
@@ -1001,9 +981,8 @@ class ReconallStatsToTrinoItem(BaseModel):
     workflow_id: str
     step_id: str
     run_id: str
-    reconall_source_file: str
+    reconall_source_folder: str
     workspace_id: str
-    folder_name: str
 
 @router.put("/reconall_stats_to_trino", tags=["reconall_stats_to_trino"])
 #All recon-all stats to trino both tabular and measurements
@@ -1015,9 +994,14 @@ async def reconall_stats_to_trino(input_item: ReconallStatsToTrinoItem,
         workflow_id = input_item.workflow_id
         step_id = input_item.step_id
         run_id = input_item.run_id
-        reconall_source_file = input_item.reconall_source_file
+        reconall_source_folder = input_item.reconall_source_folder
         workspace_id = input_item.workspace_id
-        folder_name = input_item.folder_name
+
+        if reconall_source_folder.lower() == "none":
+            return JSONResponse(content='Reconall not run this time; No need to upload to trino', status_code=200)
+
+        if reconall_source_folder.startswith("reconall_results_"):
+            reconall_source_file = reconall_source_folder[len("reconall_results_"):]
 
         #connect to trino
         TRINO_SCHEME = "https"
@@ -1052,7 +1036,7 @@ async def reconall_stats_to_trino(input_item: ReconallStatsToTrinoItem,
         conn = engine.connect()
 
         path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
-        path_to_stats = os.path.join(path_to_storage, "output", folder_name, "stats")
+        path_to_stats = os.path.join(path_to_storage, "output", reconall_source_folder, "stats")
         first = True
 
         #for all files with tabular data
@@ -1152,7 +1136,7 @@ async def reconall_stats_to_trino(input_item: ReconallStatsToTrinoItem,
             'workspace_id': 'str'
         }
 
-        pd.DataFrame({col: pd.Series(dtype=dt) for col, dt in dtypes.items()}).to_sql(name='testtest9999',
+        pd.DataFrame({col: pd.Series(dtype=dt) for col, dt in dtypes.items()}).to_sql(name='test_table_qb',
                                                                                       schema=institution,
                                                                                       con=conn,
                                                                                       if_exists='append',
@@ -1161,24 +1145,23 @@ async def reconall_stats_to_trino(input_item: ReconallStatsToTrinoItem,
 
         #Delete all old data with the same workflow_id, etc.
 
-        delete_source_str = ""
 
-        # for filename in os.listdir(path_to_stats):
-        #     path_to_file = os.path.join(path_to_stats, filename)
-        #     if os.path.isfile(path_to_file):
-        #         measurement_data =  "workflow" + path_to_file.split("workflow")[1].replace("\\", "/") + " (measurement data)"
-        #
-        #         print(f"DELETE FROM iceberg.{institution}.testtest9999 WHERE source = '{measurement_data}'")
-        #         conn.execute(f"DELETE FROM iceberg.{institution}.testtest9999 WHERE source = '{measurement_data}'")
-        #
-        #         tabular_data =  "workflow" + path_to_file.split("workflow")[1].replace("\\", "/") + " (tabular data)"
-        #
-        #         print(f"DELETE FROM iceberg.{institution}.testtest9999 WHERE source = '{tabular_data}'")
-        #         conn.execute(f"DELETE FROM iceberg.{institution}.testtest9999 WHERE source = '{tabular_data}'")
+        for filename in os.listdir(path_to_stats):
+            path_to_file = os.path.join(path_to_stats, filename)
+            if os.path.isfile(path_to_file):
+                measurement_data =  "workflow" + path_to_file.split("workflow")[1].replace("\\", "/") + " (measurement data)"
+
+                print(f"DELETE FROM iceberg.{institution}.test_table_qb WHERE source = '{measurement_data}'")
+                conn.execute(f"DELETE FROM iceberg.{institution}.test_table_qb WHERE source = '{measurement_data}'")
+
+                tabular_data =  "workflow" + path_to_file.split("workflow")[1].replace("\\", "/") + " (tabular data)"
+
+                print(f"DELETE FROM iceberg.{institution}.test_table_qb WHERE source = '{tabular_data}'")
+                conn.execute(f"DELETE FROM iceberg.{institution}.test_table_qb WHERE source = '{tabular_data}'")
 
 
-        # to_return.to_sql(name='testtest9999', schema=institution, con=conn, if_exists='append',
-        #           index=False, method='multi', chunksize=2500)
+        to_return.to_sql(name='test_table_qb', schema=institution, con=conn, if_exists='append',
+                  index=False, method='multi', chunksize=2500)
 
         return JSONResponse(content='Stats have been successfully uploaded to Trino', status_code=200)
     except Exception as e:
@@ -1190,7 +1173,7 @@ class SamsegStatsToTrinoItem(BaseModel):
     workflow_id: str
     step_id: str
     run_id: str
-    samseg_source_file: str
+    samseg_source_folder: str
     workspace_id: str
 
 @router.put("/samseg_stats_to_trino/", tags=["samseg_stats_to_trino"])
@@ -1201,8 +1184,30 @@ async def samseg_stats_to_trino(input_item : SamsegStatsToTrinoItem,
         workflow_id = input_item.workflow_id
         step_id = input_item.step_id
         run_id = input_item.run_id
-        samseg_source_file = input_item.samseg_source_file
+        samseg_source_folder = input_item.samseg_source_folder
         workspace_id = input_item.workspace_id
+        samseg_source_files = []
+
+        if samseg_source_folder.lower() == "none":
+            return JSONResponse(content='Samseg not run this time; No need to upload to trino', status_code=200)
+
+        folders = samseg_source_folder[len("samseg_output_"):]
+
+        pattern_ = re.compile(r'(.+(\.nii(\.gz)?|\.mgz))_(.+)')
+        pattern = re.compile(r'(.+(\.nii(\.gz)?|\.mgz))')
+
+        match = pattern.match(folders)
+
+        if not match:
+            return JSONResponse(content='Folder does not contain file names', status_code=501)
+
+        match_ = pattern_.match(folders)
+
+        if not match_:
+            samseg_source_files.append(folders)
+        else:
+            samseg_source_files.append(match.group(1))
+            samseg_source_files.append(match.group(4))
 
         TRINO_SCHEME = "https"
         timezone = pytz.timezone("UTC")
@@ -1238,7 +1243,7 @@ async def samseg_stats_to_trino(input_item : SamsegStatsToTrinoItem,
 
         conn = engine.connect()
         path_to_file = get_local_storage_path(workflow_id, run_id, step_id)
-        path_to_file = os.path.join(path_to_file, "output", "samseg_output", "samseg.stats")
+        path_to_file = os.path.join(path_to_file, "output", samseg_source_folder, "samseg.stats")
         source = "workflow" + path_to_file.split("workflow")[1].replace("\\", "/")
 
         with open(path_to_file, newline="") as csvfile:
@@ -1285,15 +1290,27 @@ async def samseg_stats_to_trino(input_item : SamsegStatsToTrinoItem,
                 }
                 results_array.append(temp_to_append)
 
-                temp_to_append = {
-                    "source": source,
-                    "rowid": i,
-                    "variable_name": "samseg_source_file",
-                    "variable_value": samseg_source_file,
-                    "workspace_id": workspace_id
-                }
-                results_array.append(temp_to_append)
+                if len(samseg_source_files) >= 1:
 
+                    temp_to_append = {
+                        "source": source,
+                        "rowid": i,
+                        "variable_name": "input_file_name",
+                        "variable_value": samseg_source_files[0],
+                        "workspace_id": workspace_id
+                    }
+                    results_array.append(temp_to_append)
+
+                if len(samseg_source_files) == 2:
+
+                    temp_to_append = {
+                       "source": source,
+                       "rowid": i,
+                       "variable_name": "input_flair_file_name",
+                       "variable_value": samseg_source_files[1],
+                       "workspace_id": workspace_id
+                    }
+                    results_array.append(temp_to_append)
 
         df = pd.DataFrame.from_records(results_array)
 
@@ -1310,7 +1327,7 @@ async def samseg_stats_to_trino(input_item : SamsegStatsToTrinoItem,
             'workspace_id': 'str'
         }
 
-        pd.DataFrame({col: pd.Series(dtype=dt) for col, dt in dtypes.items()}).to_sql(name='testtest9999',
+        pd.DataFrame({col: pd.Series(dtype=dt) for col, dt in dtypes.items()}).to_sql(name='test_table_qb',
                                                                                       schema=institution,
                                                                                       con=conn,
                                                                                       if_exists='append',
@@ -1319,10 +1336,10 @@ async def samseg_stats_to_trino(input_item : SamsegStatsToTrinoItem,
 
         #Delete all old data with the same workflow_id, etc.
         conn.execute(f"\
-        DELETE FROM iceberg.{institution}.testtest9999 WHERE source = '{source}'")
+        DELETE FROM iceberg.{institution}.test_table_qb WHERE source = '{source}'")
 
 
-        df.to_sql(name='testtest9999', schema=institution, con=conn, if_exists='append',
+        df.to_sql(name='test_table_qb', schema=institution, con=conn, if_exists='append',
                   index=False, method='multi')
 
         return JSONResponse(content='Stats have been successfully uploaded to Trino', status_code=200)
