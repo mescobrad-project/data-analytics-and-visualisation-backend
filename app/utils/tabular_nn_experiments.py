@@ -9,7 +9,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 from app.utils.tabular_dnn import DenseNN
-from app.utils.tabular_dnn_preprocessing import dataloaders
+from app.utils.tabular_ae import AutoEncoderNN
+from app.utils.tabular_nn_preprocessing import dataloaders
 from app.utils.training import train_eval_model
 
 NeurodesktopStorageLocation = os.environ.get('NeurodesktopStorageLocation') if os.environ.get(
@@ -18,21 +19,26 @@ NeurodesktopStorageLocation = os.environ.get('NeurodesktopStorageLocation') if o
 def tabular_run_experiment(csv_path,
                            no_of_features,
                            test_size,
+                           model_type,
                            iterations,
                            lr,
                            early_stopping_patience
                            ):
 
     '''
-
     Outputs
     - best model wrt early stopping criterion - pth file
-    - png image saved at the model path - losses vs epochs and f1s vs epochs
-
+    - training: png image saved at the model path - losses vs epochs and f1s vs epochs
+    - testing: confusion matrix and classification_report as png files
     '''
 
+    assert model_type in ['dense_neural_network', 'autoencoder']
+
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
-    exp_dir = NeurodesktopStorageLocation + f'/model_data/saved_tabular_dnn_models_{timestamp}/'
+    if model_type =='dense_neural_network':
+        exp_dir = NeurodesktopStorageLocation + f'/model_data/saved_tabular_dnn_models_{timestamp}/'
+    else:
+        exp_dir = NeurodesktopStorageLocation + f'/model_data/saved_tabular_ae_models_{timestamp}/'
     os.makedirs(exp_dir)
 
     # hyperparams
@@ -44,7 +50,10 @@ def tabular_run_experiment(csv_path,
 
         train_dataloader, eval_dataloader, test_dataloader = dataloaders(csv_path, test_size)
 
-        model = DenseNN(input_size=no_of_features)
+        if model_type == 'dense_neural_network':
+            model = DenseNN(input_size=no_of_features)
+        else:
+            model = AutoEncoderNN(input_size=no_of_features)
 
         # --- TRAIN / VALIDATION ---
         train_losses_per_epoch, val_losses_per_epoch, _, _, \
@@ -56,7 +65,10 @@ def tabular_run_experiment(csv_path,
                                                                         scheduler_gamma,
                                                                         early_stopping_patience)
 
-        torch.save(best_model, exp_dir + f'tabular_dnn_experiment{i + 1}.pth')
+        if model_type == 'dense_neural_network':
+            torch.save(best_model, exp_dir + f'tabular_dnn_experiment{i + 1}.pth')
+        else:
+            torch.save(best_model, exp_dir + f'tabular_ae_experiment{i + 1}.pth')
 
         # Plotting train and validation metrics
         fig, axs = plt.subplots(2, 1, figsize=(7, 10))
@@ -107,7 +119,7 @@ def tabular_run_experiment(csv_path,
 
         # Classification report
         report = classification_report(test_targets, test_predictions)#, output_dict=True)  # , target_names=class_names)
-        fig, ax = plt.subplots()  # Adjust the figure size as needed
+        fig, ax = plt.subplots()
         ax.axis('off')
         fig.suptitle('Classification Report', y=0.8, x=0.5, fontweight='bold')
         #ax.set_title('Classification report')
@@ -118,8 +130,8 @@ def tabular_run_experiment(csv_path,
         plt.show()
 
         # Confusion matrix
-        fig, ax = plt.subplots()
         cm = confusion_matrix(test_targets, test_predictions)
+        fig, ax = plt.subplots()
         sns.heatmap(cm, annot=True, cmap='Blues', fmt='d', ax=ax, cbar=False)
         ax.set_xlabel('Predicted')
         ax.set_ylabel('Ground Truth')
@@ -131,11 +143,11 @@ def tabular_run_experiment(csv_path,
 
     return True
 
-# path = NeurodesktopStorageLocation + "/mescobrad_dataset.csv"
-# tabular_run_experiment(path,
-#                        12,
-#                        0.1,
-#                        4,
-#                        0.001,
-#                        20
-#                        )
+path = NeurodesktopStorageLocation + "/mescobrad_dataset.csv"
+tabular_run_experiment(path,
+                       12,
+                       0.1,
+                       4,
+                       0.001,
+                       40
+                       )

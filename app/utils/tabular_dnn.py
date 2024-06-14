@@ -15,7 +15,7 @@ class DenseNN(nn.Module):
     def forward(self,
                 x,
                 labels=None):
-        # print(features.size())
+
         output = F.relu(self.dense_1(x.float()))
         output = self.dense_2(output)
         logits = self.dropout(output)

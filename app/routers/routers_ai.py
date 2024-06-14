@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Request
 
-# for tabular - dnn model
-from app.utils.tabular_dnn_experiments import tabular_run_experiment
+# for tabular data - dense nn and ae models
+from app.utils.tabular_nn_experiments import tabular_run_experiment
 from app.utils.tabular_dnn_explanations import iXg_explanations
 
 # for mris - conv3d model
@@ -70,8 +70,8 @@ async def mris_batch_inference(
                                     output_path)
     return {"results": results}
 
-@router.get("/ai_tabular_training_experiment")
-async def ai_tabular_training_experiment(
+@router.get("/ai_tabular_dnn_training_experiment")
+async def ai_tabular_dnn_training_experiment(
         workflow_id: str,
         step_id: str,
         run_id: str,
@@ -83,9 +83,11 @@ async def ai_tabular_training_experiment(
         early_stopping_patience: int
        ) -> dict:
 
+    model_type = 'dense_neural_network'
     results = tabular_run_experiment(csv_path,
                                      no_of_features,
                                      test_size,
+                                     model_type,
                                      iterations,
                                      lr,
                                      early_stopping_patience)
@@ -102,4 +104,27 @@ async def iXg_explanations(
 
     results = iXg_explanations(model_path,
                                csv_path)
+    return {"results": results}
+
+@router.get("/ai_tabular_ae_training_experiment")
+async def ai_tabular_ae_training_experiment(
+        workflow_id: str,
+        step_id: str,
+        run_id: str,
+        csv_path: str,
+        no_of_features: int,
+        test_size: float,
+        iterations: int,
+        lr: float,
+        early_stopping_patience: int
+       ) -> dict:
+
+    model_type = 'autoencoder'
+    results = tabular_run_experiment(csv_path,
+                                     no_of_features,
+                                     test_size,
+                                     model_type,
+                                     iterations,
+                                     lr,
+                                     early_stopping_patience)
     return {"results": results}
