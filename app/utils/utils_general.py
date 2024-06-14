@@ -639,7 +639,7 @@ def csv_stats_to_trino(workflow_id: str,
             'workspace_id': 'str'
         }
 
-        pd.DataFrame({col: pd.Series(dtype=dt) for col, dt in dtypes.items()}).to_sql(name='testtest9999',
+        pd.DataFrame({col: pd.Series(dtype=dt) for col, dt in dtypes.items()}).to_sql(name='test_table_qb',
                                                                                       schema=institution,
                                                                                       con=conn,
                                                                                       if_exists='append',
@@ -649,11 +649,11 @@ def csv_stats_to_trino(workflow_id: str,
 
         #Delete all old data with the same workflow_id, etc.
         conn.execute(f"\
-        DELETE FROM iceberg.{institution}.testtest9999 WHERE source = '{source_file}'")
+        DELETE FROM iceberg.{institution}.test_table_qb WHERE source = '{source_file}'")
 
         df.to_csv("general_test.csv")
 
-        df.to_sql(name="testtest9999", schema=institution, con=conn, if_exists='append',
+        df.to_sql(name="test_table_qb", schema=institution, con=conn, if_exists='append',
                   index=False, method='multi')
 
         return 'Success'
