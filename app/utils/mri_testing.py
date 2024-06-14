@@ -102,7 +102,7 @@ def mris_batch_prediction(model_path,
 
 
 
-
+# # runs ok
 # path = NeurodesktopStorageLocation + "/model_data/saved_models_2024-06-12_17-47/"
 # model_path = path + "conv3d_experiment1.pth"
 # data_path = path + "mris_test/"

@@ -143,11 +143,12 @@ def tabular_run_experiment(csv_path,
 
     return True
 
-path = NeurodesktopStorageLocation + "/mescobrad_dataset.csv"
-tabular_run_experiment(path,
-                       12,
-                       0.1,
-                       4,
-                       0.001,
-                       40
-                       )
+
+# tabular_run_experiment(NeurodesktopStorageLocation + "/mescobrad_autoencoder_dataset.csv",
+#                        800,
+#                        0.1,
+#                        'autoencoder',
+#                        4,
+#                        0.01,
+#                        40
+#                        )
