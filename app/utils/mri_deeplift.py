@@ -7,6 +7,8 @@ from captum.attr import DeepLift
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
 
+NeurodesktopStorageLocation = os.environ.get('NeurodesktopStorageLocation') if os.environ.get(
+    'NeurodesktopStorageLocation') else "/neurodesktop-storage"
 
 class Conv3DWrapper(nn.Module):
     def __init__(self, external_model):
@@ -31,19 +33,22 @@ def visualize_dl(model_path,
     assert os.path.exists(heatmap_path)
     #assert axis in ['Sagittal', 'Coronal', 'Axial']
 
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
     # Load model
-    model = torch.load(model_path)
+    model = torch.load(model_path, map_location=device)
     wrapped_model = Conv3DWrapper(model)
 
     # Load MRI
     mri = nib.load(mri_path).get_fdata()
     tensor_mri = torch.from_numpy(mri).unsqueeze(0).unsqueeze(0)
     tensor_mri = normalize(tensor_mri)
+    tensor_mri = tensor_mri.to(device, dtype=torch.float32)
 
     # Set device
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    tensor_mri = tensor_mri.to(device, dtype=torch.float32)
-    wrapped_model.to(device)
+    # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    # tensor_mri = tensor_mri.to(device, dtype=torch.float32)
+    # wrapped_model.to(device)
 
     # Prediction
     softmax = nn.Softmax(dim=1)
@@ -129,3 +134,13 @@ def visualize_dl(model_path,
         plt.show()
 
     return True
+
+
+# path = NeurodesktopStorageLocation + "/model_data/saved_models_2024-06-12_17-47/"
+# model_path = path + "conv3d_experiment1.pth"
+# mri_path = path + "mris_test/sub-00060.nii"
+# heatmap_path = path
+# visualize_dl(model_path,
+#              mri_path,
+#              heatmap_path)
+# yields RuntimeError: .. not enough memory ...

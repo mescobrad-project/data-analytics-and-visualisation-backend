@@ -2,6 +2,7 @@ import os
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import MinMaxScaler
 import torch
 from torch.utils.data import Dataset, DataLoader, RandomSampler
 
@@ -22,14 +23,13 @@ def train_val_test_sets(csv_path,
         df_new = df.drop(['label'], axis=1)
 
     # Normalize the data to the 0-1 range: training deteriorates, keep this transformation out for now
-    # scaler = MinMaxScaler()
-    # X = scaler.fit_transform(df_new)
-
-    X = np.array(df_new)
+    scaler = MinMaxScaler()
+    X = scaler.fit_transform(df_new)
+    #X = np.array(df_new)
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, stratify=y, random_state=42)
 
-    val_size = int(X_train.shape[0] * 0.1)  # to be set internally as 10% of the train data
+    val_size = int(X_train.shape[0] * 0.2)  # to be set internally as 20% of the train data
 
     X_train_new, X_eval, y_train_new, y_eval = train_test_split(X_train, y_train, test_size=val_size, stratify=y_train,
                                                                 random_state=42)

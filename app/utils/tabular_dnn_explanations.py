@@ -1,7 +1,11 @@
+import os
 import pandas as pd
 import torch
 import torch.nn as nn
 from captum.attr import InputXGradient
+
+NeurodesktopStorageLocation = os.environ.get('NeurodesktopStorageLocation') if os.environ.get(
+    'NeurodesktopStorageLocation') else "/neurodesktop-storage"
 
 class ModelWrapper(nn.Module):
 
@@ -33,7 +37,6 @@ def iXg_explanations(model_path,
     wrapped_model.eval()  # Set model to evaluation mode
 
     df = pd.read_csv(csv_path)
-    #df_cols = df.columns
 
     try:
         df = df.drop(['Unnamed: 0'], axis=1)
@@ -122,4 +125,11 @@ def iXg_explanations(model_path,
     explanations_df = explanations_df.set_caption(
         "<div style='text-align: left; margin-bottom: 16px; font-size: 18px;'> Model prediction details (<span style='font-weight: bold; color: green;'>green</span>) and InputXGradient explanations (<span style='font-weight: bold; color: blue;'>blue</span>)</div>")
 
+
     return df, explanations_df
+
+
+# model_path = NeurodesktopStorageLocation + "/model_data/saved_tabular_dnn_models_2024-06-13_18-36/tabular_dnn_experiment1.pth"
+# csv_path = NeurodesktopStorageLocation + "/mescobrad_dataset.csv"
+#
+# df, exps = iXg_explanations(model_path, csv_path)
