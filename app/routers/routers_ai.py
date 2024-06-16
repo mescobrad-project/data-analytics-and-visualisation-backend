@@ -533,18 +533,20 @@ async def logistic_reg_load_model(
         print("Logistic LOADED")
         with open(get_local_storage_path(workflow_id, run_id, step_id) +"/"+ model_name.replace('.sav','.json')) as f:
             test_params = json.load(f)
+        print(f"test_params:{test_params}")
         X_test = data[test_params['independent_variables']]
         col_name = str(test_params['dependent_variable']) + '_predict'
         y_pred = pd.DataFrame(loaded_model.predict(X_test))
-        print("Logistic Predict")
-        print(loaded_model.coef_)
-        df = pd.DataFrame(loaded_model.coef_, index=test_params['independent_variables']).transpose()
-        print("Logistic coefs_")
+        print(f"Logistic Predict:{loaded_model.coef_}")
+        df = pd.DataFrame(loaded_model.coef_,columns=loaded_model.feature_names_in_)
+        print(f"Logistic coefs_:{df}")
+        print(f"intercept_:{list(loaded_model.intercept_)}")
         data.insert(loc=0, column=col_name, value=y_pred)
         print("Logistic first column")
         result_dataset = data
         result_dataset.to_csv(path_to_storage + '/output/Dataset_predict.csv', index=False)
 
+        print(f"data:{data.head(10)}")
         test_status = 'Error in creating info file.'
         with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
             # Load existing data into a dict.
@@ -555,14 +557,16 @@ async def logistic_reg_load_model(
                 "workflow_id": workflow_id,
                 "run_id": run_id,
                 "step_id": step_id,
-                "test_name": 'Linear Regression Test Model',
+                "test_name": 'Logistic Regression Test Model',
                 "test_params": {
                     "Dependent variable": test_params['dependent_variable'],
                     "Independent variables": test_params['independent_variables']
                 },
-                "test_results": {'coeff_determination': df.to_dict(),
-                                 'intercept': loaded_model.intercept_,
+                "test_results": {
+                    'coeff_determination': df.to_dict(),
+                    'intercept': list(loaded_model.intercept_)
                                  }}
+            print(new_data)
             file_data['results'] = new_data
             file_data['Output_datasets'] = [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
                                                      step_id + '/analysis_output' + '/Dataset_predict.csv'}]
@@ -573,16 +577,17 @@ async def logistic_reg_load_model(
             json.dump(file_data, f, indent=4)
             f.truncate()
 
+        print("All passed")
 
         return JSONResponse(
             content={'status': 'Success', "coeff_determination": df.to_json(orient='records'),
-                     'intercept': loaded_model.intercept_,
+                     'intercept': float(loaded_model.intercept_),
                      'dependent_param':test_params['dependent_variable'], 'independent_params':test_params['independent_variables'],
                      'result_dataset':result_dataset.to_json(orient='records')},
             status_code=200)
     except Exception as e:
         print(e)
-        return JSONResponse(content={'status': test_status, "coeff_determination": '[]',
+        return JSONResponse(content={'status': test_status+'\n'+ e.__str__(), "coeff_determination": '[]',
                      'intercept': '',
                      'dependent_param':'', 'independent_params':'','result_dataset':'[]'},
             status_code=200)
