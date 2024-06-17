@@ -5,6 +5,7 @@ import tempfile
 import uuid
 from os import walk
 from os.path import isfile, join
+import traceback
 
 import requests
 from fastapi import APIRouter,Request, Response
@@ -169,6 +170,8 @@ ExistingFunctions = [
     'autoencodermodelcreation',
     'autoencodermodelload'
     'valuesimputation',
+    'datasetconcat',
+    'datasetpreviewsheet',
     # Dashboard
     "dashboard",
 ]
@@ -541,7 +544,12 @@ async def function_navigation(navigation_item: FunctionNavigationItem, request: 
                 url_to_redirect += "/AutoencoderModelLoad"
             case "valuesimputation":
                 url_to_redirect += "/ValuesImputation"
+            case "datasetconcat":
+                url_to_redirect += "/DatasetConcat"
+            case "datasetpreviewsheet":
+                url_to_redirect += "/DatasetPreviewSheet"
             # Dashboard
+
             case "dashboard":
                 url_to_redirect += "/dashboard"
         #  Create local storage for files and download them
@@ -602,18 +610,76 @@ async def function_save_data(
             return JSONResponse(content='Error in saving info.json object to the DataLake', status_code=501)
     elif function_type == "mri":
         try:
+            directory = NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id + "/output"
+            # Get all entries in the directory
+            entries = os.listdir(directory)
+            # Filter out only directories
+            folders = [entry for entry in entries if os.path.isdir(os.path.join(directory, entry))]
+            print(folders)
+
+            to_return = {
+                'samseg_results_folder_exists': False,
+                'reconall_results_folder_exists': False,
+                'coreg_results_folder_exists': False,
+                'synthseg_results_folder_exists': False,
+                'samseg_results_folder': "none",
+                'reconall_results_folder': "none",
+                'coreg_results_folder': "none",
+                'synthseg_results_folder': "none",
+            }
+
+            processes = {"reconall_results_": 'reconall_results_folder', "samseg_output_": 'samseg_results_folder',
+                         "coregistration_output_": 'coreg_results_folder',
+                         "synthseg_output_": 'synthseg_results_folder'}
+            for process in processes.keys():
+                for folder in folders:
+                    if folder.startswith(process):
+                        to_return[processes[process]] = folder
+                        to_return[processes[process] + '_exists'] = True
+
             path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
             tmpdir = tempfile.mkdtemp()
-            output_filename = os.path.join(tmpdir, 'ucl_test')
-            print(output_filename)
-            print(shutil.make_archive(output_filename, 'zip', root_dir=path_to_storage, base_dir='output/ucl_test'))
-            upload_object(bucket_name="common", object_name='workflows/' + workflow_id + '/' + run_id + '/' +
-                                                            step_id + '/ucl_test.zip',
+
+            ##UPLOAD RECONALL STATS
+            if to_return['reconall_results_folder_exists']:
+                output_filename = os.path.join(tmpdir, to_return['reconall_results_folder'])
+                print(output_filename)
+                print(shutil.make_archive(output_filename, 'zip', root_dir=path_to_storage, base_dir='output/' + to_return['reconall_results_folder']))
+                upload_object(bucket_name="common", object_name='workflows/' + workflow_id + '/' + run_id + '/' +
+                                                            step_id + '/' + to_return['reconall_results_folder'] + '.zip',
                           file=output_filename + '.zip',session_token=request.session.get("secret_key"))
 
+            ##UPLOAD SAMSEG STATS
+            if to_return['samseg_results_folder_exists']:
+                output_filename = os.path.join(tmpdir, to_return['samseg_results_folder'])
+                print(output_filename)
+                print(shutil.make_archive(output_filename, 'zip', root_dir=path_to_storage, base_dir='output/' + to_return['samseg_results_folder']))
+                upload_object(bucket_name="common", object_name='workflows/' + workflow_id + '/' + run_id + '/' +
+                                                            step_id + '/' + to_return['samseg_results_folder'] + '.zip',
+                          file=output_filename + '.zip',session_token=request.session.get("secret_key"))
+
+            ##UPLOAD COREGISTRATION STATS
+            if to_return['coreg_results_folder_exists']:
+                output_filename = os.path.join(tmpdir, to_return['coreg_results_folder'])
+                print(output_filename)
+                print(shutil.make_archive(output_filename, 'zip', root_dir=path_to_storage, base_dir='output/' + to_return['coreg_results_folder']))
+                upload_object(bucket_name="common", object_name='workflows/' + workflow_id + '/' + run_id + '/' +
+                                                            step_id + '/' + to_return['coreg_results_folder'] + '.zip',
+                          file=output_filename + '.zip',session_token=request.session.get("secret_key"))
+
+            ##UPLOAD SYNTHSEG STATS
+            if to_return['synthseg_results_folder_exists']:
+                output_filename = os.path.join(tmpdir, to_return['synthseg_results_folder'])
+                print(output_filename)
+                print(shutil.make_archive(output_filename, 'zip', root_dir=path_to_storage, base_dir='output/' + to_return['synthseg_results_folder']))
+                upload_object(bucket_name="common", object_name='workflows/' + workflow_id + '/' + run_id + '/' +
+                                                            step_id + '/' + to_return['synthseg_results_folder'] + '.zip',
+                          file=output_filename + '.zip', session_token=request.session.get("secret_key"))
             return JSONResponse(content='zip file has been successfully uploaded to the DataLake', status_code=200)
+
         except Exception as e:
             print(e)
+            # traceback.print_exc()
             return JSONResponse(content='Error in saving zip file to the DataLake', status_code=501)
     elif function_type == "actigraphy":
         try:
@@ -675,11 +741,16 @@ async def save_token(
     # print(userinfo)
     # print(token)
     request.session["secret_key"] = token.token
+    request.session["groups"] = keycloak_openid.userinfo(token.token)['groups']
     # request.session["token"] = token
     # TODO CHECK IF TOKEN IS VALID BEFORE SAVING AND SEND 200
     print("TOKEN SAVED SUCCESSFULLY:", request.session.get("secret_key"))
+    print("groups SAVED SUCCESSFULLY:", request.session.get("groups"))
     # print("TOKEN SAVED SUCCESSFULLY:", token.token)
     # response.set_cookie(key='my_token', value=token.token)
+    # text_file = open("token.txt", "w")
+    # text_file.write(token.token)
+    # text_file.close()
     return JSONResponse(status_code=200)
 
 
