@@ -2688,6 +2688,7 @@ async def ancova_2(workflow_id: str,
         test_status = 'Unable to compute Ancova test for the selected columns. Nonnumeric values are selected for the Dependent variable or the Covariates.'
         df = ancova(data=df_data, dv=dv, covar=covar, between=between, effsize=effsize)
         df = df.fillna('')
+        df.to_csv(path_to_storage + '/output/ancova.csv', index=False)
         all_res = []
         for ind, row in df.iterrows():
             temp_to_append = {
@@ -2714,7 +2715,8 @@ async def ancova_2(workflow_id: str,
                     'selected_covariate_variables':covar
                 },
                 "test_results": all_res,
-                "Output_datasets":[],
+                "Output_datasets":[{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id + '/output/ancova.csv'}],
                 'Saved_plots': []
             }
             f.seek(0)
@@ -2762,6 +2764,7 @@ async def linear_mixed_effects_model(workflow_id: str,
         mdf = md.fit()
         df = mdf.summary()
         df_0 = df.tables[0]
+        df_0.to_csv(path_to_storage + '/output/linear_mixed_effects_model_table_1.csv', index=False)
         tbl1_res = []
         for ind, row in df_0.iterrows():
             temp_to_append = {
@@ -2773,6 +2776,7 @@ async def linear_mixed_effects_model(workflow_id: str,
             }
             tbl1_res.append(temp_to_append)
         df_1 = df.tables[1]
+        df_1.to_csv(path_to_storage + '/output/linear_mixed_effects_model_table_2.csv', index=False)
         tbl2_res = []
         for ind, row in df_1.iterrows():
             temp_to_append = {
@@ -2804,7 +2808,11 @@ async def linear_mixed_effects_model(workflow_id: str,
                     'model':tbl1_res,
                     'coeficients':tbl2_res
                 },
-                "Output_datasets":[],
+                "Output_datasets":[{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id + '/output/linear_mixed_effects_model_table_1.csv'},
+                                   {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                            step_id + '/output/linear_mixed_effects_model_table_2.csv'}
+                                   ],
                 'Saved_plots': []
             }
             f.seek(0)
@@ -3000,6 +3008,7 @@ async def cox_regression(workflow_id: str,
                 #cluster_col=cluster_col, entry_col=entry_col)
 
         df = cph.summary
+        df.to_csv(path_to_storage + '/output/cox_summary.csv', index=False)
         tbl1_res = []
         for ind, row in df.iterrows():
             temp_to_append = {
@@ -3041,6 +3050,7 @@ async def cox_regression(workflow_id: str,
         results = proportional_hazard_test(cph, dataset, time_transform='rank')
 
         df_1 = results.summary
+        df_1.to_csv(path_to_storage + '/output/cox_proportional_hazard_test_summary.csv', index=False)
         tbl2_res = []
         for ind, row in df_1.iterrows():
             temp_to_append = {
@@ -3083,7 +3093,11 @@ async def cox_regression(workflow_id: str,
                     "Dataframe": tbl1_res,
                     "proportional_hazard_test": tbl2_res,
                 },
-                "Output_datasets": [],
+                "Output_datasets": [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id+'/analysis_output/' + 'cox_summary.csv'},
+                                    {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                             step_id + '/analysis_output/' + 'cox_proportional_hazard_test_summary.csv'}
+                                    ],
                 'Saved_plots': [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
                                                  step_id + 'output/figure_2.html'},
                                 {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
@@ -3234,6 +3248,8 @@ async def anova_pairwise_tests(workflow_id: str,
                                      padjust=padjust, effsize=effsize, correction=correction, nan_policy=nan_policy)
         df = df.fillna('')
 
+        df.to_csv(path_to_storage + '/output/anova_pairwise_tests.csv', index=False)
+
         columns = [{
             "col" : "id"}]
 
@@ -3289,7 +3305,8 @@ async def anova_pairwise_tests(workflow_id: str,
                     'selected_within': within_factor,
                 },
                 "test_results": all_res,
-                "Output_datasets": [],
+                "Output_datasets": [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id+'/analysis_output/' + 'anova_pairwise_tests.csv'}],
                 'Saved_plots': []
             }
             f.seek(0)
@@ -3413,6 +3430,7 @@ async def generalized_estimating_equations(workflow_id: str,
         df_0.rename(columns={1: 'Values'}, inplace=True)
         df_0.drop(df_0.tail(2).index, inplace=True)
         df_0.reset_index(inplace=True)
+        df_0.to_csv(path_to_storage + '/output/generalized_estimating_equations_1.csv', index=False)
         # print(list(df_0.values))
 
         results_as_html = df.tables[1].as_html()
@@ -3424,8 +3442,8 @@ async def generalized_estimating_equations(workflow_id: str,
         df_1.index.name = None
         df_1.reset_index(inplace=True)
         df_1.rename(columns={'[0.025': '0.025', '0.975]': '0.975'}, inplace=True)
+        df_1.to_csv(path_to_storage + '/output/generalized_estimating_equations_2.csv', index=False)
 
-        df_1.to_csv(path_to_storage + '/output/generalized_estimating_equations.csv', index=False)
         results_as_html = df.tables[2].as_html()
         df_2 = pd.read_html(results_as_html)[0]
         df_new = df_2[[2, 3]]
@@ -3435,6 +3453,8 @@ async def generalized_estimating_equations(workflow_id: str,
         df_2.index.name = None
         df_2.rename(columns={1: 'Values'}, inplace=True)
         df_2.reset_index(inplace=True)
+        df_2.to_csv(path_to_storage + '/output/generalized_estimating_equations_3.csv', index=False)
+
         test_status = 'Error in creating info file.'
         with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
             file_data = json.load(f)
@@ -3456,8 +3476,12 @@ async def generalized_estimating_equations(workflow_id: str,
                     "second_table":df_1.to_dict(),
                     "third_table":df_2.to_dict(),
                 },
-                "Output_datasets": [],
-                'Saved_plots': []
+                "Output_datasets": [
+                    {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' + step_id+'/analysis_output/' + 'generalized_estimating_equations_1.csv'},
+                    {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' + step_id + '/analysis_output/' + 'generalized_estimating_equations_2.csv'},
+                    {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' + step_id+'/analysis_output/' + 'generalized_estimating_equations_3.csv'}
+                ],
+                'Saved_plots': [],
             }
             f.seek(0)
             json.dump(file_data, f, indent=4)
@@ -5730,6 +5754,7 @@ async def compute_one_way_welch_anova(workflow_id: str,
         df = pingouin.welch_anova(data=df_data, dv=dv, between=between)
         print(df)
         df = df.fillna('')
+        df.to_csv(path_to_storage + '/output/one_way_welch_anova.csv', index=False)
         all_res = []
         for ind, row in df.iterrows():
             temp_to_append = {
@@ -5755,7 +5780,8 @@ async def compute_one_way_welch_anova(workflow_id: str,
                     'selected_between_factor':between,
                 },
                 "test_results": all_res,
-                "Output_datasets":[],
+                "Output_datasets":[{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id+'/analysis_output/' + 'one_way_welch_anova.csv'}],
                 'Saved_plots': []
             }
             f.seek(0)
@@ -5853,7 +5879,7 @@ async def compute_anova_repeated_measures_pinguin(workflow_id: str,
         print(columns)
 
         all_res = []
-        df.to_csv(path_to_storage + '/output/repeated_measures.csv', index=False)
+        df.to_csv(path_to_storage + '/output/anova_repeated_measures.csv', index=False)
 
         for ind, row in df.iterrows():
             temp_to_append = row.to_dict()
@@ -5877,7 +5903,7 @@ async def compute_anova_repeated_measures_pinguin(workflow_id: str,
                 },
                 "test_results": all_res,
                 "Output_datasets":[{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
-                                                     step_id + '/output/' + 'repeated_measures.csv'}],
+                                                     step_id + '/analysis_output/' + 'anova_repeated_measures.csv'}],
                 'Saved_plots': []
             }
             f.seek(0)
@@ -5956,6 +5982,7 @@ async def compute_mixed_anova_pinguin(workflow_id: str,
                                   effsize=effsize, correction=correction)
         print(df)
         df = df.fillna('')
+        df.to_csv(path_to_storage + '/output/mixed_anova.csv', index=False)
         all_res = []
         for ind, row in df.iterrows():
             temp_to_append = {
@@ -5988,7 +6015,8 @@ async def compute_mixed_anova_pinguin(workflow_id: str,
                     'selected_effsize': effsize,
                 },
                 "test_results": all_res,
-                "Output_datasets": [],
+                "Output_datasets": [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id+'/analysis_output/' + 'mixed_anova.csv'}],
                 'Saved_plots': []
             }
             f.seek(0)
@@ -6043,6 +6071,7 @@ async def compute_anova_pinguin(workflow_id: str,
                             effsize=effsize, detailed=True)
         print(df)
         df = df.fillna('')
+        df.to_csv(path_to_storage + '/output/one_and_m_way_anova_pinguin.csv', index=False)
         all_res = []
         for ind, row in df.iterrows():
             temp_to_append = {
@@ -6071,7 +6100,8 @@ async def compute_anova_pinguin(workflow_id: str,
                     'selected_effsize': effsize,
                 },
                 "test_results": all_res,
-                "Output_datasets":[],
+                "Output_datasets":[{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id+'/analysis_output/' + 'one_and_m_way_anova_pinguin.csv'}],
                 'Saved_plots': []
             }
             f.seek(0)
