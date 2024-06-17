@@ -5767,6 +5767,7 @@ async def compute_kruskal(workflow_id: str,
 async def compute_anova_repeated_measures_pinguin(workflow_id: str,
                                                   step_id: str,
                                                   run_id: str,
+                                                  file:str,
                                                   dv: str,
                                                   subject: str,
                                                   correction: str | None = Query(default=True),
@@ -5780,18 +5781,23 @@ async def compute_anova_repeated_measures_pinguin(workflow_id: str,
     # Load Datasets
     try:
         test_status = 'Dataset is not defined'
-        selected_datasource = dv.split("--")[0]
-        dependent_variable = dv.split("--")[1]
-        subject = subject.split("--")[1]
-
-        within = list(map(lambda x: str(x).split("--")[1], within))
+        # selected_datasource = dv.split("--")[0]
+        # dependent_variable = dv.split("--")[1]
+        # subject = subject.split("--")[1]
+        #
+        # within = list(map(lambda x: str(x).split("--")[1], within))
+        selected_datasource = file
+        dependent_variable=dv
 
         correction = (correction == 'True')
 
         test_status = 'A column can not be selected multiple times'
         var_list = [dependent_variable] + within + [subject]
         assert len(var_list) == len(set(var_list))
-
+        print(selected_datasource)
+        print(dependent_variable)
+        print(within)
+        print(subject)
         test_status = 'Unable to retrieve datasets'
         dataset = load_data_from_csv(path_to_storage + "/" + selected_datasource)
         pd.set_option('display.max_columns', None)
