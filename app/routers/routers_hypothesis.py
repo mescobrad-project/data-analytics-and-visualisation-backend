@@ -4253,7 +4253,7 @@ async def correlations_pingouin(workflow_id: str,
             for j in columns:
                 if i == j or columns.index(j) < columns.index(i):
                     continue
-                res = pingouin.corr(x=data[i], y=data[j], method=method, alternative=alternative).round(5)
+                res = pingouin.corr(x=data[i], y=data[j], method=method, alternative=alternative)
                 res.insert(0,'Cor', i + "-" + j, True)
                 print(res)
                 count = count + 1
