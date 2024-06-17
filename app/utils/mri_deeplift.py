@@ -24,6 +24,12 @@ def normalize(input):
     max_val = input.max()
     return (input - min_val) / (max_val - min_val)
 
+def resize_mri(mri, target_shape=(256, 256)):
+    resized_slices = []
+    for slice in mri:
+        resized_slices.append(np.resize(slice, target_shape))
+    return np.array(resized_slices)
+
 def visualize_dl(model_path,
                  mri_path,
                  heatmap_path):
@@ -40,8 +46,9 @@ def visualize_dl(model_path,
     wrapped_model = Conv3DWrapper(model)
 
     # Load MRI
-    mri = nib.load(mri_path).get_fdata()
-    tensor_mri = torch.from_numpy(mri).unsqueeze(0).unsqueeze(0)
+    nparray = nib.load(mri_path).get_fdata()
+    nparray = resize_mri(nparray) #
+    tensor_mri = torch.from_numpy(nparray).unsqueeze(0).unsqueeze(0)
     tensor_mri = normalize(tensor_mri)
     tensor_mri = tensor_mri.to(device, dtype=torch.float32)
 
@@ -54,8 +61,9 @@ def visualize_dl(model_path,
     softmax = nn.Softmax(dim=1)
     with torch.no_grad():
         logits = model(tensor_mri)[1]
-    top_prob, top_class = torch.max(softmax(logits), dim=1)
+    _, top_class = torch.max(softmax(logits), dim=1)
     group = 'Epilepsy' if top_class.item() == 0 else 'Non-Epilepsy'
+    print(f'prediction: {group}')
 
     # DeepLift
     dl = DeepLift(wrapped_model)
@@ -84,7 +92,7 @@ def visualize_dl(model_path,
                                                          N=5000),
                   interpolation='gaussian')
 
-        ax.set_title(f'Prediction: {group} (prob: {round(top_prob.item(), 2)}) \n\n MRI(Grey) vs DeepLift Attributions(Blue) Overlay \n Axial plane no. {i+1}')
+        ax.set_title(f'Prediction: {group} \n\n MRI(Grey) vs DeepLift Attributions(Blue) Overlay \n Axial plane no. {i+1}')
 
         # Save and show plot
         heatmap_name = f'heatmap-axial-{i+1}.png'
@@ -105,7 +113,7 @@ def visualize_dl(model_path,
                                                          N=5000),
                   interpolation='gaussian')
 
-        ax.set_title(f'Prediction: {group} (prob: {round(top_prob.item(), 2)}) \n\n MRI(Grey) vs DeepLift Attributions(Blue) Overlay \n Coronal plane no. {i+1}')
+        ax.set_title(f'Prediction: {group} \n\n MRI(Grey) vs DeepLift Attributions(Blue) Overlay \n Coronal plane no. {i+1}')
 
         # Save and show plot
         heatmap_name = f'heatmap-coronal-{i+1}.png'
@@ -126,13 +134,13 @@ def visualize_dl(model_path,
                                                          N=5000),
                   interpolation='gaussian')
 
-        ax.set_title(f'Prediction: {group} (prob: {round(top_prob.item(), 2)}) \n\n MRI(Grey) vs DeepLift Attributions(Blue) Overlay \n Sagittal plane no. {i+1}')
+        ax.set_title(f'Prediction: {group} \n\n MRI(Grey) vs DeepLift Attributions(Blue) Overlay \n Sagittal plane no. {i+1}')
 
         # Save and show plot
         heatmap_name = f'heatmap-sagittal-{i+1}.png'
         plt.savefig(os.path.join(heatmap_path, heatmap_name))
         plt.show()
-
+    
     return True
 
 
