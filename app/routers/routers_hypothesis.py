@@ -3021,6 +3021,8 @@ async def cox_regression(workflow_id: str,
         cph.plot(hazard_ratios=hazard_ratios)
         html_str = mpld3.fig_to_html(fig)
         to_return.append({"figure_1": html_str})
+        with open(path_to_storage + "/output/figure_1.html", 'w') as file:
+            file.write(html_str)
         plt.clf()
         if covariates != None:
             fig = plt.figure(1)
@@ -3032,6 +3034,8 @@ async def cox_regression(workflow_id: str,
             ax.plot()
             html_str = mpld3.fig_to_html(ax.get_figure())
             to_return.append({"figure_2": html_str})
+            with open(path_to_storage + "/output/figure_2.html", 'w') as file:
+                file.write(html_str)
             # to_return["figure_2"] = html_str
 
         results = proportional_hazard_test(cph, dataset, time_transform='rank')
@@ -3050,32 +3054,44 @@ async def cox_regression(workflow_id: str,
         AIC = cph.AIC_partial_
 
         test_status = 'Error in creating info file.'
-        # with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
-        #     file_data = json.load(f)
-        #     file_data['results'] |= {
-        #         "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
-        #         "workflow_id": workflow_id,
-        #         "run_id": run_id,
-        #         "step_id": step_id,
-        #         "test_name": 'Generalized Estimating Equations',
-        #         "test_params": {
-        #             "dependent_variable": dependent_variable,
-        #             "groups": groups,
-        #             "independent_variables": independent_variables,
-        #             "cov_struct": cov_struct,
-        #             "family": family
-        #         },
-        #         "test_results": {
-        #             "first_table": df_0.to_dict(),
-        #             "second_table": df_1.to_dict(),
-        #             "third_table": df_2.to_dict(),
-        #         },
-        #         "Output_datasets": [],
-        #         'Saved_plots': []
-        #     }
-        #     f.seek(0)
-        #     json.dump(file_data, f, indent=4)
-        #     f.truncate()
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            file_data = json.load(f)
+            file_data['results'] |= {
+                "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                "workflow_id": workflow_id,
+                "run_id": run_id,
+                "step_id": step_id,
+                "test_name": 'Cox Regression',
+                "test_params": {
+                    "covariates": covariates,
+                    "alpha": alpha,
+                    "penalizer": penalizer,
+                    "l1_ratio": l1_ratio,
+                    "n_baseline_knots": n_baseline_knots,
+                    "breakpoints": breakpoints,
+                    "event_col": event_col,
+                    "weights_col": weights_col,
+                    "cluster_col": cluster_col,
+                    "entry_col": entry_col,
+                    "strata": strata,
+                    "hazard_ratios": hazard_ratios,
+                    "baseline_estimation_method": baseline_estimation_method
+                },
+                "test_results": {
+                    "Concordance_Index": cph.concordance_index_,
+                    "AIC": AIC,
+                    "Dataframe": tbl1_res,
+                    "proportional_hazard_test": tbl2_res,
+                },
+                "Output_datasets": [],
+                'Saved_plots': [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                 step_id + 'output/figure_2.html'},
+                                {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                         step_id + 'output/figure_1.html'}]
+            }
+            f.seek(0)
+            json.dump(file_data, f, indent=4)
+            f.truncate()
         return JSONResponse(content={'status': 'Success',
                                      'Concordance_Index':cph.concordance_index_,
                                      'AIC': AIC,
@@ -3288,41 +3304,41 @@ async def anova_pairwise_tests(workflow_id: str,
         print(traceback.format_exc())
         return JSONResponse(content={'status': test_status, 'DataFrame': [], 'Columns': []},
                             status_code=200)
-@router.get("/anova_repeated_measures")
-async def anova_rm(workflow_id: str,
-                   step_id: str,
-                   run_id: str,
-                   dependent_variable: str,
-                   subject: str,
-                   within: list[str] | None = Query(default=None),
-                   aggregate_func: str | None = Query(default=None,
-                                                      regex="^(mean)$")):
-
-    df_data = pd.read_csv('C:\\neurodesktop-storage\\runtime_config\\workflow_3fa85f64-5717-4562-b3fc-2c963f66afa6\\run_3fa85f64-5717-4562-b3fc-2c963f66afa6\\step_3fa85f64-5717-4562-b3fc-2c963f66afa6/Sample_rep_measures.csv')
-    # df_data = load_file_csv_direct(workflow_id, run_id, step_id)
-    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
-    print(df_data.columns)
-    # unique, counts = np.unique(df_data[subject], return_counts=True)
-    # print(unique)
-    # print(counts)
-    # z = all(x==counts[0] for x in counts)
-    # print(z)
-    print(dependent_variable)
-    print(subject)
-    print(within)
-    print(df_data)
-    # posthocs = pingouin.pairwise_ttests(dv=dependent_variable,
-    #                                     within=within, between='Age',
-    #                                     subject=subject, data=df_data)
-    # pingouin.print_table(posthocs)
-
-    z=True
-    if z:
-        df = AnovaRM(data=df_data, depvar=dependent_variable, subject=subject, within=within, aggregate_func=aggregate_func)
-        df_new = df.fit()
-        return{'Result': df_new}
-    else:
-        return {"Unbalanced"}
+# @router.get("/anova_repeated_measures")
+# async def anova_rm(workflow_id: str,
+#                    step_id: str,
+#                    run_id: str,
+#                    dependent_variable: str,
+#                    subject: str,
+#                    within: list[str] | None = Query(default=None),
+#                    aggregate_func: str | None = Query(default=None,
+#                                                       regex="^(mean)$")):
+#
+#     df_data = pd.read_csv('C:\\neurodesktop-storage\\runtime_config\\workflow_3fa85f64-5717-4562-b3fc-2c963f66afa6\\run_3fa85f64-5717-4562-b3fc-2c963f66afa6\\step_3fa85f64-5717-4562-b3fc-2c963f66afa6/Sample_rep_measures.csv')
+#     # df_data = load_file_csv_direct(workflow_id, run_id, step_id)
+#     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+#     print(df_data.columns)
+#     # unique, counts = np.unique(df_data[subject], return_counts=True)
+#     # print(unique)
+#     # print(counts)
+#     # z = all(x==counts[0] for x in counts)
+#     # print(z)
+#     print(dependent_variable)
+#     print(subject)
+#     print(within)
+#     print(df_data)
+#     # posthocs = pingouin.pairwise_ttests(dv=dependent_variable,
+#     #                                     within=within, between='Age',
+#     #                                     subject=subject, data=df_data)
+#     # pingouin.print_table(posthocs)
+#
+#     z=True
+#     if z:
+#         df = AnovaRM(data=df_data, depvar=dependent_variable, subject=subject, within=within, aggregate_func=aggregate_func)
+#         df_new = df.fit()
+#         return{'Result': df_new}
+#     else:
+#         return {"Unbalanced"}
 
 @router.get("/generalized_estimating_equations")
 async def generalized_estimating_equations(workflow_id: str,
@@ -5837,6 +5853,8 @@ async def compute_anova_repeated_measures_pinguin(workflow_id: str,
         print(columns)
 
         all_res = []
+        df.to_csv(path_to_storage + '/output/repeated_measures.csv', index=False)
+
         for ind, row in df.iterrows():
             temp_to_append = row.to_dict()
             temp_to_append['id'] = ind
@@ -5858,7 +5876,8 @@ async def compute_anova_repeated_measures_pinguin(workflow_id: str,
                     'selected_effsize': effsize,
                 },
                 "test_results": all_res,
-                "Output_datasets":[],
+                "Output_datasets":[{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id + '/output/' + 'repeated_measures.csv'}],
                 'Saved_plots': []
             }
             f.seek(0)
