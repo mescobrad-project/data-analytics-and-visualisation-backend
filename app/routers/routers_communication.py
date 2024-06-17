@@ -171,6 +171,7 @@ ExistingFunctions = [
     'autoencodermodelload'
     'valuesimputation',
     'datasetconcat',
+    'datasetpreviewsheet',
     # Dashboard
     "dashboard",
 ]
@@ -545,7 +546,10 @@ async def function_navigation(navigation_item: FunctionNavigationItem, request: 
                 url_to_redirect += "/ValuesImputation"
             case "datasetconcat":
                 url_to_redirect += "/DatasetConcat"
+            case "datasetpreviewsheet":
+                url_to_redirect += "/DatasetPreviewSheet"
             # Dashboard
+
             case "dashboard":
                 url_to_redirect += "/dashboard"
         #  Create local storage for files and download them

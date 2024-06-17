@@ -10,6 +10,7 @@ from pprint import pprint
 # from yasa.hypno import Hypnogram
 from yasa import sleep_statistics
 import mne
+import math
 import numpy as np
 import pandas as pd
 import plotly
@@ -1686,7 +1687,24 @@ async def actigraphymetrics(workflow_id: str,
         df1['pAR'] = raw.pAR(threshold=threshold, start=None, period=period)[0]
         df1['pAR_weights'] = raw.pAR(threshold=threshold, start=None, period=period)[1]
         df1['t'] = df1.index
-
+        # print(f"IS:{raw.IS(binarize=binarize, threshold=threshold, freq=freq)}")
+        # print(f"ISm:{raw.ISm(binarize=binarize, threshold=threshold)}")
+        # print(f"ISp:{raw.ISp(binarize=binarize, threshold=threshold, period=period)}")
+        # print(f"IV:{raw.IV(binarize=binarize, threshold=threshold, freq=freq)}")
+        # print(f"IVm:{raw.IVm(binarize=binarize, threshold=threshold)}")
+        # print(f"IVp:{raw.IVp(binarize=binarize, threshold=threshold, period=period)}")
+        # print(f"L5:{raw.L5(binarize=binarize, threshold=threshold)}")
+        # print(f"L5p:{raw.L5p(binarize=binarize, threshold=threshold, period=period)}")
+        # print(f"M10:{raw.M10(binarize=binarize, threshold=threshold)}")
+        # print(f"M10p:{raw.M10p(binarize=binarize, threshold=threshold,period=period)}")
+        # print(f"RA:{raw.RA(binarize=binarize, threshold=threshold)}")
+        # print(f"RAp:{raw.RAp(binarize=binarize, threshold=threshold,period=period)}")
+        # print(f"pRA:{df.to_json(orient='records')}")
+        # print(f"pAR:{df1.to_json(orient='records')}")
+        # print(f"ADAT:{raw.ADAT(binarize=binarize, threshold=threshold)}")
+        # print(f"ADATp:{raw.ADATp(binarize=binarize, threshold=threshold,period=period)}")
+        # print(f"kRA:{raw.kRA(threshold=threshold, start=None, period=period)}")
+        # print(f"kAR:{raw.kAR(threshold=threshold, start=None, period=period)}")
         temp_to_append = {'id': 1,
                           "Name": raw.name,
                           "Start_time": (raw.start_time).__str__(),
@@ -1695,24 +1713,30 @@ async def actigraphymetrics(workflow_id: str,
                           "frequency": (raw.frequency).__str__(),
                           "IS": raw.IS(binarize=binarize, threshold=threshold, freq=freq),
                           "ISm": raw.ISm(binarize=binarize, threshold=threshold),
-                          'ISp':raw.ISp(binarize=binarize, threshold=threshold, period=period),
+                          'ISp':['' if math.isnan(x) else x for x in raw.ISp(binarize=binarize, threshold=threshold, period=period)],
+                          # 'ISp':raw.ISp(binarize=binarize, threshold=threshold, period=period),
                           "IV": raw.IV(binarize=binarize, threshold=threshold, freq=freq),
                           "IVm": raw.IVm(binarize=binarize, threshold=threshold),
-                          'IVp': raw.IVp(binarize=binarize, threshold=threshold, period=period),
+                          'IVp': ['' if math.isnan(x) else x for x in raw.IVp(binarize=binarize, threshold=threshold, period=period)],
+                          # 'IVp': raw.IVp(binarize=binarize, threshold=threshold, period=period),
                           "L5": raw.L5(binarize=binarize, threshold=threshold),
-                          "L5p": raw.L5p(binarize=binarize, threshold=threshold, period=period),
+                          "L5p": ['' if math.isnan(x) else x for x in raw.L5p(binarize=binarize, threshold=threshold, period=period)],
+                          # "L5p": raw.L5p(binarize=binarize, threshold=threshold, period=period),
                           "M10": raw.M10(binarize=binarize, threshold=threshold),
-                          "M10p": raw.M10p(binarize=binarize, threshold=threshold,period=period),
+                          "M10p": ['' if math.isnan(x) else x for x in raw.M10p(binarize=binarize, threshold=threshold,period=period)],
+                          # "M10p": raw.M10p(binarize=binarize, threshold=threshold,period=period),
                           "RA": raw.RA(binarize=binarize, threshold=threshold),
-                          "RAp": raw.RAp(binarize=binarize, threshold=threshold,period=period),
+                          "RAp": ['' if math.isnan(x) else x for x in raw.RAp(binarize=binarize, threshold=threshold,period=period)],
+                          # "RAp": raw.RAp(binarize=binarize, threshold=threshold,period=period),
                           'pRA': df.to_json(orient='records'),
                           'pAR': df1.to_json(orient='records'),
                           "ADAT": raw.ADAT(binarize=binarize, threshold=threshold),
-                          "ADATp": raw.ADATp(binarize=binarize, threshold=threshold,period=period),
+                          "ADATp": ['' if math.isnan(x) else x for x in raw.ADATp(binarize=binarize, threshold=threshold,period=period)],
                           "kRA": raw.kRA(threshold=threshold, start=None, period=period),
                           "kAR": raw.kAR(threshold=threshold, start=None, period=period),
                           }
         tbl_res.append(temp_to_append)
+        print(tbl_res)
         layout = go.Layout(title="",xaxis=dict(title=""), showlegend=False)
         layout.update(title="Rest->Activity transition probability", xaxis=dict(title="Time [min]"), showlegend=False);
         output = go.Figure(data=go.Scatter(x=pRA.index, y=pRA, name='', mode='markers'), layout=layout)
@@ -1721,6 +1745,14 @@ async def actigraphymetrics(workflow_id: str,
         layout.update(title="Activity->Rest transition probability", xaxis=dict(title="Time [min]"), showlegend=False);
         output = go.Figure(data=go.Scatter(x=pAR.index, y=pAR, name='', mode='markers'), layout=layout)
         pio.write_image(output, get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + 'pAR.svg')
+        print("before output file")
+        print(f"file: {file}")
+        print(f"freq_offset: {freq_offset}")
+        print(f"number_of_offsets: {number_of_offsets}")
+        print(f"period_offset: {period_offset}")
+        print(f"number_of_periods: {number_of_periods}")
+        print(f"binarize: {binarize}")
+        print(f"threshold: {threshold}")
 
         test_status = 'Unable to create info file.'
         with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
@@ -1838,7 +1870,7 @@ async def cosinoranalysis(workflow_id: str,
                             status_code=200)
     except Exception as e:
         print(e)
-        return JSONResponse(content={'status': test_status, 'Result': {},
+        return JSONResponse(content={'status': test_status+'\n'+ e.__str__(), 'Result': {},
                 'Akaike information criterium': {},
                 'Reduced Chi^2': {}, "report": {}},
                             status_code=200)
