@@ -444,7 +444,7 @@ async def normal_tests(workflow_id: str, step_id: str, run_id: str,
     except Exception as e:
         # df["Error"] = ["Unable to conduct Normality test"]
         print(e)
-        return JSONResponse(content={'status':test_status,'statistic': "", 'p_value': "", 'Description': "", 'results': {}, 'critical_values': [], 'significance_level':[]}, status_code=200)
+        return JSONResponse(content={'status':test_status+'\n'+ e.__str__(),'statistic': "", 'p_value': "", 'Description': "", 'results': {}, 'critical_values': [], 'significance_level':[]}, status_code=200)
 
 @router.get("/transform_data", tags=['hypothesis_testing'])
 async def transform_data(workflow_id: str,
@@ -732,7 +732,7 @@ async def point_biserial_correlation(workflow_id: str, step_id: str, run_id: str
             raise Exception
     except Exception as e:
         print(e)
-        return JSONResponse(content={'status': test_status, 'sample_A': {
+        return JSONResponse(content={'status': test_status+'\n'+ e.__str__(), 'sample_A': {
                         'value': '',
                         'N': '',
                         'N_clean':  '',
@@ -833,7 +833,7 @@ async def check_homoskedasticity(workflow_id: str,
         return JSONResponse(content={'status': 'Success','statistic': statistic, 'p_value': p_value, 'variance': var}, status_code=200)
     except Exception as e:
         print(e)
-        return JSONResponse(content={'status':test_status,'statistic': "", 'p_value': "", 'variance': ""}, status_code=200)
+        return JSONResponse(content={'status':test_status+'\n'+ e.__str__(),'statistic': "", 'p_value': "", 'variance': ""}, status_code=200)
 
 
 @router.get("/transformed_data_for_use_in_an_ANOVA", tags=['hypothesis_testing'])
@@ -862,6 +862,10 @@ async def transform_data_anova(
 
         # data = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
         # variables = dfv['Variable']
+        for column in data.columns:
+            if data[column].dtype == object:
+                lab_enc = LabelEncoder()
+                data[column] = lab_enc.fit_transform(data[column])
 
         test_status = 'Unable to compute Obrien transformation for the selected columns. NaNs or nonnumeric values are selected.'
         # Keep requested Columns
@@ -908,7 +912,7 @@ async def transform_data_anova(
                             status_code=200)
     except Exception as e:
         print(e)
-        return JSONResponse(content={'status':test_status,
+        return JSONResponse(content={'status':test_status+'\n'+ e.__str__(),
                                      'Dataframe': df.to_json(orient="records")},
                             status_code=200)
 
@@ -954,6 +958,11 @@ async def statistical_tests(workflow_id: str,
         for column in data.columns:
             if column not in columns:
                 data = data.drop(str(column), axis=1)
+
+        for column in data.columns:
+            if data[column].dtype == object:
+                lab_enc = LabelEncoder()
+                data[column] = lab_enc.fit_transform(data[column])
 
         test_status = 'Unable to compute ' + statistical_test + \
                       ' for the selected columns. NaNs or nonnumeric values are selected.'
@@ -1069,6 +1078,7 @@ async def statistical_tests(workflow_id: str,
 async def p_value_correction(workflow_id: str,
                              step_id: str,
                              run_id: str,
+                             file:str,
                              method: str,
                              alpha: float,
                              p_value: list[str] | None = Query(default=None)):
@@ -1079,19 +1089,24 @@ async def p_value_correction(workflow_id: str,
     # Load Datasets
     try:
         test_status = 'Dataset is not defined'
-        dfv['variables'] = p_value
-        dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
+        # dfv['variables'] = p_value
+        # dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
 
-        selected_datasources = pd.unique(dfv['Datasource'])
+        # selected_datasources = pd.unique(dfv['Datasource'])
         # We expect only one here
         test_status = 'Unable to retrieve datasets'
-        data = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
+        data = load_data_from_csv(path_to_storage + "/" + file)
+        # data = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
         # We expect only 1 column
-        if len(pd.unique(dfv['Variable'])) != 1:
-            test_status = 'Only 1 set of p-values is expected'
-            raise Exception
+        # if len(pd.unique(dfv['Variable'])) != 1:
+        #     test_status = 'Only 1 set of p-values is expected'
+        #     raise Exception
+        for column in data.columns:
+            if data[column].dtype == object:
+                lab_enc = LabelEncoder()
+                data[column] = lab_enc.fit_transform(data[column])
 
-        p_value = dfv['Variable'][0]
+        # p_value = dfv['Variable'][0]
         test_status = 'Unable to compute ' + method + ' Multitest for the selected p-values.'
         if method == 'Bonferroni':
             z = multipletests(pvals=data[p_value], alpha=alpha, method='bonferroni')
@@ -1104,6 +1119,7 @@ async def p_value_correction(workflow_id: str,
         else:
             z = multipletests(pvals=data[p_value], alpha=alpha, method= method)
 
+        print(f"z:{z}")
         df['values'] = data[p_value]
         df['rejected'] = [str(x) for x in z[0]]
         df['corrected_p_values'] = z[1]
@@ -1138,7 +1154,7 @@ async def p_value_correction(workflow_id: str,
         return {'status':'Success', 'result': df.to_json(orient='records')}
     except Exception as e:
         print(e)
-        return {'status':test_status,'result': df.to_json(orient='records')}
+        return {'status':test_status+'\n'+ e.__str__(),'result': df.to_json(orient='records')}
 
 
 @router.get("/return_LDA", tags=["return_LDA"])
@@ -4226,8 +4242,13 @@ async def correlations_pingouin(workflow_id: str,
         for column in data.columns:
             if column not in selected_columns:
                 data = data.drop(str(column), axis=1)
-
+        # print(f"1:{data.head(10)}")
+        for column in data.columns:
+            if data[column].dtype == object:
+                lab_enc = LabelEncoder()
+                data[column]=lab_enc.fit_transform(data[column])
         test_status = 'Unable to compute ' + method+' correlation.'
+        # print(f"2:{data.head(10)}")
         df = data[columns]
         # Not for all methods -
         # df1 = df.rcorr(stars=False).round(5)
@@ -4255,7 +4276,7 @@ async def correlations_pingouin(workflow_id: str,
                     continue
                 res = pingouin.corr(x=data[i], y=data[j], method=method, alternative=alternative)
                 res.insert(0,'Cor', i + "-" + j, True)
-                print(res)
+                # print(res)
                 count = count + 1
                 for ind, row in res.iterrows():
                     temp_to_append = {
@@ -5344,6 +5365,11 @@ async def analysis_mediation(workflow_id: str,
 
         data = load_data_from_csv(path_to_storage + "/" + file)
 
+        for column in data.columns:
+            if data[column].dtype == object:
+                lab_enc = LabelEncoder()
+                data[column]=lab_enc.fit_transform(data[column])
+
         # data = load_data_from_csv(path_to_storage + "/" + selected_datasource)
 
         # We want X to affect Y. If there is no relationship between X and Y, there is nothing to mediate.
@@ -5450,7 +5476,7 @@ async def analysis_mediation(workflow_id: str,
                             status_code=200)
     except Exception as e:
         print(e)
-        return JSONResponse(content={'status': test_status, 'Result': '[]'},
+        return JSONResponse(content={'status': test_status+'\n'+ e.__str__(), 'Result': '[]'},
                             status_code=200)
 
 @router.get("/canonical_correlation_analysis")
@@ -5488,6 +5514,11 @@ async def canonical_correlation(workflow_id: str,
         # We expect only one here
         dataset = load_data_from_csv(path_to_storage + "/" + file)
         # dataset = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
+
+        for column in dataset.columns:
+            if dataset[column].dtype == object:
+                lab_enc = LabelEncoder()
+                dataset[column]=lab_enc.fit_transform(dataset[column])
 
         X = dataset[dataset.columns.intersection(independent_variables_1)]
         Y = dataset[dataset.columns.intersection(independent_variables_2)]
@@ -5606,7 +5637,7 @@ async def canonical_correlation(workflow_id: str,
                             status_code=200)
     except Exception as e:
         print(e)
-        return JSONResponse(content={'status': test_status,
+        return JSONResponse(content={'status': test_status+'\n'+ e.__str__(),
                                      'xweights': "[]",
                                      'yweights': "[]",
                                      'xloadings': "[]",
