@@ -122,6 +122,17 @@ async def concat_csvs(workflow_id: str,
         # We expect only one here
         data1 = load_data_from_csv(path_to_storage + "/" + file1)
         data2 = load_data_from_csv(path_to_storage + "/" + file2)
+        print(data2.columns)
+
+        for column in data2.columns:
+            newname=column+"_2"
+            print(newname,"----", column)
+            data2.rename(columns={str(column): str(newname)}, inplace=True)
+            # column:column+'_2'
+            # newcolumnsnames.append(column)
+        # df.rename(columns={"A": "a", "B": "c"})
+        print(data1.columns)
+        print(data2.columns)
         df = pd.concat([data1, data2], axis=1)
         df.to_csv(path_to_storage + '/output/Datasets_concat.csv', index=False)
         with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
