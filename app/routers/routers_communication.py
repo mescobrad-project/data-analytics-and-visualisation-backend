@@ -503,6 +503,12 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/Exploratory_Factor_Analysis_extract_latent_structure"
             case "valuesimputation":
                 url_to_redirect += "/ValuesImputation"
+            case "MRIModelTraining":
+                url_to_redirect += "/MRIModelTraining"
+            case "MRIModelBatchInference":
+                url_to_redirect += "/MRIModelBatchInference"
+            case "MRIInferenceAndExplainability":
+                url_to_redirect += "/MRIInferenceAndExplainability"
             # Dashboard
             case "dashboard":
                 url_to_redirect += "/dashboard"
