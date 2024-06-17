@@ -127,15 +127,15 @@ def mris_batch_prediction(model_path,
 
 
 # # runs ok
-path = NeurodesktopStorageLocation + "/model_data/saved_models_2024-06-12_17-47/"
-model_path = path + "conv3d_experiment1.pth"
-data_path = path + "mris_test/"
-csv_path = path + "groups_test.tsv"
-output_path = path
-mris_batch_prediction(model_path,
-                      data_path,
-                      csv_path,
-                      output_path)
+# path = NeurodesktopStorageLocation + "/model_data/saved_models_2024-06-12_17-47/"
+# model_path = path + "conv3d_experiment1.pth"
+# data_path = path + "mris_test/"
+# csv_path = path + "groups_test.tsv"
+# output_path = path
+# mris_batch_prediction(model_path,
+#                       data_path,
+#                       csv_path,
+#                       output_path)
 
 # kcl mri - fcd
 # path = NeurodesktopStorageLocation + "/model_data/"
