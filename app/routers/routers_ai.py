@@ -12,87 +12,45 @@ import json
 import matplotlib.pyplot as plt
 from starlette.responses import JSONResponse
 
-from app.utils.mri_experiments import run_experiment
-from app.utils.mri_ig import visualize_ig
+from fastapi import APIRouter, Request
+
+# for tabular data - dense nn and ae models
+from app.utils.tabular_nn_experiments import tabular_run_experiment
+from app.utils.tabular_dnn_explanations import iXg_explanations
+
+# for mris - conv3d model
+from app.utils.mri_experiments import mri_run_experiment
+from app.utils.mri_testing import mris_batch_prediction
 from app.utils.mri_deeplift import visualize_dl
-from app.utils.mri_ggc import visualize_ggc
 from app.utils.utils_ai import train_linear_regression, train_logistic_regression, train_SVC
 from app.utils.utils_general import get_local_storage_path, load_data_from_csv
 from datetime import datetime
 
 router = APIRouter()
 
-@router.get("/ai_mri_experiment")
-async def ai_mri_experiment(
+@router.get("/ai_mri_training_experiment")
+async def ai_mri_training_experiment(
         workflow_id: str,
         step_id: str,
         run_id: str,
         participants_path: str,
         data_path: str,
-        iterations : int = 5,
-        batch_size: int = 4,
-        eval_size: int = 30,
-        lr: float = 0.001,
-        es_patience: int = 3,
-        scheduler_step_size: int = 3,
-        scheduler_gamma: float = 0.75
+        csv_path: str,
+        iterations : int,
+        batch_size: int,
+        lr: float,
+        early_stopping_patience: int
        ) -> dict:
-
-    results = run_experiment(iterations,
-                   participants_path,
-                   data_path,
-                   batch_size,
-                   eval_size,
-                   lr,
-                   es_patience,
-                   scheduler_step_size,
-                   scheduler_gamma
-                   )
+    """ MRI Training Function To Be Implemented"""
+    results = mri_run_experiment(data_path,
+                                 csv_path,
+                                 iterations,
+                                 batch_size,
+                                 lr,
+                                 early_stopping_patience)
     return {"results": results}
     # files = get_files_for_slowwaves_spindle(workflow_id, run_id, step_id)
     # path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
-
-'''
-@router.get("/grad_cam_explanation_experiment")
-async def grad_cam_explanation_experiment(
-        workflow_id: str,
-        step_id: str,
-        run_id: str,
-        model_path: str,
-        mri_path: str,
-        heatmap_path: str,
-        heatmap_name: str,
-        slice: int,
-        alpha: float
-       ) -> dict:
-    results = visualize_grad_cam(model_path,
-                                 mri_path,
-                                 heatmap_path,
-                                 heatmap_name,
-                                 slice,
-                                 alpha)
-    return {"results": results}
-'''
-
-@router.get("/ig_explanation_experiment")
-async def ig_explanation_experiment(
-        workflow_id: str,
-        step_id: str,
-        run_id: str,
-        model_path: str,
-        mri_path: str,
-        heatmap_path: str,
-        heatmap_name: str,
-        slice: int,
-        n_steps: int
-       ) -> dict:
-    results = visualize_ig(model_path,
-                           mri_path,
-                           heatmap_path,
-                           heatmap_name,
-                           slice,
-                           n_steps)
-    return {"results": results}
 
 
 @router.get("/dl_explanation_experiment")
@@ -102,33 +60,91 @@ async def dl_explanation_experiment(
         run_id: str,
         model_path: str,
         mri_path: str,
-        heatmap_path: str,
-        heatmap_name: str,
-        slice: int
+        heatmap_path: str
        ) -> dict:
+    """ MRI Explainability Function To Be Implemented"""
+
     results = visualize_dl(model_path,
                            mri_path,
-                           heatmap_path,
-                           heatmap_name,
-                           slice)
+                           heatmap_path)
     return {"results": results}
+'''
 
-@router.get("/ggc_explanation_experiment")
-async def ggc_explanation_experiment(
+@router.get("/mris_batch_inference")
+async def mris_batch_inference(
         workflow_id: str,
         step_id: str,
         run_id: str,
         model_path: str,
-        mri_path: str,
-        heatmap_path: str,
-        heatmap_name: str,
-        slice: int
+        data_path: str,
+        csv_path: str,
+        output_path: str
+) -> dict:
+    """ MRI Batch Inference Function To Be Implemented"""
+
+    results = mris_batch_prediction(model_path,
+                                    data_path,
+                                    csv_path,
+                                    output_path)
+    return {"results": results}
+
+@router.get("/ai_tabular_dnn_training_experiment")
+async def ai_tabular_dnn_training_experiment(
+        workflow_id: str,
+        step_id: str,
+        run_id: str,
+        csv_path: str,
+        no_of_features: int,
+        test_size: float,
+        iterations: int,
+        lr: float,
+        early_stopping_patience: int
        ) -> dict:
-    results = visualize_ggc(model_path,
-                            mri_path,
-                            heatmap_path,
-                            heatmap_name,
-                            slice)
+
+    model_type = 'dense_neural_network'
+    results = tabular_run_experiment(csv_path,
+                                     no_of_features,
+                                     test_size,
+                                     model_type,
+                                     iterations,
+                                     lr,
+                                     early_stopping_patience)
+    return {"results": results}
+
+@router.get("/iXg_explanation_experiment")
+async def iXg_explanations(
+        workflow_id: str,
+        step_id: str,
+        run_id: str,
+        model_path: str,
+        csv_path: str,
+       ) -> dict:
+
+    results = iXg_explanations(model_path,
+                               csv_path)
+    return {"results": results}
+
+@router.get("/ai_tabular_ae_training_experiment")
+async def ai_tabular_ae_training_experiment(
+        workflow_id: str,
+        step_id: str,
+        run_id: str,
+        csv_path: str,
+        no_of_features: int,
+        test_size: float,
+        iterations: int,
+        lr: float,
+        early_stopping_patience: int
+       ) -> dict:
+
+    model_type = 'autoencoder'
+    results = tabular_run_experiment(csv_path,
+                                     no_of_features,
+                                     test_size,
+                                     model_type,
+                                     iterations,
+                                     lr,
+                                     early_stopping_patience)
     return {"results": results}
 
 
@@ -779,3 +795,4 @@ async def SVC_load_model(
                      'intercept': '',
                      'dependent_param':'', 'independent_params':'','result_dataset':'[]'},
             status_code=200)
+'''
