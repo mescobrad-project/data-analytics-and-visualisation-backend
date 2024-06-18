@@ -68,7 +68,7 @@ async def dl_explanation_experiment(
                            mri_path,
                            heatmap_path)
     return {"results": results}
-'''
+
 
 @router.get("/mris_batch_inference")
 async def mris_batch_inference(
@@ -832,4 +832,4 @@ async def SVC_load_model(
                      'intercept': '',
                      'dependent_param':'', 'independent_params':'','result_dataset':'[]'},
             status_code=200)
-'''
+
