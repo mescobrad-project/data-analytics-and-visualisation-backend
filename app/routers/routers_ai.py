@@ -70,7 +70,6 @@ async def dl_explanation_experiment(
     return {"results": results}
 '''
 
-
 @router.get("/mris_batch_inference")
 async def mris_batch_inference(
         workflow_id: str,
