@@ -86,7 +86,7 @@ async def list_nii_files(workflow_id: str, step_id: str, run_id: str):
         folders = [entry for entry in entries if os.path.isdir(os.path.join(directory, entry))]
         for folder in folders:
             if folder.startswith("coregistration_output_"):
-                list_of_files.append(get_all_files_from_local_temp_storage(workflow_id, run_id, step_id + "/output/" + folder))
+                list_of_files.extend(get_all_files_from_local_temp_storage(workflow_id, run_id, step_id + "/output/" + folder))
 
     except Exception as e:
         print(e)
@@ -303,6 +303,58 @@ async def return_free_surfer_recon_log(workflow_id: str,
             return False
 
     return False
+
+@router.get("/free_surfer/log/vol2vol", tags=["return_free_surfer_samseg"])
+async def return_free_surfer_log_vol2vol_coreg(workflow_id: str,
+                                   run_id: str,
+                                   step_id: str,
+                                   output_file: str,
+                                   ) -> dict:
+    """Check if vol2vol or coreg has finished by checking if the output file exists"""
+
+    directory = NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id + "/output"
+    # Get all entries in the directory
+    entries = os.listdir(directory)
+    # Filter out only directories
+    folders = [entry for entry in entries if os.path.isdir(os.path.join(directory, entry))]
+    coreg_folder = ""
+    for folder in folders:
+        if folder.startswith("coregistration_output_"):
+            coreg_folder = folder
+
+
+    path_to_output = os.path.join(get_local_storage_path(workflow_id, run_id, step_id), "output", coreg_folder, output_file)
+    print(path_to_output)
+    if os.path.exists(path_to_output):
+        return True
+    else:
+        return False
+
+@router.get("/free_surfer/log/synthseg", tags=["return_free_surfer_log_synthseg"])
+async def return_free_surfer_log_synthseg(workflow_id: str,
+                                   run_id: str,
+                                   step_id: str,
+                                   output_file: str,
+                                   ) -> dict:
+    """Check if synthseg has finished by checking if the output file exists"""
+
+    directory = NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id + "/output"
+    # Get all entries in the directory
+    entries = os.listdir(directory)
+    # Filter out only directories
+    folders = [entry for entry in entries if os.path.isdir(os.path.join(directory, entry))]
+    synthseg_folder = ""
+    for folder in folders:
+        if folder.startswith("synthseg_output_"):
+            synthseg_folder = folder
+
+
+    path_to_output = os.path.join( get_local_storage_path(workflow_id, run_id, step_id),  "output", synthseg_folder, output_file)
+    if os.path.exists(path_to_output):
+        return True
+    else:
+        return False
+
 
 
 @router.get("/free_surfer/log/samseg", tags=["return_free_surfer_samseg"])
@@ -888,7 +940,18 @@ async def return_samseg_stats(workflow_id: str,
                             step_id: str,
                             run_id: str) -> []:
     path_to_file = get_local_storage_path(workflow_id, run_id, step_id)
-    path_to_file = os.path.join(path_to_file, "output", "samseg_output", "samseg.stats")
+
+    directory = NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id + "/output"
+    # Get all entries in the directory
+    entries = os.listdir(directory)
+    # Filter out only directories
+    folders = [entry for entry in entries if os.path.isdir(os.path.join(directory, entry))]
+    samseg_folder = ""
+    for folder in folders:
+        if folder.startswith("samseg_output_"):
+            samseg_folder = folder
+
+    path_to_file = os.path.join(path_to_file, "output", samseg_folder, "samseg.stats")
 
     with open(path_to_file, newline="") as csvfile:
         if not os.path.isfile(path_to_file):
@@ -916,7 +979,18 @@ async def return_reconall_stats_measures(workflow_id: str,
                             file_name: str = None) -> dict:
 
     path_to_file = get_local_storage_path(workflow_id, run_id, step_id)
-    path_to_file = os.path.join(path_to_file, "output", "ucl_test", "stats", file_name)
+
+    directory = NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id + "/output"
+    # Get all entries in the directory
+    entries = os.listdir(directory)
+    # Filter out only directories
+    folders = [entry for entry in entries if os.path.isdir(os.path.join(directory, entry))]
+    reconall_folder = ""
+    for folder in folders:
+        if folder.startswith("reconall_results_"):
+            reconall_folder = folder
+
+    path_to_file = os.path.join(path_to_file, "output", reconall_folder, "stats", file_name)
     stats_dict = load_stats_measurements_measures(path_to_file)
     return stats_dict
 
@@ -928,16 +1002,27 @@ async def return_reconall_stats_table(workflow_id: str,
                                              file_name: str = None) -> dict:
 
     path_to_folder = get_local_storage_path(workflow_id, run_id, step_id)
+
+    directory = NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id + "/output"
+    # Get all entries in the directory
+    entries = os.listdir(directory)
+    # Filter out only directories
+    folders = [entry for entry in entries if os.path.isdir(os.path.join(directory, entry))]
+    reconall_folder = ""
+    for folder in folders:
+        if folder.startswith("reconall_results_"):
+            reconall_folder = folder
+
     if "*" in file_name:
-        path_to_file = os.path.join(path_to_folder, "output", "ucl_test", "stats", "l" + file_name[1:])
+        path_to_file = os.path.join(path_to_folder, "output", reconall_folder, "stats", "l" + file_name[1:])
         stats_dict = load_stats_measurements_table(path_to_file, 0, False)
         print(stats_dict["table"])
-        path_to_file = os.path.join(path_to_folder, "output", "ucl_test", "stats", "r" + file_name[1:])
+        path_to_file = os.path.join(path_to_folder, "output", reconall_folder, "stats", "r" + file_name[1:])
         right = load_stats_measurements_table(path_to_file, len(stats_dict["table"]), False)["table"]
         stats_dict["table"] = pd.concat([stats_dict["table"], right])
         print(stats_dict["table"])
     else:
-        path_to_file = os.path.join(path_to_folder, "output", "ucl_test", "stats", file_name)
+        path_to_file = os.path.join(path_to_folder, "output", reconall_folder, "stats", file_name)
         stats_dict = load_stats_measurements_table(path_to_file, 0, False)
 
     stats_dict["table"] = stats_dict["table"].to_dict('records')
@@ -948,7 +1033,18 @@ async def return_aseg_stats(workflow_id: str,
                                 step_id: str,
                                 run_id: str) -> str :
         path_to_file = get_local_storage_path(workflow_id, run_id, step_id)
-        path_to_file = os.path.join(path_to_file, "output", "ucl_test", "stats", "aseg.stats")
+
+        directory = NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id + "/output"
+        # Get all entries in the directory
+        entries = os.listdir(directory)
+        # Filter out only directories
+        folders = [entry for entry in entries if os.path.isdir(os.path.join(directory, entry))]
+        reconall_folder = ""
+        for folder in folders:
+            if folder.startswith("reconall_results_"):
+                reconall_folder = folder
+
+        path_to_file = os.path.join(path_to_file, "output", reconall_folder, "stats", "aseg.stats")
         aseg = load_stats_measurements_table(path_to_file, 0)["table"]
         data = dict(zip(aseg['StructName'], pd.to_numeric(aseg['Volume_mm3'], errors='coerce')))
         plot_aseg(data, cmap='Spectral',
