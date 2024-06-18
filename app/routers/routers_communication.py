@@ -5,17 +5,19 @@ import tempfile
 import uuid
 from os import walk
 from os.path import isfile, join
+import traceback
 
 import requests
-from fastapi import APIRouter, Request
+from fastapi import APIRouter,Request, Response
 from keycloak import KeycloakOpenID
 from pydantic import BaseModel
 from fastapi.responses import RedirectResponse
 from starlette.responses import JSONResponse
+# from starlette.requests import Request
 
 from app.pydantic_models import ModelTokenConfig
 from app.utils.utils_datalake import upload_object
-from app.utils.utils_general import create_local_step, get_local_storage_path
+from app.utils.utils_general import create_local_step, get_local_storage_path, get_output_info_path
 
 router = APIRouter()
 
@@ -38,11 +40,11 @@ TRINO_HOST = "https://trino.mescobrad.digital-enabler.eng.it"
 TRINO_PORT = "443"
 TRINO_SCHEME = "https"
 keycloak_url = "https://idm.digital-enabler.eng.it/auth/realms/mescobrad/protocol/openid-connect/token"
-
-keycloak_openid = KeycloakOpenID(server_url="https://idm.digital-enabler.eng.it/auth/",
-                                 client_id="home-app",
-                                 realm_name="mescobrad",
-                                 client_secret_key="")
+#
+# keycloak_openid = KeycloakOpenID(server_url="https://idm.digital-enabler.eng.it/auth/",
+#                                  client_id="home-app",
+#                                  realm_name="mescobrad",
+#                                  client_secret_key="")
 
 ExistingFunctions = [
     # EEG
@@ -157,7 +159,19 @@ ExistingFunctions = [
     "GrangerAnalysis",
     "structural_equation_models_optimization",
     'exploratory_factor_analysis_extract_latent_structure',
+    'linearregressionmodelcreation',
+    'logisticregressionmodelcreation',
+    'SVCregressionmodelcreation',
+    'XGBoostmodelcreation',
+    'Linearregressionmodelload',
+    'Logisticregressionmodelload',
+    'XGBoostmodelload',
+    'SVCmodelload',
+    'autoencodermodelcreation',
+    'autoencodermodelload'
     'valuesimputation',
+    'datasetconcat',
+    'datasetpreviewsheet',
     # Dashboard
     "dashboard",
 ]
@@ -172,6 +186,7 @@ class FunctionNavigationItem(BaseModel):
     run_id: str
     step_id: str
     function: str
+    token: str
     metadata: dict
 
 
@@ -212,20 +227,20 @@ class FunctionNavigationItem(BaseModel):
 
 
 @router.get("/task/complete", tags=["test_task_complete"])
-async def task_complete(run_id: str,
+async def task_complete(
+                        workflow_id: str,
+                        run_id: str,
                         step_id: str) -> dict:
     # channels = data.ch_names
     print("RUN COMPLETE IS RUNNING")
     print(WFAddress)
     headers = {"Content-Type": "application/json", "Accept": "*/*"}
 
+    info_file = open(get_output_info_path(workflow_id, run_id, step_id))
+    info_data = json.load(info_file)
+
     saved_files = []
-    data = {
-        "data": {
-            "datalake": [],
-            "trino": []
-        }
-    }
+    data = info_data
     try:
         url = WFAddress + "/run/" + str(uuid.UUID(run_id)) + "/step/" + str(
             uuid.UUID(step_id)) + "/task/script/complete"
@@ -243,7 +258,7 @@ async def task_complete(run_id: str,
 
 
 @router.put("/function/navigation/", tags=["function_navigation"])
-async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
+async def function_navigation(navigation_item: FunctionNavigationItem, request: Request) -> dict:
     url_to_redirect = FrontendAddress
     if navigation_item.function:
         match navigation_item.function:
@@ -327,6 +342,12 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/Actigraphy_Cosinor"
             case "actigraphy_metrics":
                 url_to_redirect += "/Actigraphy_Metrics"
+            case "actigraphy_edf_viewer":
+                url_to_redirect += "/actigraphy_edf_viewer"
+            case "actigraphy_statistics":
+                url_to_redirect += "/actigraphy_statistics"
+            case "actigraphy_summary_table":
+                url_to_redirect += "/actigraphy_summary_table"
             #  MRI
             case "mri_viewer":
                 url_to_redirect += "/mri"
@@ -501,6 +522,26 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/Structural_Equation_Models_Optimization"
             case "exploratory_factor_analysis_extract_latent_structure":
                 url_to_redirect += "/Exploratory_Factor_Analysis_extract_latent_structure"
+            case "linearregressionmodelcreation":
+                url_to_redirect += "/LinearRegressionModelCreation"
+            case "linearregressionmodelload":
+                url_to_redirect += "/LinearRegressionModelLoad"
+            case "logisticregressionmodelcreation":
+                url_to_redirect += "/LogisticRegressionModelCreation"
+            case "logisticregressionmodelload":
+                url_to_redirect += "/LogisticRegressionModelLoad"
+            case "SVCmodelcreation":
+                url_to_redirect += "/SVCModelCreation"
+            case "SVCmodelload":
+                url_to_redirect += "/SVCModelLoad"
+            case "XGBoostmodelcreation":
+                url_to_redirect += "/XGBoostModelCreation"
+            case "XGBoostmodelload":
+                url_to_redirect += "/XGBoostModelLoad"
+            case "autoencodermodelcreation":
+                url_to_redirect += "/AutoencoderModelCreation"
+            case "autoencodermodelload":
+                url_to_redirect += "/AutoencoderModelLoad"
             case "valuesimputation":
                 url_to_redirect += "/ValuesImputation"
             case "MRIModelTraining":
@@ -509,21 +550,36 @@ async def function_navigation(navigation_item: FunctionNavigationItem) -> dict:
                 url_to_redirect += "/MRIModelBatchInference"
             case "MRIInferenceAndExplainability":
                 url_to_redirect += "/MRIInferenceAndExplainability"
+            case "datasetconcat":
+                url_to_redirect += "/DatasetConcat"
+            case "datasetpreviewsheet":
+                url_to_redirect += "/DatasetPreviewSheet"
             # Dashboard
+
             case "dashboard":
                 url_to_redirect += "/dashboard"
         #  Create local storage for files and download them
         # Handle files metadata missing from request/accept it as an empty array
+        # print("TOKEN IS: ", request.session.get("my_token", None))
+        my_session_token = request.session.get("secret_key")
+        if my_session_token is None:
+            my_session_token = navigation_item.token
+        print("TOKEN IS: ", my_session_token)
         if "files" in navigation_item.metadata:
             # print("KEY EXISTS")
             # print(navigation_item.metadata)
             create_local_step(workflow_id=navigation_item.workflow_id, run_id=navigation_item.run_id,
-                              step_id=navigation_item.step_id, files_to_download=navigation_item.metadata["files"])
+                              step_id=navigation_item.step_id, files_to_download=navigation_item.metadata["files"],
+                              # session_token=request.session.get("secret_key"))
+                              session_token=my_session_token)
+                              # session_token="eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICI0MUVRLS11SElzcFlkanhIMU9wbWI5QUVSZ05fdlhfTE1BUGNwdGJPeTJFIn0.eyJleHAiOjE3MTY0NTc0NjQsImlhdCI6MTcxNjQ1NzE2NCwiYXV0aF90aW1lIjoxNzE2NDU3MTYzLCJqdGkiOiI2YmQ3OTFlNS04YTZmLTRhOTgtYWQ1Ny01MTYwYzQ5YTQ0YmIiLCJpc3MiOiJodHRwczovL2lkbS5kaWdpdGFsLWVuYWJsZXIuZW5nLml0L2F1dGgvcmVhbG1zL21lc2NvYnJhZCIsImF1ZCI6WyJob21lLWFwcCIsImFjY291bnQiXSwic3ViIjoiZjAyZjExYmItZDc4NC00NDdjLTlmYTEtZjliYmUxODg5MjlkIiwidHlwIjoiQmVhcmVyIiwiYXpwIjoiZGF0YS1hbmFseXRpY3MiLCJub25jZSI6IjY4ODFhNWM1LTNmZjMtNDZjZC1hNGYxLTkyYmY0NjEwOGM3YyIsInNlc3Npb25fc3RhdGUiOiI3YTQwODllMy03ZTlhLTQ0MzMtOWI5OC0zOWRkMDE3M2U3ZmYiLCJhY3IiOiIxIiwiYWxsb3dlZC1vcmlnaW5zIjpbIioiXSwicmVhbG1fYWNjZXNzIjp7InJvbGVzIjpbIk1FUy1Db0JyYUQiLCJhbGxfYW5hbHl0aWNzIiwidmFyaWFibGVzIiwidmlldy1hbmFseXRpY3MiLCJ1cGxvYWQtZGF0YSIsInF1ZXN0aW9ucyIsInZpZXctcWIiLCJtZXRhZGF0YS1hZG1pbiIsInZpZXctZXhwZXJ0LXN5c3RlbSIsInF1ZXN0aW9ubmFpcmVzIiwiZGVmYXVsdC1yb2xlcy1tZXNjb2JyYWQiLCJldS1zdXJ2ZXkiLCJkYXRhLW1hbmFnZXIiLCJ2aWV3LXJlc3VsdHMiLCJvZmZsaW5lX2FjY2VzcyIsIndvcmtzcGFjZXMiLCJ1bWFfYXV0aG9yaXphdGlvbiIsImNhdGVnb3JpZXMiLCJtYXN0ZXItYWRtaW4iLCJ2aWV3LWNhdGVnb3JpZXMiLCJtZXRhZGF0YS1tYW5hZ2VyIl19LCJyZXNvdXJjZV9hY2Nlc3MiOnsiaG9tZS1hcHAiOnsicm9sZXMiOlsiTUVTLUNvQnJhRCJdfSwiYWNjb3VudCI6eyJyb2xlcyI6WyJtYW5hZ2UtYWNjb3VudCIsIm1hbmFnZS1hY2NvdW50LWxpbmtzIiwidmlldy1wcm9maWxlIl19fSwic2NvcGUiOiJvcGVuaWQgcHJvZmlsZSBlbWFpbCIsInNpZCI6IjdhNDA4OWUzLTdlOWEtNDQzMy05Yjk4LTM5ZGQwMTczZTdmZiIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJuYW1lIjoiTWljaGFlbCBLb250b3VsaXMiLCJwcmVmZXJyZWRfdXNlcm5hbWUiOiJta29udG91bGlzQGVwdS5udHVhLmdyIiwibG9jYWxlIjoiZW4iLCJnaXZlbl9uYW1lIjoiTWljaGFlbCIsImZhbWlseV9uYW1lIjoiS29udG91bGlzIiwiZW1haWwiOiJta29udG91bGlzQGVwdS5udHVhLmdyIn0.H6nwbIL7F4C-T6AILstsiAg0x0zr5YOkvwJg36KnVScXzA5lVlYV9lJWhjfsorR5WGxqCQ_oWYaz6emU7gK-_po8eDXznXmaUCtR_3OyvwQA8YuywV61FHaKHNQQ8aknaX4kSwAcpuBjpwRJMU8v_Wl_HvoNiMSKuoRl3fFKI3zoO3uxyJC9Dn2r6FPAvD8TW7_6meej3sijtSC3oQVGuTrQfgbUNenQ4xZNSa3hZmJfEuO4XKFU2OjCj6fFpDJ4hDAepw6K_t9ZXNPU1LoTOPR8m2X3HHYH2Rca8uAB0E_w0TydkTZau5kPx3AX3D8pdEfhr5Oa1Lko5nXqke5pSw")
         else:
             # print("NOT EXIST KEY")
             # print(navigation_item.metadata)
             create_local_step(workflow_id=navigation_item.workflow_id,
-                              run_id=navigation_item.run_id, step_id=navigation_item.step_id, files_to_download=[])
+                              run_id=navigation_item.run_id, step_id=navigation_item.step_id, files_to_download=[],
+                              session_token=my_session_token)
+                              # session_token=request.session.get("secret_key"))
 
     # Add step and run id to the parameters
     url_to_redirect += "/?run_id=" + navigation_item.run_id + "&step_id=" + navigation_item.step_id + \
@@ -537,6 +593,7 @@ async def function_save_data(
         workflow_id: str,
         step_id: str,
         run_id: str,
+        request: Request,
         function_type: str | None = None
 ) -> dict:
     """ This function handles all the correct uploading for all types of tasks in datalake and/or trino"""
@@ -546,10 +603,12 @@ async def function_save_data(
             path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
             files_to_upload = [f for f in os.listdir(path_to_storage + '/output') if
                                isfile(join(path_to_storage + '/output', f))]
+            print("TEST 1 Reached")
             for file in files_to_upload:
                 out_filename = path_to_storage + '/output/' + file
                 upload_object(bucket_name="common", object_name='workflows/' + workflow_id + '/' + run_id + '/' +
-                                                                step_id + '/' + file, file=out_filename)
+                                                                step_id + '/' + file, file=out_filename,
+                              session_token=request.session.get("secret_key"))
             return JSONResponse(content='info.json file has been successfully uploaded to the DataLake',
                                 status_code=200)
         except Exception as e:
@@ -557,19 +616,92 @@ async def function_save_data(
             return JSONResponse(content='Error in saving info.json object to the DataLake', status_code=501)
     elif function_type == "mri":
         try:
+            directory = NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id + "/output"
+            # Get all entries in the directory
+            entries = os.listdir(directory)
+            # Filter out only directories
+            folders = [entry for entry in entries if os.path.isdir(os.path.join(directory, entry))]
+            print(folders)
+
+            to_return = {
+                'samseg_results_folder_exists': False,
+                'reconall_results_folder_exists': False,
+                'coreg_results_folder_exists': False,
+                'synthseg_results_folder_exists': False,
+                'samseg_results_folder': "none",
+                'reconall_results_folder': "none",
+                'coreg_results_folder': "none",
+                'synthseg_results_folder': "none",
+            }
+
+            processes = {"reconall_results_": 'reconall_results_folder', "samseg_output_": 'samseg_results_folder',
+                         "coregistration_output_": 'coreg_results_folder',
+                         "synthseg_output_": 'synthseg_results_folder'}
+            for process in processes.keys():
+                for folder in folders:
+                    if folder.startswith(process):
+                        to_return[processes[process]] = folder
+                        to_return[processes[process] + '_exists'] = True
+
             path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
             tmpdir = tempfile.mkdtemp()
-            output_filename = os.path.join(tmpdir, 'ucl_test')
-            print(output_filename)
-            print(shutil.make_archive(output_filename, 'zip', root_dir=path_to_storage, base_dir='output/ucl_test'))
-            upload_object(bucket_name="common", object_name='workflows/' + workflow_id + '/' + run_id + '/' +
-                                                            step_id + '/ucl_test.zip',
-                          file=output_filename + '.zip')
 
+            ##UPLOAD RECONALL STATS
+            if to_return['reconall_results_folder_exists']:
+                output_filename = os.path.join(tmpdir, to_return['reconall_results_folder'])
+                print(output_filename)
+                print(shutil.make_archive(output_filename, 'zip', root_dir=path_to_storage, base_dir='output/' + to_return['reconall_results_folder']))
+                upload_object(bucket_name="common", object_name='workflows/' + workflow_id + '/' + run_id + '/' +
+                                                            step_id + '/' + to_return['reconall_results_folder'] + '.zip',
+                          file=output_filename + '.zip',session_token=request.session.get("secret_key"))
+
+            ##UPLOAD SAMSEG STATS
+            if to_return['samseg_results_folder_exists']:
+                output_filename = os.path.join(tmpdir, to_return['samseg_results_folder'])
+                print(output_filename)
+                print(shutil.make_archive(output_filename, 'zip', root_dir=path_to_storage, base_dir='output/' + to_return['samseg_results_folder']))
+                upload_object(bucket_name="common", object_name='workflows/' + workflow_id + '/' + run_id + '/' +
+                                                            step_id + '/' + to_return['samseg_results_folder'] + '.zip',
+                          file=output_filename + '.zip',session_token=request.session.get("secret_key"))
+
+            ##UPLOAD COREGISTRATION STATS
+            if to_return['coreg_results_folder_exists']:
+                output_filename = os.path.join(tmpdir, to_return['coreg_results_folder'])
+                print(output_filename)
+                print(shutil.make_archive(output_filename, 'zip', root_dir=path_to_storage, base_dir='output/' + to_return['coreg_results_folder']))
+                upload_object(bucket_name="common", object_name='workflows/' + workflow_id + '/' + run_id + '/' +
+                                                            step_id + '/' + to_return['coreg_results_folder'] + '.zip',
+                          file=output_filename + '.zip',session_token=request.session.get("secret_key"))
+
+            ##UPLOAD SYNTHSEG STATS
+            if to_return['synthseg_results_folder_exists']:
+                output_filename = os.path.join(tmpdir, to_return['synthseg_results_folder'])
+                print(output_filename)
+                print(shutil.make_archive(output_filename, 'zip', root_dir=path_to_storage, base_dir='output/' + to_return['synthseg_results_folder']))
+                upload_object(bucket_name="common", object_name='workflows/' + workflow_id + '/' + run_id + '/' +
+                                                            step_id + '/' + to_return['synthseg_results_folder'] + '.zip',
+                          file=output_filename + '.zip', session_token=request.session.get("secret_key"))
             return JSONResponse(content='zip file has been successfully uploaded to the DataLake', status_code=200)
+
         except Exception as e:
             print(e)
+            # traceback.print_exc()
             return JSONResponse(content='Error in saving zip file to the DataLake', status_code=501)
+    elif function_type == "actigraphy":
+        try:
+            path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+            tmpdir = tempfile.mkdtemp()
+            output_filename = os.path.join(tmpdir, 'dataset')
+            print(output_filename)
+            print(shutil.make_archive(output_filename, 'edf', root_dir=path_to_storage, base_dir='dataset'))
+            upload_object(bucket_name="common", object_name='workflows/' + workflow_id + '/' + run_id + '/' +
+                                                           step_id + '/dataset.edf',
+                          file=output_filename + '.edf')
+
+            return JSONResponse(content='edf file has been successfully uploaded to the DataLake', status_code=200)
+        except Exception as e:
+            print(e)
+            return JSONResponse(content='Error in saving edf file to the DataLake', status_code=501)
     return
 
 
@@ -597,23 +729,34 @@ async def task_existing(request: Request) -> dict:
 @router.post("/save/token", tags=["save_token"])
 async def save_token(
         token: ModelTokenConfig,
-        request: Request
+        request: Request,
+        response: Response
 ) -> JSONResponse:
     keycloak_openid = KeycloakOpenID(server_url="https://idm.digital-enabler.eng.it/auth/",
                                      client_id="home-app",
                                      realm_name="mescobrad",
                                      client_secret_key=""
                                      )
-    print(token.token)
-    try:
-        # token = keycloak_openid.token("mkontoulis@epu.ntua.gr", "Mkontoulis12345", grant_type='password')
-        userinfo = keycloak_openid.userinfo(token.token)
-    except Exception as e:
-        print("An error occurred:", e)
-        return JSONResponse(status_code=400)
-    print(userinfo)
+    # # print(token.token)
+    # try:
+    #     # token = keycloak_openid.token("mkontoulis@epu.ntua.gr", "Mkontoulis12345", grant_type='password')
+    #     userinfo = keycloak_openid.userinfo(token.token)
+    # except Exception as e:
+    #     print("An error occurred:", e)
+    #     return JSONResponse(status_code=400)
+    # print(userinfo)
+    # print(token)
     request.session["secret_key"] = token.token
+    request.session["groups"] = keycloak_openid.userinfo(token.token)['groups']
+    # request.session["token"] = token
     # TODO CHECK IF TOKEN IS VALID BEFORE SAVING AND SEND 200
+    print("TOKEN SAVED SUCCESSFULLY:", request.session.get("secret_key"))
+    print("groups SAVED SUCCESSFULLY:", request.session.get("groups"))
+    # print("TOKEN SAVED SUCCESSFULLY:", token.token)
+    # response.set_cookie(key='my_token', value=token.token)
+    # text_file = open("token.txt", "w")
+    # text_file.write(token.token)
+    # text_file.close()
     return JSONResponse(status_code=200)
 
 
@@ -621,6 +764,8 @@ async def save_token(
 async def check_token(
         request: Request
 ) -> JSONResponse:
-    to_return = request.session.get("secret_key", None)
+    to_return = request.session.get("secret_key")
+    print("""request.session["my_token"]""")
     print(to_return)
+    # print(request.session["my_token"])
     return JSONResponse(status_code=200)
