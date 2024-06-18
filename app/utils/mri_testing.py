@@ -36,7 +36,7 @@ def mri_prediction(model_path,
     tarray = torch.from_numpy(nparray_resized).unsqueeze(0).unsqueeze(0).to(device)  # tarray.shape is torch.Size([1, 1, 157, 256, 256])
 
     logits = model(tarray)[1]
-    print(f'logits {logits}')
+    #print(f'logits {logits}')
     #label = int(torch.argmax(logits))
     probs = F.softmax(logits, dim=1)
     _, top_class = torch.max(probs, dim=1)
@@ -138,8 +138,9 @@ def mris_batch_prediction(model_path,
 #                       output_path)
 
 # kcl mri - fcd
-# path = NeurodesktopStorageLocation + "/model_data/"
-# model_path = path + "saved_models_2024-06-12_17-47/conv3d_experiment1.pth"
-# mri_path = path + "kcl_mri/MRI_FLAIR_defaced.nii"
-# mri_prediction(model_path,
-#                mri_path)
+path = NeurodesktopStorageLocation + "/model_data/"
+model_path = path + "saved_models_2024-06-12_17-47/conv3d_experiment1.pth"
+#mri_path = path + "kcl_mri/MRI_FLAIR_defaced.nii"
+mri_path = path + "saved_models_2024-06-12_17-47/mris_test/sub-00161.nii"
+mri_prediction(model_path,
+               mri_path)
