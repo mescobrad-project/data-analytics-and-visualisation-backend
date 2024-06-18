@@ -12,7 +12,6 @@ import json
 import matplotlib.pyplot as plt
 from starlette.responses import JSONResponse
 
-from app.utils.mri_experiments import run_experiment
 from fastapi import APIRouter, Request
 
 # for tabular data - dense nn and ae models
@@ -797,3 +796,4 @@ async def SVC_load_model(
                      'intercept': '',
                      'dependent_param':'', 'independent_params':'','result_dataset':'[]'},
             status_code=200)
+'''
