@@ -25,9 +25,9 @@ def train_logistic_regression(X_train, y_train):
 
     return logistic_model
 
-def train_SVC(X_train, y_train):
+def train_SVC(X_train, y_train, kernel, probability, regularization):
 
-    SVC_model = SVC()
+    SVC_model = SVC(kernel=kernel, probability=probability, C=regularization)
     # Train the model
     SVC_model.fit(X_train, y_train)
 

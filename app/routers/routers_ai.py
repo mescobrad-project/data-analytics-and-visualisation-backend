@@ -1,11 +1,11 @@
 import pandas as pd
 from fastapi import APIRouter, Request, Query
-from sklearn.metrics import mean_squared_error, accuracy_score, r2_score, mean_absolute_error, classification_report
+from sklearn.metrics import mean_squared_error, accuracy_score, r2_score, mean_absolute_error, classification_report, precision_score, recall_score
 from sklearn.model_selection import train_test_split
 import numpy as np
 import shap
 from sklearn.preprocessing import LabelEncoder
-from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.preprocessing import StandardScaler
 
 import pickle
 import json
@@ -22,77 +22,30 @@ from datetime import datetime
 
 router = APIRouter()
 
-@router.get("/ai_mri_experiment")
-async def ai_mri_experiment(
+
+@router.get("/ai_mri_training_experiment")
+async def ai_mri_training_experiment(
         workflow_id: str,
         step_id: str,
         run_id: str,
         participants_path: str,
         data_path: str,
-        iterations : int = 5,
-        batch_size: int = 4,
-        eval_size: int = 30,
-        lr: float = 0.001,
-        es_patience: int = 3,
-        scheduler_step_size: int = 3,
-        scheduler_gamma: float = 0.75
-       ) -> dict:
-
-    results = run_experiment(iterations,
-                   participants_path,
-                   data_path,
-                   batch_size,
-                   eval_size,
-                   lr,
-                   es_patience,
-                   scheduler_step_size,
-                   scheduler_gamma
-                   )
+        csv_path: str,
+        iterations: int,
+        batch_size: int,
+        lr: float,
+        early_stopping_patience: int
+) -> dict:
+    """ MRI Training Function To Be Implemented"""
+    results = mri_run_experiment(data_path,
+                                 csv_path,
+                                 iterations,
+                                 batch_size,
+                                 lr,
+                                 early_stopping_patience)
     return {"results": results}
     # files = get_files_for_slowwaves_spindle(workflow_id, run_id, step_id)
     # path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
-
-'''
-@router.get("/grad_cam_explanation_experiment")
-async def grad_cam_explanation_experiment(
-        workflow_id: str,
-        step_id: str,
-        run_id: str,
-        model_path: str,
-        mri_path: str,
-        heatmap_path: str,
-        heatmap_name: str,
-        slice: int,
-        alpha: float
-       ) -> dict:
-    results = visualize_grad_cam(model_path,
-                                 mri_path,
-                                 heatmap_path,
-                                 heatmap_name,
-                                 slice,
-                                 alpha)
-    return {"results": results}
-'''
-
-@router.get("/ig_explanation_experiment")
-async def ig_explanation_experiment(
-        workflow_id: str,
-        step_id: str,
-        run_id: str,
-        model_path: str,
-        mri_path: str,
-        heatmap_path: str,
-        heatmap_name: str,
-        slice: int,
-        n_steps: int
-       ) -> dict:
-    results = visualize_ig(model_path,
-                           mri_path,
-                           heatmap_path,
-                           heatmap_name,
-                           slice,
-                           n_steps)
-    return {"results": results}
 
 
 @router.get("/dl_explanation_experiment")
@@ -102,33 +55,91 @@ async def dl_explanation_experiment(
         run_id: str,
         model_path: str,
         mri_path: str,
-        heatmap_path: str,
-        heatmap_name: str,
-        slice: int
-       ) -> dict:
+        heatmap_path: str
+) -> dict:
+    """ MRI Explainability Function To Be Implemented"""
+
     results = visualize_dl(model_path,
                            mri_path,
-                           heatmap_path,
-                           heatmap_name,
-                           slice)
+                           heatmap_path)
     return {"results": results}
 
-@router.get("/ggc_explanation_experiment")
-async def ggc_explanation_experiment(
+
+@router.get("/mris_batch_inference")
+async def mris_batch_inference(
         workflow_id: str,
         step_id: str,
         run_id: str,
         model_path: str,
-        mri_path: str,
-        heatmap_path: str,
-        heatmap_name: str,
-        slice: int
+        data_path: str,
+        csv_path: str,
+        output_path: str
+) -> dict:
+    """ MRI Batch Inference Function To Be Implemented"""
+
+    results = mris_batch_prediction(model_path,
+                                    data_path,
+                                    csv_path,
+                                    output_path)
+    return {"results": results}
+
+@router.get("/ai_tabular_dnn_training_experiment")
+async def ai_tabular_dnn_training_experiment(
+        workflow_id: str,
+        step_id: str,
+        run_id: str,
+        csv_path: str,
+        no_of_features: int,
+        test_size: float,
+        iterations: int,
+        lr: float,
+        early_stopping_patience: int
        ) -> dict:
-    results = visualize_ggc(model_path,
-                            mri_path,
-                            heatmap_path,
-                            heatmap_name,
-                            slice)
+
+    model_type = 'dense_neural_network'
+    results = tabular_run_experiment(csv_path,
+                                     no_of_features,
+                                     test_size,
+                                     model_type,
+                                     iterations,
+                                     lr,
+                                     early_stopping_patience)
+    return {"results": results}
+
+@router.get("/iXg_explanation_experiment")
+async def iXg_explanations(
+        workflow_id: str,
+        step_id: str,
+        run_id: str,
+        model_path: str,
+        csv_path: str,
+       ) -> dict:
+
+    results = iXg_explanations(model_path,
+                               csv_path)
+    return {"results": results}
+
+@router.get("/ai_tabular_ae_training_experiment")
+async def ai_tabular_ae_training_experiment(
+        workflow_id: str,
+        step_id: str,
+        run_id: str,
+        csv_path: str,
+        no_of_features: int,
+        test_size: float,
+        iterations: int,
+        lr: float,
+        early_stopping_patience: int
+       ) -> dict:
+
+    model_type = 'autoencoder'
+    results = tabular_run_experiment(csv_path,
+                                     no_of_features,
+                                     test_size,
+                                     model_type,
+                                     iterations,
+                                     lr,
+                                     early_stopping_patience)
     return {"results": results}
 
 
@@ -206,8 +217,8 @@ async def linear_reg_create_model(
         test_status = 'Unable to present XAI plots'
 
         explainer = shap.LinearExplainer(linear_model, X_train, feature_names=independent_variables)
-        shap_values = explainer(X_train)
-        shap.summary_plot(shap_values, X_train, feature_names=independent_variables, show=False, max_display=20, plot_size=[8,5])
+        shap_values = explainer(X_test)
+        shap.summary_plot(shap_values, X_test, feature_names=independent_variables, show=False, max_display=20, plot_size=[8,5])
         plt.savefig(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + "shap_summary_lr.svg", dpi=700)  # .png,.pdf will also support here
         # plt.show()
         plt.close()
@@ -599,11 +610,16 @@ async def SVC_create_model(
         step_id: str,
         run_id: str,
         test_size: float,
+        random_state: int,
         file_name:str,
         model_name:str,
-        random_state:int,
+        regularization: float,
         dependent_variable: str,
-        shuffle:bool | None = Query(default=False),
+
+        kernel: str | None = Query("rbf",
+                                   regex="^(linear)$|^(poly)$|^(rbf)$|^(sigmoid)$|^(precomputed)$"),
+        probability: bool | None = Query(default=False),
+        shuffle: bool | None = Query(default=False),
         independent_variables: list[str] | None = Query(default=None)
 ) -> dict:
 
@@ -617,7 +633,12 @@ async def SVC_create_model(
         # Split dataset into train and test sets
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=random_state, shuffle=shuffle)
         test_status = 'Unable to execute regression'
-        SVC_model = train_SVC(X_train, y_train)
+
+        scaler = StandardScaler()
+        X_train = scaler.fit_transform(X_train)
+        X_test = scaler.transform(X_test)
+
+        SVC_model = train_SVC(X_train, y_train, kernel, probability, regularization)
 
         test_status = 'Unable to save the model'
         filename = model_name+'.sav'
@@ -637,31 +658,58 @@ async def SVC_create_model(
 
         test_status = 'Unable to print model stats'
 
+        accuracy = accuracy_score(y_test, y_pred)
+        print("Accuracy:", accuracy)
+        # Model Accuracy: how often is the classifier correct?
+        print("Accuracy:", accuracy_score(y_test, y_pred))
+        # Model Precision: what percentage of positive tuples are labeled as such?
+        print("Precision:", precision_score(y_test, y_pred))
+
+        # Model Recall: what percentage of positive tuples are labelled as such?
+        print("Recall:", recall_score(y_test, y_pred))
+
         r_sq = SVC_model.score(X_train, y_train)
         loss = np.sqrt(np.mean(np.square(y_test - y_pred)))
         mse = mean_squared_error(y_test, y_pred)
         mae = mean_absolute_error(y_test, y_pred)
         r2_score_val = r2_score(y_test, y_pred)
         rmse = np.sqrt(mse)
-        dfslope= pd.DataFrame(SVC_model.coef_.transpose(), index=independent_variables)
+
+        # TODO:coef_ is only available when using a linear kernel
+        # dfslope= pd.DataFrame(SVC_model.coef_.transpose(), index=independent_variables)
         test_status = 'Unable to present XAI plots'
 
-        explainer = shap.KernelExplainer(SVC_model.predict_proba, X_test, feature_names=independent_variables)
+        if probability:
+            explainer = shap.KernelExplainer(SVC_model.predict_proba, X_train)
+        else:
+            explainer = shap.Explainer(SVC_model, X_train)
+        print(explainer)
+
         shap_values = explainer.shap_values(X_test[0])
-        shap.summary_plot(shap_values, X_train, feature_names=independent_variables, show=False, max_display=20, plot_size=[8,5])
-        plt.savefig(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + "shap_summary_lr.svg", dpi=700)  # .png,.pdf will also support here
+
+        shap.summary_plot(shap_values, X_test, show=False, max_display=20, plot_size=[8,5])
+        plt.savefig(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + "shap_summary_svc.svg", dpi=700)  # .png,.pdf will also support here
+        plt.close()
+
+        shap.force_plot(explainer.expected_value[1], shap_values[1][0], X_test[0])
+        plt.savefig(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + "force_plot_svc.svg",
+                    dpi=700)  # .png,.pdf will also support here
+        plt.close()
+        shap.dependence_plot("petal width (cm)", shap_values[1], X_test, feature_names=independent_variables)
+        plt.savefig(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + "dependence_plot_svc.svg",
+                    dpi=700)  # .png,.pdf will also support here
         plt.close()
         shap.plots.waterfall(shap_values[1], max_display=20, show=False)
-        plt.savefig(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + "shap_waterfall_lr.svg",
+        plt.savefig(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + "shap_waterfall_svc.svg",
                     dpi=700)
         plt.close()
         shap.plots.heatmap(shap_values, show=False)
-        plt.savefig(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + "shap_heatmap_lr.svg",
+        plt.savefig(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + "shap_heatmap_svc.svg",
                     dpi=700)
         plt.close()
 
         shap.plots.violin(shap_values, show=False, plot_size=[8,5])
-        plt.savefig(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + "shap_violin_lr.svg",
+        plt.savefig(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + "shap_violin_svc.svg",
                     dpi=700)
 
         test_status = 'Error in creating info file.'
