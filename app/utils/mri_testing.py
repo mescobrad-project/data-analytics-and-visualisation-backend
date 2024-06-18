@@ -27,17 +27,12 @@ def mri_prediction(model_path,
     model.eval()
 
     nparray = nib.load(mri_path).get_fdata()
-    #print(f'MRI shape {nparray.shape} when loaded by nibabel')
 
-    # Check and reshape the MRI data if necessary
     nparray_resized = resize_mri(nparray)
-    #print(f'Shape after resizing {nparray_resized.shape}')
 
     tarray = torch.from_numpy(nparray_resized).unsqueeze(0).unsqueeze(0).to(device)  # tarray.shape is torch.Size([1, 1, 157, 256, 256])
 
     logits = model(tarray)[1]
-    #print(f'logits {logits}')
-    #label = int(torch.argmax(logits))
     probs = F.softmax(logits, dim=1)
     _, top_class = torch.max(probs, dim=1)
     if top_class == 0:
@@ -46,8 +41,6 @@ def mri_prediction(model_path,
         group = 'Non-Epilepsy (hc)'
     print(f'Model prediction: {group}')
 
-    # with open(output_path + f'prediction_for_{mri_path}.txt', 'w') as f:
-    #    f.write(f'The predicted class for the test point located at {mri_path} is {label}\n')
 
     return True
 

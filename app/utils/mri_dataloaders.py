@@ -28,7 +28,7 @@ def train_eval_dataloaders(data_path,
         transforms.Lambda(lambda x: (x - x.min()) / (x.max() - x.min()))  # Normalize to [0, 1]
         #transforms.RandomHorizontalFlip(p=0.5)  # Apply random horizontal flipping with a probability of 0.5
         #transforms.RandomVerticalFlip(p=0.3)
-        #transforms.RandomRotation(20)
+        transforms.RandomRotation(20)
     ])
 
     # Apply the transformations
