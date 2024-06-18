@@ -12,16 +12,21 @@ import json
 import matplotlib.pyplot as plt
 from starlette.responses import JSONResponse
 
-from app.utils.mri_experiments import run_experiment
-from app.utils.mri_ig import visualize_ig
+from fastapi import APIRouter, Request
+
+# for tabular data - dense nn and ae models
+from app.utils.tabular_nn_experiments import tabular_run_experiment
+from app.utils.tabular_dnn_explanations import iXg_explanations
+
+# for mris - conv3d model
+from app.utils.mri_experiments import mri_run_experiment
+from app.utils.mri_testing import mris_batch_prediction
 from app.utils.mri_deeplift import visualize_dl
-from app.utils.mri_ggc import visualize_ggc
 from app.utils.utils_ai import train_linear_regression, train_logistic_regression, train_SVC
 from app.utils.utils_general import get_local_storage_path, load_data_from_csv
 from datetime import datetime
 
 router = APIRouter()
-
 
 @router.get("/ai_mri_training_experiment")
 async def ai_mri_training_experiment(
@@ -31,11 +36,11 @@ async def ai_mri_training_experiment(
         participants_path: str,
         data_path: str,
         csv_path: str,
-        iterations: int,
+        iterations : int,
         batch_size: int,
         lr: float,
         early_stopping_patience: int
-) -> dict:
+       ) -> dict:
     """ MRI Training Function To Be Implemented"""
     results = mri_run_experiment(data_path,
                                  csv_path,
@@ -56,14 +61,14 @@ async def dl_explanation_experiment(
         model_path: str,
         mri_path: str,
         heatmap_path: str
-) -> dict:
+       ) -> dict:
     """ MRI Explainability Function To Be Implemented"""
 
     results = visualize_dl(model_path,
                            mri_path,
                            heatmap_path)
     return {"results": results}
-
+'''
 
 @router.get("/mris_batch_inference")
 async def mris_batch_inference(
@@ -827,3 +832,4 @@ async def SVC_load_model(
                      'intercept': '',
                      'dependent_param':'', 'independent_params':'','result_dataset':'[]'},
             status_code=200)
+'''

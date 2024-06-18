@@ -4,97 +4,151 @@ import torch
 import torch.nn as nn
 import nibabel as nib
 from captum.attr import DeepLift
-from PIL import Image
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
-import pickle
+
+NeurodesktopStorageLocation = os.environ.get('NeurodesktopStorageLocation') if os.environ.get(
+    'NeurodesktopStorageLocation') else "/neurodesktop-storage"
 
 class Conv3DWrapper(nn.Module):
     def __init__(self, external_model):
         super(Conv3DWrapper, self).__init__()
         self.conv3d_model = external_model
+
     def forward(self, x):
         _, logits = self.conv3d_model(x)
         return logits
 
 def normalize(input):
-    # input can be 2-dim or 3-dim
-    min = input.min()
-    max = input.max()
-    normalized = (input - min) / (max - min)
-    return normalized
+    min_val = input.min()
+    max_val = input.max()
+    return (input - min_val) / (max_val - min_val)
+
+def resize_mri(mri, target_shape=(256, 256)):
+    resized_slices = []
+    for slice in mri:
+        resized_slices.append(np.resize(slice, target_shape))
+    return np.array(resized_slices)
 
 def visualize_dl(model_path,
                  mri_path,
-                 heatmap_path,
-                 heatmap_name,
-                 slice):
+                 heatmap_path):
 
-    assert(os.path.exists(model_path))
-    assert (os.path.exists(mri_path))
-    assert (os.path.exists(heatmap_path))
+    assert os.path.exists(model_path)
+    assert os.path.exists(mri_path)
+    assert os.path.exists(heatmap_path)
+    #assert axis in ['Sagittal', 'Coronal', 'Axial']
 
-    #--load model
-    model = torch.load(model_path)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    # Load model
+    model = torch.load(model_path, map_location=device)
     wrapped_model = Conv3DWrapper(model)
 
-    #--load mri
-    mri = nib.load(mri_path).get_fdata()
-    tensor_mri = torch.from_numpy(mri)
-    tensor_mri = tensor_mri.unsqueeze(0).unsqueeze(0) #5-dim torch Tensor [1,1,160,256,256] (verified)
+    # Load MRI
+    nparray = nib.load(mri_path).get_fdata()
+    nparray = resize_mri(nparray) #
+    tensor_mri = torch.from_numpy(nparray).unsqueeze(0).unsqueeze(0)
+    tensor_mri = normalize(tensor_mri)
+    tensor_mri = tensor_mri.to(device, dtype=torch.float32)
 
-    #--send to device
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(torch.cuda.get_device_name(0))
-    tensor_mri = tensor_mri.to(device)
-    wrapped_model.to(device)
+    # Set device
+    # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    # tensor_mri = tensor_mri.to(device, dtype=torch.float32)
+    # wrapped_model.to(device)
 
-    #--deeplift
+    # Prediction
+    softmax = nn.Softmax(dim=1)
+    with torch.no_grad():
+        logits = model(tensor_mri)[1]
+    _, top_class = torch.max(softmax(logits), dim=1)
+    group = 'Epilepsy' if top_class.item() == 0 else 'Non-Epilepsy'
+    print(f'prediction: {group}')
+
+    # DeepLift
     dl = DeepLift(wrapped_model)
-    target_class = int(torch.argmax(model(tensor_mri)[1])) #int: this should be int 0 or 1 (verified)
-    print('target class (model prediction): ', target_class)
-    # Track GPU memory usage
-    print('Initial GPU Memory Allocated:', torch.cuda.memory_allocated(device)) #almost 11.72GB
-    #print('GPU Summary:', torch.cuda.memory_summary())
-    attributions = dl.attribute(tensor_mri, target=target_class)
-    print('Attributions calculated! Shape:', attributions.shape)
-    print('Final GPU Memory Allocated:', torch.cuda.memory_allocated(device))
-    print('Max GPU Memory Allocated:', torch.cuda.max_memory_allocated(device))
+    attributions = dl.attribute(tensor_mri, target=top_class.item()).detach().cpu().squeeze().permute(1, 2, 0).numpy()
+    #attributions shape is (256, 256, 160) & they have both negative and positive values (thus normalization to [0,1] is needed for plot)
+    #nib.save(nib.Nifti1Image(attributions, affine=np.eye(4)), os.path.join(heatmap_path, 'attributions.nii')) #save an nii
+    #np.save(os.path.join(heatmap_path, 'attributions.npy'), attributions) #save as numpy array
 
-    #--plots
-    attributions = attributions.detach().cpu().squeeze().squeeze().permute(1, 2, 0).numpy()  # [256, 256, 160] numpy array (verified)
-    tensor_mri = tensor_mri.detach().cpu().squeeze().squeeze().permute(1, 2, 0).numpy()
-    #with open(os.path.join(heatmap_path, 'mri_and_heatmap.pickle'), 'wb') as f:
-    #     pickle.dump([tensor_mri, atsutributions], f)
+    torch.cuda.empty_cache()
 
-    fig, ax = plt.subplots(1, 3, figsize=(21, 7))
+    # Prepare data for plotting
+    attributions = normalize(attributions)
+    tensor_mri = tensor_mri.detach().cpu().squeeze().permute(1, 2, 0).numpy() #convert mri to numpy array of shape (256, 256, 160)
 
-    # Plot MRI
-    img1 = ax[0].imshow(normalize(tensor_mri[:, :, slice]), cmap='Greys')
-    ax[0].set_title('MRI - Slice {}'.format(slice))
-    fig.colorbar(img1, ax=ax[0])
+    for i in range(attributions.shape[0]):
+        mri_slice = tensor_mri[i, :, :]
+        attr_slice = attributions[i, :, :]
 
-    # Plot attributions
-    img2 = ax[1].imshow(normalize(attributions[:, :, slice]),
-                        cmap=LinearSegmentedColormap.from_list(name='yellow_to_blue',
-                                                               colors=[(1, 1, 0), (0, 0, 1)]))
-    ax[1].set_title('Deeplift Attributions - Slice {}'.format(slice))
-    fig.colorbar(img2, ax=ax[1])
+        fig, ax = plt.subplots(figsize=(8, 8))
+        ax.imshow(mri_slice, cmap='Greys')
+        sorted_values = np.sort(attr_slice.flatten())[::-1]
+        threshold = sorted_values[int(tensor_mri.shape[0] * tensor_mri.shape[1] * 0.01) - 1]
+        ax.imshow(np.where(attr_slice > threshold, attr_slice, 0),
+                  cmap=LinearSegmentedColormap.from_list(name='blues',
+                                                         colors=[(1, 0, 0, 0), "blue", "blue", "blue", "blue", "blue"],
+                                                         N=5000),
+                  interpolation='gaussian')
 
-    # Plot overlay
-    ax[2].imshow(normalize(tensor_mri[:, :, slice]), cmap='Greys')
-    #slight adjustment to drop low importance values, as they create fuzzy and confusing regions on the mri slice
-    sorted_values = np.sort(normalize(attributions[:, :, slice].flatten()))[::-1]
-    threshold = sorted_values[int(tensor_mri.shape[0] * tensor_mri.shape[1] * 0.01)-1] # 1% of total slice pixels
-    ax[2].imshow(np.where(normalize(attributions[:, :, slice]) > threshold, normalize(attributions[:, :, slice]), 0),
-                 cmap=LinearSegmentedColormap.from_list(name='blues',
-                                                        colors=[(1, 0, 0, 0), "blue", "blue", "blue", "blue", "blue"],
-                                                        N=5000),
-                 interpolation='gaussian')
-    ax[2].set_title('MRI(Greyscale) vs Attributions(Blue) Overlay - Slice {}'.format(slice))
+        ax.set_title(f'Prediction: {group} \n\n MRI(Grey) vs DeepLift Attributions(Blue) Overlay \n Axial plane no. {i+1}')
 
-    # Save and show the plot
-    plt.savefig(os.path.join(heatmap_path, heatmap_name))
-    plt.show()
+        # Save and show plot
+        heatmap_name = f'heatmap-axial-{i+1}.png'
+        plt.savefig(os.path.join(heatmap_path, heatmap_name))
+        plt.show()
 
+    for i in range(attributions.shape[1]):
+        mri_slice = tensor_mri[:, i, :]
+        attr_slice = attributions[:, i, :]
+
+        fig, ax = plt.subplots(figsize=(8, 8))
+        ax.imshow(mri_slice, cmap='Greys')
+        sorted_values = np.sort(attr_slice.flatten())[::-1]
+        threshold = sorted_values[int(tensor_mri.shape[0] * tensor_mri.shape[1] * 0.01) - 1]
+        ax.imshow(np.where(attr_slice > threshold, attr_slice, 0),
+                  cmap=LinearSegmentedColormap.from_list(name='blues',
+                                                         colors=[(1, 0, 0, 0), "blue", "blue", "blue", "blue", "blue"],
+                                                         N=5000),
+                  interpolation='gaussian')
+
+        ax.set_title(f'Prediction: {group} \n\n MRI(Grey) vs DeepLift Attributions(Blue) Overlay \n Coronal plane no. {i+1}')
+
+        # Save and show plot
+        heatmap_name = f'heatmap-coronal-{i+1}.png'
+        plt.savefig(os.path.join(heatmap_path, heatmap_name))
+        plt.show()
+
+    for i in range(attributions.shape[2]):
+        mri_slice = tensor_mri[:,:,i]
+        attr_slice = attributions[:,:,i]
+
+        fig, ax = plt.subplots(figsize=(8, 8))
+        ax.imshow(mri_slice, cmap='Greys')
+        sorted_values = np.sort(attr_slice.flatten())[::-1]
+        threshold = sorted_values[int(tensor_mri.shape[0] * tensor_mri.shape[1] * 0.01) - 1]
+        ax.imshow(np.where(attr_slice > threshold, attr_slice, 0),
+                  cmap=LinearSegmentedColormap.from_list(name='blues',
+                                                         colors=[(1, 0, 0, 0), "blue", "blue", "blue", "blue", "blue"],
+                                                         N=5000),
+                  interpolation='gaussian')
+
+        ax.set_title(f'Prediction: {group} \n\n MRI(Grey) vs DeepLift Attributions(Blue) Overlay \n Sagittal plane no. {i+1}')
+
+        # Save and show plot
+        heatmap_name = f'heatmap-sagittal-{i+1}.png'
+        plt.savefig(os.path.join(heatmap_path, heatmap_name))
+        plt.show()
+    
     return True
+
+
+# path = NeurodesktopStorageLocation + "/model_data/saved_models_2024-06-12_17-47/"
+# model_path = path + "conv3d_experiment1.pth"
+# mri_path = path + "mris_test/sub-00060.nii"
+# heatmap_path = path
+# visualize_dl(model_path,
+#              mri_path,
+#              heatmap_path)
+# yields RuntimeError: .. not enough memory ...
