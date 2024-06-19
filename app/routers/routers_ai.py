@@ -1,11 +1,11 @@
 import pandas as pd
 from fastapi import APIRouter, Request, Query
-from sklearn.metrics import mean_squared_error, accuracy_score, r2_score, mean_absolute_error, classification_report
+from sklearn.metrics import mean_squared_error, accuracy_score, r2_score, mean_absolute_error, classification_report, precision_score, recall_score
 from sklearn.model_selection import train_test_split
 import numpy as np
 import shap
 from sklearn.preprocessing import LabelEncoder
-from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.preprocessing import StandardScaler
 
 import pickle
 import json
@@ -68,7 +68,7 @@ async def dl_explanation_experiment(
                            mri_path,
                            heatmap_path)
     return {"results": results}
-'''
+
 
 @router.get("/mris_batch_inference")
 async def mris_batch_inference(
@@ -222,8 +222,8 @@ async def linear_reg_create_model(
         test_status = 'Unable to present XAI plots'
 
         explainer = shap.LinearExplainer(linear_model, X_train, feature_names=independent_variables)
-        shap_values = explainer(X_train)
-        shap.summary_plot(shap_values, X_train, feature_names=independent_variables, show=False, max_display=20, plot_size=[8,5])
+        shap_values = explainer(X_test)
+        shap.summary_plot(shap_values, X_test, feature_names=independent_variables, show=False, max_display=20, plot_size=[8,5])
         plt.savefig(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + "shap_summary_lr.svg", dpi=700)  # .png,.pdf will also support here
         # plt.show()
         plt.close()
@@ -615,11 +615,16 @@ async def SVC_create_model(
         step_id: str,
         run_id: str,
         test_size: float,
+        random_state: int,
         file_name:str,
         model_name:str,
-        random_state:int,
+        regularization: float,
         dependent_variable: str,
-        shuffle:bool | None = Query(default=False),
+
+        kernel: str | None = Query("rbf",
+                                   regex="^(linear)$|^(poly)$|^(rbf)$|^(sigmoid)$|^(precomputed)$"),
+        probability: bool | None = Query(default=False),
+        shuffle: bool | None = Query(default=False),
         independent_variables: list[str] | None = Query(default=None)
 ) -> dict:
 
@@ -633,7 +638,12 @@ async def SVC_create_model(
         # Split dataset into train and test sets
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=random_state, shuffle=shuffle)
         test_status = 'Unable to execute regression'
-        SVC_model = train_SVC(X_train, y_train)
+
+        scaler = StandardScaler()
+        X_train = scaler.fit_transform(X_train)
+        X_test = scaler.transform(X_test)
+
+        SVC_model = train_SVC(X_train, y_train, kernel, probability, regularization)
 
         test_status = 'Unable to save the model'
         filename = model_name+'.sav'
@@ -653,31 +663,58 @@ async def SVC_create_model(
 
         test_status = 'Unable to print model stats'
 
+        accuracy = accuracy_score(y_test, y_pred)
+        print("Accuracy:", accuracy)
+        # Model Accuracy: how often is the classifier correct?
+        print("Accuracy:", accuracy_score(y_test, y_pred))
+        # Model Precision: what percentage of positive tuples are labeled as such?
+        print("Precision:", precision_score(y_test, y_pred))
+
+        # Model Recall: what percentage of positive tuples are labelled as such?
+        print("Recall:", recall_score(y_test, y_pred))
+
         r_sq = SVC_model.score(X_train, y_train)
         loss = np.sqrt(np.mean(np.square(y_test - y_pred)))
         mse = mean_squared_error(y_test, y_pred)
         mae = mean_absolute_error(y_test, y_pred)
         r2_score_val = r2_score(y_test, y_pred)
         rmse = np.sqrt(mse)
-        dfslope= pd.DataFrame(SVC_model.coef_.transpose(), index=independent_variables)
+
+        # TODO:coef_ is only available when using a linear kernel
+        # dfslope= pd.DataFrame(SVC_model.coef_.transpose(), index=independent_variables)
         test_status = 'Unable to present XAI plots'
 
-        explainer = shap.KernelExplainer(SVC_model.predict_proba, X_test, feature_names=independent_variables)
+        if probability:
+            explainer = shap.KernelExplainer(SVC_model.predict_proba, X_train)
+        else:
+            explainer = shap.Explainer(SVC_model, X_train)
+        print(explainer)
+
         shap_values = explainer.shap_values(X_test[0])
-        shap.summary_plot(shap_values, X_train, feature_names=independent_variables, show=False, max_display=20, plot_size=[8,5])
-        plt.savefig(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + "shap_summary_lr.svg", dpi=700)  # .png,.pdf will also support here
+
+        shap.summary_plot(shap_values, X_test, show=False, max_display=20, plot_size=[8,5])
+        plt.savefig(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + "shap_summary_svc.svg", dpi=700)  # .png,.pdf will also support here
+        plt.close()
+
+        shap.force_plot(explainer.expected_value[1], shap_values[1][0], X_test[0])
+        plt.savefig(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + "force_plot_svc.svg",
+                    dpi=700)  # .png,.pdf will also support here
+        plt.close()
+        shap.dependence_plot("petal width (cm)", shap_values[1], X_test, feature_names=independent_variables)
+        plt.savefig(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + "dependence_plot_svc.svg",
+                    dpi=700)  # .png,.pdf will also support here
         plt.close()
         shap.plots.waterfall(shap_values[1], max_display=20, show=False)
-        plt.savefig(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + "shap_waterfall_lr.svg",
+        plt.savefig(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + "shap_waterfall_svc.svg",
                     dpi=700)
         plt.close()
         shap.plots.heatmap(shap_values, show=False)
-        plt.savefig(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + "shap_heatmap_lr.svg",
+        plt.savefig(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + "shap_heatmap_svc.svg",
                     dpi=700)
         plt.close()
 
         shap.plots.violin(shap_values, show=False, plot_size=[8,5])
-        plt.savefig(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + "shap_violin_lr.svg",
+        plt.savefig(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + "shap_violin_svc.svg",
                     dpi=700)
 
         test_status = 'Error in creating info file.'
@@ -795,4 +832,4 @@ async def SVC_load_model(
                      'intercept': '',
                      'dependent_param':'', 'independent_params':'','result_dataset':'[]'},
             status_code=200)
-'''
+
