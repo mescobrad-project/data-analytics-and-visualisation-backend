@@ -444,6 +444,8 @@ async def run_synthseg(workflow_id: str,
     # channel.send("mkdir /neurodesktop-storage/freesurfer-output/test1\n")
     channel.send("source /opt/freesurfer-7_3_2/SetUpFreeSurfer.sh\n")
     channel.send("export SUBJECTS_DIR=/home/user" + path_to_file + "/output\n")
+    channel.send("export FS_LICENSE=/home/user/neurodesktop-storage/.license\n")
+
     # channel.send("export SUBJECTS_DIR=/neurodesktop-storage/freesurfer-output\n")
     #
     # channel.send("export SUBJECTS_DIR=/home/user" + path_to_storage + "/output\n")
@@ -677,24 +679,27 @@ async def return_free_view_simple( workflow_id: str,
     response = channel.recv(9999)
     print(channel)
     print(channel.send_ready())
+    create_freesurfer_license()
+
     display_id = get_neurodesk_display_id()
     channel.send("export DISPLAY=" + display_id + "\n")
     # channel.send("nohup firefox &\n")
 
     channel.send("pkill -INT freeview -u user\n")
 
-    channel.send("ls > ls1.txt\n")
+    # channel.send("ls > ls1.txt\n")
     channel.send("cd /neurocommand/local/bin/\n")
     channel.send("./freesurfer-7_3_2.sh\n")
-    channel.send("echo \"mkontoulis @ epu.ntua.gr\n")
-    channel.send("60631\n")
-    channel.send(" *CctUNyzfwSSs\n")
-    channel.send(" FSNy4xe75KyK.\" >> ~/.license\n")
-    channel.send("export FS_LICENSE=~/.license\n")
+    # channel.send("echo \"mkontoulis @ epu.ntua.gr\n")
+    # channel.send("60631\n")
+    # channel.send(" *CctUNyzfwSSs\n")
+    # channel.send(" FSNy4xe75KyK.\" >> ~/.license\n")
+    # channel.send("export FS_LICENSE=~/.license\n")
     channel.send("mkdir /neurodesktop-storage/freesurfer-output\n")
     channel.send("mkdir /neurodesktop-storage/freesurfer-output/test1\n")
     channel.send("source /opt/freesurfer-7_3_2/SetUpFreeSurfer.sh\n")
     channel.send("export SUBJECTS_DIR=/neurodesktop-storage/freesurfer-output\n")
+    channel.send("export FS_LICENSE=/home/user/neurodesktop-storage/.license\n")
 
     # Give permissions in working folder
     channel.send(
