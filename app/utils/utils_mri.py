@@ -185,4 +185,4 @@ def create_freesurfer_license():
     channel.send(" *CctUNyzfwSSs\n")
     channel.send(" FSNy4xe75KyK.\n")
     channel.send(" D4GXfOXX8hArD8mYfI4OhNCQ8Gb00sflXj1yH6NEFxk=\" >> .license\n")
-    channel.send("export FS_LICENSE=.license\n")
+    channel.send("export FS_LICENSE=/home/user/neurodesktop-storage/.license\n")
