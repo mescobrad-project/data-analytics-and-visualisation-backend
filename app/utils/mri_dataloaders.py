@@ -38,7 +38,7 @@ def train_eval_dataloaders(data_path,
     train_size = int(train_split * len(transformed_dataset))
     val_size = len(transformed_dataset) - train_size
 
-    train_dataset, val_dataset = random_split(transformed_dataset, [train_size, val_size])
+    train_dataset, val_dataset = random_split(transformed_dataset, [train_size, val_size]) #random split!
 
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     val_dataloader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
