@@ -30,15 +30,20 @@ class Conv3D(nn.Module):
             nn.Conv3d(256, 512, kernel_size=3, padding=1),
             nn.BatchNorm3d(512),
             nn.ReLU(),
-            nn.Dropout(0.2),
+            nn.Dropout(),
             nn.MaxPool3d(kernel_size=(2, 2, 2), stride=(2, 2, 2)))
         self.group5 = nn.Sequential(
+            nn.Conv3d(512, 512, kernel_size=3, padding=1),
+            nn.BatchNorm3d(512),
+            nn.ReLU(),
+            nn.Dropout(),
+            nn.MaxPool3d(kernel_size=(2, 2, 2), stride=(2, 2, 2)))
+        self.group6 = nn.Sequential(
             nn.Conv3d(512, 1024, kernel_size=3, padding=1),
             nn.BatchNorm3d(1024),
             nn.ReLU(),
-            nn.Dropout(0.3),
+            nn.Dropout(),
             nn.AdaptiveAvgPool3d((1, 1, 1)))
-            #nn.MaxPool3d(kernel_size=(1, 2, 2), stride=(2, 2, 2), padding=(0, 1, 1)))
 
         # self.dense = nn.Linear(1024, 128)
         self.classifier = nn.Linear(1024, self.num_labels)
@@ -50,6 +55,7 @@ class Conv3D(nn.Module):
         out = self.group3(out)
         out = self.group4(out)
         out = self.group5(out)
+        out = self.group6(out)
         #y = torch.mean(out.view(out.size(0), out.size(1), -1), dim=2)
         #y = self.dense(y)
         out = out.view(out.size(0), -1) #flatten the output of averages
