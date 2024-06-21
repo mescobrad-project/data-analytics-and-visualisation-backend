@@ -35,13 +35,13 @@ class Conv3D(nn.Module):
             nn.MaxPool3d(kernel_size=(2, 2, 2), stride=(2, 2, 2)))
         self.group5 = nn.Sequential(
             nn.Conv3d(512, 1024, kernel_size=3, padding=1),
-            nn.BatchNorm3d(512),
+            nn.BatchNorm3d(1024),
             nn.ReLU(),
             nn.Dropout(0.4),
             nn.MaxPool3d(kernel_size=(1, 2, 2), stride=(2, 2, 2), padding=(0, 1, 1)))
         self.group6 = nn.Sequential(
             nn.Conv3d(1024, 2048, kernel_size=3, padding=1),
-            nn.BatchNorm3d(512),
+            nn.BatchNorm3d(2048),
             nn.ReLU(),
             nn.Dropout(0.5),
             nn.MaxPool3d(kernel_size=(2, 2, 2), stride=(2, 2, 2)))
