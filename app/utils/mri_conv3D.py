@@ -15,23 +15,23 @@ class Conv3D(nn.Module):
             nn.Conv3d(self.in_channels, 64, kernel_size=3, padding=1),
             nn.BatchNorm3d(64),
             nn.ReLU(),
-            nn.AvgPool3d(kernel_size=(2, 2, 2), stride=(1, 2, 2))) #MaxPool3d
+            nn.MaxPool3d(kernel_size=(2, 2, 2), stride=(1, 2, 2)))
         self.group2 = nn.Sequential(
             nn.Conv3d(64, 128, kernel_size=3, padding=1),
             nn.BatchNorm3d(128),
             nn.ReLU(),
-            nn.AvgPool3d(kernel_size=(2, 2, 2), stride=(2, 2, 2))) #MaxPool3d
+            nn.MaxPool3d(kernel_size=(2, 2, 2), stride=(2, 2, 2)))
         self.group3 = nn.Sequential(
             nn.Conv3d(128, 256, kernel_size=3, padding=1),
             nn.BatchNorm3d(256),
             nn.ReLU(),
-            nn.AvgPool3d(kernel_size=(2, 2, 2), stride=(2, 2, 2))) #MaxPool3d
+            nn.MaxPool3d(kernel_size=(2, 2, 2), stride=(2, 2, 2)))
         self.group4 = nn.Sequential(
             nn.Conv3d(256, 512, kernel_size=3, padding=1),
             nn.BatchNorm3d(512),
             nn.ReLU(),
             nn.Dropout(0.2),
-            nn.AvgPool3d(kernel_size=(2, 2, 2), stride=(2, 2, 2))) #MaxPool3d
+            nn.MaxPool3d(kernel_size=(2, 2, 2), stride=(2, 2, 2)))
         self.group5 = nn.Sequential(
             nn.Conv3d(512, 1024, kernel_size=3, padding=1),
             nn.BatchNorm3d(1024),
@@ -54,7 +54,7 @@ class Conv3D(nn.Module):
         out = self.group5(out)
         #y = torch.mean(out.view(out.size(0), out.size(1), -1), dim=2)
         #y = self.dense(y)
-        out = out.view(out.size(0), -1)
+        out = out.view(out.size(0), -1) #flatten the output of averages
         logits = self.classifier(out)
 
         loss = None
