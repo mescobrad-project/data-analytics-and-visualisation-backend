@@ -73,7 +73,7 @@ def visualize_dl(model_path,
         fig, ax = plt.subplots(figsize=(8, 8))
         ax.imshow(mri_slice, cmap='Greys')
         sorted_values = np.sort(attr_slice.flatten())[::-1]
-        threshold = sorted_values[int(tensor_mri.shape[0] * tensor_mri.shape[1] * 0.01) - 1]
+        threshold = sorted_values[int(tensor_mri.shape[0] * tensor_mri.shape[1] * 0.005) - 1]
         ax.imshow(np.where(attr_slice > threshold, attr_slice, 0),
                   cmap=LinearSegmentedColormap.from_list(name='blues',
                                                          colors=[(1, 0, 0, 0), "blue", "blue", "blue", "blue", "blue"],
@@ -94,7 +94,7 @@ def visualize_dl(model_path,
         fig, ax = plt.subplots(figsize=(8, 8))
         ax.imshow(mri_slice, cmap='Greys')
         sorted_values = np.sort(attr_slice.flatten())[::-1]
-        threshold = sorted_values[int(tensor_mri.shape[0] * tensor_mri.shape[1] * 0.01) - 1]
+        threshold = sorted_values[int(tensor_mri.shape[0] * tensor_mri.shape[1] * 0.005) - 1]
         ax.imshow(np.where(attr_slice > threshold, attr_slice, 0),
                   cmap=LinearSegmentedColormap.from_list(name='blues',
                                                          colors=[(1, 0, 0, 0), "blue", "blue", "blue", "blue", "blue"],
@@ -115,7 +115,7 @@ def visualize_dl(model_path,
         fig, ax = plt.subplots(figsize=(8, 8))
         ax.imshow(mri_slice, cmap='Greys')
         sorted_values = np.sort(attr_slice.flatten())[::-1]
-        threshold = sorted_values[int(tensor_mri.shape[0] * tensor_mri.shape[1] * 0.01) - 1]
+        threshold = sorted_values[int(tensor_mri.shape[0] * tensor_mri.shape[1] * 0.005) - 1]
         ax.imshow(np.where(attr_slice > threshold, attr_slice, 0),
                   cmap=LinearSegmentedColormap.from_list(name='blues',
                                                          colors=[(1, 0, 0, 0), "blue", "blue", "blue", "blue", "blue"],
