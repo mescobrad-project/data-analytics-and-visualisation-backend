@@ -782,6 +782,10 @@ async def check_homoskedasticity(workflow_id: str,
         data = load_data_from_csv(path_to_storage + "/" + file)
         # data = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
         # columns = dfv['Variable']
+        for column in data.columns:
+            if data[column].dtype == object:
+                lab_enc = LabelEncoder()
+                data[column] = lab_enc.fit_transform(data[column])
 
         test_status = 'Unable to compute Homoscedasticity for the selected columns. NaNs or nonnumeric values are selected.'
 
