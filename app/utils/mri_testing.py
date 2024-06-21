@@ -6,44 +6,8 @@ from app.utils.mri_dataloaders import test_dataloader
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-import nibabel as nib
-import torch.nn.functional as F
-
 NeurodesktopStorageLocation = os.environ.get('NeurodesktopStorageLocation') if os.environ.get(
     'NeurodesktopStorageLocation') else "/neurodesktop-storage"
-
-def resize_mri(mri, target_shape=(256, 256)):
-    resized_slices = []
-    for slice in mri:
-        resized_slices.append(np.resize(slice, target_shape))
-    return np.array(resized_slices)
-
-def mri_prediction(model_path,
-                   mri_path):
-
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    model = torch.load(model_path, map_location=device)
-    model.eval()
-
-    nparray = nib.load(mri_path).get_fdata()
-
-    nparray_resized = resize_mri(nparray)
-
-    tarray = torch.from_numpy(nparray_resized).unsqueeze(0).unsqueeze(0).to(device)  # tarray.shape is torch.Size([1, 1, 157, 256, 256])
-
-    logits = model(tarray)[1]
-    probs = F.softmax(logits, dim=1)
-    _, top_class = torch.max(probs, dim=1)
-    if top_class == 0:
-        group = 'Epilepsy (fcd)'
-    elif top_class == 1:
-        group = 'Non-Epilepsy (hc)'
-    print(f'Model prediction: {group}')
-
-
-    return True
-
 
 def mris_batch_prediction(model_path,
                           data_path,
@@ -68,18 +32,9 @@ def mris_batch_prediction(model_path,
         # Unpack the inputs from dataloader
         mri_batch, labels_binary = batch
 
-        # Resize MRIs if necessary - this is the new code
-        mri_batch_resized = []
-        for mri in mri_batch:
-            nparray = mri.cpu().numpy().squeeze()  # Convert to numpy and remove singleton dimensions
-            nparray_resized = resize_mri(nparray)
-            mri_resized_tensor = torch.from_numpy(nparray_resized).unsqueeze(0).unsqueeze(0).to(device)
-            mri_batch_resized.append(mri_resized_tensor)
-        mri_batch_resized = torch.cat(mri_batch_resized, dim=0)
-
         with torch.no_grad():
 
-            outputs = model(x = mri_batch_resized, labels = labels_binary)
+            outputs = model(x = mri_batch, labels = labels_binary)
             logits = outputs[1] #model raw output
 
         # Move logits and labels to CPU
@@ -129,11 +84,3 @@ def mris_batch_prediction(model_path,
 #                       data_path,
 #                       csv_path,
 #                       output_path)
-
-# kcl mri - fcd
-# path = NeurodesktopStorageLocation + "/model_data/"
-# model_path = path + "saved_models_2024-06-12_17-47/conv3d_experiment1.pth"
-# #mri_path = path + "kcl_mri/MRI_FLAIR_defaced.nii"
-# mri_path = path + "saved_models_2024-06-12_17-47/mris_test/sub-00161.nii"
-# mri_prediction(model_path,
-#                mri_path)
