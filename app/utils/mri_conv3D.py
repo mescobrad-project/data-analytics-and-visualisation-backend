@@ -9,42 +9,41 @@ class Conv3D(nn.Module):
         super(Conv3D, self).__init__()
 
         self.num_labels = 2
-        #self.dense = nn.Linear(512, 64)
-        self.classifier = nn.Linear(2048, self.num_labels)
         self.in_channels = 1  # because only FLAIR
+
         self.group1 = nn.Sequential(
             nn.Conv3d(self.in_channels, 64, kernel_size=3, padding=1),
             nn.BatchNorm3d(64),
             nn.ReLU(),
-            nn.MaxPool3d(kernel_size=(2, 2, 2), stride=(1, 2, 2)))
+            nn.AvgPool3d(kernel_size=(2, 2, 2), stride=(1, 2, 2))) #MaxPool3d
         self.group2 = nn.Sequential(
             nn.Conv3d(64, 128, kernel_size=3, padding=1),
             nn.BatchNorm3d(128),
             nn.ReLU(),
-            nn.MaxPool3d(kernel_size=(2, 2, 2), stride=(2, 2, 2)))
+            nn.AvgPool3d(kernel_size=(2, 2, 2), stride=(2, 2, 2))) #MaxPool3d
         self.group3 = nn.Sequential(
             nn.Conv3d(128, 256, kernel_size=3, padding=1),
             nn.BatchNorm3d(256),
             nn.ReLU(),
-            nn.MaxPool3d(kernel_size=(2, 2, 2), stride=(2, 2, 2)))
+            nn.AvgPool3d(kernel_size=(2, 2, 2), stride=(2, 2, 2))) #MaxPool3d
         self.group4 = nn.Sequential(
             nn.Conv3d(256, 512, kernel_size=3, padding=1),
             nn.BatchNorm3d(512),
             nn.ReLU(),
-            nn.Dropout(0.3),
-            nn.MaxPool3d(kernel_size=(2, 2, 2), stride=(2, 2, 2)))
+            nn.Dropout(0.2),
+            nn.AvgPool3d(kernel_size=(2, 2, 2), stride=(2, 2, 2))) #MaxPool3d
         self.group5 = nn.Sequential(
             nn.Conv3d(512, 1024, kernel_size=3, padding=1),
             nn.BatchNorm3d(1024),
             nn.ReLU(),
-            nn.Dropout(0.4),
-            nn.MaxPool3d(kernel_size=(1, 2, 2), stride=(2, 2, 2), padding=(0, 1, 1)))
-        self.group6 = nn.Sequential(
-            nn.Conv3d(1024, 2048, kernel_size=3, padding=1),
-            nn.BatchNorm3d(2048),
-            nn.ReLU(),
-            nn.Dropout(0.5),
-            nn.MaxPool3d(kernel_size=(2, 2, 2), stride=(2, 2, 2)))
+            nn.Dropout(0.3),
+            nn.AdaptiveAvgPool3d((1, 1, 1)))
+            #nn.MaxPool3d(kernel_size=(1, 2, 2), stride=(2, 2, 2), padding=(0, 1, 1)))
+
+        # self.dense = nn.Linear(1024, 128)
+        self.classifier = nn.Linear(1024, self.num_labels)
+
+        self.initialize_weights()
 
     def forward(self, x, labels=None):
 
@@ -53,10 +52,10 @@ class Conv3D(nn.Module):
         out = self.group3(out)
         out = self.group4(out)
         out = self.group5(out)
-        out = self.group6(out)
-        y = torch.mean(out.view(out.size(0), out.size(1), -1), dim=2)
+        #y = torch.mean(out.view(out.size(0), out.size(1), -1), dim=2)
         #y = self.dense(y)
-        logits = self.classifier(y)
+        out = out.view(out.size(0), -1)
+        logits = self.classifier(out)
 
         loss = None
         if labels is not None:
@@ -65,3 +64,10 @@ class Conv3D(nn.Module):
 
         #return loss, logits if labels is not None else logits
         return (loss, logits) if labels is not None else (None, logits)
+
+    def initialize_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv3d) or isinstance(m, nn.Linear):
+                nn.init.kaiming_normal_(m.weight, nonlinearity='relu')
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
