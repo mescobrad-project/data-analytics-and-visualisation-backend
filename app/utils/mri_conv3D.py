@@ -43,8 +43,6 @@ class Conv3D(nn.Module):
         # self.dense = nn.Linear(1024, 128)
         self.classifier = nn.Linear(1024, self.num_labels)
 
-        self.initialize_weights()
-
     def forward(self, x, labels=None):
 
         out = self.group1(x.float())
@@ -64,10 +62,3 @@ class Conv3D(nn.Module):
 
         #return loss, logits if labels is not None else logits
         return (loss, logits) if labels is not None else (None, logits)
-
-    def initialize_weights(self):
-        for m in self.modules():
-            if isinstance(m, nn.Conv3d) or isinstance(m, nn.Linear):
-                nn.init.kaiming_normal_(m.weight, nonlinearity='relu')
-                if m.bias is not None:
-                    nn.init.constant_(m.bias, 0)
