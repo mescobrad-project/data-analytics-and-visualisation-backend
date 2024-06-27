@@ -68,6 +68,7 @@ async def dl_explanation_experiment(
                            heatmap_path)
     return {"results": results}
 
+'''
 @router.get("/mris_batch_inference")
 async def mris_batch_inference(
         workflow_id: str,
@@ -86,7 +87,6 @@ async def mris_batch_inference(
                                     output_path)
     return {"results": results}
 
-'''
 @router.get("/ai_tabular_dnn_training_experiment")
 async def ai_tabular_dnn_training_experiment(
         workflow_id: str,
