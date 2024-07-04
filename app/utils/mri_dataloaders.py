@@ -17,6 +17,7 @@ class TransformedDataset(Dataset):
         x = self.transform(x)
         return x, y
 
+print('')
 def train_eval_dataloaders(data_path,
                            csv_path,
                            batch_size,
