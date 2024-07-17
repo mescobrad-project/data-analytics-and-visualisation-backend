@@ -7,6 +7,7 @@ import itertools
 from sklearn.cross_decomposition import CCA
 from sklearn.manifold import MDS, TSNE
 from sklearn.decomposition import FastICA
+from sklearn.metrics import accuracy_score, classification_report
 from sklearn.preprocessing import LabelEncoder
 import re
 from pandas.api.types import is_numeric_dtype
@@ -36,6 +37,7 @@ from statsmodels.stats.stattools import durbin_watson
 from lifelines.utils import to_episodic_format
 import matplotlib.pyplot as plt
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+from sklearn.model_selection import train_test_split
 from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
 from sklearn.linear_model import LinearRegression, Ridge, Lasso, ElasticNet, SGDRegressor, SGDClassifier, HuberRegressor,Lars, PoissonRegressor, LogisticRegression
@@ -69,7 +71,7 @@ from sklearn.preprocessing import StandardScaler
 
 from app.utils.utils_hypothesis import create_plots, compute_skewness, outliers_removal, compute_kurtosis, \
     statisticsMean, statisticsMin, statisticsMax, statisticsStd, statisticsCov, statisticsVar, statisticsStandardError, \
-    statisticsConfidenceLevel, DataframeImputation
+    statisticsConfidenceLevel, DataframeImputation, plot_classification_report_with_support
 from semopy import Model, estimate_means, ModelMeans, semplot, calc_stats, gather_statistics, Optimizer, efa
 import plotly.express as px
 import plotly.graph_objects as go
@@ -1166,6 +1168,12 @@ async def LDA(workflow_id: str,
                 step_id: str,
                 run_id: str,
               dependent_variable: str,
+              file_name: str,
+              model_name: str,
+              test_size: float,
+              random_state: int,
+              n_components: int = 2,
+              shuffle: bool | None = Query(default=False),
               solver: str | None = Query("svd",
                                          regex="^(svd)$|^(lsqr)$|^(eigen)$"),
               shrinkage_1: str | None = Query("none",
@@ -1173,47 +1181,132 @@ async def LDA(workflow_id: str,
               shrinkage_2: float | None = Query(default=None, gt=-1, lt=1),
               # shrinkage_3: float | None = Query(default=None),
               independent_variables: list[str] | None = Query(default=None)):
-    dfv = pd.DataFrame()
+
+    # print(f'n_components:{n_components}')
+    # print(f'file_name:{file_name}')
+    # print(f'random_state:{random_state}')
+    # print(f'test_size:{test_size}')
+    # print(f'shuffle:{shuffle}')
+
     df = pd.DataFrame()
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
     test_status = ''
     to_return={'number_of_features': '',
-            'features_columns': [],
-            'number_of_classes':'',
-            'classes_': [],
-            'number_of_components': '',
-            'explained_variance_ratio': df.to_json(orient='records'),
-            'means_': df.to_json(orient='records'),
-            'priors_': df.to_json(orient='records'),
-            'scalings_': df.to_json(orient='records'),
-            'xbar_': df.to_json(orient='records'),
-            'coefficients': df.to_json(orient='records'),
-            'intercept': df.to_json(orient='records')}
+               'features_columns': [],
+               'number_of_classes':'',
+               'classes_': [],
+               'number_of_selected_components': '',
+               'max_number_of_components': '',
+               'accuracy': '',
+               'classification_report':'',
+              'explained_variance_ratio': df.to_json(orient='records'),
+               'means_': df.to_json(orient='records'),
+               'priors_': df.to_json(orient='records'),
+               'scalings_': df.to_json(orient='records'),
+               'xbar_': df.to_json(orient='records'),
+               'coefficients': df.to_json(orient='records'),
+               'intercept': df.to_json(orient='records')}
     # Load Datasets
     try:
-        test_status = 'Dataset is not defined'
-        dfv['variables'] = independent_variables
-        dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
-
-        selected_datasources = pd.unique(dfv['Datasource'])
-        independent_variables = dfv['Variable']
-        dependent_variable = dependent_variable.split("--")[1]
-        selected_columns = pd.unique(dfv['Variable'])
-
-        # We expect only one here
-        test_status = 'Unable to retrieve datasets'
-        dataset = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
-
-        # dataset = load_file_csv_direct(workflow_id, run_id, step_id)
-        # dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
+        test_status = 'Unable to retrieve the dataset'
+        # selected_columns = pd.unique(independent_variables)
+        dataset = load_data_from_csv(path_to_storage + "/" + file_name)
         df_label = dataset[str(dependent_variable)]
-        for columns in dataset.columns:
-            if columns not in selected_columns:
-                dataset = dataset.drop(str(columns), axis=1)
-        test_status = 'Unable to compute LDA. Variables with numeric values must be selected.'
-        features_columns = dataset.columns
-        X = np.array(dataset)
-        Y = np.array(df_label.astype('float64'))
+        features_columns = independent_variables
+        # X = np.array(dataset)
+        # Y = np.array(df_label.astype('float64'))
+
+        X = dataset[independent_variables]
+        y = dataset[dependent_variable]
+        df = pd.DataFrame(X, columns=independent_variables)
+        df['target'] = y
+        # print(df)
+
+        # Split dataset into train and test sets
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=random_state,
+                                                            shuffle=shuffle)
+        # Standardize the features
+        scaler = StandardScaler()
+        X_train = scaler.fit_transform(X_train)
+        X_test = scaler.transform(X_test)
+        test_status = 'Unable to compute max(components) for LDA'
+        # Find max(components) for LDA
+        clf = LinearDiscriminantAnalysis()
+        clf.fit(X_train, y_train)
+        max_number_of_components = min(len(clf.classes_) - 1, clf.n_features_in_)
+        # print(f'max_number_of_components:{max_number_of_components}')
+        # Perform LDA
+        test_status = 'Unable to Perform LDA'
+        if solver == 'lsqr' or solver == 'eigen':
+            if shrinkage_1 == 'float':
+                lda = LinearDiscriminantAnalysis(n_components=n_components, solver=solver, shrinkage=shrinkage_2)
+            elif shrinkage_1 == 'auto':
+                lda = LinearDiscriminantAnalysis(n_components=n_components, solver=solver, shrinkage=shrinkage_1)
+            else:
+                lda = LinearDiscriminantAnalysis(n_components=n_components, solver=solver)
+        else:
+            lda = LinearDiscriminantAnalysis(n_components=n_components, solver=solver)
+
+        # lda = LinearDiscriminantAnalysis(n_components=n_components)  # Reduce to 2 components for visualization
+        X_train_lda = lda.fit_transform(X_train, y_train)
+        X_test_lda = lda.transform(X_test)
+        test_status = 'Unable to Train the LDA model'
+        # Train the LDA model
+        lda_classifier = LinearDiscriminantAnalysis()
+        lda_classifier.fit(X_train, y_train)
+        # Make predictions
+        test_status = 'Unable to Make predictions'
+        y_pred = lda_classifier.predict(X_test)
+        # Evaluate the classifier
+        test_status = 'Unable to Evaluate the classifier'
+        accuracy = accuracy_score(y_test, y_pred)
+        # print(f"Accuracy: {accuracy}")
+
+        classif_report=classification_report(y_test, y_pred,zero_division=0, output_dict=True)
+        df_report, plot_report = plot_classification_report_with_support(classif_report)
+
+        component_cols = ['LDA' + str(i + 1) for i in range(n_components)]
+        # print(f"component_cols: {component_cols}")
+
+        # Create a DataFrame for visualization
+        lda_df = pd.DataFrame(X_train_lda, columns=component_cols)
+        # print(f"lda_df:{lda_df}")
+        lda_df['target'] = y_train
+
+        test_status = 'Unable to create scatter plot'
+        # Prepare the plot
+        max_axs = 0
+        print(len(component_cols))
+        for i in range(len(component_cols)):
+            for j in range(i + 1, len(component_cols)):
+                if i != j:
+                    max_axs += 1
+        print(max_axs)
+        if max_axs<=1:max_axs=2
+        fig, axs = plt.subplots(1, max_axs, figsize=(max_axs*8, 10),sharey='col')
+        k=-1
+        for i in range(len(component_cols)):
+            # print(i)
+            for j in range(i + 1, len(component_cols)):
+                # print(j)
+                if i != j:
+                    k += 1
+                    sns.scatterplot(ax=axs[k], data=lda_df, x=component_cols[i], y=component_cols[j], hue='target', palette='viridis', s=100, alpha=0.7)
+                    axs[k].set_xlabel(component_cols[i], fontsize=20)
+                    axs[k].set_ylabel(component_cols[j], fontsize=20)
+                    axs[k].set_title(component_cols[i]+" - "+component_cols[j], fontsize=20)
+                    # targets = pd.unique(dataset[dependent_variable])
+                    # Plot the LDA components
+                    # plt.figure(figsize=(8, 6))
+                    # plt.title('Linear Discriminant Analysis', fontsize=20)
+                    # plt.xlabel('LDA1')
+                    # plt.ylabel('LDA2')
+                    # plt.legend(title='Class')
+        plt.tight_layout()
+        if max_axs == 2:
+            fig.delaxes(axs[1])
+        # plt.show()
+        plt.savefig(path_to_storage + "/output/LDA.svg", format="svg")
 
     # target_names = np.unique(Y)
     # sc = StandardScaler()
@@ -1242,53 +1335,58 @@ async def LDA(workflow_id: str,
     # # plt.title("LDA of IRIS dataset")
     # # plt.show()
 
-        if solver == 'lsqr' or solver == 'eigen':
-            if shrinkage_1 == 'float':
-                clf = LinearDiscriminantAnalysis(solver=solver, shrinkage=shrinkage_2)
-            elif shrinkage_1 == 'auto':
-                clf = LinearDiscriminantAnalysis(solver=solver, shrinkage=shrinkage_1)
-            else:
-                clf = LinearDiscriminantAnalysis(solver=solver)
-        else:
-            clf = LinearDiscriminantAnalysis(solver=solver)
-        # print(solver)
-        clf.fit(X,Y)
 
-        classes = clf.classes_
-        number_of_classes = len(clf.classes_)
-        number_of_components = min(len(clf.classes_) - 1, clf.n_features_in_)
+        # print(solver)
+        # clf.fit(X,Y)
+        test_status = 'Unable to present the metrics'
+        classes = lda.classes_
+        number_of_classes = len(lda.classes_)
+        # print(f"number_of_classes: {number_of_classes}")
+        number_of_components = min(len(lda.classes_) - 1, lda.n_features_in_)
+        # print(f"number_of_components: {number_of_components}")
         if solver == 'svd':
-            df_xbar = pd.DataFrame(clf.xbar_, columns=['xbar'])
+            df_xbar = pd.DataFrame(lda.xbar_, columns=['xbar'])
             df_xbar.insert(loc=0, column='Feature', value=features_columns)
-            df_scalings = pd.DataFrame(clf.scalings_, columns=[i + 1 for i in range(number_of_components)])
+            df_scalings = pd.DataFrame(lda.scalings_, columns=[i + 1 for i in range(number_of_components)])
             df_scalings.insert(loc=0, column='Feature', value=features_columns)
         else:
             df_xbar = pd.DataFrame()
             df_scalings = pd.DataFrame()
+        # print(f"df_xbar: {df_xbar}")
+        # print(f"df_scalings: {df_scalings}")
 
-        df_mean = pd.DataFrame(clf.means_, columns=features_columns)
+        df_mean = pd.DataFrame(lda.means_, columns=features_columns)
         df_mean.insert(loc=0, column='Class', value=classes)
-        df_prior = pd.DataFrame(clf.priors_, columns=['priors'])
+        df_prior = pd.DataFrame(lda.priors_, columns=['priors'])
         df_prior.insert(loc=0, column='Class', value=classes)
+        # print(f"df_prior: {df_prior}")
 
         if solver == 'eigen' or solver =='svd':
-            df_explained_variance_ratio = pd.DataFrame(clf.explained_variance_ratio_, columns=['Variance ratio'])
-            df_explained_variance_ratio.insert(loc=0, column='Component', value=[i + 1 for i in range(number_of_components)])
+            df_explained_variance_ratio = pd.DataFrame(lda.explained_variance_ratio_, columns=['Variance ratio'])
+            df_explained_variance_ratio.insert(loc=0, column='Component', value=[i + 1 for i in range(n_components)])
         else:
             df_explained_variance_ratio = pd.DataFrame()
+        # print(f"df_explained_variance_ratio: {df_explained_variance_ratio}")
 
-        df_coefs = pd.DataFrame(clf.coef_, columns=features_columns)
-        df_intercept = pd.DataFrame(clf.intercept_, columns=['intercept'])
+        df_coefs = pd.DataFrame(lda.coef_, columns=features_columns)
+        # print(f"df_coefs: {df_coefs}")
+        df_intercept = pd.DataFrame(lda.intercept_, columns=['intercept'])
         df_coefs['intercept'] = df_intercept['intercept']
+        # print(f"df_intercept: {df_intercept}")
+
         if df_coefs.shape[0] == len(classes):
             df_coefs.insert(loc=0, column='Class', value=classes)
+        # print(f"df_coefs: {df_coefs}")
 
         to_return = {
-            'number_of_features': int(clf.n_features_in_),
-            'features_columns': features_columns.tolist(),
+            'number_of_features': int(lda.n_features_in_),
+            'features_columns': features_columns,
             'number_of_classes':number_of_classes,
-            'classes_': clf.classes_.tolist(),
-            'number_of_components': number_of_components,
+            'number_of_selected_components':n_components,
+            'classes_': lda.classes_.tolist(),
+            'max_number_of_components': max_number_of_components,
+            'accuracy': accuracy,
+            'classification_report':df_report.to_json(orient='records'),
             'explained_variance_ratio': df_explained_variance_ratio.to_json(orient='records'),
             'means_': df_mean.to_json(orient='records'),
             'priors_': df_prior.to_json(orient='records'),
@@ -1306,7 +1404,7 @@ async def LDA(workflow_id: str,
                 "step_id": step_id,
                 "test_name": 'Linear discriminant analysis',
                 "test_params": {'Dependent': dependent_variable,
-                                'Independent Variables': list(selected_columns),
+                                'Independent Variables': list(features_columns),
                                 'solver':solver,
                                 'shrinkage': shrinkage_1},
                 "test_results": to_return,
@@ -1317,12 +1415,11 @@ async def LDA(workflow_id: str,
             f.seek(0)
             json.dump(file_data, f, indent=4)
             f.truncate()
-        print(test_status)
         print(to_return)
         return JSONResponse(content={'status': 'Success', 'result': to_return}, status_code=200)
     except Exception as e:
         print(e)
-        return JSONResponse(content={'status': test_status, 'result': to_return}, status_code=200)
+        return JSONResponse(content={'status': test_status+'\n'+ e.__str__(), 'result': to_return}, status_code=200)
 
     # return {'coefficients': df_coefs.to_json(orient='split'), 'intercept': df_intercept.to_json(orient='split')}
 
@@ -1504,7 +1601,7 @@ async def principal_component_analysis(workflow_id: str,
 
     except Exception as e:
         print(e)
-        return JSONResponse(content={'status': test_status,
+        return JSONResponse(content={'status': test_status+'\n'+ e.__str__(),
                                      'columns': [],
                                      'n_features_': 0,
                                      'n_features_in_': 0,
