@@ -1,12 +1,13 @@
 import pandas as pd
 from fastapi import APIRouter, Request, Query
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.metrics import mean_squared_error, accuracy_score, r2_score, mean_absolute_error, classification_report, precision_score, recall_score
 from sklearn.model_selection import train_test_split
 import numpy as np
 import shap
 from sklearn.preprocessing import LabelEncoder
 from sklearn.preprocessing import StandardScaler
-
+import seaborn as sns
 import pickle
 import json
 import matplotlib.pyplot as plt
@@ -736,7 +737,7 @@ async def SVC_create_model(
                                  "Loss": loss, "mae": mae, "rmse": rmse,
                                  'coeff_determination': r_sq.to_dict(),
                                  'intercept': SVC_model.intercept_,
-                                 'slope': dfslope.transpose().to_dict(),
+                                 # 'slope': dfslope.transpose().to_dict(),
                                  }}
             file_data['results'] = new_data
             file_data['Output_datasets'] = []
@@ -759,13 +760,15 @@ async def SVC_create_model(
 
 
         return JSONResponse(content={'status': 'Success', "mse": mse, "r2_score": r2_score_val, "Loss":loss, "mae":mae, "rmse":rmse,
-                    "coeff_determination":r_sq, 'intercept': SVC_model.intercept_, 'slope': dfslope.transpose().to_json(orient='records')},
-                                    status_code=200)
+                    "coeff_determination":r_sq, 'intercept': SVC_model.intercept_,
+                                     # 'slope': dfslope.transpose().to_json(orient='records')
+                                     }, status_code=200)
     except Exception as e:
         print(e)
         return JSONResponse(content={'status': test_status, "mse": '', "r2_score": '', "Loss":'', "mae":'', "rmse":'',
-                "coeff_determination":'', 'intercept': '', 'slope': []},
-                                status_code=200)
+                "coeff_determination":'', 'intercept': '',
+                                     # 'slope': []
+                                     }, status_code=200)
 
 @router.get("/SVC_load_model")
 async def SVC_load_model(
@@ -833,3 +836,87 @@ async def SVC_load_model(
                      'dependent_param':'', 'independent_params':'','result_dataset':'[]'},
             status_code=200)
 
+
+@router.get("/LDA_create_model")
+async def LDA_create_model(
+        workflow_id: str,
+        step_id: str,
+        run_id: str,
+        test_size: float,
+        random_state: int,
+        file_name: str,
+        model_name: str,
+        dependent_variable: str,
+        n_components:int=2,
+        shuffle: bool | None = Query(default=False),
+        independent_variables: list[str] | None = Query(default=None)
+) -> dict:
+    try:
+        print(f'n_components:{n_components}')
+        print(f'model_name:{model_name}')
+        print(f'random_state:{random_state}')
+        print(f'test_size:{test_size}')
+        print(f'shuffle:{shuffle}')
+        df = pd.DataFrame()
+        path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+        test_status = 'Unable to retrieve the dataset'
+        data = load_data_from_csv(path_to_storage + "/" + file_name)
+        X = data[independent_variables]
+        y = data[dependent_variable]
+        df = pd.DataFrame(X, columns=independent_variables)
+        df['target'] = y
+        print(df)
+
+        # Split dataset into train and test sets
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=random_state,
+                                                            shuffle=shuffle)
+        test_status = 'Unable to execute LDA step 1'
+        # Standardize the features
+        scaler = StandardScaler()
+        X_train = scaler.fit_transform(X_train)
+        X_test = scaler.transform(X_test)
+        # Perform LDA
+        clf=LinearDiscriminantAnalysis()
+        clf.fit(X_train, y_train)
+        number_of_components = min(len(clf.classes_) - 1, clf.n_features_in_)
+        print(f'number_of_components:{number_of_components}')
+
+        lda = LinearDiscriminantAnalysis(n_components=n_components)  # Reduce to 2 components for visualization
+        X_train_lda = lda.fit_transform(X_train, y_train)
+        X_test_lda = lda.transform(X_test)
+        # Train the LDA model
+        lda_classifier = LinearDiscriminantAnalysis()
+        lda_classifier.fit(X_train, y_train)
+
+        # Make predictions
+        y_pred = lda_classifier.predict(X_test)
+
+        # Evaluate the classifier
+        accuracy = accuracy_score(y_test, y_pred)
+        print(f"Accuracy: {accuracy}")
+        print("Classification Report:")
+        print(classification_report(y_test, y_pred))
+        component_cols = ['LDA' + str(i+1) for i in range(n_components)]
+        print(f"component_cols: {component_cols}")
+
+        lda_df = pd.DataFrame(X_train_lda, columns=component_cols)
+        lda_df['target'] = y_train
+
+        # Plot the LDA components
+        plt.figure(figsize=(8, 6))
+        sns.scatterplot(data=lda_df, x='LDA1', y='LDA2', hue='target', palette='viridis', s=100, alpha=0.7)
+        plt.title('LDA: Iris Dataset')
+        plt.xlabel('LDA1')
+        plt.ylabel('LDA2')
+        plt.legend(title='Class')
+        plt.show()
+
+        # Print the explained variance ratio
+        print(f"Explained variance ratio: {lda.explained_variance_ratio_}")
+        return JSONResponse(
+            content={'status': 'Success', "coeff_determination": df.to_json(orient='records')},
+            status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status': test_status+'\n'+ e.__str__(), "coeff_determination": '[]'},
+                            status_code=200)

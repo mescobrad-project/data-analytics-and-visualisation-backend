@@ -554,6 +554,8 @@ async def function_navigation(navigation_item: FunctionNavigationItem, request: 
                 url_to_redirect += "/DatasetConcat"
             case "datasetpreviewsheet":
                 url_to_redirect += "/DatasetPreviewSheet"
+            case "LDAmodelcreation":
+                url_to_redirect += "/LDAModelCreation"
             # Dashboard
 
             case "dashboard":
