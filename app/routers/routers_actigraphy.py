@@ -1949,21 +1949,32 @@ async def actigraphy_string_sleep_statistics(workflow_id: str,
                                              run_id: str,
                                              step_id: str,
                                              dataset: str,
-                                             period: str):
+                                             period: str,
+                                             start_time: str,
+                                             end_time: str):
+    # Convert start_time and end_time to datetime objects
+    start_time = datetime.strptime(start_time, '%Y/%m/%d %H:%M:%S')
+    end_time = datetime.strptime(end_time, '%Y/%m/%d %H:%M:%S')
+    # Read the CSV file
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
     df = pd.read_csv(path_to_storage + '/' + dataset, skiprows=150)
     # get the start datetime and manipulate it to get it to correct format
     df["Datetime"] = df["Date"] + " " + df["Time"]
-    dt_list = df["Datetime"]
-    datetime_st = dt_list[0]
-    # print(type(datetime_st))
-    datetime_object = datetime.strptime(datetime_st, '%d/%m/%Y %H:%M:%S')
-    # print(datetime_object)
-    start_time = datetime_object.strftime("%Y-%m-%d %H:%M:%S")
+    # Filter the DataFrame based on the date range
+    df['Date'] = pd.to_datetime(df['Date'], format='%d/%m/%Y')
+    df_filtered = df[(df['Date'] >= start_time) & (df['Date'] <= end_time)]
+
+    # Extract the first datetime object for further manipulation
+    if not df_filtered.empty:
+        datetime_st = df_filtered["Datetime"].iloc[0]
+        datetime_object = datetime.strptime(datetime_st, '%d/%m/%Y %H:%M:%S')
+        start_time_formatted = datetime_object.strftime("%Y-%m-%d %H:%M:%S")
+        print(f"Start time formatted: {start_time_formatted}")
+
     # print(start_time)
     sleep_stages = []
     # iterate through specific columns of the dataframe
-    for index, row in df.iterrows():
+    for index, row in df_filtered.iterrows():
         # print(row['Interval Status'])
         if (row['Interval Status']) == 'ACTIVE':
             sleep_stages.append('WAKE')
@@ -1971,23 +1982,8 @@ async def actigraphy_string_sleep_statistics(workflow_id: str,
             sleep_stages.append('NREM')
         elif (row['Interval Status']) == 'REST-S':
             sleep_stages.append('REM')
-    hyp = Hypnogram(sleep_stages, n_stages=3, start=start_time, freq='15s')
-    # print('============================= PRINT HYPNOGRAM =============================')
-    # print(hyp.hypno)
-    # print('============================= PRINT DURATION ==============================')
-    # print(hyp.duration)
-    # print('============================= PRINT MAPPING ===============================')
-    # print(hyp.mapping)
-    # print('============================= PRINT INTEGER HYPNOGRAM =====================')
-    # print(hyp.as_int())
-    # print('============================= PRINT SLEEP STATISTICS ======================')
-    # print(hyp.sleep_statistics())
-    # print('============================= PRINT TRANSITION MATRIX =====================')
-    # print(hyp.transition_matrix())
-    # print('============================= PRINT ANNOTATIONS ===========================')
-    # print(hyp.as_annotations())
-    # print('============================= PRINT PERIODS WITH 0 MIN THRESHOLD ==========')
-    # print(hyp.find_periods(threshold="15min"))
+    hyp = Hypnogram(sleep_stages, n_stages=3, start=start_time_formatted, freq='15s')
+
     duration = hyp.duration
     json_duration = json.dumps(duration)
     sleep_stats = hyp.sleep_statistics()
