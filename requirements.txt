@@ -60,6 +60,7 @@ qtawesome==1.2.2
 rfc3339-validator==0.1.4
 rfc3986-validator==0.1.1
 rtree==1.0.1
+shap==0.45.1
 semopy
 spykeutils==0.4.3
 sqlalchemy==1.4.46
@@ -67,6 +68,7 @@ tables==3.8.0
 textdistance==4.5.0
 three-merge==0.1.1
 torch==2.2.2
+torchvision==0.17.2
 trino==0.326.0
 uri-template==1.2.0
 uvicorn==0.17.5
