@@ -28,6 +28,8 @@ services:
       NeurodesktopStorageLocation: /neurodesktop-storage
       NeurodesktopPort: 8080
       FrontendAddress: http://localhost:3005
+      CUDA_VISIBLE_DEVICES: ""
+      LD_LIBRARY_PATH: ""
     volumes:
       - 'C:\neurodesktop-storage:/neurodesktop-storage'
     ports:
