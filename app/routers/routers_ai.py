@@ -1,12 +1,13 @@
 import pandas as pd
 from fastapi import APIRouter, Request, Query
-from sklearn.metrics import mean_squared_error, accuracy_score, r2_score, mean_absolute_error, classification_report
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+from sklearn.metrics import mean_squared_error, accuracy_score, r2_score, mean_absolute_error, classification_report, precision_score, recall_score
 from sklearn.model_selection import train_test_split
 import numpy as np
 import shap
 from sklearn.preprocessing import LabelEncoder
-from sklearn.feature_extraction.text import TfidfVectorizer
-
+from sklearn.preprocessing import StandardScaler
+import seaborn as sns
 import pickle
 import json
 import matplotlib.pyplot as plt
@@ -67,6 +68,7 @@ async def dl_explanation_experiment(
                            mri_path,
                            heatmap_path)
     return {"results": results}
+
 
 @router.get("/mris_batch_inference")
 async def mris_batch_inference(
@@ -221,8 +223,8 @@ async def linear_reg_create_model(
         test_status = 'Unable to present XAI plots'
 
         explainer = shap.LinearExplainer(linear_model, X_train, feature_names=independent_variables)
-        shap_values = explainer(X_train)
-        shap.summary_plot(shap_values, X_train, feature_names=independent_variables, show=False, max_display=20, plot_size=[8,5])
+        shap_values = explainer(X_test)
+        shap.summary_plot(shap_values, X_test, feature_names=independent_variables, show=False, max_display=20, plot_size=[8,5])
         plt.savefig(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + "shap_summary_lr.svg", dpi=700)  # .png,.pdf will also support here
         # plt.show()
         plt.close()
@@ -614,11 +616,16 @@ async def SVC_create_model(
         step_id: str,
         run_id: str,
         test_size: float,
+        random_state: int,
         file_name:str,
         model_name:str,
-        random_state:int,
+        regularization: float,
         dependent_variable: str,
-        shuffle:bool | None = Query(default=False),
+
+        kernel: str | None = Query("rbf",
+                                   regex="^(linear)$|^(poly)$|^(rbf)$|^(sigmoid)$|^(precomputed)$"),
+        probability: bool | None = Query(default=False),
+        shuffle: bool | None = Query(default=False),
         independent_variables: list[str] | None = Query(default=None)
 ) -> dict:
 
@@ -632,7 +639,12 @@ async def SVC_create_model(
         # Split dataset into train and test sets
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=random_state, shuffle=shuffle)
         test_status = 'Unable to execute regression'
-        SVC_model = train_SVC(X_train, y_train)
+
+        scaler = StandardScaler()
+        X_train = scaler.fit_transform(X_train)
+        X_test = scaler.transform(X_test)
+
+        SVC_model = train_SVC(X_train, y_train, kernel, probability, regularization)
 
         test_status = 'Unable to save the model'
         filename = model_name+'.sav'
@@ -652,31 +664,58 @@ async def SVC_create_model(
 
         test_status = 'Unable to print model stats'
 
+        accuracy = accuracy_score(y_test, y_pred)
+        print("Accuracy:", accuracy)
+        # Model Accuracy: how often is the classifier correct?
+        print("Accuracy:", accuracy_score(y_test, y_pred))
+        # Model Precision: what percentage of positive tuples are labeled as such?
+        print("Precision:", precision_score(y_test, y_pred))
+
+        # Model Recall: what percentage of positive tuples are labelled as such?
+        print("Recall:", recall_score(y_test, y_pred))
+
         r_sq = SVC_model.score(X_train, y_train)
         loss = np.sqrt(np.mean(np.square(y_test - y_pred)))
         mse = mean_squared_error(y_test, y_pred)
         mae = mean_absolute_error(y_test, y_pred)
         r2_score_val = r2_score(y_test, y_pred)
         rmse = np.sqrt(mse)
-        dfslope= pd.DataFrame(SVC_model.coef_.transpose(), index=independent_variables)
+
+        # TODO:coef_ is only available when using a linear kernel
+        # dfslope= pd.DataFrame(SVC_model.coef_.transpose(), index=independent_variables)
         test_status = 'Unable to present XAI plots'
 
-        explainer = shap.KernelExplainer(SVC_model.predict_proba, X_test, feature_names=independent_variables)
+        if probability:
+            explainer = shap.KernelExplainer(SVC_model.predict_proba, X_train)
+        else:
+            explainer = shap.Explainer(SVC_model, X_train)
+        print(explainer)
+
         shap_values = explainer.shap_values(X_test[0])
-        shap.summary_plot(shap_values, X_train, feature_names=independent_variables, show=False, max_display=20, plot_size=[8,5])
-        plt.savefig(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + "shap_summary_lr.svg", dpi=700)  # .png,.pdf will also support here
+
+        shap.summary_plot(shap_values, X_test, show=False, max_display=20, plot_size=[8,5])
+        plt.savefig(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + "shap_summary_svc.svg", dpi=700)  # .png,.pdf will also support here
+        plt.close()
+
+        shap.force_plot(explainer.expected_value[1], shap_values[1][0], X_test[0])
+        plt.savefig(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + "force_plot_svc.svg",
+                    dpi=700)  # .png,.pdf will also support here
+        plt.close()
+        shap.dependence_plot("petal width (cm)", shap_values[1], X_test, feature_names=independent_variables)
+        plt.savefig(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + "dependence_plot_svc.svg",
+                    dpi=700)  # .png,.pdf will also support here
         plt.close()
         shap.plots.waterfall(shap_values[1], max_display=20, show=False)
-        plt.savefig(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + "shap_waterfall_lr.svg",
+        plt.savefig(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + "shap_waterfall_svc.svg",
                     dpi=700)
         plt.close()
         shap.plots.heatmap(shap_values, show=False)
-        plt.savefig(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + "shap_heatmap_lr.svg",
+        plt.savefig(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + "shap_heatmap_svc.svg",
                     dpi=700)
         plt.close()
 
         shap.plots.violin(shap_values, show=False, plot_size=[8,5])
-        plt.savefig(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + "shap_violin_lr.svg",
+        plt.savefig(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + "shap_violin_svc.svg",
                     dpi=700)
 
         test_status = 'Error in creating info file.'
@@ -698,7 +737,7 @@ async def SVC_create_model(
                                  "Loss": loss, "mae": mae, "rmse": rmse,
                                  'coeff_determination': r_sq.to_dict(),
                                  'intercept': SVC_model.intercept_,
-                                 'slope': dfslope.transpose().to_dict(),
+                                 # 'slope': dfslope.transpose().to_dict(),
                                  }}
             file_data['results'] = new_data
             file_data['Output_datasets'] = []
@@ -721,13 +760,15 @@ async def SVC_create_model(
 
 
         return JSONResponse(content={'status': 'Success', "mse": mse, "r2_score": r2_score_val, "Loss":loss, "mae":mae, "rmse":rmse,
-                    "coeff_determination":r_sq, 'intercept': SVC_model.intercept_, 'slope': dfslope.transpose().to_json(orient='records')},
-                                    status_code=200)
+                    "coeff_determination":r_sq, 'intercept': SVC_model.intercept_,
+                                     # 'slope': dfslope.transpose().to_json(orient='records')
+                                     }, status_code=200)
     except Exception as e:
         print(e)
         return JSONResponse(content={'status': test_status, "mse": '', "r2_score": '', "Loss":'', "mae":'', "rmse":'',
-                "coeff_determination":'', 'intercept': '', 'slope': []},
-                                status_code=200)
+                "coeff_determination":'', 'intercept': '',
+                                     # 'slope': []
+                                     }, status_code=200)
 
 @router.get("/SVC_load_model")
 async def SVC_load_model(
@@ -794,4 +835,88 @@ async def SVC_load_model(
                      'intercept': '',
                      'dependent_param':'', 'independent_params':'','result_dataset':'[]'},
             status_code=200)
-'''
+
+
+@router.get("/LDA_create_model")
+async def LDA_create_model(
+        workflow_id: str,
+        step_id: str,
+        run_id: str,
+        test_size: float,
+        random_state: int,
+        file_name: str,
+        model_name: str,
+        dependent_variable: str,
+        n_components:int=2,
+        shuffle: bool | None = Query(default=False),
+        independent_variables: list[str] | None = Query(default=None)
+) -> dict:
+    try:
+        print(f'n_components:{n_components}')
+        print(f'model_name:{model_name}')
+        print(f'random_state:{random_state}')
+        print(f'test_size:{test_size}')
+        print(f'shuffle:{shuffle}')
+        df = pd.DataFrame()
+        path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+        test_status = 'Unable to retrieve the dataset'
+        data = load_data_from_csv(path_to_storage + "/" + file_name)
+        X = data[independent_variables]
+        y = data[dependent_variable]
+        df = pd.DataFrame(X, columns=independent_variables)
+        df['target'] = y
+        print(df)
+
+        # Split dataset into train and test sets
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=random_state,
+                                                            shuffle=shuffle)
+        test_status = 'Unable to execute LDA step 1'
+        # Standardize the features
+        scaler = StandardScaler()
+        X_train = scaler.fit_transform(X_train)
+        X_test = scaler.transform(X_test)
+        # Perform LDA
+        clf=LinearDiscriminantAnalysis()
+        clf.fit(X_train, y_train)
+        number_of_components = min(len(clf.classes_) - 1, clf.n_features_in_)
+        print(f'number_of_components:{number_of_components}')
+
+        lda = LinearDiscriminantAnalysis(n_components=n_components)  # Reduce to 2 components for visualization
+        X_train_lda = lda.fit_transform(X_train, y_train)
+        X_test_lda = lda.transform(X_test)
+        # Train the LDA model
+        lda_classifier = LinearDiscriminantAnalysis()
+        lda_classifier.fit(X_train, y_train)
+
+        # Make predictions
+        y_pred = lda_classifier.predict(X_test)
+
+        # Evaluate the classifier
+        accuracy = accuracy_score(y_test, y_pred)
+        print(f"Accuracy: {accuracy}")
+        print("Classification Report:")
+        print(classification_report(y_test, y_pred))
+        component_cols = ['LDA' + str(i+1) for i in range(n_components)]
+        print(f"component_cols: {component_cols}")
+
+        lda_df = pd.DataFrame(X_train_lda, columns=component_cols)
+        lda_df['target'] = y_train
+
+        # Plot the LDA components
+        plt.figure(figsize=(8, 6))
+        sns.scatterplot(data=lda_df, x='LDA1', y='LDA2', hue='target', palette='viridis', s=100, alpha=0.7)
+        plt.title('LDA: Iris Dataset')
+        plt.xlabel('LDA1')
+        plt.ylabel('LDA2')
+        plt.legend(title='Class')
+        plt.show()
+
+        # Print the explained variance ratio
+        print(f"Explained variance ratio: {lda.explained_variance_ratio_}")
+        return JSONResponse(
+            content={'status': 'Success', "coeff_determination": df.to_json(orient='records')},
+            status_code=200)
+    except Exception as e:
+        print(e)
+        return JSONResponse(content={'status': test_status+'\n'+ e.__str__(), "coeff_determination": '[]'},
+                            status_code=200)

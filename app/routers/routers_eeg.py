@@ -655,7 +655,9 @@ async def estimate_stft(
             # print(zxx)
             fig = plt.figure(figsize=(18, 12))
             amp = 2 * np.sqrt(2)
-            plt.pcolormesh(t, f, np.abs(zxx_den), shading='gouraud')
+            cmap = plt.cm.nipy_spectral
+            pcm = plt.pcolormesh(t, f, np.log(np.abs(zxx_den)), cmap=cmap)
+            # plt.pcolormesh(t, f, np.abs(zxx_den), shading='gouraud')
             plt.title('STFT Magnitude')
             plt.ylabel('Frequency [Hz]')
             plt.xlabel('Time [sec]')
