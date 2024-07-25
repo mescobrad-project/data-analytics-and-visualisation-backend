@@ -15,7 +15,7 @@ import plotly.figure_factory as ff
 from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import SimpleImputer, KNNImputer, IterativeImputer
 from statsmodels.graphics.gofplots import qqplot
-
+import seaborn as sns
 
 def create_plots(plot_type: str, column: str, second_column: str, selected_dataframe, path_to_storage:str, filename:str):
     if plot_type == 'BoxPlot':
@@ -33,6 +33,20 @@ def create_plots(plot_type: str, column: str, second_column: str, selected_dataf
                         outlierwidth=2)),
                 line_color='rgb(8,81,156)'
             ))
+            # if second_column is not None:
+            #     print('Im here')
+            #     fig1.add_trace(go.Box(
+            #         y=selected_dataframe[str(second_column)],
+            #         name="Suspected Outliers",
+            #         boxpoints='suspectedoutliers',  # only suspected outliers
+            #         marker=dict(
+            #             color='rgb(8,81,156)',
+            #             outliercolor='rgba(219, 64, 82, 0.6)',
+            #             line=dict(
+            #                 outliercolor='rgba(219, 64, 82, 0.6)',
+            #                 outlierwidth=2)),
+            #         line_color='rgb(8,81,156)'
+            #     ))
             # fig1.update_layout(title_text="Box Plot Styling Outliers")
 
             # fig, ax1 = plt.subplots()
@@ -304,13 +318,11 @@ def statisticsStd(column: str, selected_dataframe, ddof):
 
 def statisticsCov(selected_dataframe, ddof):
     try:
-        # df2 = selected_dataframe.dropna(subset=[str(column)])
         result = cov(selected_dataframe, ddof=ddof)
-        # Just to check if the result is the same
-        # print(result)
-        # print(np.cov(selected_dataframe.transpose(), ddof=ddof))
-        if math.isnan(result):
-            result = ''
+        result = [
+            tuple('' if isinstance(i, float) and math.isnan(i) else i for i in t)
+            for t in result
+        ]
         return result
     except Exception as e:
         print(e)
@@ -356,20 +368,17 @@ def statisticsConfidenceLevel(column: str, selected_dataframe, alpha = 0.95):
 def DataframeImputation(selected_dataframe, selected_variables, method):
     try:
         df = selected_dataframe
-        print(df.dtypes)
-        print(df.shape)
+        # print(df.dtypes)
+        # print(df.shape)
         NA = pd.DataFrame(data=[df.isna().sum().tolist(), ["{:.2f}".format(i) + '%' \
                                                            for i in (df.isna().sum() / df.shape[0] * 100).tolist()]],
                           columns=df.columns, index=['NA Count', 'NA Percent']).transpose()
         NA.style.background_gradient(cmap="Pastel1_r", subset=['NA Count'])
-        print(NA)
+        # print(NA)
         data1 = df.copy()
-        data2 = df.copy()
-        print(selected_variables)
-        if method == 'mean' or method == 'median' or method == 'iterative':
-            print(method)
+
+        if method == 'mean' or method == 'median' or method == 'iterative' or method=='KNN':
             for variable in selected_variables:
-                print(df[variable].dtype)
                 if df[variable].dtype == object:
                     raise Exception('Mean or Median or Iterative methods can only be used with numeric data.')
 
@@ -387,7 +396,6 @@ def DataframeImputation(selected_dataframe, selected_variables, method):
             imp = SimpleImputer(strategy='constant')
             data1[selected_variables] = imp.fit_transform(data1[selected_variables])
         elif method == 'KNN':
-            print('KNN')
             # data1[selected_variable].replace('NaN', np.nan)
             # imputer = KNNImputer(n_neighbors=2, missing_values=np.nan)
             imputer = KNNImputer(n_neighbors=5)
@@ -400,8 +408,31 @@ def DataframeImputation(selected_dataframe, selected_variables, method):
                                                            for i in (data1.isna().sum() / data1.shape[0] * 100).tolist()]],
                           columns=data1.columns, index=['NA Count', 'NA Percent']).transpose()
         NA.style.background_gradient(cmap="Pastel1_r", subset=['NA Count'])
-        print(NA)
         return data1
     except Exception as e:
         print("Error : Failed to impute values: " + "\n" + e.__str__())
         return "Error : " + "\n" + e.__str__()
+
+# Function to plot classification report with support
+def plot_classification_report_with_support(report):
+
+    report['accuracy'] = {'precision': '', 'recall': '', 'f1-score': report['accuracy'], 'support': ''}
+    df_report = pd.DataFrame(report).transpose()
+    df_report.insert(loc=0, column='class', value=df_report.index)
+    print(df_report)
+    labels = list(report.keys())[:-3]  # Exclude 'accuracy', 'macro avg', 'weighted avg'
+    metrics = ['precision', 'recall', 'f1-score', 'support']
+    data = np.array([[report[label][metric] for metric in metrics] for label in labels])
+    fig, ax = plt.subplots(figsize=(12, 6))
+    cax = ax.matshow(data, cmap='coolwarm')
+    plt.xticks(range(len(metrics)), metrics)
+    plt.yticks(range(len(labels)), labels)
+    plt.colorbar(cax)
+    # Adding the text
+    for (i, j), val in np.ndenumerate(data):
+        ax.text(j, i, f'{val:.2f}', ha='center', va='center', color='white')
+    plt.xlabel('Metrics')
+    plt.ylabel('Classes')
+    plt.title('Classification Report with Support')
+    # plt.show()
+    return df_report, plt

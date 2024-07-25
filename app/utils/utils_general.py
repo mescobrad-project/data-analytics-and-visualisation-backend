@@ -1,8 +1,10 @@
 # DO NOT AUTO FORMAT THIS FILE THE STRINGS ADDED TO MNE NOTEBOOKS ARE TAB AND SPACE SENSITIVE
 import json
 import time
+from datetime import datetime
 from os.path import isfile, join
-
+import traceback
+import trino
 import nbformat as nbf
 import pandas as pd
 import paramiko
@@ -12,6 +14,10 @@ import mne
 from mne.preprocessing import ICA
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler,DirCreatedEvent,FileCreatedEvent
+from fastapi import Request
+from trino.auth import BasicAuthentication, JWTAuthentication
+from sqlalchemy import create_engine
+import pytz
 
 from app.utils.utils_datalake import get_saved_dataset_for_Hypothesis
 
@@ -74,11 +80,11 @@ def get_output_info_path(workflow_id, run_id, step_id):
     return info_file_to_return
 
 def get_local_storage_path(workflow_id, run_id, step_id):
-    """Function returns path with / at the end"""
+    """Function returns path without / at the end"""
     return NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id
 
 def get_local_neurodesk_storage_path(workflow_id, run_id, step_id):
-    """Function returns path with / at the end"""
+    """Function returns path without / at the end"""
     return NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id + '/neurodesk_interim_storage'
 
 def load_data_from_csv(file_with_path):
@@ -94,7 +100,7 @@ def load_file_csv_direct(workflow_id, run_id, step_id ):
     return data
 
 
-def create_local_step(workflow_id, run_id, step_id, files_to_download):
+def create_local_step(workflow_id, run_id, step_id, files_to_download, session_token):
     """ files_to_download format is array of dicts with 'bucket' being bucket name 'file' object name each representing one file"""
     print("CREATING LOCAL STEP")
     print(files_to_download)
@@ -131,7 +137,7 @@ def create_local_step(workflow_id, run_id, step_id, files_to_download):
                 file_location_path = NeurodesktopStorageLocation + '/runtime_config/workflow_' + workflow_id + '/run_' + run_id + '/step_' + step_id + '/' + \
                                      file_location_path.split("/")[-1]
         print("file_location_path")
-        get_saved_dataset_for_Hypothesis(bucket_name=file_to_download["bucket"], object_name=file_to_download["file"], file_location=file_location_path)
+        get_saved_dataset_for_Hypothesis(bucket_name=file_to_download["bucket"], object_name=file_to_download["file"], file_location=file_location_path, session_token=session_token)
     # Info file might be unneeded
     with open( path_to_save + '/output/info.json', 'w', encoding='utf-8') as f:
         json.dump({"selected_datasets":files_to_download, "results":{}}, f)
@@ -473,6 +479,8 @@ def write_function_data_to_config_file(parameter_data: dict | list, result_data:
      if parameter_data or result_data is a list then each entry represents a different iteration (only in functions where
      it's applicable to do multiple iterations with different data in the same run)
       and each entry in the list should contain one dict as described above
+
+      THIS FUNCTIONS IS DEFUNCT!!
      """
 
     # Record misc information about the run
@@ -493,7 +501,163 @@ def write_function_data_to_config_file(parameter_data: dict | list, result_data:
     else:
         return "error: parameter_data and result_data type should the same"
 
+def create_info_json(workflow_id, run_id, step_id, test_name, test_params, test_results, output_datasets, saved_plots):
+    """ This functions should be called from a backend function and is used to create the appropriate info json file
+        The format of the expected variables is the following
+        test_params = { "parameter_name" : parameter_value}
+        test_results = {"test_results": test_results} But only if applicable
+        output_datasets = ["filename1", "filename2", "filename3"]
+        saved_plots = ["filename1", "filename2", "filename3"]
+    """
+    # Create list for output datasets and saved plots
+    output_datasets_to_add = []
+
+    for output_dataset_name in output_datasets:
+        output_datasets_to_add.append( {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                 step_id + '/analysis_output/' + output_dataset_name})
+
+    output_saved_plots_to_add= []
+
+    for saved_plot_name in saved_plots:
+        output_saved_plots_to_add.append({"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                               step_id + '/analysis_output/' + saved_plot_name})
+    new_data = {
+        "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+        "workflow_id": workflow_id,
+        "run_id": run_id,
+        "step_id": step_id,
+        "test_name": test_name,
+        "test_params": test_params,
+        "test_results": test_results,
+        'Output_datasets': output_datasets_to_add,
+        'Saved_plots': output_saved_plots_to_add
+    }
+    
+    print(new_data)
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+        file_data = json.load(f)
+        file_data['results'] |= new_data
+        f.seek(0)
+        json.dump(file_data, f, indent=4)
+        f.truncate()
+
+# Function to transform the dataframe
+def transform_dataframe(df, additional_columns):
+    rows = []
+    for _, row in df.iterrows():
+        rows.append({
+            'source': row['source'],
+            'rowid': row['rowid'],
+            'variable_name': row['variable_name'],
+            'variable_value': row['variable_value'],
+            'workspace_id': row['workspace_id']
+        })
+        for col in additional_columns:
+            rows.append({
+                'source': row['source'],
+                'rowid': row['rowid'],
+                'variable_name': col,
+                'variable_value': row[col],
+                'workspace_id': row['workspace_id']
+            })
+    return pd.DataFrame(rows)
 
 
+def csv_stats_to_trino(workflow_id: str,
+                       step_id: str,
+                       run_id: str,
+                       source_file: str,
+                       workspace_id: str,
+                       request: Request) -> str:
+    try:
+
+        TRINO_SCHEME = "https"
+        timezone = pytz.timezone("UTC")
+
+        ##TODO WHEN MIDDLEWARE WORKS
+        access_token = request.session.get("secret_key", None)
+        groups = request.session.get("groups", None)
+        institution = "staging_area"
+        if groups != None:
+            for group in groups:
+                if group in ["nia", "uu", "chs-rmc", "kcl", "sant-pau"]:
+                    institution = group.replace("-", "_")
+
+        ##TODO TEMPORARY SOLUTION
+        # text_file = open("token.txt", "r")
+        # access_token = text_file.read()
+        # text_file.close()
+        # institution = "staging_area"
 
 
+        engine = create_engine(
+            f"trino://trino.mescobrad.digital-enabler.eng.it:443/iceberg",
+            connect_args={
+                "http_scheme" : TRINO_SCHEME,
+                "auth" : JWTAuthentication(access_token),
+                "timezone" : str(timezone),
+            }
+        )
+
+        conn = engine.connect()
+
+        path_to_file = get_local_storage_path(workflow_id, run_id, step_id)
+        path_to_file = os.path.join(path_to_file, "output", source_file)
+
+        df = pd.read_csv(path_to_file, sep=",", header=0)
+        print(df.columns)
+
+        if not isinstance(df.index, pd.RangeIndex):
+            if len(df.columns) != 1:
+                return 'Error in uploading stats to Trino; If the index is not a range index, the csv must have 1 column'
+            df.rename(columns={df.columns[0]: "variable_value"}, inplace=True)
+            df["variable_name"] = df.index
+        else:
+            if len(df.columns) != 2:
+                return 'Error in uploading stats to Trino; If the index is a range index, the csv must have 2 columns'
+            df.rename(columns={df.columns[0]: "variable_name"}, inplace=True)
+            df.rename(columns={df.columns[1]: "variable_value"}, inplace=True)
+
+        df["rowid"] = range(1, len(df) + 1)
+        df["workflow_id"] = workflow_id
+        df["run_id"] = run_id
+        df["step_id"] = step_id
+        df["source"] = "workflow" + path_to_file.split("workflow")[1].replace("\\", "/")
+        df["variable_value"] = df["variable_value"].astype(str)
+        df["workspace_id"] = workspace_id
+
+        df = transform_dataframe(df, ['workflow_id', 'run_id', 'step_id', 'source'])
+        df = df[['source', 'rowid', 'variable_name', 'variable_value', 'workspace_id']]
+        df.to_csv("dataframe.csv")
+
+        dtypes = {
+            'source': 'str',
+            'rowid': 'int',
+            'variable_name': 'str',
+            'variable_value': 'str',
+            'workspace_id': 'str'
+        }
+
+        pd.DataFrame({col: pd.Series(dtype=dt) for col, dt in dtypes.items()}).to_sql(name='test_table_qb',
+                                                                                      schema=institution,
+                                                                                      con=conn,
+                                                                                      if_exists='append',
+                                                                                      index=False,
+                                                                                      method='multi')
+
+
+        #Delete all old data with the same workflow_id, etc.
+        conn.execute(f"\
+        DELETE FROM iceberg.{institution}.test_table_qb WHERE source = '{source_file}'")
+
+        df.to_csv("general_test.csv")
+
+        df.to_sql(name="test_table_qb", schema=institution, con=conn, if_exists='append',
+                  index=False, method='multi')
+
+        return 'Success'
+    except Exception as e:
+        print(e)
+        traceback.print_exc()
+        return 'Error in uploading stats to Trino'

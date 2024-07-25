@@ -34,6 +34,9 @@ class ModelSelectionChannelReference(BaseModel):
     selection_start_time: str
     end_time: str
 
+class ModelTokenConfig(BaseModel):
+    # Bipolar References
+    token: str
 # class ModelMultipleComparisons(BaseModel):
 #     workflow_id: str
 #     step_id: str

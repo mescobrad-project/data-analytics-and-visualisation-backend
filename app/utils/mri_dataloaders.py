@@ -1,54 +1,65 @@
-import os
-import torch
-from torch.utils.data import DataLoader, RandomSampler
+# import os
+# import torch
+from torch.utils.data import Dataset, DataLoader, random_split
+from torchvision import transforms
 from app.utils.mri_generator import MRI_Generator
 
+class TransformedDataset(Dataset):
+    def __init__(self, dataset, transform):
+        self.dataset = dataset
+        self.transform = transform
+
+    def __len__(self):
+        return len(self.dataset)
+
+    def __getitem__(self, idx):
+        x, y = self.dataset[idx]
+        x = self.transform(x)
+        return x, y
+
 def train_eval_dataloaders(data_path,
-                           dataset_train,
-                           eval_size,
-                           batch_size):
+                           csv_path,
+                           batch_size,
+                           train_split=0.85):
+    dataset = MRI_Generator(data_path, csv_path)
 
-    #data_path to the folder where the sub-000id folders are in ex. './content/'
-    #dataset_train should be a dataframe with columns 'participant_id' and 'label'
-    
-    participants = [x[:9] for x in os.listdir(data_path) if 'sub' in x] #constumized to the dataset
+    # Define the transformations
+    transform = transforms.Compose([
+        transforms.Lambda(lambda x: (x - x.min()) / (x.max() - x.min())),  # Normalize to [0, 1]
+        #transforms.RandomHorizontalFlip(p=0.5)  # Apply random horizontal flipping with a probability of 0.5
+        #transforms.RandomVerticalFlip(p=0.3)
+        transforms.RandomRotation(20)
+    ])
 
-    training_participants = dataset_train[dataset_train['participant_id'].isin(participants)] #filtered rows
+    # Apply the transformations
+    transformed_dataset = TransformedDataset(dataset, transform)
 
-    X_train_ = training_participants['participant_id'].values #ids
-    labels_binary_train = training_participants['label'].values #labels
-    
-    X_eval = X_train_[-eval_size:]
-    y_eval_binary = labels_binary_train[-eval_size:]
-    X_train = X_train_[:-eval_size]
-    y_train_binary = labels_binary_train[:-eval_size]
+    train_size = int(train_split * len(transformed_dataset))
+    val_size = len(transformed_dataset) - train_size
 
-    y_train_binary = torch.LongTensor(y_train_binary)
-    y_eval_binary = torch.LongTensor(y_eval_binary)
+    train_dataset, val_dataset = random_split(transformed_dataset, [train_size, val_size])
 
-    train_data = MRI_Generator(X_train, y_train_binary, data_path)
-    eval_data = MRI_Generator(X_eval, y_eval_binary, data_path)
+    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    val_dataloader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
-    train_sampler = RandomSampler(train_data)
-    dev_sampler = RandomSampler(eval_data)
+    print('points in the dataloaders ', len(train_dataloader.dataset), len(val_dataloader.dataset))
 
-    train_dataloader = DataLoader(train_data, sampler=train_sampler, batch_size=batch_size) #batch_size=1 old value
-    eval_dataloader = DataLoader(eval_data, sampler=dev_sampler, batch_size=batch_size)
-    #print('points in the dataloaders ', len(train_dataloader.dataset), len(eval_dataloader.dataset))
+    return train_dataloader, val_dataloader
 
-    return train_dataloader, eval_dataloader
 
 def test_dataloader(data_path,
-                    dataset_test,
-                    batch_size):
-    
-    participants = [x[:9] for x in os.listdir(data_path) if 'sub' in x] #constumized to the dataset
-    test_participants = dataset_test[dataset_test['participant_id'].isin(participants)] #filtered rows
-    X_test = test_participants['participant_id'].values
-    labels_binary_test = test_participants['label'].values
-    y_test_binary = torch.LongTensor(labels_binary_test)
-    test_data = MRI_Generator(X_test, y_test_binary, data_path)
-    test_sampler = RandomSampler(test_data)
-    test_dataloader = DataLoader(test_data, sampler=test_sampler, batch_size=batch_size)
-    
+                    csv_path):
+    dataset = MRI_Generator(data_path, csv_path)
+
+    # Define the transformations
+    transform = transforms.Compose([
+        transforms.Lambda(lambda x: (x - x.min()) / (x.max() - x.min())),  # Normalize to [0, 1]
+    ])
+
+    transformed_dataset = TransformedDataset(dataset, transform)
+
+    test_dataloader = DataLoader(transformed_dataset,
+                                 batch_size=2,
+                                 shuffle=False)
+
     return test_dataloader

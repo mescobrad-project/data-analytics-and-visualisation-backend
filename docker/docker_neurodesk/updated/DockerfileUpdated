@@ -1,4 +1,4 @@
-FROM vnmd/neurodesktop:2024-01-11
+FROM vnmd/neurodesktop:2024-01-12
 #FROM vnmd/neurodesktop:20220329
 #docker pull vnmd/neurodesktop:2024-01-12
 RUN sudo apt update

@@ -5,7 +5,10 @@ import socket
 import paramiko
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .routers import routers_eeg, routers_mri, routers_datalake, routers_hypothesis,  routers_communication, routers_actigraphy, routers_ai
+from starlette.middleware.sessions import SessionMiddleware
+from .routers import routers_eeg, routers_mri, routers_datalake, routers_hypothesis, routers_communication, \
+    routers_actigraphy, routers_ai, routers_datasets
+
 from starlette.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -182,15 +185,29 @@ app = FastAPI(openapi_tags=tags_metadata)
 # region CORS Setup
 # This region enables FastAPI's built in CORSMiddleware allowing cross-origin requests allowing communication with
 # the React front end
-origins = ["*"]
+origins = [
+           "https://es.platform.mes-cobrad.eu",
+           "https://esbk.platform.mes-cobrad.eu",
+           "http://localhost:8000",
+           "http://localhost:3005",
+           "http://localhost:4000",
+           "https://analytics.platform.mes-cobrad.eu",
+           "https://analyticsbk.platform.mes-cobrad.eu"
+           "http://109.178.212.89/"
+           "https://109.178.212.89/"
+          ]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"]
+    allow_headers=["*"],
+
 )
+
+app.add_middleware(SessionMiddleware, secret_key="random-string",  same_site="None")
+
 NeurodesktopStorageLocation = os.environ.get('NeurodesktopStorageLocation') if os.environ.get(
     'NeurodesktopStorageLocation') else "/neurodesktop-storage"
 
@@ -317,5 +334,6 @@ app.include_router(routers_hypothesis.router)
 app.include_router(routers_datalake.router)
 app.include_router(routers_actigraphy.router)
 app.include_router(routers_ai.router)
+app.include_router(routers_datasets.router)
 
 # endregion
