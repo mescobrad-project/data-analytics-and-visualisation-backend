@@ -544,10 +544,18 @@ async def function_navigation(navigation_item: FunctionNavigationItem, request: 
                 url_to_redirect += "/AutoencoderModelLoad"
             case "valuesimputation":
                 url_to_redirect += "/ValuesImputation"
+            case "MRIModelTraining":
+                url_to_redirect += "/MRIModelTraining"
+            case "MRIModelBatchInference":
+                url_to_redirect += "/MRIModelBatchInference"
+            case "MRIInferenceAndExplainability":
+                url_to_redirect += "/MRIInferenceAndExplainability"
             case "datasetconcat":
                 url_to_redirect += "/DatasetConcat"
             case "datasetpreviewsheet":
                 url_to_redirect += "/DatasetPreviewSheet"
+            case "LDAmodelcreation":
+                url_to_redirect += "/LDAModelCreation"
             # Dashboard
 
             case "dashboard":

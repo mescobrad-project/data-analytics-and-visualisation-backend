@@ -7,6 +7,7 @@ import itertools
 from sklearn.cross_decomposition import CCA
 from sklearn.manifold import MDS, TSNE
 from sklearn.decomposition import FastICA
+from sklearn.metrics import accuracy_score, classification_report
 from sklearn.preprocessing import LabelEncoder
 import re
 from pandas.api.types import is_numeric_dtype
@@ -36,6 +37,7 @@ from statsmodels.stats.stattools import durbin_watson
 from lifelines.utils import to_episodic_format
 import matplotlib.pyplot as plt
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+from sklearn.model_selection import train_test_split
 from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
 from sklearn.linear_model import LinearRegression, Ridge, Lasso, ElasticNet, SGDRegressor, SGDClassifier, HuberRegressor,Lars, PoissonRegressor, LogisticRegression
@@ -69,7 +71,7 @@ from sklearn.preprocessing import StandardScaler
 
 from app.utils.utils_hypothesis import create_plots, compute_skewness, outliers_removal, compute_kurtosis, \
     statisticsMean, statisticsMin, statisticsMax, statisticsStd, statisticsCov, statisticsVar, statisticsStandardError, \
-    statisticsConfidenceLevel, DataframeImputation
+    statisticsConfidenceLevel, DataframeImputation, plot_classification_report_with_support
 from semopy import Model, estimate_means, ModelMeans, semplot, calc_stats, gather_statistics, Optimizer, efa
 import plotly.express as px
 import plotly.graph_objects as go
@@ -444,7 +446,7 @@ async def normal_tests(workflow_id: str, step_id: str, run_id: str,
     except Exception as e:
         # df["Error"] = ["Unable to conduct Normality test"]
         print(e)
-        return JSONResponse(content={'status':test_status,'statistic': "", 'p_value': "", 'Description': "", 'results': {}, 'critical_values': [], 'significance_level':[]}, status_code=200)
+        return JSONResponse(content={'status':test_status+'\n'+ e.__str__(),'statistic': "", 'p_value': "", 'Description': "", 'results': {}, 'critical_values': [], 'significance_level':[]}, status_code=200)
 
 @router.get("/transform_data", tags=['hypothesis_testing'])
 async def transform_data(workflow_id: str,
@@ -732,7 +734,7 @@ async def point_biserial_correlation(workflow_id: str, step_id: str, run_id: str
             raise Exception
     except Exception as e:
         print(e)
-        return JSONResponse(content={'status': test_status, 'sample_A': {
+        return JSONResponse(content={'status': test_status+'\n'+ e.__str__(), 'sample_A': {
                         'value': '',
                         'N': '',
                         'N_clean':  '',
@@ -782,6 +784,10 @@ async def check_homoskedasticity(workflow_id: str,
         data = load_data_from_csv(path_to_storage + "/" + file)
         # data = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
         # columns = dfv['Variable']
+        for column in data.columns:
+            if data[column].dtype == object:
+                lab_enc = LabelEncoder()
+                data[column] = lab_enc.fit_transform(data[column])
 
         test_status = 'Unable to compute Homoscedasticity for the selected columns. NaNs or nonnumeric values are selected.'
 
@@ -833,7 +839,7 @@ async def check_homoskedasticity(workflow_id: str,
         return JSONResponse(content={'status': 'Success','statistic': statistic, 'p_value': p_value, 'variance': var}, status_code=200)
     except Exception as e:
         print(e)
-        return JSONResponse(content={'status':test_status,'statistic': "", 'p_value': "", 'variance': ""}, status_code=200)
+        return JSONResponse(content={'status':test_status+'\n'+ e.__str__(),'statistic': "", 'p_value': "", 'variance': ""}, status_code=200)
 
 
 @router.get("/transformed_data_for_use_in_an_ANOVA", tags=['hypothesis_testing'])
@@ -862,6 +868,10 @@ async def transform_data_anova(
 
         # data = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
         # variables = dfv['Variable']
+        for column in data.columns:
+            if data[column].dtype == object:
+                lab_enc = LabelEncoder()
+                data[column] = lab_enc.fit_transform(data[column])
 
         test_status = 'Unable to compute Obrien transformation for the selected columns. NaNs or nonnumeric values are selected.'
         # Keep requested Columns
@@ -908,7 +918,7 @@ async def transform_data_anova(
                             status_code=200)
     except Exception as e:
         print(e)
-        return JSONResponse(content={'status':test_status,
+        return JSONResponse(content={'status':test_status+'\n'+ e.__str__(),
                                      'Dataframe': df.to_json(orient="records")},
                             status_code=200)
 
@@ -954,6 +964,11 @@ async def statistical_tests(workflow_id: str,
         for column in data.columns:
             if column not in columns:
                 data = data.drop(str(column), axis=1)
+
+        for column in data.columns:
+            if data[column].dtype == object:
+                lab_enc = LabelEncoder()
+                data[column] = lab_enc.fit_transform(data[column])
 
         test_status = 'Unable to compute ' + statistical_test + \
                       ' for the selected columns. NaNs or nonnumeric values are selected.'
@@ -1069,6 +1084,7 @@ async def statistical_tests(workflow_id: str,
 async def p_value_correction(workflow_id: str,
                              step_id: str,
                              run_id: str,
+                             file:str,
                              method: str,
                              alpha: float,
                              p_value: list[str] | None = Query(default=None)):
@@ -1079,19 +1095,24 @@ async def p_value_correction(workflow_id: str,
     # Load Datasets
     try:
         test_status = 'Dataset is not defined'
-        dfv['variables'] = p_value
-        dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
+        # dfv['variables'] = p_value
+        # dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
 
-        selected_datasources = pd.unique(dfv['Datasource'])
+        # selected_datasources = pd.unique(dfv['Datasource'])
         # We expect only one here
         test_status = 'Unable to retrieve datasets'
-        data = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
+        data = load_data_from_csv(path_to_storage + "/" + file)
+        # data = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
         # We expect only 1 column
-        if len(pd.unique(dfv['Variable'])) != 1:
-            test_status = 'Only 1 set of p-values is expected'
-            raise Exception
+        # if len(pd.unique(dfv['Variable'])) != 1:
+        #     test_status = 'Only 1 set of p-values is expected'
+        #     raise Exception
+        for column in data.columns:
+            if data[column].dtype == object:
+                lab_enc = LabelEncoder()
+                data[column] = lab_enc.fit_transform(data[column])
 
-        p_value = dfv['Variable'][0]
+        # p_value = dfv['Variable'][0]
         test_status = 'Unable to compute ' + method + ' Multitest for the selected p-values.'
         if method == 'Bonferroni':
             z = multipletests(pvals=data[p_value], alpha=alpha, method='bonferroni')
@@ -1104,6 +1125,7 @@ async def p_value_correction(workflow_id: str,
         else:
             z = multipletests(pvals=data[p_value], alpha=alpha, method= method)
 
+        print(f"z:{z}")
         df['values'] = data[p_value]
         df['rejected'] = [str(x) for x in z[0]]
         df['corrected_p_values'] = z[1]
@@ -1138,7 +1160,7 @@ async def p_value_correction(workflow_id: str,
         return {'status':'Success', 'result': df.to_json(orient='records')}
     except Exception as e:
         print(e)
-        return {'status':test_status,'result': df.to_json(orient='records')}
+        return {'status':test_status+'\n'+ e.__str__(),'result': df.to_json(orient='records')}
 
 
 @router.get("/return_LDA", tags=["return_LDA"])
@@ -1146,6 +1168,12 @@ async def LDA(workflow_id: str,
                 step_id: str,
                 run_id: str,
               dependent_variable: str,
+              file_name: str,
+              model_name: str,
+              test_size: float,
+              random_state: int,
+              n_components: int = 2,
+              shuffle: bool | None = Query(default=False),
               solver: str | None = Query("svd",
                                          regex="^(svd)$|^(lsqr)$|^(eigen)$"),
               shrinkage_1: str | None = Query("none",
@@ -1153,47 +1181,132 @@ async def LDA(workflow_id: str,
               shrinkage_2: float | None = Query(default=None, gt=-1, lt=1),
               # shrinkage_3: float | None = Query(default=None),
               independent_variables: list[str] | None = Query(default=None)):
-    dfv = pd.DataFrame()
+
+    # print(f'n_components:{n_components}')
+    # print(f'file_name:{file_name}')
+    # print(f'random_state:{random_state}')
+    # print(f'test_size:{test_size}')
+    # print(f'shuffle:{shuffle}')
+
     df = pd.DataFrame()
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
     test_status = ''
     to_return={'number_of_features': '',
-            'features_columns': [],
-            'number_of_classes':'',
-            'classes_': [],
-            'number_of_components': '',
-            'explained_variance_ratio': df.to_json(orient='records'),
-            'means_': df.to_json(orient='records'),
-            'priors_': df.to_json(orient='records'),
-            'scalings_': df.to_json(orient='records'),
-            'xbar_': df.to_json(orient='records'),
-            'coefficients': df.to_json(orient='records'),
-            'intercept': df.to_json(orient='records')}
+               'features_columns': [],
+               'number_of_classes':'',
+               'classes_': [],
+               'number_of_selected_components': '',
+               'max_number_of_components': '',
+               'accuracy': '',
+               'classification_report':'',
+              'explained_variance_ratio': df.to_json(orient='records'),
+               'means_': df.to_json(orient='records'),
+               'priors_': df.to_json(orient='records'),
+               'scalings_': df.to_json(orient='records'),
+               'xbar_': df.to_json(orient='records'),
+               'coefficients': df.to_json(orient='records'),
+               'intercept': df.to_json(orient='records')}
     # Load Datasets
     try:
-        test_status = 'Dataset is not defined'
-        dfv['variables'] = independent_variables
-        dfv[['Datasource', 'Variable']] = dfv["variables"].apply(lambda x: pd.Series(str(x).split("--")))
-
-        selected_datasources = pd.unique(dfv['Datasource'])
-        independent_variables = dfv['Variable']
-        dependent_variable = dependent_variable.split("--")[1]
-        selected_columns = pd.unique(dfv['Variable'])
-
-        # We expect only one here
-        test_status = 'Unable to retrieve datasets'
-        dataset = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
-
-        # dataset = load_file_csv_direct(workflow_id, run_id, step_id)
-        # dataset = pd.read_csv('example_data/mescobrad_dataset.csv')
+        test_status = 'Unable to retrieve the dataset'
+        # selected_columns = pd.unique(independent_variables)
+        dataset = load_data_from_csv(path_to_storage + "/" + file_name)
         df_label = dataset[str(dependent_variable)]
-        for columns in dataset.columns:
-            if columns not in selected_columns:
-                dataset = dataset.drop(str(columns), axis=1)
-        test_status = 'Unable to compute LDA. Variables with numeric values must be selected.'
-        features_columns = dataset.columns
-        X = np.array(dataset)
-        Y = np.array(df_label.astype('float64'))
+        features_columns = independent_variables
+        # X = np.array(dataset)
+        # Y = np.array(df_label.astype('float64'))
+
+        X = dataset[independent_variables]
+        y = dataset[dependent_variable]
+        df = pd.DataFrame(X, columns=independent_variables)
+        df['target'] = y
+        # print(df)
+
+        # Split dataset into train and test sets
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=random_state,
+                                                            shuffle=shuffle)
+        # Standardize the features
+        scaler = StandardScaler()
+        X_train = scaler.fit_transform(X_train)
+        X_test = scaler.transform(X_test)
+        test_status = 'Unable to compute max(components) for LDA'
+        # Find max(components) for LDA
+        clf = LinearDiscriminantAnalysis()
+        clf.fit(X_train, y_train)
+        max_number_of_components = min(len(clf.classes_) - 1, clf.n_features_in_)
+        # print(f'max_number_of_components:{max_number_of_components}')
+        # Perform LDA
+        test_status = 'Unable to Perform LDA'
+        if solver == 'lsqr' or solver == 'eigen':
+            if shrinkage_1 == 'float':
+                lda = LinearDiscriminantAnalysis(n_components=n_components, solver=solver, shrinkage=shrinkage_2)
+            elif shrinkage_1 == 'auto':
+                lda = LinearDiscriminantAnalysis(n_components=n_components, solver=solver, shrinkage=shrinkage_1)
+            else:
+                lda = LinearDiscriminantAnalysis(n_components=n_components, solver=solver)
+        else:
+            lda = LinearDiscriminantAnalysis(n_components=n_components, solver=solver)
+
+        # lda = LinearDiscriminantAnalysis(n_components=n_components)  # Reduce to 2 components for visualization
+        X_train_lda = lda.fit_transform(X_train, y_train)
+        X_test_lda = lda.transform(X_test)
+        test_status = 'Unable to Train the LDA model'
+        # Train the LDA model
+        lda_classifier = LinearDiscriminantAnalysis()
+        lda_classifier.fit(X_train, y_train)
+        # Make predictions
+        test_status = 'Unable to Make predictions'
+        y_pred = lda_classifier.predict(X_test)
+        # Evaluate the classifier
+        test_status = 'Unable to Evaluate the classifier'
+        accuracy = accuracy_score(y_test, y_pred)
+        # print(f"Accuracy: {accuracy}")
+
+        classif_report=classification_report(y_test, y_pred,zero_division=0, output_dict=True)
+        df_report, plot_report = plot_classification_report_with_support(classif_report)
+
+        component_cols = ['LDA' + str(i + 1) for i in range(n_components)]
+        # print(f"component_cols: {component_cols}")
+
+        # Create a DataFrame for visualization
+        lda_df = pd.DataFrame(X_train_lda, columns=component_cols)
+        # print(f"lda_df:{lda_df}")
+        lda_df['target'] = y_train
+
+        test_status = 'Unable to create scatter plot'
+        # Prepare the plot
+        max_axs = 0
+        print(len(component_cols))
+        for i in range(len(component_cols)):
+            for j in range(i + 1, len(component_cols)):
+                if i != j:
+                    max_axs += 1
+        print(max_axs)
+        if max_axs<=1:max_axs=2
+        fig, axs = plt.subplots(1, max_axs, figsize=(max_axs*8, 10),sharey='col')
+        k=-1
+        for i in range(len(component_cols)):
+            # print(i)
+            for j in range(i + 1, len(component_cols)):
+                # print(j)
+                if i != j:
+                    k += 1
+                    sns.scatterplot(ax=axs[k], data=lda_df, x=component_cols[i], y=component_cols[j], hue='target', palette='viridis', s=100, alpha=0.7)
+                    axs[k].set_xlabel(component_cols[i], fontsize=20)
+                    axs[k].set_ylabel(component_cols[j], fontsize=20)
+                    axs[k].set_title(component_cols[i]+" - "+component_cols[j], fontsize=20)
+                    # targets = pd.unique(dataset[dependent_variable])
+                    # Plot the LDA components
+                    # plt.figure(figsize=(8, 6))
+                    # plt.title('Linear Discriminant Analysis', fontsize=20)
+                    # plt.xlabel('LDA1')
+                    # plt.ylabel('LDA2')
+                    # plt.legend(title='Class')
+        plt.tight_layout()
+        if max_axs == 2:
+            fig.delaxes(axs[1])
+        # plt.show()
+        plt.savefig(path_to_storage + "/output/LDA.svg", format="svg")
 
     # target_names = np.unique(Y)
     # sc = StandardScaler()
@@ -1222,53 +1335,58 @@ async def LDA(workflow_id: str,
     # # plt.title("LDA of IRIS dataset")
     # # plt.show()
 
-        if solver == 'lsqr' or solver == 'eigen':
-            if shrinkage_1 == 'float':
-                clf = LinearDiscriminantAnalysis(solver=solver, shrinkage=shrinkage_2)
-            elif shrinkage_1 == 'auto':
-                clf = LinearDiscriminantAnalysis(solver=solver, shrinkage=shrinkage_1)
-            else:
-                clf = LinearDiscriminantAnalysis(solver=solver)
-        else:
-            clf = LinearDiscriminantAnalysis(solver=solver)
-        # print(solver)
-        clf.fit(X,Y)
 
-        classes = clf.classes_
-        number_of_classes = len(clf.classes_)
-        number_of_components = min(len(clf.classes_) - 1, clf.n_features_in_)
+        # print(solver)
+        # clf.fit(X,Y)
+        test_status = 'Unable to present the metrics'
+        classes = lda.classes_
+        number_of_classes = len(lda.classes_)
+        # print(f"number_of_classes: {number_of_classes}")
+        number_of_components = min(len(lda.classes_) - 1, lda.n_features_in_)
+        # print(f"number_of_components: {number_of_components}")
         if solver == 'svd':
-            df_xbar = pd.DataFrame(clf.xbar_, columns=['xbar'])
+            df_xbar = pd.DataFrame(lda.xbar_, columns=['xbar'])
             df_xbar.insert(loc=0, column='Feature', value=features_columns)
-            df_scalings = pd.DataFrame(clf.scalings_, columns=[i + 1 for i in range(number_of_components)])
+            df_scalings = pd.DataFrame(lda.scalings_, columns=[i + 1 for i in range(number_of_components)])
             df_scalings.insert(loc=0, column='Feature', value=features_columns)
         else:
             df_xbar = pd.DataFrame()
             df_scalings = pd.DataFrame()
+        # print(f"df_xbar: {df_xbar}")
+        # print(f"df_scalings: {df_scalings}")
 
-        df_mean = pd.DataFrame(clf.means_, columns=features_columns)
+        df_mean = pd.DataFrame(lda.means_, columns=features_columns)
         df_mean.insert(loc=0, column='Class', value=classes)
-        df_prior = pd.DataFrame(clf.priors_, columns=['priors'])
+        df_prior = pd.DataFrame(lda.priors_, columns=['priors'])
         df_prior.insert(loc=0, column='Class', value=classes)
+        # print(f"df_prior: {df_prior}")
 
         if solver == 'eigen' or solver =='svd':
-            df_explained_variance_ratio = pd.DataFrame(clf.explained_variance_ratio_, columns=['Variance ratio'])
-            df_explained_variance_ratio.insert(loc=0, column='Component', value=[i + 1 for i in range(number_of_components)])
+            df_explained_variance_ratio = pd.DataFrame(lda.explained_variance_ratio_, columns=['Variance ratio'])
+            df_explained_variance_ratio.insert(loc=0, column='Component', value=[i + 1 for i in range(n_components)])
         else:
             df_explained_variance_ratio = pd.DataFrame()
+        # print(f"df_explained_variance_ratio: {df_explained_variance_ratio}")
 
-        df_coefs = pd.DataFrame(clf.coef_, columns=features_columns)
-        df_intercept = pd.DataFrame(clf.intercept_, columns=['intercept'])
+        df_coefs = pd.DataFrame(lda.coef_, columns=features_columns)
+        # print(f"df_coefs: {df_coefs}")
+        df_intercept = pd.DataFrame(lda.intercept_, columns=['intercept'])
         df_coefs['intercept'] = df_intercept['intercept']
+        # print(f"df_intercept: {df_intercept}")
+
         if df_coefs.shape[0] == len(classes):
             df_coefs.insert(loc=0, column='Class', value=classes)
+        # print(f"df_coefs: {df_coefs}")
 
         to_return = {
-            'number_of_features': int(clf.n_features_in_),
-            'features_columns': features_columns.tolist(),
+            'number_of_features': int(lda.n_features_in_),
+            'features_columns': features_columns,
             'number_of_classes':number_of_classes,
-            'classes_': clf.classes_.tolist(),
-            'number_of_components': number_of_components,
+            'number_of_selected_components':n_components,
+            'classes_': lda.classes_.tolist(),
+            'max_number_of_components': max_number_of_components,
+            'accuracy': accuracy,
+            'classification_report':df_report.to_json(orient='records'),
             'explained_variance_ratio': df_explained_variance_ratio.to_json(orient='records'),
             'means_': df_mean.to_json(orient='records'),
             'priors_': df_prior.to_json(orient='records'),
@@ -1286,7 +1404,7 @@ async def LDA(workflow_id: str,
                 "step_id": step_id,
                 "test_name": 'Linear discriminant analysis',
                 "test_params": {'Dependent': dependent_variable,
-                                'Independent Variables': list(selected_columns),
+                                'Independent Variables': list(features_columns),
                                 'solver':solver,
                                 'shrinkage': shrinkage_1},
                 "test_results": to_return,
@@ -1297,12 +1415,11 @@ async def LDA(workflow_id: str,
             f.seek(0)
             json.dump(file_data, f, indent=4)
             f.truncate()
-        print(test_status)
         print(to_return)
         return JSONResponse(content={'status': 'Success', 'result': to_return}, status_code=200)
     except Exception as e:
         print(e)
-        return JSONResponse(content={'status': test_status, 'result': to_return}, status_code=200)
+        return JSONResponse(content={'status': test_status+'\n'+ e.__str__(), 'result': to_return}, status_code=200)
 
     # return {'coefficients': df_coefs.to_json(orient='split'), 'intercept': df_intercept.to_json(orient='split')}
 
@@ -1484,7 +1601,7 @@ async def principal_component_analysis(workflow_id: str,
 
     except Exception as e:
         print(e)
-        return JSONResponse(content={'status': test_status,
+        return JSONResponse(content={'status': test_status+'\n'+ e.__str__(),
                                      'columns': [],
                                      'n_features_': 0,
                                      'n_features_in_': 0,
@@ -2688,6 +2805,7 @@ async def ancova_2(workflow_id: str,
         test_status = 'Unable to compute Ancova test for the selected columns. Nonnumeric values are selected for the Dependent variable or the Covariates.'
         df = ancova(data=df_data, dv=dv, covar=covar, between=between, effsize=effsize)
         df = df.fillna('')
+        df.to_csv(path_to_storage + '/output/ancova.csv', index=False)
         all_res = []
         for ind, row in df.iterrows():
             temp_to_append = {
@@ -2714,7 +2832,8 @@ async def ancova_2(workflow_id: str,
                     'selected_covariate_variables':covar
                 },
                 "test_results": all_res,
-                "Output_datasets":[],
+                "Output_datasets":[{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id + '/output/ancova.csv'}],
                 'Saved_plots': []
             }
             f.seek(0)
@@ -2762,6 +2881,7 @@ async def linear_mixed_effects_model(workflow_id: str,
         mdf = md.fit()
         df = mdf.summary()
         df_0 = df.tables[0]
+        df_0.to_csv(path_to_storage + '/output/linear_mixed_effects_model_table_1.csv', index=False)
         tbl1_res = []
         for ind, row in df_0.iterrows():
             temp_to_append = {
@@ -2773,6 +2893,7 @@ async def linear_mixed_effects_model(workflow_id: str,
             }
             tbl1_res.append(temp_to_append)
         df_1 = df.tables[1]
+        df_1.to_csv(path_to_storage + '/output/linear_mixed_effects_model_table_2.csv', index=False)
         tbl2_res = []
         for ind, row in df_1.iterrows():
             temp_to_append = {
@@ -2804,7 +2925,11 @@ async def linear_mixed_effects_model(workflow_id: str,
                     'model':tbl1_res,
                     'coeficients':tbl2_res
                 },
-                "Output_datasets":[],
+                "Output_datasets":[{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id + '/output/linear_mixed_effects_model_table_1.csv'},
+                                   {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                            step_id + '/output/linear_mixed_effects_model_table_2.csv'}
+                                   ],
                 'Saved_plots': []
             }
             f.seek(0)
@@ -3000,6 +3125,7 @@ async def cox_regression(workflow_id: str,
                 #cluster_col=cluster_col, entry_col=entry_col)
 
         df = cph.summary
+        df.to_csv(path_to_storage + '/output/cox_summary.csv', index=False)
         tbl1_res = []
         for ind, row in df.iterrows():
             temp_to_append = {
@@ -3021,6 +3147,8 @@ async def cox_regression(workflow_id: str,
         cph.plot(hazard_ratios=hazard_ratios)
         html_str = mpld3.fig_to_html(fig)
         to_return.append({"figure_1": html_str})
+        with open(path_to_storage + "/output/figure_1.html", 'w') as file:
+            file.write(html_str)
         plt.clf()
         if covariates != None:
             fig = plt.figure(1)
@@ -3032,11 +3160,14 @@ async def cox_regression(workflow_id: str,
             ax.plot()
             html_str = mpld3.fig_to_html(ax.get_figure())
             to_return.append({"figure_2": html_str})
+            with open(path_to_storage + "/output/figure_2.html", 'w') as file:
+                file.write(html_str)
             # to_return["figure_2"] = html_str
 
         results = proportional_hazard_test(cph, dataset, time_transform='rank')
 
         df_1 = results.summary
+        df_1.to_csv(path_to_storage + '/output/cox_proportional_hazard_test_summary.csv', index=False)
         tbl2_res = []
         for ind, row in df_1.iterrows():
             temp_to_append = {
@@ -3050,32 +3181,48 @@ async def cox_regression(workflow_id: str,
         AIC = cph.AIC_partial_
 
         test_status = 'Error in creating info file.'
-        # with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
-        #     file_data = json.load(f)
-        #     file_data['results'] |= {
-        #         "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
-        #         "workflow_id": workflow_id,
-        #         "run_id": run_id,
-        #         "step_id": step_id,
-        #         "test_name": 'Generalized Estimating Equations',
-        #         "test_params": {
-        #             "dependent_variable": dependent_variable,
-        #             "groups": groups,
-        #             "independent_variables": independent_variables,
-        #             "cov_struct": cov_struct,
-        #             "family": family
-        #         },
-        #         "test_results": {
-        #             "first_table": df_0.to_dict(),
-        #             "second_table": df_1.to_dict(),
-        #             "third_table": df_2.to_dict(),
-        #         },
-        #         "Output_datasets": [],
-        #         'Saved_plots': []
-        #     }
-        #     f.seek(0)
-        #     json.dump(file_data, f, indent=4)
-        #     f.truncate()
+        with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
+            file_data = json.load(f)
+            file_data['results'] |= {
+                "date_created": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
+                "workflow_id": workflow_id,
+                "run_id": run_id,
+                "step_id": step_id,
+                "test_name": 'Cox Regression',
+                "test_params": {
+                    "covariates": covariates,
+                    "alpha": alpha,
+                    "penalizer": penalizer,
+                    "l1_ratio": l1_ratio,
+                    "n_baseline_knots": n_baseline_knots,
+                    "breakpoints": breakpoints,
+                    "event_col": event_col,
+                    "weights_col": weights_col,
+                    "cluster_col": cluster_col,
+                    "entry_col": entry_col,
+                    "strata": strata,
+                    "hazard_ratios": hazard_ratios,
+                    "baseline_estimation_method": baseline_estimation_method
+                },
+                "test_results": {
+                    "Concordance_Index": cph.concordance_index_,
+                    "AIC": AIC,
+                    "Dataframe": tbl1_res,
+                    "proportional_hazard_test": tbl2_res,
+                },
+                "Output_datasets": [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id+'/analysis_output/' + 'cox_summary.csv'},
+                                    {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                             step_id + '/analysis_output/' + 'cox_proportional_hazard_test_summary.csv'}
+                                    ],
+                'Saved_plots': [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                 step_id + 'output/figure_2.html'},
+                                {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                         step_id + 'output/figure_1.html'}]
+            }
+            f.seek(0)
+            json.dump(file_data, f, indent=4)
+            f.truncate()
         return JSONResponse(content={'status': 'Success',
                                      'Concordance_Index':cph.concordance_index_,
                                      'AIC': AIC,
@@ -3218,6 +3365,8 @@ async def anova_pairwise_tests(workflow_id: str,
                                      padjust=padjust, effsize=effsize, correction=correction, nan_policy=nan_policy)
         df = df.fillna('')
 
+        df.to_csv(path_to_storage + '/output/anova_pairwise_tests.csv', index=False)
+
         columns = [{
             "col" : "id"}]
 
@@ -3273,7 +3422,8 @@ async def anova_pairwise_tests(workflow_id: str,
                     'selected_within': within_factor,
                 },
                 "test_results": all_res,
-                "Output_datasets": [],
+                "Output_datasets": [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id+'/analysis_output/' + 'anova_pairwise_tests.csv'}],
                 'Saved_plots': []
             }
             f.seek(0)
@@ -3288,41 +3438,41 @@ async def anova_pairwise_tests(workflow_id: str,
         print(traceback.format_exc())
         return JSONResponse(content={'status': test_status, 'DataFrame': [], 'Columns': []},
                             status_code=200)
-@router.get("/anova_repeated_measures")
-async def anova_rm(workflow_id: str,
-                   step_id: str,
-                   run_id: str,
-                   dependent_variable: str,
-                   subject: str,
-                   within: list[str] | None = Query(default=None),
-                   aggregate_func: str | None = Query(default=None,
-                                                      regex="^(mean)$")):
-
-    df_data = pd.read_csv('C:\\neurodesktop-storage\\runtime_config\\workflow_3fa85f64-5717-4562-b3fc-2c963f66afa6\\run_3fa85f64-5717-4562-b3fc-2c963f66afa6\\step_3fa85f64-5717-4562-b3fc-2c963f66afa6/Sample_rep_measures.csv')
-    # df_data = load_file_csv_direct(workflow_id, run_id, step_id)
-    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
-    print(df_data.columns)
-    # unique, counts = np.unique(df_data[subject], return_counts=True)
-    # print(unique)
-    # print(counts)
-    # z = all(x==counts[0] for x in counts)
-    # print(z)
-    print(dependent_variable)
-    print(subject)
-    print(within)
-    print(df_data)
-    # posthocs = pingouin.pairwise_ttests(dv=dependent_variable,
-    #                                     within=within, between='Age',
-    #                                     subject=subject, data=df_data)
-    # pingouin.print_table(posthocs)
-
-    z=True
-    if z:
-        df = AnovaRM(data=df_data, depvar=dependent_variable, subject=subject, within=within, aggregate_func=aggregate_func)
-        df_new = df.fit()
-        return{'Result': df_new}
-    else:
-        return {"Unbalanced"}
+# @router.get("/anova_repeated_measures")
+# async def anova_rm(workflow_id: str,
+#                    step_id: str,
+#                    run_id: str,
+#                    dependent_variable: str,
+#                    subject: str,
+#                    within: list[str] | None = Query(default=None),
+#                    aggregate_func: str | None = Query(default=None,
+#                                                       regex="^(mean)$")):
+#
+#     df_data = pd.read_csv('C:\\neurodesktop-storage\\runtime_config\\workflow_3fa85f64-5717-4562-b3fc-2c963f66afa6\\run_3fa85f64-5717-4562-b3fc-2c963f66afa6\\step_3fa85f64-5717-4562-b3fc-2c963f66afa6/Sample_rep_measures.csv')
+#     # df_data = load_file_csv_direct(workflow_id, run_id, step_id)
+#     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+#     print(df_data.columns)
+#     # unique, counts = np.unique(df_data[subject], return_counts=True)
+#     # print(unique)
+#     # print(counts)
+#     # z = all(x==counts[0] for x in counts)
+#     # print(z)
+#     print(dependent_variable)
+#     print(subject)
+#     print(within)
+#     print(df_data)
+#     # posthocs = pingouin.pairwise_ttests(dv=dependent_variable,
+#     #                                     within=within, between='Age',
+#     #                                     subject=subject, data=df_data)
+#     # pingouin.print_table(posthocs)
+#
+#     z=True
+#     if z:
+#         df = AnovaRM(data=df_data, depvar=dependent_variable, subject=subject, within=within, aggregate_func=aggregate_func)
+#         df_new = df.fit()
+#         return{'Result': df_new}
+#     else:
+#         return {"Unbalanced"}
 
 @router.get("/generalized_estimating_equations")
 async def generalized_estimating_equations(workflow_id: str,
@@ -3397,6 +3547,7 @@ async def generalized_estimating_equations(workflow_id: str,
         df_0.rename(columns={1: 'Values'}, inplace=True)
         df_0.drop(df_0.tail(2).index, inplace=True)
         df_0.reset_index(inplace=True)
+        df_0.to_csv(path_to_storage + '/output/generalized_estimating_equations_1.csv', index=False)
         # print(list(df_0.values))
 
         results_as_html = df.tables[1].as_html()
@@ -3408,8 +3559,8 @@ async def generalized_estimating_equations(workflow_id: str,
         df_1.index.name = None
         df_1.reset_index(inplace=True)
         df_1.rename(columns={'[0.025': '0.025', '0.975]': '0.975'}, inplace=True)
+        df_1.to_csv(path_to_storage + '/output/generalized_estimating_equations_2.csv', index=False)
 
-        df_1.to_csv(path_to_storage + '/output/generalized_estimating_equations.csv', index=False)
         results_as_html = df.tables[2].as_html()
         df_2 = pd.read_html(results_as_html)[0]
         df_new = df_2[[2, 3]]
@@ -3419,6 +3570,8 @@ async def generalized_estimating_equations(workflow_id: str,
         df_2.index.name = None
         df_2.rename(columns={1: 'Values'}, inplace=True)
         df_2.reset_index(inplace=True)
+        df_2.to_csv(path_to_storage + '/output/generalized_estimating_equations_3.csv', index=False)
+
         test_status = 'Error in creating info file.'
         with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
             file_data = json.load(f)
@@ -3440,8 +3593,12 @@ async def generalized_estimating_equations(workflow_id: str,
                     "second_table":df_1.to_dict(),
                     "third_table":df_2.to_dict(),
                 },
-                "Output_datasets": [],
-                'Saved_plots': []
+                "Output_datasets": [
+                    {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' + step_id+'/analysis_output/' + 'generalized_estimating_equations_1.csv'},
+                    {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' + step_id + '/analysis_output/' + 'generalized_estimating_equations_2.csv'},
+                    {"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' + step_id+'/analysis_output/' + 'generalized_estimating_equations_3.csv'}
+                ],
+                'Saved_plots': [],
             }
             f.seek(0)
             json.dump(file_data, f, indent=4)
@@ -3498,21 +3655,21 @@ async def kaplan_meier(workflow_id: str,
 
         df.insert(0, "timeline", timeline)
         confidence_interval.insert(0, "timeline", timeline)
-        confidence_interval.columns = confidence_interval.columns.str.replace('.', ',', regex=True)
+        confidence_interval.columns = confidence_interval.columns.str.replace('.', ',')
         conditional_time_to_event.insert(0, "timeline", timeline)
         event_table.insert(0, "event_at", timeline)
         confidence_interval_cumulative_density.insert(0, "timeline", timeline)
-        confidence_interval_cumulative_density.columns = confidence_interval_cumulative_density.columns.str.replace('.', ',', regex=True)
+        confidence_interval_cumulative_density.columns = confidence_interval_cumulative_density.columns.str.replace('.', ',')
         cumulative_density.insert(0, "timeline", timeline)
         test_status = 'Error in creating info file.'
-        # print(df.to_string() +'\n'+
-        #             confidence_interval.to_string()+'\n'+
-        #             event_table.to_string()+'\n'+
-        #             conditional_time_to_event.to_string()+'\n'+
-        #            confidence_interval_cumulative_density.to_string()+'\n'+
-        #             cumulative_density.to_string()+'\n'+
-        #             timeline.to_string()+'\n'+
-        #             str(median_survival_time))
+        print(df.to_string() +'\n'+
+                    confidence_interval.to_string()+'\n'+
+                    event_table.to_string()+'\n'+
+                    conditional_time_to_event.to_string()+'\n'+
+                   confidence_interval_cumulative_density.to_string()+'\n'+
+                    cumulative_density.to_string()+'\n'+
+                    timeline.to_string()+'\n'+
+                    str(median_survival_time))
         with open(path_to_storage + '/output/info.json', 'r+', encoding='utf-8') as f:
             file_data = json.load(f)
             file_data['results'] |= {
@@ -4226,8 +4383,13 @@ async def correlations_pingouin(workflow_id: str,
         for column in data.columns:
             if column not in selected_columns:
                 data = data.drop(str(column), axis=1)
-
+        # print(f"1:{data.head(10)}")
+        for column in data.columns:
+            if data[column].dtype == object:
+                lab_enc = LabelEncoder()
+                data[column]=lab_enc.fit_transform(data[column])
         test_status = 'Unable to compute ' + method+' correlation.'
+        # print(f"2:{data.head(10)}")
         df = data[columns]
         # Not for all methods -
         # df1 = df.rcorr(stars=False).round(5)
@@ -4255,7 +4417,7 @@ async def correlations_pingouin(workflow_id: str,
                     continue
                 res = pingouin.corr(x=data[i], y=data[j], method=method, alternative=alternative)
                 res.insert(0,'Cor', i + "-" + j, True)
-                print(res)
+                # print(res)
                 count = count + 1
                 for ind, row in res.iterrows():
                     temp_to_append = {
@@ -5344,6 +5506,11 @@ async def analysis_mediation(workflow_id: str,
 
         data = load_data_from_csv(path_to_storage + "/" + file)
 
+        for column in data.columns:
+            if data[column].dtype == object:
+                lab_enc = LabelEncoder()
+                data[column]=lab_enc.fit_transform(data[column])
+
         # data = load_data_from_csv(path_to_storage + "/" + selected_datasource)
 
         # We want X to affect Y. If there is no relationship between X and Y, there is nothing to mediate.
@@ -5450,7 +5617,7 @@ async def analysis_mediation(workflow_id: str,
                             status_code=200)
     except Exception as e:
         print(e)
-        return JSONResponse(content={'status': test_status, 'Result': '[]'},
+        return JSONResponse(content={'status': test_status+'\n'+ e.__str__(), 'Result': '[]'},
                             status_code=200)
 
 @router.get("/canonical_correlation_analysis")
@@ -5488,6 +5655,11 @@ async def canonical_correlation(workflow_id: str,
         # We expect only one here
         dataset = load_data_from_csv(path_to_storage + "/" + file)
         # dataset = load_data_from_csv(path_to_storage + "/" + selected_datasources[0])
+
+        for column in dataset.columns:
+            if dataset[column].dtype == object:
+                lab_enc = LabelEncoder()
+                dataset[column]=lab_enc.fit_transform(dataset[column])
 
         X = dataset[dataset.columns.intersection(independent_variables_1)]
         Y = dataset[dataset.columns.intersection(independent_variables_2)]
@@ -5606,7 +5778,7 @@ async def canonical_correlation(workflow_id: str,
                             status_code=200)
     except Exception as e:
         print(e)
-        return JSONResponse(content={'status': test_status,
+        return JSONResponse(content={'status': test_status+'\n'+ e.__str__(),
                                      'xweights': "[]",
                                      'yweights': "[]",
                                      'xloadings': "[]",
@@ -5714,6 +5886,7 @@ async def compute_one_way_welch_anova(workflow_id: str,
         df = pingouin.welch_anova(data=df_data, dv=dv, between=between)
         print(df)
         df = df.fillna('')
+        df.to_csv(path_to_storage + '/output/one_way_welch_anova.csv', index=False)
         all_res = []
         for ind, row in df.iterrows():
             temp_to_append = {
@@ -5739,7 +5912,8 @@ async def compute_one_way_welch_anova(workflow_id: str,
                     'selected_between_factor':between,
                 },
                 "test_results": all_res,
-                "Output_datasets":[],
+                "Output_datasets":[{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id+'/analysis_output/' + 'one_way_welch_anova.csv'}],
                 'Saved_plots': []
             }
             f.seek(0)
@@ -5843,6 +6017,8 @@ async def compute_anova_repeated_measures_pinguin(workflow_id: str,
         print(columns)
 
         all_res = []
+        df.to_csv(path_to_storage + '/output/anova_repeated_measures.csv', index=False)
+
         for ind, row in df.iterrows():
             temp_to_append = row.to_dict()
             temp_to_append['id'] = ind
@@ -5864,7 +6040,8 @@ async def compute_anova_repeated_measures_pinguin(workflow_id: str,
                     'selected_effsize': effsize,
                 },
                 "test_results": all_res,
-                "Output_datasets":[],
+                "Output_datasets":[{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id + '/analysis_output/' + 'anova_repeated_measures.csv'}],
                 'Saved_plots': []
             }
             f.seek(0)
@@ -5943,6 +6120,7 @@ async def compute_mixed_anova_pinguin(workflow_id: str,
                                   effsize=effsize, correction=correction)
         print(df)
         df = df.fillna('')
+        df.to_csv(path_to_storage + '/output/mixed_anova.csv', index=False)
         all_res = []
         for ind, row in df.iterrows():
             temp_to_append = {
@@ -5975,7 +6153,8 @@ async def compute_mixed_anova_pinguin(workflow_id: str,
                     'selected_effsize': effsize,
                 },
                 "test_results": all_res,
-                "Output_datasets": [],
+                "Output_datasets": [{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id+'/analysis_output/' + 'mixed_anova.csv'}],
                 'Saved_plots': []
             }
             f.seek(0)
@@ -6030,6 +6209,7 @@ async def compute_anova_pinguin(workflow_id: str,
                             effsize=effsize, detailed=True)
         print(df)
         df = df.fillna('')
+        df.to_csv(path_to_storage + '/output/one_and_m_way_anova_pinguin.csv', index=False)
         all_res = []
         for ind, row in df.iterrows():
             temp_to_append = {
@@ -6058,7 +6238,8 @@ async def compute_anova_pinguin(workflow_id: str,
                     'selected_effsize': effsize,
                 },
                 "test_results": all_res,
-                "Output_datasets":[],
+                "Output_datasets":[{"file": 'expertsystem/workflow/' + workflow_id + '/' + run_id + '/' +
+                                                     step_id+'/analysis_output/' + 'one_and_m_way_anova_pinguin.csv'}],
                 'Saved_plots': []
             }
             f.seek(0)

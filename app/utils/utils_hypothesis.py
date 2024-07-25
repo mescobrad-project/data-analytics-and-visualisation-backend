@@ -412,3 +412,27 @@ def DataframeImputation(selected_dataframe, selected_variables, method):
     except Exception as e:
         print("Error : Failed to impute values: " + "\n" + e.__str__())
         return "Error : " + "\n" + e.__str__()
+
+# Function to plot classification report with support
+def plot_classification_report_with_support(report):
+
+    report['accuracy'] = {'precision': '', 'recall': '', 'f1-score': report['accuracy'], 'support': ''}
+    df_report = pd.DataFrame(report).transpose()
+    df_report.insert(loc=0, column='class', value=df_report.index)
+    print(df_report)
+    labels = list(report.keys())[:-3]  # Exclude 'accuracy', 'macro avg', 'weighted avg'
+    metrics = ['precision', 'recall', 'f1-score', 'support']
+    data = np.array([[report[label][metric] for metric in metrics] for label in labels])
+    fig, ax = plt.subplots(figsize=(12, 6))
+    cax = ax.matshow(data, cmap='coolwarm')
+    plt.xticks(range(len(metrics)), metrics)
+    plt.yticks(range(len(labels)), labels)
+    plt.colorbar(cax)
+    # Adding the text
+    for (i, j), val in np.ndenumerate(data):
+        ax.text(j, i, f'{val:.2f}', ha='center', va='center', color='white')
+    plt.xlabel('Metrics')
+    plt.ylabel('Classes')
+    plt.title('Classification Report with Support')
+    # plt.show()
+    return df_report, plt
