@@ -24,12 +24,6 @@ def normalize(input):
     max_val = input.max()
     return (input - min_val) / (max_val - min_val)
 
-def resize_mri(mri, target_shape=(256, 256)):
-    resized_slices = []
-    for slice in mri:
-        resized_slices.append(np.resize(slice, target_shape))
-    return np.array(resized_slices)
-
 def visualize_dl(model_path,
                  mri_path,
                  heatmap_path):
@@ -47,15 +41,9 @@ def visualize_dl(model_path,
 
     # Load MRI
     nparray = nib.load(mri_path).get_fdata()
-    nparray = resize_mri(nparray) #
     tensor_mri = torch.from_numpy(nparray).unsqueeze(0).unsqueeze(0)
     tensor_mri = normalize(tensor_mri)
     tensor_mri = tensor_mri.to(device, dtype=torch.float32)
-
-    # Set device
-    # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    # tensor_mri = tensor_mri.to(device, dtype=torch.float32)
-    # wrapped_model.to(device)
 
     # Prediction
     softmax = nn.Softmax(dim=1)
@@ -85,7 +73,7 @@ def visualize_dl(model_path,
         fig, ax = plt.subplots(figsize=(8, 8))
         ax.imshow(mri_slice, cmap='Greys')
         sorted_values = np.sort(attr_slice.flatten())[::-1]
-        threshold = sorted_values[int(tensor_mri.shape[0] * tensor_mri.shape[1] * 0.01) - 1]
+        threshold = sorted_values[int(tensor_mri.shape[0] * tensor_mri.shape[1] * 0.005) - 1]
         ax.imshow(np.where(attr_slice > threshold, attr_slice, 0),
                   cmap=LinearSegmentedColormap.from_list(name='blues',
                                                          colors=[(1, 0, 0, 0), "blue", "blue", "blue", "blue", "blue"],
@@ -106,7 +94,7 @@ def visualize_dl(model_path,
         fig, ax = plt.subplots(figsize=(8, 8))
         ax.imshow(mri_slice, cmap='Greys')
         sorted_values = np.sort(attr_slice.flatten())[::-1]
-        threshold = sorted_values[int(tensor_mri.shape[0] * tensor_mri.shape[1] * 0.01) - 1]
+        threshold = sorted_values[int(tensor_mri.shape[0] * tensor_mri.shape[1] * 0.005) - 1]
         ax.imshow(np.where(attr_slice > threshold, attr_slice, 0),
                   cmap=LinearSegmentedColormap.from_list(name='blues',
                                                          colors=[(1, 0, 0, 0), "blue", "blue", "blue", "blue", "blue"],
@@ -127,7 +115,7 @@ def visualize_dl(model_path,
         fig, ax = plt.subplots(figsize=(8, 8))
         ax.imshow(mri_slice, cmap='Greys')
         sorted_values = np.sort(attr_slice.flatten())[::-1]
-        threshold = sorted_values[int(tensor_mri.shape[0] * tensor_mri.shape[1] * 0.01) - 1]
+        threshold = sorted_values[int(tensor_mri.shape[0] * tensor_mri.shape[1] * 0.005) - 1]
         ax.imshow(np.where(attr_slice > threshold, attr_slice, 0),
                   cmap=LinearSegmentedColormap.from_list(name='blues',
                                                          colors=[(1, 0, 0, 0), "blue", "blue", "blue", "blue", "blue"],
@@ -151,4 +139,4 @@ def visualize_dl(model_path,
 # visualize_dl(model_path,
 #              mri_path,
 #              heatmap_path)
-# yields RuntimeError: .. not enough memory ...
+# when run locally on cpu yields RuntimeError: .. not enough memory ...
