@@ -421,13 +421,73 @@ def get_platform():
     # "linux or linux2", "darwin", "win32"
     return platform
 
+def create_mask(workflow_id,
+                run_id,
+                step_id,
+                selected_dates,
+                dataset,
+                raw_start_time):
+    # List to store dates 24 hours ahead
+    dates_24_hours_ahead = []
+    converted_dates = []
+
+    for date_str in selected_dates:
+        # Convert the date string to a datetime object
+        dt = datetime.strptime(date_str, '%Y/%m/%d %H:%M:%S')
+        # Convert the datetime object back to a string in the desired format
+        formatted_date = dt.strftime('%Y-%m-%d %H:%M:%S')
+        # Append the formatted date to the list
+        converted_dates.append(formatted_date)
+
+    for date_str in converted_dates:
+        # Convert the date string to a datetime object
+        dt = datetime.strptime(date_str, '%Y-%m-%d %H:%M:%S')
+        # Add 24 hours to the datetime object
+        dt_24_hours_ahead = dt + timedelta(hours=6)
+        # Convert the new datetime object back to a string in the desired format
+        formatted_date_24_hours_ahead = dt_24_hours_ahead.strftime('%Y-%m-%d %H:%M:%S')
+        # Append the formatted date to the list
+        dates_24_hours_ahead.append(formatted_date_24_hours_ahead)
+
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    raw = pyActigraphy.io.read_raw_rpx(
+        path_to_storage + '/' + dataset,
+        start_time=raw_start_time,
+        period='7 days',
+        language='ENG_UK'
+    )
+    print(raw.IS())
+    print(converted_dates[0])
+    print(dates_24_hours_ahead[0])
+    while len(converted_dates) != 0:
+        raw.add_mask_period(start=converted_dates[0], stop=dates_24_hours_ahead[0])
+        raw.mask_inactivity = True
+        converted_dates.pop(0)
+        dates_24_hours_ahead.pop(0)
+    # for i in range(len(converted_dates)):
+    #     # print(i)
+    #     raw.add_mask_period(start=converted_dates[i], stop=dates_24_hours_ahead[i])
+    #     raw.IS()
+    # raw.add_mask_period(start=mask_period_start, stop=mask_period_end)
+    # print(workflow_id)
+    # print(run_id)
+    # print(step_id)
+    # print(selected_dates)
+    print(raw.IS())
+    # print("The mask will be applied to the dataset " + dataset + '\n' + " for the following start: " + converted_dates[0], converted_dates[1] + '\n' +
+    #                                                            " and the following end dates: " + dates_24_hours_ahead[0], dates_24_hours_ahead[1])
+    return raw.IS()
+
 @router.get("/return_daily_activity_activity_status_area", tags=["actigraphy_analysis"])
 async def return_daily_activity_activity_status_area(workflow_id: str,
                                                      run_id: str,
                                                      step_id: str,
                                                      dataset: str,
                                                      start_date: str,
-                                                     end_date: str):
+                                                     end_date: str,
+                                                     mask: str,
+                                                     selected_dates: list[str] | None = Query(default=None)):
+    print(mask, selected_dates)
     # Convert a String to a Date in Python
     # Date and time in format "YYYY/MM/DD hh:mm:ss"
     format_string = "%Y/%m/%d %H:%M:%S"
@@ -529,6 +589,16 @@ async def return_daily_activity_activity_status_area(workflow_id: str,
                               timedelta(seconds=15))]
 
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+
+    if (mask == 'Yes'):
+        rawIS = create_mask(workflow_id, run_id, step_id, selected_dates, dataset, datetime_list[0])
+    # else:
+    #     raw = pyActigraphy.io.read_raw_rpx(
+    #         path_to_storage + '/' + dataset,
+    #         start_time=datetime_list[0],
+    #         period='1 day',
+    #         language='ENG_UK'
+    #     )
 
     df = pd.read_csv(path_to_storage + '/' + dataset, skiprows=150)
     df["Datetime"] = df[["Date", "Time"]].apply(lambda x: " ".join(x), axis=1)
