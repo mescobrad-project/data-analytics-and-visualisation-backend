@@ -5,6 +5,7 @@ import pingouin
 import plotly
 from lifelines.fitters.npmle import min_max
 from scipy.stats import probplot, skew, kurtosis, sem, t
+from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 import scipy.stats as st
 import numpy as np
 import math
@@ -376,6 +377,7 @@ def DataframeImputation(selected_dataframe, selected_variables, method):
         NA.style.background_gradient(cmap="Pastel1_r", subset=['NA Count'])
         # print(NA)
         data1 = df.copy()
+        print(df['total_isi_score_precalc'].describe())
 
         if method == 'mean' or method == 'median' or method == 'iterative' or method=='KNN':
             for variable in selected_variables:
@@ -403,11 +405,20 @@ def DataframeImputation(selected_dataframe, selected_variables, method):
         elif method == 'iterative':
             imp = IterativeImputer(max_iter=10, random_state=0)
             data1[selected_variables] = imp.fit_transform(data1[selected_variables])
+        elif method == 'Random_forest':
+            # Apply imputation on numerical and categorical features
+            data1 = impute_numerical(data1, selected_variables, 'Sex', RandomForestRegressor)
+            # data = impute_numerical(data1, 'NumericalFeature2', 'Target', RandomForestRegressor)
+            # data = impute_categorical(data1, 'CategoricalFeature', 'Target', RandomForestClassifier)
+
         # After
         NA = pd.DataFrame(data=[data1.isna().sum().tolist(), ["{:.2f}".format(i) + '%' \
                                                            for i in (data1.isna().sum() / data1.shape[0] * 100).tolist()]],
                           columns=data1.columns, index=['NA Count', 'NA Percent']).transpose()
         NA.style.background_gradient(cmap="Pastel1_r", subset=['NA Count'])
+        print(NA)
+        print(data1['total_isi_score_precalc'].describe())
+
         return data1
     except Exception as e:
         print("Error : Failed to impute values: " + "\n" + e.__str__())
@@ -436,3 +447,48 @@ def plot_classification_report_with_support(report):
     plt.title('Classification Report with Support')
     # plt.show()
     return df_report, plt
+
+# Forest Imputation
+# Step 1: Impute missing values in numerical columns using RandomForestRegressor
+def impute_numerical(df, feature, target, estimator):
+    # Create a mask for rows where the target feature is missing
+    missing_mask = df[feature].isnull()
+
+    # Define X (all columns except the one being imputed and the target) and y (the feature to impute)
+    X_missing = df.loc[missing_mask].drop(columns=[feature, target])
+    X_not_missing = df.loc[~missing_mask].drop(columns=[feature, target])
+    y_not_missing = df.loc[~missing_mask, feature]
+
+    # Train a RandomForest model on the non-missing rows
+    model = estimator()
+    model.fit(X_not_missing, y_not_missing)
+
+    # Predict missing values and impute them
+    df.loc[missing_mask, feature] = model.predict(X_missing)
+    return df
+
+
+# Step 2: Impute missing values in categorical columns using RandomForestClassifier
+def impute_categorical(df, feature, target, estimator):
+    # Create a mask for rows where the target feature is missing
+    missing_mask = df[feature].isnull()
+
+    # Define X (all columns except the one being imputed and the target) and y (the feature to impute)
+    X_missing = df.loc[missing_mask].drop(columns=[feature, target])
+    X_not_missing = df.loc[~missing_mask].drop(columns=[feature, target])
+    y_not_missing = df.loc[~missing_mask, feature]
+
+    # Convert categorical feature to numeric encoding (optional depending on your dataset)
+    y_not_missing = pd.factorize(y_not_missing)[0]
+
+    # Train a RandomForest model on the non-missing rows
+    model = estimator()
+    model.fit(X_not_missing, y_not_missing)
+
+    # Predict missing values and impute them
+    predicted = model.predict(X_missing)
+    df.loc[missing_mask, feature] = pd.Categorical.from_codes(predicted, categories=['A', 'B'])
+    return df
+
+
+

@@ -35,7 +35,7 @@ async def Dataframe_preparation(workflow_id: str,
                                 file:str,
                                 variables: list[str] | None = Query(default=None),
                                 method: str | None = Query("mean",
-                                                  regex="^(mean)$|^(median)$|^(most_frequent)$|^(constant)$|^(KNN)$|^(iterative)$")):
+                                                  regex="^(mean)$|^(median)$|^(most_frequent)$|^(constant)$|^(KNN)$|^(iterative)$|^(Random_forest)$")):
 
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
     # test_status = ''
