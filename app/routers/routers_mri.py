@@ -17,7 +17,7 @@ import mpld3
 import numpy as np
 from fastapi.responses import JSONResponse
 from os.path import isfile, join
-from keycloak import KeycloakOpenID
+# from keycloak import KeycloakOpenID
 import shutil
 import tempfile
 import pytz

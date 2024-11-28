@@ -9,9 +9,8 @@ class Conv3D(nn.Module):
         super(Conv3D, self).__init__()
 
         self.num_labels = 2
-        self.dense = nn.Linear(512, 64)
-        self.classifier = nn.Linear(64, self.num_labels)
         self.in_channels = 1  # because only FLAIR
+
         self.group1 = nn.Sequential(
             nn.Conv3d(self.in_channels, 64, kernel_size=3, padding=1),
             nn.BatchNorm3d(64),
@@ -38,13 +37,16 @@ class Conv3D(nn.Module):
             nn.BatchNorm3d(512),
             nn.ReLU(),
             nn.Dropout(0.2),
-            nn.MaxPool3d(kernel_size=(1, 2, 2), stride=(2, 2, 2), padding=(0, 1, 1)))
+            nn.MaxPool3d(kernel_size=(2, 2, 2), stride=(2, 2, 2)))
         self.group6 = nn.Sequential(
             nn.Conv3d(512, 512, kernel_size=3, padding=1),
             nn.BatchNorm3d(512),
             nn.ReLU(),
             nn.Dropout(0.3),
-            nn.MaxPool3d(kernel_size=(2, 2, 2), stride=(2, 2, 2)))
+            nn.AdaptiveAvgPool3d((1, 1, 1)))
+
+        # self.dense = nn.Linear(1024, 128)
+        self.classifier = nn.Linear(512, self.num_labels)
 
     def forward(self, x, labels=None):
 
@@ -54,9 +56,10 @@ class Conv3D(nn.Module):
         out = self.group4(out)
         out = self.group5(out)
         out = self.group6(out)
-        y = torch.mean(out.view(out.size(0), out.size(1), -1), dim=2)
-        y = self.dense(y)
-        logits = self.classifier(y)
+        #y = torch.mean(out.view(out.size(0), out.size(1), -1), dim=2)
+        #y = self.dense(y)
+        out = out.view(out.size(0), -1) #flatten the output of averages
+        logits = self.classifier(out)
 
         loss = None
         if labels is not None:

@@ -34,7 +34,6 @@ async def ai_mri_training_experiment(
         workflow_id: str,
         step_id: str,
         run_id: str,
-        participants_path: str,
         data_path: str,
         csv_path: str,
         iterations : int,
@@ -89,6 +88,7 @@ async def mris_batch_inference(
                                     output_path)
     return {"results": results}
 
+'''
 @router.get("/ai_tabular_dnn_training_experiment")
 async def ai_tabular_dnn_training_experiment(
         workflow_id: str,

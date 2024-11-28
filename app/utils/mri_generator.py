@@ -5,7 +5,6 @@ from torch.utils.data import Dataset
 import nibabel as nib
 import pandas as pd
 
-
 class MRI_Generator(Dataset):
 
     def __init__(self,
@@ -51,10 +50,12 @@ class MRI_Generator(Dataset):
         mri_file = os.listdir(self.data_path)[idx]
         mri_path = os.path.join(self.data_path, mri_file)
 
-        # sub = self.dataframe.loc[self.dataframe['mri'] == str(mri_file)[:-4], 'mri'].values[0] #works ok, correct sub-label assignment
-        resized_map = torch.from_numpy(nib.load(mri_path).get_fdata()).float()
-        #resized_map = (resized_map - resized_map.min()) / (resized_map.max() - resized_map.min())   # Normalize the MRI values to [0, 1]
-        label = self.dataframe.loc[self.dataframe['mri'] == str(mri_file)[:-4], 'label'].values[0]  # [:-4] to skip the '.nii' extension
-                                                                                                    # should be ok for all '.nii' files
+        torch_array = torch.from_numpy(nib.load(mri_path).get_fdata()).float() #convert numpy to torch
 
-        return torch.unsqueeze(resized_map, 0), torch.tensor(label)
+        label = self.dataframe.loc[self.dataframe['mri'] == str(mri_file)[:-4], 'label'].values[0]  # [:-4] to skip the '.nii' extension
+
+        return torch.unsqueeze(torch_array, 0), torch.tensor(label)
+
+# for the dataset we have used all the loaded data are of shape (sth, 256, 256)
+# thus we do not include Resize transform at the dataloaders file
+# if need to load different shapes for the model in the future then code should be adjusted accordingly

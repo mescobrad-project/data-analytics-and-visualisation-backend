@@ -18,9 +18,9 @@ def train_model(train_dataloader, model, optimizer):
         optimizer.zero_grad()
         outputs = model(x=data, labels=labels_binary)
         loss, logits = outputs[0], outputs[1]
-        loss.backward()
+        loss.backward() #backpropagate
+        optimizer.step() #update weights
         train_losses.append(loss.item())
-        optimizer.step()
 
         logits = logits.detach().cpu().numpy()
         logits = np.argmax(logits, axis=1)
@@ -76,7 +76,9 @@ def train_eval_model(train_dataloader,
                      early_stopping_patience):
 
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=scheduler_step_size, gamma=scheduler_gamma)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer,
+                                                step_size=scheduler_step_size,
+                                                gamma=scheduler_gamma)
 
     # for early stopping
     threshold = 10e+5
@@ -105,7 +107,6 @@ def train_eval_model(train_dataloader,
         # Validation phase
         valid_loss, eval_targets, eval_predictions = evaluate_model(eval_dataloader, model)
         val_losses_per_epoch.append(valid_loss)
-        scheduler.step() #for StepLR
         dev_f1 = metrics.f1_score(eval_targets, eval_predictions, zero_division=1)
         dev_f1s.append(dev_f1)
         dev_acc = metrics.accuracy_score(eval_targets, eval_predictions)
@@ -127,5 +128,20 @@ def train_eval_model(train_dataloader,
             print('Train-Eval stage complete!', flush=True)
                 
             break
+
+        # Update learning rate value
+        scheduler.step()  # for StepLR
+
+    # train the best model on the validation data as well
+    if best_model is not None:
+        print('Training on the validation set started')
+        eval_optimizer = torch.optim.Adam(best_model.parameters(), lr=lr)
+        eval_scheduler = torch.optim.lr_scheduler.StepLR(eval_optimizer,
+                                                         step_size=scheduler_step_size,
+                                                         gamma=scheduler_gamma)
+        for epoch in range(es_epoch):
+            _, _, _ = train_model(eval_dataloader, best_model, eval_optimizer)
+            eval_scheduler.step()
+        print('Training complete!')
 
     return train_losses_per_epoch, val_losses_per_epoch, train_accs, dev_accs, train_f1s, dev_f1s, best_model, es_epoch

@@ -1,7 +1,7 @@
 import os
-from visbrain.gui import Sleep
-from mne import io
-from visbrain.io import download_file, path_to_visbrain_data
+# from visbrain.gui import Sleep
+# from mne import io
+# from visbrain.io import download_file, path_to_visbrain_data
 
 NeurodesktopStorageLocation = os.environ.get('NeurodesktopStorageLocation') if os.environ.get(
     'NeurodesktopStorageLocation') else "/neurodesktop-storage"
