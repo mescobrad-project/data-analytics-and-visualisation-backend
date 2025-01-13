@@ -38,6 +38,14 @@ from app.utils.utils_general import get_local_storage_path
 
 router = APIRouter()
 
+def find_header_line(file_path, header_keywords):
+    # Open the file and read line by line until we find the header
+    with open(file_path, 'r') as file:
+        for i, line in enumerate(file):
+            if all(keyword in line for keyword in header_keywords):
+                return i
+    return None  # Return None if header not found
+
 @router.get("/return_dates", tags=["actigraphy_analysis"])
 async def return_dates(workflow_id: str,
                       run_id: str,
@@ -46,8 +54,19 @@ async def return_dates(workflow_id: str,
     # Import dataset as pd dataframe excluding the first 150 rows
     json_dataframe = ''
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
-    df = pd.read_csv(path_to_storage + '/' + dataset, skiprows=150)
-    df.drop(df.columns[[12]], axis=1, inplace=True)
+    dataset_path = path_to_storage + '/' + dataset
+    header_keywords = ["Line", "Date", "Time", "Activity", "White Light", "Sleep/Wake", "Interval Status"]
+    # Find the header line
+    header_line = find_header_line(dataset_path, header_keywords)
+    if header_line is not None:
+        # Read the dataframe starting from the detected header line
+        df = pd.read_csv(dataset_path, skiprows=header_line)
+        # Drop any columns with "Unnamed" in their name
+        df.drop(df.columns[df.columns.str.contains('^Unnamed')], axis=1, inplace=True)
+
+    else:
+        print("Header not found in the dataset")
+
     df["DateTime"] = df[["Date", "Time"]].agg(" ".join, axis=1)
     mylist = df['DateTime'].tolist()
     new_list = []
@@ -79,8 +98,19 @@ async def return_dates_without_time(workflow_id: str,
     # Import dataset as pd dataframe excluding the first 150 rows
     json_dataframe = ''
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
-    df = pd.read_csv(path_to_storage + '/' + dataset, skiprows=150)
-    df.drop(df.columns[[12]], axis=1, inplace=True)
+    dataset_path = path_to_storage + '/' + dataset
+    header_keywords = ["Line", "Date", "Time", "Activity", "White Light", "Sleep/Wake", "Interval Status"]
+    # Find the header line
+    header_line = find_header_line(dataset_path, header_keywords)
+    if header_line is not None:
+        # Read the dataframe starting from the detected header line
+        df = pd.read_csv(dataset_path, skiprows=header_line)
+        # Drop any columns with "Unnamed" in their name
+        df.drop(df.columns[df.columns.str.contains('^Unnamed')], axis=1, inplace=True)
+
+    else:
+        print("Header not found in the dataset")
+
     df["DateTime"] = df[["Date", "Time"]].agg(" ".join, axis=1)
     mylist = df['DateTime'].tolist()
     new_list = []
@@ -312,9 +342,24 @@ async def return_daily_activity_status_stages(workflow_id: str,
                               timedelta(seconds=15))]
     #     print(dts)
 
-    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    # path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    #
+    # df = pd.read_csv(path_to_storage + '/' + dataset, skiprows=150)
 
-    df = pd.read_csv(path_to_storage + '/' + dataset, skiprows=150)
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    dataset_path = path_to_storage + '/' + dataset
+    header_keywords = ["Line", "Date", "Time", "Activity", "White Light", "Sleep/Wake", "Interval Status"]
+    # Find the header line
+    header_line = find_header_line(dataset_path, header_keywords)
+    if header_line is not None:
+        # Read the dataframe starting from the detected header line
+        df = pd.read_csv(dataset_path, skiprows=header_line)
+        # Drop any columns with "Unnamed" in their name
+        df.drop(df.columns[df.columns.str.contains('^Unnamed')], axis=1, inplace=True)
+
+    else:
+        print("Header not found in the dataset")
+
     time_list_df = df["Time"]
     time_list = []
     for time in time_list_df:
@@ -333,7 +378,7 @@ async def return_daily_activity_status_stages(workflow_id: str,
     # print(time_list)
     df["Corrected Time"] = time_list
     df["Datetime"] = df[["Date", "Corrected Time"]].apply(lambda x: " ".join(x), axis=1)
-    df.drop(df.columns[[12]], axis=1, inplace=True)
+    # df.drop(df.columns[[12]], axis=1, inplace=True)
     #     for datetime in date_list:
     df = df.drop(index=[row for row in df.index if df.loc[row, 'Datetime'] not in dts])
     #     display(df)
@@ -532,14 +577,29 @@ async def return_daily_activity_activity_status_area(workflow_id: str,
                               timedelta(seconds=15))]
     # print(dts)
 
-    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    # path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    #
+    # df = pd.read_csv(path_to_storage + '/' + dataset, skiprows=150)
 
-    df = pd.read_csv(path_to_storage + '/' + dataset, skiprows=150)
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    dataset_path = path_to_storage + '/' + dataset
+    header_keywords = ["Line", "Date", "Time", "Activity", "White Light", "Sleep/Wake", "Interval Status"]
+    # Find the header line
+    header_line = find_header_line(dataset_path, header_keywords)
+    if header_line is not None:
+        # Read the dataframe starting from the detected header line
+        df = pd.read_csv(dataset_path, skiprows=header_line)
+        # Drop any columns with "Unnamed" in their name
+        df.drop(df.columns[df.columns.str.contains('^Unnamed')], axis=1, inplace=True)
+
+    else:
+        print("Header not found in the dataset")
+
     df["Datetime"] = df[["Date", "Time"]].apply(lambda x: " ".join(x), axis=1)
-    df.drop(df.columns[[12]], axis=1, inplace=True)
+    # df.drop(df.columns[[12]], axis=1, inplace=True)
     #     for datetime in date_list:
     df = df.drop(index=[row for row in df.index if df.loc[row, 'Datetime'] not in dts])
-    # print(df)
+    print(df)
     x_list = df['Datetime']
     y_list = df['Interval Status']
     fig = px.line(x=x_list, y=y_list)
@@ -600,9 +660,25 @@ async def return_daily_activity_activity_status_area(workflow_id: str,
     #         language='ENG_UK'
     #     )
 
-    df = pd.read_csv(path_to_storage + '/' + dataset, skiprows=150)
-    df["Datetime"] = df[["Date", "Time"]].apply(lambda x: " ".join(x), axis=1)
-    df.drop(df.columns[[12]], axis=1, inplace=True)
+    # df = pd.read_csv(path_to_storage + '/' + dataset, skiprows=150)
+    # df["Datetime"] = df[["Date", "Time"]].apply(lambda x: " ".join(x), axis=1)
+    # df.drop(df.columns[[12]], axis=1, inplace=True)
+
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    dataset_path = path_to_storage + '/' + dataset
+    header_keywords = ["Line", "Date", "Time", "Activity", "White Light", "Sleep/Wake", "Interval Status"]
+    # Find the header line
+    header_line = find_header_line(dataset_path, header_keywords)
+    if header_line is not None:
+        # Read the dataframe starting from the detected header line
+        df = pd.read_csv(dataset_path, skiprows=header_line)
+        df["Datetime"] = df[["Date", "Time"]].apply(lambda x: " ".join(x), axis=1)
+        # Drop any columns with "Unnamed" in their name
+        df.drop(df.columns[df.columns.str.contains('^Unnamed')], axis=1, inplace=True)
+
+    else:
+        print("Header not found in the dataset")
+
     #     for datetime in date_list:
     df = df.drop(index=[row for row in df.index if df.loc[row, 'Datetime'] not in dts])
 
@@ -758,9 +834,24 @@ async def return_final_daily_activity_activity_status_area(workflow_id: str,
 
     #     print(dts)
 
-    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    # path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    #
+    # df = pd.read_csv(path_to_storage + '/output/' + 'NewAnalysisCopy.csv', skiprows=150)
 
-    df = pd.read_csv(path_to_storage + '/output/' + 'NewAnalysisCopy.csv', skiprows=150)
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    dataset_path = path_to_storage + '/' + 'NewAnalysisCopy.csv'
+    header_keywords = ["Line", "Date", "Time", "Activity", "White Light", "Sleep/Wake", "Interval Status"]
+    # Find the header line
+    header_line = find_header_line(dataset_path, header_keywords)
+    if header_line is not None:
+        # Read the dataframe starting from the detected header line
+        df = pd.read_csv(dataset_path, skiprows=header_line)
+        # Drop any columns with "Unnamed" in their name
+        df.drop(df.columns[df.columns.str.contains('^Unnamed')], axis=1, inplace=True)
+
+    else:
+        print("Header not found in the dataset")
+
     df["Datetime"] = df[["Date", "Time"]].apply(lambda x: " ".join(x), axis=1)
     # df.drop(df.columns[[12]], axis=1, inplace=True)
     #     for datetime in date_list:
@@ -815,10 +906,25 @@ async def return_final_daily_activity_activity_status_area(workflow_id: str,
                               timedelta(seconds=15))]
     #     print(dts)
 
-    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    # path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    #
+    # df = pd.read_csv(path_to_storage + '/output/' + 'NewAnalysisCopy.csv', skiprows=150)
+    # df["Datetime"] = df[["Date", "Time"]].apply(lambda x: " ".join(x), axis=1)
 
-    df = pd.read_csv(path_to_storage + '/output/' + 'NewAnalysisCopy.csv', skiprows=150)
-    df["Datetime"] = df[["Date", "Time"]].apply(lambda x: " ".join(x), axis=1)
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    dataset_path = path_to_storage + '/' + 'NewAnalysisCopy.csv'
+    header_keywords = ["Line", "Date", "Time", "Activity", "White Light", "Sleep/Wake", "Interval Status"]
+    # Find the header line
+    header_line = find_header_line(dataset_path, header_keywords)
+    if header_line is not None:
+        # Read the dataframe starting from the detected header line
+        df = pd.read_csv(dataset_path, skiprows=header_line)
+        # Drop any columns with "Unnamed" in their name
+        df.drop(df.columns[df.columns.str.contains('^Unnamed')], axis=1, inplace=True)
+
+    else:
+        print("Header not found in the dataset")
+
     # df.drop(df.columns[[12]], axis=1, inplace=True)
     #     for datetime in date_list:
     df = df.drop(index=[row for row in df.index if df.loc[row, 'Datetime'] not in dts])
@@ -978,9 +1084,24 @@ async def return_final_daily_activity_status_stages(workflow_id: str,
                datetime_range(start, end,
                               timedelta(seconds=15))]
 
-    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    # path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    #
+    # df = pd.read_csv(path_to_storage + '/output/' + 'NewAnalysisCopy.csv', skiprows=150)
 
-    df = pd.read_csv(path_to_storage + '/output/' + 'NewAnalysisCopy.csv', skiprows=150)
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    dataset_path = path_to_storage + '/' + 'NewAnalysisCopy.csv'
+    header_keywords = ["Line", "Date", "Time", "Activity", "White Light", "Sleep/Wake", "Interval Status"]
+    # Find the header line
+    header_line = find_header_line(dataset_path, header_keywords)
+    if header_line is not None:
+        # Read the dataframe starting from the detected header line
+        df = pd.read_csv(dataset_path, skiprows=header_line)
+        # Drop any columns with "Unnamed" in their name
+        df.drop(df.columns[df.columns.str.contains('^Unnamed')], axis=1, inplace=True)
+
+    else:
+        print("Header not found in the dataset")
+
     # print(df)
     time_list_df = df["Time"]
     time_list = []
@@ -1001,7 +1122,7 @@ async def return_final_daily_activity_status_stages(workflow_id: str,
     #         print(time)
     df["Corrected Time"] = time_list
     df["Datetime"] = df[["Date", "Corrected Time"]].apply(lambda x: " ".join(x), axis=1)
-    df.drop(df.columns[[12]], axis=1, inplace=True)
+    # df.drop(df.columns[[12]], axis=1, inplace=True)
     df = df.drop(index=[row for row in df.index if df.loc[row, 'Datetime'] not in dts])
     # Create new pandas DataFrame.
     df = df[['Date', 'Time', 'Datetime', 'Interval Status']]
@@ -1045,21 +1166,44 @@ async def return_final_daily_activity_status_stages(workflow_id: str,
     graphJSON = plotly.io.to_json(fig, pretty=True)
     return {"final_stages_visualisation_figure": graphJSON}
 
+
 @router.get("/return_initial_dataset", tags=["actigraphy_analysis"])
 async def return_initial_dataset(workflow_id: str,
                                  run_id: str,
                                  step_id: str,
                                  dataset: str):
-    # Import dataset as pd dataframe excluding the first 150 rows
-    json_dataframe = ''
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
-    df = pd.read_csv(path_to_storage + '/' + dataset, skiprows=150)
-    df.drop(df.columns[[12]], axis=1, inplace=True)
-    # df = df.set_index('Line')
-    df_updated = df.head(100)
-    json_dataframe = df_updated.to_json(orient="records")
-    return {"dataframe": json_dataframe}
-    # df.to_excel(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + 'initial_dataset.xlsx')
+    dataset_path = path_to_storage + '/' + dataset
+
+    # Define the keywords to look for in the header
+    header_keywords = ["Line","Date","Time","Activity","White Light","Sleep/Wake","Interval Status"]
+
+    # Find the header line
+    header_line = find_header_line(dataset_path, header_keywords)
+    print(header_line)
+
+    if header_line is not None:
+        # Read the dataframe starting from the detected header line
+        df = pd.read_csv(dataset_path, skiprows=header_line)
+        # df.drop(df.columns[[12]], axis=1, inplace=True)
+        # Drop any columns with "Unnamed" in their name
+        df.drop(df.columns[df.columns.str.contains('^Unnamed')], axis=1, inplace=True)
+        df_updated = df.head(100)
+        json_dataframe = df_updated.to_json(orient="records")
+        return {"dataframe": json_dataframe}
+    else:
+        return {"error": "Header not found in the dataset"}
+
+    # # Import dataset as pd dataframe excluding the first 150 rows
+    # json_dataframe = ''
+    # path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    # df = pd.read_csv(path_to_storage + '/' + dataset, skiprows=150)
+    # df.drop(df.columns[[12]], axis=1, inplace=True)
+    # # df = df.set_index('Line')
+    # df_updated = df.head(100)
+    # json_dataframe = df_updated.to_json(orient="records")
+    # return {"dataframe": json_dataframe}
+    # # df.to_excel(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + 'initial_dataset.xlsx')
 
 @router.get("/return_final_dataset", tags=["actigraphy_analysis"])
 async def return_final_dataset(workflow_id: str,
@@ -1111,8 +1255,21 @@ async def change_activity_status(workflow_id: str,
     else:
         print("The file already exists!")
     print(isExisting)
-    # Import dataset as pd dataframe excluding the first 150 rows
-    df = pd.read_csv(path_to_storage + '/output/' + 'NewAnalysisCopy.csv', skiprows=150)
+    # # Import dataset as pd dataframe excluding the first 150 rows
+    # df = pd.read_csv(path_to_storage + '/output/' + 'NewAnalysisCopy.csv', skiprows=150)
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    dataset_path = path_to_storage + '/' + 'NewAnalysisCopy.csv'
+    header_keywords = ["Line", "Date", "Time", "Activity", "White Light", "Sleep/Wake", "Interval Status"]
+    # Find the header line
+    header_line = find_header_line(dataset_path, header_keywords)
+    if header_line is not None:
+        # Read the dataframe starting from the detected header line
+        df = pd.read_csv(dataset_path, skiprows=header_line)
+        # Drop any columns with "Unnamed" in their name
+        df.drop(df.columns[df.columns.str.contains('^Unnamed')], axis=1, inplace=True)
+
+    else:
+        print("Header not found in the dataset")
 
     # Using DataFrame.apply() and lambda function to join the date and time columns to create a Datetime
     df["Datetime"] = df[["Date", "Time"]].apply(lambda x: " ".join(x), axis=1)
@@ -1124,7 +1281,7 @@ async def change_activity_status(workflow_id: str,
     print(df.head(10))
 
     # Reset the columns to be in the exact format they were before
-    df.drop(df.columns[12], axis=1, inplace=True)
+    # df.drop(df.columns[12], axis=1, inplace=True)
     df = df.set_index('Line')
     df.to_excel(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + 'new_dataset.xlsx')
     change_final_csv(workflow_id, run_id, step_id)
@@ -1206,8 +1363,23 @@ async def save_csv_as_edf(workflow_id: str,
         datetime_list.append(date_string)
         # datetime_list.append(str(start_date_dt + timedelta(days=i)))  # <-- here
 
+    # path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    # df = pd.read_csv(path_to_storage + '/' + dataset, skiprows=150)
+
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
-    df = pd.read_csv(path_to_storage + '/' + dataset, skiprows=150)
+    dataset_path = path_to_storage + '/' + dataset
+    header_keywords = ["Line", "Date", "Time", "Activity", "White Light", "Sleep/Wake", "Interval Status"]
+    # Find the header line
+    header_line = find_header_line(dataset_path, header_keywords)
+    if header_line is not None:
+        # Read the dataframe starting from the detected header line
+        df = pd.read_csv(dataset_path, skiprows=header_line)
+        # Drop any columns with "Unnamed" in their name
+        df.drop(df.columns[df.columns.str.contains('^Unnamed')], axis=1, inplace=True)
+
+    else:
+        print("Header not found in the dataset")
+
     # Delete rows where the city is Chicago
     # corrected_df = df.loc[(df['Date'] >= start_date) & (df['Date'] <= end_date)]
     df = df.drop(index=[row for row in df.index if df.loc[row, 'Date'] not in datetime_list])

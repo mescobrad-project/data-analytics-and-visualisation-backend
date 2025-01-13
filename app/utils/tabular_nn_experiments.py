@@ -7,6 +7,7 @@ import torch
 from sklearn.metrics import confusion_matrix, classification_report
 import matplotlib.pyplot as plt
 import seaborn as sns
+from app.utils.utils_general import get_local_storage_path, load_data_from_csv
 
 from app.utils.tabular_dnn import DenseNN
 from app.utils.tabular_ae import AutoEncoderNN
@@ -16,7 +17,10 @@ from app.utils.training import train_eval_model
 NeurodesktopStorageLocation = os.environ.get('NeurodesktopStorageLocation') if os.environ.get(
     'NeurodesktopStorageLocation') else "/neurodesktop-storage"
 
-def tabular_run_experiment(csv_path,
+def tabular_run_experiment(workflow_id,
+                           step_id,
+                           run_id,
+                           csv_path,
                            no_of_features,
                            test_size,
                            model_type,
@@ -33,7 +37,8 @@ def tabular_run_experiment(csv_path,
     '''
 
     assert model_type in ['dense_neural_network', 'autoencoder']
-
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    csv_path = path_to_storage + '/' + csv_path
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
     if model_type =='dense_neural_network':
         exp_dir = NeurodesktopStorageLocation + f'/model_data/saved_tabular_dnn_models_{timestamp}/'
@@ -95,8 +100,12 @@ def tabular_run_experiment(csv_path,
         plt.tight_layout()
         plt.subplots_adjust(hspace=0.7)
 
-        plt.savefig(os.path.join(exp_dir, f'train_val_metrics_plot_experiment{i + 1}.png'))
-        plt.show()
+        # plt.savefig(os.path.join(exp_dir, f'train_val_metrics_plot_experiment{i + 1}.png'))
+        # plt.show()
+        plt.savefig(get_local_storage_path(workflow_id, run_id, step_id) + '/output/' + f'train_val_metrics_plot_experiment{i + 1}.png',
+                    dpi=700)  # .png,.pdf will also support here
+        # plt.show()
+        plt.close()
 
         # --- TESTING ---
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -126,8 +135,13 @@ def tabular_run_experiment(csv_path,
         plt.text(0.01, 0.5, report, {'fontsize': 12}, fontproperties='monospace')  # use a monospaced font
         plt.tight_layout()
         plt.subplots_adjust(top=0.5)
-        plt.savefig(os.path.join(exp_dir, f'classification_report_experiment{i + 1}.png'))
-        plt.show()
+        plt.savefig(get_local_storage_path(workflow_id, run_id,
+                                           step_id) + '/output/' + f'classification_report_experiment{i + 1}.png',
+                    dpi=700)  # .png,.pdf will also support here
+        # plt.show()
+        plt.close()
+        # plt.savefig(os.path.join(exp_dir, f'classification_report_experiment{i + 1}.png'))
+        # plt.show()
 
         # Confusion matrix
         cm = confusion_matrix(test_targets, test_predictions)
@@ -138,8 +152,13 @@ def tabular_run_experiment(csv_path,
         fig.suptitle('Confusion Matrix', y=0.7, x=0.5, fontweight='bold')
         plt.tight_layout()
         plt.subplots_adjust(top=0.55)
-        plt.savefig(os.path.join(exp_dir, f'confusion_matrix_experiment{i + 1}.png'))
-        plt.show()
+        plt.savefig(get_local_storage_path(workflow_id, run_id,
+                                           step_id) + '/output/' + f'confusion_matrix_experiment{i + 1}.png',
+                    dpi=700)  # .png,.pdf will also support here
+        # plt.show()
+        plt.close()
+        # plt.savefig(os.path.join(exp_dir, f'confusion_matrix_experiment{i + 1}.png'))
+        # plt.show()
 
     return True
 
