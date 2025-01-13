@@ -168,7 +168,8 @@ ExistingFunctions = [
     'XGBoostmodelload',
     'SVCmodelload',
     'autoencodermodelcreation',
-    'autoencodermodelload'
+    'autoencodermodelload',
+    'dnnmodelcreation'
     'valuesimputation',
     'datasetconcat',
     'datasetpreviewsheet',
@@ -540,6 +541,8 @@ async def function_navigation(navigation_item: FunctionNavigationItem, request: 
                 url_to_redirect += "/XGBoostModelLoad"
             case "autoencodermodelcreation":
                 url_to_redirect += "/AutoencoderModelCreation"
+            case "dnnmodelcreation":
+                url_to_redirect += "/DNNModelCreation"
             case "autoencodermodelload":
                 url_to_redirect += "/AutoencoderModelLoad"
             case "valuesimputation":

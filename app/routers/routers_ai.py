@@ -103,7 +103,10 @@ async def ai_tabular_dnn_training_experiment(
        ) -> dict:
 
     model_type = 'dense_neural_network'
-    results = tabular_run_experiment(csv_path,
+    results = tabular_run_experiment(workflow_id,
+                                     step_id,
+                                     run_id,
+                                     csv_path,
                                      no_of_features,
                                      test_size,
                                      model_type,
