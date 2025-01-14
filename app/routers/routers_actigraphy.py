@@ -38,6 +38,14 @@ from app.utils.utils_general import get_local_storage_path
 
 router = APIRouter()
 
+def find_header_line(file_path, header_keywords):
+    # Open the file and read line by line until we find the header
+    with open(file_path, 'r') as file:
+        for i, line in enumerate(file):
+            if all(keyword in line for keyword in header_keywords):
+                return i
+    return None  # Return None if header not found
+
 @router.get("/return_dates", tags=["actigraphy_analysis"])
 async def return_dates(workflow_id: str,
                       run_id: str,
@@ -46,8 +54,19 @@ async def return_dates(workflow_id: str,
     # Import dataset as pd dataframe excluding the first 150 rows
     json_dataframe = ''
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
-    df = pd.read_csv(path_to_storage + '/' + dataset, skiprows=150)
-    df.drop(df.columns[[12]], axis=1, inplace=True)
+    dataset_path = path_to_storage + '/' + dataset
+    header_keywords = ["Line", "Date", "Time", "Activity", "White Light", "Sleep/Wake", "Interval Status"]
+    # Find the header line
+    header_line = find_header_line(dataset_path, header_keywords)
+    if header_line is not None:
+        # Read the dataframe starting from the detected header line
+        df = pd.read_csv(dataset_path, skiprows=header_line)
+        # Drop any columns with "Unnamed" in their name
+        df.drop(df.columns[df.columns.str.contains('^Unnamed')], axis=1, inplace=True)
+
+    else:
+        print("Header not found in the dataset")
+
     df["DateTime"] = df[["Date", "Time"]].agg(" ".join, axis=1)
     mylist = df['DateTime'].tolist()
     new_list = []
@@ -79,8 +98,19 @@ async def return_dates_without_time(workflow_id: str,
     # Import dataset as pd dataframe excluding the first 150 rows
     json_dataframe = ''
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
-    df = pd.read_csv(path_to_storage + '/' + dataset, skiprows=150)
-    df.drop(df.columns[[12]], axis=1, inplace=True)
+    dataset_path = path_to_storage + '/' + dataset
+    header_keywords = ["Line", "Date", "Time", "Activity", "White Light", "Sleep/Wake", "Interval Status"]
+    # Find the header line
+    header_line = find_header_line(dataset_path, header_keywords)
+    if header_line is not None:
+        # Read the dataframe starting from the detected header line
+        df = pd.read_csv(dataset_path, skiprows=header_line)
+        # Drop any columns with "Unnamed" in their name
+        df.drop(df.columns[df.columns.str.contains('^Unnamed')], axis=1, inplace=True)
+
+    else:
+        print("Header not found in the dataset")
+
     df["DateTime"] = df[["Date", "Time"]].agg(" ".join, axis=1)
     mylist = df['DateTime'].tolist()
     new_list = []
@@ -312,9 +342,24 @@ async def return_daily_activity_status_stages(workflow_id: str,
                               timedelta(seconds=15))]
     #     print(dts)
 
-    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    # path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    #
+    # df = pd.read_csv(path_to_storage + '/' + dataset, skiprows=150)
 
-    df = pd.read_csv(path_to_storage + '/' + dataset, skiprows=150)
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    dataset_path = path_to_storage + '/' + dataset
+    header_keywords = ["Line", "Date", "Time", "Activity", "White Light", "Sleep/Wake", "Interval Status"]
+    # Find the header line
+    header_line = find_header_line(dataset_path, header_keywords)
+    if header_line is not None:
+        # Read the dataframe starting from the detected header line
+        df = pd.read_csv(dataset_path, skiprows=header_line)
+        # Drop any columns with "Unnamed" in their name
+        df.drop(df.columns[df.columns.str.contains('^Unnamed')], axis=1, inplace=True)
+
+    else:
+        print("Header not found in the dataset")
+
     time_list_df = df["Time"]
     time_list = []
     for time in time_list_df:
@@ -333,7 +378,7 @@ async def return_daily_activity_status_stages(workflow_id: str,
     # print(time_list)
     df["Corrected Time"] = time_list
     df["Datetime"] = df[["Date", "Corrected Time"]].apply(lambda x: " ".join(x), axis=1)
-    df.drop(df.columns[[12]], axis=1, inplace=True)
+    # df.drop(df.columns[[12]], axis=1, inplace=True)
     #     for datetime in date_list:
     df = df.drop(index=[row for row in df.index if df.loc[row, 'Datetime'] not in dts])
     #     display(df)
@@ -421,13 +466,73 @@ def get_platform():
     # "linux or linux2", "darwin", "win32"
     return platform
 
+def create_mask(workflow_id,
+                run_id,
+                step_id,
+                selected_dates,
+                dataset,
+                raw_start_time):
+    # List to store dates 24 hours ahead
+    dates_24_hours_ahead = []
+    converted_dates = []
+
+    for date_str in selected_dates:
+        # Convert the date string to a datetime object
+        dt = datetime.strptime(date_str, '%Y/%m/%d %H:%M:%S')
+        # Convert the datetime object back to a string in the desired format
+        formatted_date = dt.strftime('%Y-%m-%d %H:%M:%S')
+        # Append the formatted date to the list
+        converted_dates.append(formatted_date)
+
+    for date_str in converted_dates:
+        # Convert the date string to a datetime object
+        dt = datetime.strptime(date_str, '%Y-%m-%d %H:%M:%S')
+        # Add 24 hours to the datetime object
+        dt_24_hours_ahead = dt + timedelta(hours=6)
+        # Convert the new datetime object back to a string in the desired format
+        formatted_date_24_hours_ahead = dt_24_hours_ahead.strftime('%Y-%m-%d %H:%M:%S')
+        # Append the formatted date to the list
+        dates_24_hours_ahead.append(formatted_date_24_hours_ahead)
+
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    raw = pyActigraphy.io.read_raw_rpx(
+        path_to_storage + '/' + dataset,
+        start_time=raw_start_time,
+        period='7 days',
+        language='ENG_UK'
+    )
+    print(raw.IS())
+    print(converted_dates[0])
+    print(dates_24_hours_ahead[0])
+    while len(converted_dates) != 0:
+        raw.add_mask_period(start=converted_dates[0], stop=dates_24_hours_ahead[0])
+        raw.mask_inactivity = True
+        converted_dates.pop(0)
+        dates_24_hours_ahead.pop(0)
+    # for i in range(len(converted_dates)):
+    #     # print(i)
+    #     raw.add_mask_period(start=converted_dates[i], stop=dates_24_hours_ahead[i])
+    #     raw.IS()
+    # raw.add_mask_period(start=mask_period_start, stop=mask_period_end)
+    # print(workflow_id)
+    # print(run_id)
+    # print(step_id)
+    # print(selected_dates)
+    print(raw.IS())
+    # print("The mask will be applied to the dataset " + dataset + '\n' + " for the following start: " + converted_dates[0], converted_dates[1] + '\n' +
+    #                                                            " and the following end dates: " + dates_24_hours_ahead[0], dates_24_hours_ahead[1])
+    return raw.IS()
+
 @router.get("/return_daily_activity_activity_status_area", tags=["actigraphy_analysis"])
 async def return_daily_activity_activity_status_area(workflow_id: str,
                                                      run_id: str,
                                                      step_id: str,
                                                      dataset: str,
                                                      start_date: str,
-                                                     end_date: str):
+                                                     end_date: str,
+                                                     mask: str,
+                                                     selected_dates: list[str] | None = Query(default=None)):
+    print(mask, selected_dates)
     # Convert a String to a Date in Python
     # Date and time in format "YYYY/MM/DD hh:mm:ss"
     format_string = "%Y/%m/%d %H:%M:%S"
@@ -472,14 +577,29 @@ async def return_daily_activity_activity_status_area(workflow_id: str,
                               timedelta(seconds=15))]
     # print(dts)
 
-    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    # path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    #
+    # df = pd.read_csv(path_to_storage + '/' + dataset, skiprows=150)
 
-    df = pd.read_csv(path_to_storage + '/' + dataset, skiprows=150)
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    dataset_path = path_to_storage + '/' + dataset
+    header_keywords = ["Line", "Date", "Time", "Activity", "White Light", "Sleep/Wake", "Interval Status"]
+    # Find the header line
+    header_line = find_header_line(dataset_path, header_keywords)
+    if header_line is not None:
+        # Read the dataframe starting from the detected header line
+        df = pd.read_csv(dataset_path, skiprows=header_line)
+        # Drop any columns with "Unnamed" in their name
+        df.drop(df.columns[df.columns.str.contains('^Unnamed')], axis=1, inplace=True)
+
+    else:
+        print("Header not found in the dataset")
+
     df["Datetime"] = df[["Date", "Time"]].apply(lambda x: " ".join(x), axis=1)
-    df.drop(df.columns[[12]], axis=1, inplace=True)
+    # df.drop(df.columns[[12]], axis=1, inplace=True)
     #     for datetime in date_list:
     df = df.drop(index=[row for row in df.index if df.loc[row, 'Datetime'] not in dts])
-    # print(df)
+    print(df)
     x_list = df['Datetime']
     y_list = df['Interval Status']
     fig = px.line(x=x_list, y=y_list)
@@ -530,9 +650,35 @@ async def return_daily_activity_activity_status_area(workflow_id: str,
 
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
 
-    df = pd.read_csv(path_to_storage + '/' + dataset, skiprows=150)
-    df["Datetime"] = df[["Date", "Time"]].apply(lambda x: " ".join(x), axis=1)
-    df.drop(df.columns[[12]], axis=1, inplace=True)
+    if (mask == 'Yes'):
+        rawIS = create_mask(workflow_id, run_id, step_id, selected_dates, dataset, datetime_list[0])
+    # else:
+    #     raw = pyActigraphy.io.read_raw_rpx(
+    #         path_to_storage + '/' + dataset,
+    #         start_time=datetime_list[0],
+    #         period='1 day',
+    #         language='ENG_UK'
+    #     )
+
+    # df = pd.read_csv(path_to_storage + '/' + dataset, skiprows=150)
+    # df["Datetime"] = df[["Date", "Time"]].apply(lambda x: " ".join(x), axis=1)
+    # df.drop(df.columns[[12]], axis=1, inplace=True)
+
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    dataset_path = path_to_storage + '/' + dataset
+    header_keywords = ["Line", "Date", "Time", "Activity", "White Light", "Sleep/Wake", "Interval Status"]
+    # Find the header line
+    header_line = find_header_line(dataset_path, header_keywords)
+    if header_line is not None:
+        # Read the dataframe starting from the detected header line
+        df = pd.read_csv(dataset_path, skiprows=header_line)
+        df["Datetime"] = df[["Date", "Time"]].apply(lambda x: " ".join(x), axis=1)
+        # Drop any columns with "Unnamed" in their name
+        df.drop(df.columns[df.columns.str.contains('^Unnamed')], axis=1, inplace=True)
+
+    else:
+        print("Header not found in the dataset")
+
     #     for datetime in date_list:
     df = df.drop(index=[row for row in df.index if df.loc[row, 'Datetime'] not in dts])
 
@@ -688,9 +834,24 @@ async def return_final_daily_activity_activity_status_area(workflow_id: str,
 
     #     print(dts)
 
-    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    # path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    #
+    # df = pd.read_csv(path_to_storage + '/output/' + 'NewAnalysisCopy.csv', skiprows=150)
 
-    df = pd.read_csv(path_to_storage + '/output/' + 'NewAnalysisCopy.csv', skiprows=150)
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    dataset_path = path_to_storage + '/' + 'NewAnalysisCopy.csv'
+    header_keywords = ["Line", "Date", "Time", "Activity", "White Light", "Sleep/Wake", "Interval Status"]
+    # Find the header line
+    header_line = find_header_line(dataset_path, header_keywords)
+    if header_line is not None:
+        # Read the dataframe starting from the detected header line
+        df = pd.read_csv(dataset_path, skiprows=header_line)
+        # Drop any columns with "Unnamed" in their name
+        df.drop(df.columns[df.columns.str.contains('^Unnamed')], axis=1, inplace=True)
+
+    else:
+        print("Header not found in the dataset")
+
     df["Datetime"] = df[["Date", "Time"]].apply(lambda x: " ".join(x), axis=1)
     # df.drop(df.columns[[12]], axis=1, inplace=True)
     #     for datetime in date_list:
@@ -745,10 +906,25 @@ async def return_final_daily_activity_activity_status_area(workflow_id: str,
                               timedelta(seconds=15))]
     #     print(dts)
 
-    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    # path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    #
+    # df = pd.read_csv(path_to_storage + '/output/' + 'NewAnalysisCopy.csv', skiprows=150)
+    # df["Datetime"] = df[["Date", "Time"]].apply(lambda x: " ".join(x), axis=1)
 
-    df = pd.read_csv(path_to_storage + '/output/' + 'NewAnalysisCopy.csv', skiprows=150)
-    df["Datetime"] = df[["Date", "Time"]].apply(lambda x: " ".join(x), axis=1)
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    dataset_path = path_to_storage + '/' + 'NewAnalysisCopy.csv'
+    header_keywords = ["Line", "Date", "Time", "Activity", "White Light", "Sleep/Wake", "Interval Status"]
+    # Find the header line
+    header_line = find_header_line(dataset_path, header_keywords)
+    if header_line is not None:
+        # Read the dataframe starting from the detected header line
+        df = pd.read_csv(dataset_path, skiprows=header_line)
+        # Drop any columns with "Unnamed" in their name
+        df.drop(df.columns[df.columns.str.contains('^Unnamed')], axis=1, inplace=True)
+
+    else:
+        print("Header not found in the dataset")
+
     # df.drop(df.columns[[12]], axis=1, inplace=True)
     #     for datetime in date_list:
     df = df.drop(index=[row for row in df.index if df.loc[row, 'Datetime'] not in dts])
@@ -908,9 +1084,24 @@ async def return_final_daily_activity_status_stages(workflow_id: str,
                datetime_range(start, end,
                               timedelta(seconds=15))]
 
-    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    # path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    #
+    # df = pd.read_csv(path_to_storage + '/output/' + 'NewAnalysisCopy.csv', skiprows=150)
 
-    df = pd.read_csv(path_to_storage + '/output/' + 'NewAnalysisCopy.csv', skiprows=150)
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    dataset_path = path_to_storage + '/' + 'NewAnalysisCopy.csv'
+    header_keywords = ["Line", "Date", "Time", "Activity", "White Light", "Sleep/Wake", "Interval Status"]
+    # Find the header line
+    header_line = find_header_line(dataset_path, header_keywords)
+    if header_line is not None:
+        # Read the dataframe starting from the detected header line
+        df = pd.read_csv(dataset_path, skiprows=header_line)
+        # Drop any columns with "Unnamed" in their name
+        df.drop(df.columns[df.columns.str.contains('^Unnamed')], axis=1, inplace=True)
+
+    else:
+        print("Header not found in the dataset")
+
     # print(df)
     time_list_df = df["Time"]
     time_list = []
@@ -931,7 +1122,7 @@ async def return_final_daily_activity_status_stages(workflow_id: str,
     #         print(time)
     df["Corrected Time"] = time_list
     df["Datetime"] = df[["Date", "Corrected Time"]].apply(lambda x: " ".join(x), axis=1)
-    df.drop(df.columns[[12]], axis=1, inplace=True)
+    # df.drop(df.columns[[12]], axis=1, inplace=True)
     df = df.drop(index=[row for row in df.index if df.loc[row, 'Datetime'] not in dts])
     # Create new pandas DataFrame.
     df = df[['Date', 'Time', 'Datetime', 'Interval Status']]
@@ -975,21 +1166,44 @@ async def return_final_daily_activity_status_stages(workflow_id: str,
     graphJSON = plotly.io.to_json(fig, pretty=True)
     return {"final_stages_visualisation_figure": graphJSON}
 
+
 @router.get("/return_initial_dataset", tags=["actigraphy_analysis"])
 async def return_initial_dataset(workflow_id: str,
                                  run_id: str,
                                  step_id: str,
                                  dataset: str):
-    # Import dataset as pd dataframe excluding the first 150 rows
-    json_dataframe = ''
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
-    df = pd.read_csv(path_to_storage + '/' + dataset, skiprows=150)
-    df.drop(df.columns[[12]], axis=1, inplace=True)
-    # df = df.set_index('Line')
-    df_updated = df.head(100)
-    json_dataframe = df_updated.to_json(orient="records")
-    return {"dataframe": json_dataframe}
-    # df.to_excel(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + 'initial_dataset.xlsx')
+    dataset_path = path_to_storage + '/' + dataset
+
+    # Define the keywords to look for in the header
+    header_keywords = ["Line","Date","Time","Activity","White Light","Sleep/Wake","Interval Status"]
+
+    # Find the header line
+    header_line = find_header_line(dataset_path, header_keywords)
+    print(header_line)
+
+    if header_line is not None:
+        # Read the dataframe starting from the detected header line
+        df = pd.read_csv(dataset_path, skiprows=header_line)
+        # df.drop(df.columns[[12]], axis=1, inplace=True)
+        # Drop any columns with "Unnamed" in their name
+        df.drop(df.columns[df.columns.str.contains('^Unnamed')], axis=1, inplace=True)
+        df_updated = df.head(100)
+        json_dataframe = df_updated.to_json(orient="records")
+        return {"dataframe": json_dataframe}
+    else:
+        return {"error": "Header not found in the dataset"}
+
+    # # Import dataset as pd dataframe excluding the first 150 rows
+    # json_dataframe = ''
+    # path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    # df = pd.read_csv(path_to_storage + '/' + dataset, skiprows=150)
+    # df.drop(df.columns[[12]], axis=1, inplace=True)
+    # # df = df.set_index('Line')
+    # df_updated = df.head(100)
+    # json_dataframe = df_updated.to_json(orient="records")
+    # return {"dataframe": json_dataframe}
+    # # df.to_excel(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + 'initial_dataset.xlsx')
 
 @router.get("/return_final_dataset", tags=["actigraphy_analysis"])
 async def return_final_dataset(workflow_id: str,
@@ -1041,8 +1255,21 @@ async def change_activity_status(workflow_id: str,
     else:
         print("The file already exists!")
     print(isExisting)
-    # Import dataset as pd dataframe excluding the first 150 rows
-    df = pd.read_csv(path_to_storage + '/output/' + 'NewAnalysisCopy.csv', skiprows=150)
+    # # Import dataset as pd dataframe excluding the first 150 rows
+    # df = pd.read_csv(path_to_storage + '/output/' + 'NewAnalysisCopy.csv', skiprows=150)
+    path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    dataset_path = path_to_storage + '/' + 'NewAnalysisCopy.csv'
+    header_keywords = ["Line", "Date", "Time", "Activity", "White Light", "Sleep/Wake", "Interval Status"]
+    # Find the header line
+    header_line = find_header_line(dataset_path, header_keywords)
+    if header_line is not None:
+        # Read the dataframe starting from the detected header line
+        df = pd.read_csv(dataset_path, skiprows=header_line)
+        # Drop any columns with "Unnamed" in their name
+        df.drop(df.columns[df.columns.str.contains('^Unnamed')], axis=1, inplace=True)
+
+    else:
+        print("Header not found in the dataset")
 
     # Using DataFrame.apply() and lambda function to join the date and time columns to create a Datetime
     df["Datetime"] = df[["Date", "Time"]].apply(lambda x: " ".join(x), axis=1)
@@ -1054,7 +1281,7 @@ async def change_activity_status(workflow_id: str,
     print(df.head(10))
 
     # Reset the columns to be in the exact format they were before
-    df.drop(df.columns[12], axis=1, inplace=True)
+    # df.drop(df.columns[12], axis=1, inplace=True)
     df = df.set_index('Line')
     df.to_excel(get_local_storage_path(workflow_id, run_id, step_id) + "/output/" + 'new_dataset.xlsx')
     change_final_csv(workflow_id, run_id, step_id)
@@ -1136,8 +1363,23 @@ async def save_csv_as_edf(workflow_id: str,
         datetime_list.append(date_string)
         # datetime_list.append(str(start_date_dt + timedelta(days=i)))  # <-- here
 
+    # path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
+    # df = pd.read_csv(path_to_storage + '/' + dataset, skiprows=150)
+
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
-    df = pd.read_csv(path_to_storage + '/' + dataset, skiprows=150)
+    dataset_path = path_to_storage + '/' + dataset
+    header_keywords = ["Line", "Date", "Time", "Activity", "White Light", "Sleep/Wake", "Interval Status"]
+    # Find the header line
+    header_line = find_header_line(dataset_path, header_keywords)
+    if header_line is not None:
+        # Read the dataframe starting from the detected header line
+        df = pd.read_csv(dataset_path, skiprows=header_line)
+        # Drop any columns with "Unnamed" in their name
+        df.drop(df.columns[df.columns.str.contains('^Unnamed')], axis=1, inplace=True)
+
+    else:
+        print("Header not found in the dataset")
+
     # Delete rows where the city is Chicago
     # corrected_df = df.loc[(df['Date'] >= start_date) & (df['Date'] <= end_date)]
     df = df.drop(index=[row for row in df.index if df.loc[row, 'Date'] not in datetime_list])
@@ -1982,21 +2224,32 @@ async def actigraphy_string_sleep_statistics(workflow_id: str,
                                              run_id: str,
                                              step_id: str,
                                              dataset: str,
-                                             period: str):
+                                             period: str,
+                                             start_time: str,
+                                             end_time: str):
+    # Convert start_time and end_time to datetime objects
+    start_time = datetime.strptime(start_time, '%Y/%m/%d %H:%M:%S')
+    end_time = datetime.strptime(end_time, '%Y/%m/%d %H:%M:%S')
+    # Read the CSV file
     path_to_storage = get_local_storage_path(workflow_id, run_id, step_id)
     df = pd.read_csv(path_to_storage + '/' + dataset, skiprows=150)
     # get the start datetime and manipulate it to get it to correct format
     df["Datetime"] = df["Date"] + " " + df["Time"]
-    dt_list = df["Datetime"]
-    datetime_st = dt_list[0]
-    # print(type(datetime_st))
-    datetime_object = datetime.strptime(datetime_st, '%d/%m/%Y %H:%M:%S')
-    # print(datetime_object)
-    start_time = datetime_object.strftime("%Y-%m-%d %H:%M:%S")
+    # Filter the DataFrame based on the date range
+    df['Date'] = pd.to_datetime(df['Date'], format='%d/%m/%Y')
+    df_filtered = df[(df['Date'] >= start_time) & (df['Date'] <= end_time)]
+
+    # Extract the first datetime object for further manipulation
+    if not df_filtered.empty:
+        datetime_st = df_filtered["Datetime"].iloc[0]
+        datetime_object = datetime.strptime(datetime_st, '%d/%m/%Y %H:%M:%S')
+        start_time_formatted = datetime_object.strftime("%Y-%m-%d %H:%M:%S")
+        print(f"Start time formatted: {start_time_formatted}")
+
     # print(start_time)
     sleep_stages = []
     # iterate through specific columns of the dataframe
-    for index, row in df.iterrows():
+    for index, row in df_filtered.iterrows():
         # print(row['Interval Status'])
         if (row['Interval Status']) == 'ACTIVE':
             sleep_stages.append('WAKE')
@@ -2004,23 +2257,8 @@ async def actigraphy_string_sleep_statistics(workflow_id: str,
             sleep_stages.append('NREM')
         elif (row['Interval Status']) == 'REST-S':
             sleep_stages.append('REM')
-    hyp = Hypnogram(sleep_stages, n_stages=3, start=start_time, freq='15s')
-    # print('============================= PRINT HYPNOGRAM =============================')
-    # print(hyp.hypno)
-    # print('============================= PRINT DURATION ==============================')
-    # print(hyp.duration)
-    # print('============================= PRINT MAPPING ===============================')
-    # print(hyp.mapping)
-    # print('============================= PRINT INTEGER HYPNOGRAM =====================')
-    # print(hyp.as_int())
-    # print('============================= PRINT SLEEP STATISTICS ======================')
-    # print(hyp.sleep_statistics())
-    # print('============================= PRINT TRANSITION MATRIX =====================')
-    # print(hyp.transition_matrix())
-    # print('============================= PRINT ANNOTATIONS ===========================')
-    # print(hyp.as_annotations())
-    # print('============================= PRINT PERIODS WITH 0 MIN THRESHOLD ==========')
-    # print(hyp.find_periods(threshold="15min"))
+    hyp = Hypnogram(sleep_stages, n_stages=3, start=start_time_formatted, freq='15s')
+
     duration = hyp.duration
     json_duration = json.dumps(duration)
     sleep_stats = hyp.sleep_statistics()
@@ -2078,6 +2316,13 @@ async def actigraphy_string_sleep_statistics(workflow_id: str,
     # print(df_sleep_stats)
     # print(json_count_trans_matrix)
     # print(json_probs_trans_matrix)
+    print(json_duration)
+    print(json_sleep_stats)
+    csv_sleep_stats_filepath = get_local_storage_path(workflow_id, run_id,
+                               step_id) + "/output/sleep_statistics.csv"
+    df = pd.read_json(json_sleep_stats)
+    transposed_df = df.transpose()
+    transposed_df.to_csv(csv_sleep_stats_filepath, index=True)
     return {
         "duration": json_duration,
         "sleep_stats": json_sleep_stats,
@@ -2086,6 +2331,16 @@ async def actigraphy_string_sleep_statistics(workflow_id: str,
         "annotations": json_annotations,
         "periods": json_periods
     }
+
+# @router.get("/send_sleep_stats_to_trino", tags=["actigraphy_analysis"])
+# async def send_sleep_stats_to_trino(workflow_id: str,
+#                                     run_id: str,
+#                                     step_id: str,
+#                                     filename: str,
+#                                     institution: str,
+#                                     workspace_id: str):
+#     # From here we will send the sleep statistics csv to trino
+#     return 1
 
 @router.get("/actigraphy_int_sleep_statistics", tags=["actigraphy_analysis"])
 async def actigraphy_int_sleep_statistics(workflow_id: str,
